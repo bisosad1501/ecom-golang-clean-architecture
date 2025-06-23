@@ -68,15 +68,18 @@ func main() {
 	// Initialize repositories
 	userRepo := database.NewUserRepository(db)
 	userProfileRepo := database.NewUserProfileRepository(db)
-	// productRepo := database.NewProductRepository(db)
-	// categoryRepo := database.NewCategoryRepository(db)
+	productRepo := database.NewProductRepository(db)
+	categoryRepo := database.NewCategoryRepository(db)
+	cartRepo := database.NewCartRepository(db)
+	orderRepo := database.NewOrderRepository(db)
+	paymentRepo := database.NewPaymentRepository(db)
 	// cartRepo := database.NewCartRepository(db)
 	// orderRepo := database.NewOrderRepository(db)
 	// paymentRepo := database.NewPaymentRepository(db)
 
 	// Initialize domain services
 	passwordService := services.NewPasswordService()
-	// orderService := services.NewOrderService()
+	orderService := services.NewOrderService()
 
 	// Initialize use cases
 	userUseCase := usecases.NewUserUseCase(
@@ -86,10 +89,27 @@ func main() {
 		cfg.JWT.Secret,
 	)
 
-	// productUseCase := usecases.NewProductUseCase(
-	// 	productRepo,
-	// 	categoryRepo,
-	// )
+	productUseCase := usecases.NewProductUseCase(
+		productRepo,
+		categoryRepo,
+	)
+
+	categoryUseCase := usecases.NewCategoryUseCase(
+		categoryRepo,
+	)
+
+	cartUseCase := usecases.NewCartUseCase(
+		cartRepo,
+		productRepo,
+	)
+
+	orderUseCase := usecases.NewOrderUseCase(
+		orderRepo,
+		cartRepo,
+		productRepo,
+		paymentRepo,
+		orderService,
+	)
 
 	// cartUseCase := usecases.NewCartUseCase(
 	// 	cartRepo,
@@ -106,9 +126,10 @@ func main() {
 
 	// Initialize handlers
 	userHandler := handlers.NewUserHandler(userUseCase)
-	// productHandler := handlers.NewProductHandler(productUseCase)
-	// cartHandler := handlers.NewCartHandler(cartUseCase)
-	// orderHandler := handlers.NewOrderHandler(orderUseCase)
+	productHandler := handlers.NewProductHandler(productUseCase)
+	categoryHandler := handlers.NewCategoryHandler(categoryUseCase)
+	cartHandler := handlers.NewCartHandler(cartUseCase)
+	orderHandler := handlers.NewOrderHandler(orderUseCase)
 
 	// Initialize Gin router
 	router := gin.New()
@@ -118,9 +139,10 @@ func main() {
 		router,
 		cfg,
 		userHandler,
-		// productHandler,
-		// cartHandler,
-		// orderHandler,
+		productHandler,
+		categoryHandler,
+		cartHandler,
+		orderHandler,
 	)
 
 	// Start server

@@ -118,7 +118,7 @@ type ProductResponse struct {
 	Stock        int                      `json:"stock"`
 	Weight       *float64                 `json:"weight"`
 	Dimensions   *DimensionsResponse      `json:"dimensions"`
-	Category     *CategoryResponse        `json:"category"`
+	Category     *ProductCategoryResponse `json:"category"`
 	Images       []ProductImageResponse   `json:"images"`
 	Tags         []ProductTagResponse     `json:"tags"`
 	Status       entities.ProductStatus   `json:"status"`
@@ -151,8 +151,8 @@ type ProductTagResponse struct {
 	Slug string    `json:"slug"`
 }
 
-// CategoryResponse represents category response
-type CategoryResponse struct {
+// ProductCategoryResponse represents category response in product context
+type ProductCategoryResponse struct {
 	ID          uuid.UUID `json:"id"`
 	Name        string    `json:"name"`
 	Description string    `json:"description"`
@@ -387,7 +387,7 @@ func (uc *productUseCase) toProductResponse(product *entities.Product) *ProductR
 	}
 
 	if product.Category.ID != uuid.Nil {
-		response.Category = &CategoryResponse{
+		response.Category = &ProductCategoryResponse{
 			ID:          product.Category.ID,
 			Name:        product.Category.Name,
 			Description: product.Category.Description,

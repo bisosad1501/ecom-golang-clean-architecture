@@ -12,9 +12,10 @@ func SetupRoutes(
 	router *gin.Engine,
 	cfg *config.Config,
 	userHandler *handlers.UserHandler,
-	// productHandler *handlers.ProductHandler,
-	// cartHandler *handlers.CartHandler,
-	// orderHandler *handlers.OrderHandler,
+	productHandler *handlers.ProductHandler,
+	categoryHandler *handlers.CategoryHandler,
+	cartHandler *handlers.CartHandler,
+	orderHandler *handlers.OrderHandler,
 ) {
 	// Apply global middleware
 	router.Use(middleware.CORSMiddleware(&cfg.CORS))
@@ -54,41 +55,43 @@ func SetupRoutes(
 			}
 
 			// Cart routes
-			// cart := protected.Group("/cart")
-			// {
-			// 	cart.GET("", cartHandler.GetCart)
-			// 	cart.POST("/items", cartHandler.AddToCart)
-			// 	cart.PUT("/items", cartHandler.UpdateCartItem)
-			// 	cart.DELETE("/items/:productId", cartHandler.RemoveFromCart)
-			// 	cart.DELETE("", cartHandler.ClearCart)
-			// }
+			cart := protected.Group("/cart")
+			{
+				cart.GET("", cartHandler.GetCart)
+				cart.POST("/items", cartHandler.AddToCart)
+				cart.PUT("/items", cartHandler.UpdateCartItem)
+				cart.DELETE("/items/:productId", cartHandler.RemoveFromCart)
+				cart.DELETE("", cartHandler.ClearCart)
+			}
 
 			// Order routes
-			// orders := protected.Group("/orders")
-			// {
-			// 	orders.POST("", orderHandler.CreateOrder)
-			// 	orders.GET("", orderHandler.GetUserOrders)
-			// 	orders.GET("/:id", orderHandler.GetOrder)
-			// 	orders.POST("/:id/cancel", orderHandler.CancelOrder)
-			// }
+			orders := protected.Group("/orders")
+			{
+				orders.POST("", orderHandler.CreateOrder)
+				orders.GET("", orderHandler.GetUserOrders)
+				orders.GET("/:id", orderHandler.GetOrder)
+				orders.POST("/:id/cancel", orderHandler.CancelOrder)
+			}
 		}
 
 		// Public product routes
-		// products := v1.Group("/products")
-		// {
-		// 	products.GET("", productHandler.GetProducts)
-		// 	products.GET("/:id", productHandler.GetProduct)
-		// 	products.GET("/search", productHandler.SearchProducts)
-		// 	products.GET("/category/:categoryId", productHandler.GetProductsByCategory)
-		// }
+		products := v1.Group("/products")
+		{
+			products.GET("", productHandler.GetProducts)
+			products.GET("/:id", productHandler.GetProduct)
+			products.GET("/search", productHandler.SearchProducts)
+			products.GET("/category/:categoryId", productHandler.GetProductsByCategory)
+		}
 
 		// Public category routes
-		// categories := v1.Group("/categories")
-		// {
-		// 	categories.GET("", categoryHandler.GetCategories)
-		// 	categories.GET("/:id", categoryHandler.GetCategory)
-		// 	categories.GET("/tree", categoryHandler.GetCategoryTree)
-		// }
+		categories := v1.Group("/categories")
+		{
+			categories.GET("", categoryHandler.GetCategories)
+			categories.GET("/:id", categoryHandler.GetCategory)
+			categories.GET("/tree", categoryHandler.GetCategoryTree)
+			categories.GET("/root", categoryHandler.GetRootCategories)
+			categories.GET("/:id/children", categoryHandler.GetCategoryChildren)
+		}
 
 		// Admin routes (admin authentication required)
 		admin := v1.Group("/admin")
@@ -104,28 +107,28 @@ func SetupRoutes(
 			}
 
 			// Admin product management
-			// adminProducts := admin.Group("/products")
-			// {
-			// 	adminProducts.POST("", productHandler.CreateProduct)
-			// 	adminProducts.PUT("/:id", productHandler.UpdateProduct)
-			// 	adminProducts.DELETE("/:id", productHandler.DeleteProduct)
-			// 	adminProducts.PUT("/:id/stock", productHandler.UpdateStock)
-			// }
+			adminProducts := admin.Group("/products")
+			{
+				adminProducts.POST("", productHandler.CreateProduct)
+				adminProducts.PUT("/:id", productHandler.UpdateProduct)
+				adminProducts.DELETE("/:id", productHandler.DeleteProduct)
+				adminProducts.PUT("/:id/stock", productHandler.UpdateStock)
+			}
 
 			// Admin category management
-			// adminCategories := admin.Group("/categories")
-			// {
-			// 	adminCategories.POST("", categoryHandler.CreateCategory)
-			// 	adminCategories.PUT("/:id", categoryHandler.UpdateCategory)
-			// 	adminCategories.DELETE("/:id", categoryHandler.DeleteCategory)
-			// }
+			adminCategories := admin.Group("/categories")
+			{
+				adminCategories.POST("", categoryHandler.CreateCategory)
+				adminCategories.PUT("/:id", categoryHandler.UpdateCategory)
+				adminCategories.DELETE("/:id", categoryHandler.DeleteCategory)
+			}
 
 			// Admin order management
-			// adminOrders := admin.Group("/orders")
-			// {
-			// 	adminOrders.GET("", orderHandler.GetOrders)
-			// 	adminOrders.PUT("/:id/status", orderHandler.UpdateOrderStatus)
-			// }
+			adminOrders := admin.Group("/orders")
+			{
+				adminOrders.GET("", orderHandler.GetOrders)
+				adminOrders.PUT("/:id/status", orderHandler.UpdateOrderStatus)
+			}
 		}
 
 		// Moderator routes (moderator/admin authentication required)
@@ -134,12 +137,12 @@ func SetupRoutes(
 		moderator.Use(middleware.ModeratorMiddleware())
 		{
 			// Moderator product management
-			// modProducts := moderator.Group("/products")
-			// {
-			// 	modProducts.POST("", productHandler.CreateProduct)
-			// 	modProducts.PUT("/:id", productHandler.UpdateProduct)
-			// 	modProducts.PUT("/:id/stock", productHandler.UpdateStock)
-			// }
+			modProducts := moderator.Group("/products")
+			{
+				modProducts.POST("", productHandler.CreateProduct)
+				modProducts.PUT("/:id", productHandler.UpdateProduct)
+				modProducts.PUT("/:id/stock", productHandler.UpdateStock)
+			}
 		}
 	}
 }
