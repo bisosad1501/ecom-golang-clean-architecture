@@ -118,10 +118,45 @@ go run cmd/api/main.go
 - `PUT /api/v1/users/profile` - Update user profile
 - `POST /api/v1/users/change-password` - Change password
 
+#### Categories
+- `GET /api/v1/categories` - List categories
+- `GET /api/v1/categories/:id` - Get category by ID
+- `GET /api/v1/categories/tree` - Get category tree
+- `GET /api/v1/categories/root` - Get root categories
+- `GET /api/v1/categories/:id/children` - Get category children
+
+#### Products
+- `GET /api/v1/products` - List products
+- `GET /api/v1/products/:id` - Get product by ID
+- `GET /api/v1/products/search` - Search products
+- `GET /api/v1/products/category/:categoryId` - Get products by category
+
+#### Shopping Cart
+- `GET /api/v1/cart` - Get user's cart
+- `POST /api/v1/cart/items` - Add item to cart
+- `PUT /api/v1/cart/items` - Update cart item
+- `DELETE /api/v1/cart/items/:productId` - Remove item from cart
+- `DELETE /api/v1/cart` - Clear cart
+
+#### Orders
+- `POST /api/v1/orders` - Create order
+- `GET /api/v1/orders` - Get user's orders
+- `GET /api/v1/orders/:id` - Get order by ID
+- `POST /api/v1/orders/:id/cancel` - Cancel order
+
 #### Admin Endpoints
 - `GET /api/v1/admin/users` - List all users
 - `POST /api/v1/admin/users/:id/activate` - Activate user
 - `POST /api/v1/admin/users/:id/deactivate` - Deactivate user
+- `POST /api/v1/admin/products` - Create product
+- `PUT /api/v1/admin/products/:id` - Update product
+- `DELETE /api/v1/admin/products/:id` - Delete product
+- `PUT /api/v1/admin/products/:id/stock` - Update product stock
+- `POST /api/v1/admin/categories` - Create category
+- `PUT /api/v1/admin/categories/:id` - Update category
+- `DELETE /api/v1/admin/categories/:id` - Delete category
+- `GET /api/v1/admin/orders` - List all orders
+- `PUT /api/v1/admin/orders/:id/status` - Update order status
 
 ### Example Usage
 
@@ -153,6 +188,45 @@ curl -X POST http://localhost:8080/api/v1/auth/login \
 curl -X GET http://localhost:8080/api/v1/users/profile \
   -H "Authorization: Bearer YOUR_JWT_TOKEN"
 ```
+
+## 📮 Postman Collection
+
+We provide a comprehensive Postman collection for easy API testing:
+
+### Import Collection
+
+1. **Import Collection**: Import `docs/postman/E-commerce_API.postman_collection.json`
+2. **Import Environment**: Import `docs/postman/E-commerce_API.postman_environment.json`
+3. **Set Environment**: Select "E-commerce API Environment" in Postman
+
+### Testing Workflow
+
+1. **Health Check**: Test `/health` endpoint
+2. **Register User**: Create a new user account
+3. **Login**: Get JWT token (automatically saved to environment)
+4. **Create Category**: Create a product category (admin required)
+5. **Create Product**: Add products to the category
+6. **Add to Cart**: Add products to shopping cart
+7. **Create Order**: Place an order from cart items
+8. **Admin Operations**: Manage users, products, and orders
+
+### Environment Variables
+
+The collection uses these variables:
+- `base_url`: API base URL (default: http://localhost:8080)
+- `jwt_token`: JWT token (auto-populated after login)
+- `user_id`: Current user ID
+- `product_id`: Product ID for testing
+- `category_id`: Category ID for testing
+- `order_id`: Order ID for testing
+
+### Collection Features
+
+- **Automatic Token Management**: JWT tokens are automatically extracted and used
+- **Variable Population**: IDs are automatically saved for subsequent requests
+- **Complete Workflow**: From user registration to order completion
+- **Admin Testing**: Full admin functionality testing
+- **Error Scenarios**: Test various error conditions
 
 ## 🧪 Testing
 
