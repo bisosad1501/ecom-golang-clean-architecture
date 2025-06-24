@@ -67,7 +67,15 @@ func (r *productRepository) GetBySKU(ctx context.Context, sku string) (*entities
 
 // Update updates an existing product
 func (r *productRepository) Update(ctx context.Context, product *entities.Product) error {
-	return r.db.WithContext(ctx).Save(product).Error
+	// Use Updates instead of Save to ensure all fields are updated properly
+	// Select specific fields to avoid issues with relationships
+	result := r.db.WithContext(ctx).Model(product).Select(
+		"name", "description", "sku", "price", "compare_price", "cost_price", 
+		"stock", "weight", "category_id", "status", "is_digital", "updated_at",
+		"length", "width", "height", // dimensions fields
+	).Updates(product)
+	
+	return result.Error
 }
 
 // Delete deletes a product by ID

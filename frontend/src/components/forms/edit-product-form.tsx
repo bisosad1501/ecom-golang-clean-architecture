@@ -10,13 +10,15 @@ import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
-import { X, Upload, Link, Star, Image as ImageIcon, AlertCircle, ArrowUp, ArrowDown, Edit2, GripVertical } from 'lucide-react'
+import { X, Upload, Link, Star, Image as ImageIcon, AlertCircle, ArrowUp, ArrowDown, Edit2, GripVertical, ChevronDown } from 'lucide-react'
 import { useUpdateProduct } from '@/hooks/use-products'
 import { transformUpdateProductData } from '@/lib/utils/product-transform'
-import { Product } from '@/types'
+import { Product, Category } from '@/types'
+import { categoryService } from '@/lib/services/categories'
 import { toast } from 'sonner'
 import Image from 'next/image'
 import { DragDropContext, Droppable, Draggable, type DropResult } from '@hello-pangea/dnd'
+import { cn } from '@/lib/utils'
 
 const editProductSchema = z.object({
   name: z.string().min(1, 'Product name is required'),
@@ -48,6 +50,8 @@ interface EditProductFormProps {
 }
 
 export function EditProductForm({ product, onSuccess, onCancel }: EditProductFormProps) {
+  // ... existing state ...
+  const [hoveredParentId, setHoveredParentId] = useState<string | null>(null)
   console.log('=== EditProductForm RENDER ===', { productId: product.id, timestamp: new Date().toISOString() })
   
   const [images, setImages] = useState<ProductImage[]>([])
@@ -57,6 +61,9 @@ export function EditProductForm({ product, onSuccess, onCancel }: EditProductFor
   const [newTag, setNewTag] = useState('')
   const [imageUrl, setImageUrl] = useState('')
   const [isSubmittingRef, setIsSubmittingRef] = useState(false) // Prevent double submission
+  const [categories, setCategories] = useState<Category[]>([])
+  const [loadingCategories, setLoadingCategories] = useState(true)
+  const [categoryDropdownOpen, setCategoryDropdownOpen] = useState(false)
 
   const updateProductMutation = useUpdateProduct()
 
@@ -78,12 +85,17 @@ export function EditProductForm({ product, onSuccess, onCancel }: EditProductFor
       compare_price: product.compare_price || undefined,
       cost_price: product.cost_price || undefined,
       stock: product.stock,
-      category_id: product.category?.id || '',
+      category_id: product.category?.id || product.category_id || '',
       weight: product.weight || undefined,
       status: (product.status as any) || 'active',
       is_digital: Boolean(product.is_digital),
     },
   })
+
+  // Register category_id field for custom dropdown
+  useEffect(() => {
+    register('category_id')
+  }, [register])
 
   // Initialize images and tags from product
   useEffect(() => {
@@ -141,6 +153,60 @@ export function EditProductForm({ product, onSuccess, onCancel }: EditProductFor
       }
     }
   }, [product, isSubmittingRef]) // Add isSubmittingRef as dependency
+
+  // Reset form when product changes
+  useEffect(() => {
+    console.log('Product changed, resetting form with category_id:', product.category?.id || product.category_id)
+    reset({
+      name: product.name,
+      description: product.description,
+      short_description: product.short_description || '',
+      sku: product.sku,
+      price: product.price,
+      compare_price: product.compare_price || undefined,
+      cost_price: product.cost_price || undefined,
+      stock: product.stock,
+      category_id: product.category?.id || product.category_id || '',
+      weight: product.weight || undefined,
+      status: (product.status as any) || 'active',
+      is_digital: Boolean(product.is_digital),
+    })
+  }, [product, reset])
+
+  // Fetch categories on component mount
+  useEffect(() => {
+    const fetchCategories = async () => {
+      try {
+        setLoadingCategories(true)
+        const categoryData = await categoryService.getCategories()
+        setCategories(categoryData)
+      } catch (error) {
+        console.error('Failed to fetch categories:', error)
+        toast.error('Failed to load categories')
+      } finally {
+        setLoadingCategories(false)
+      }
+    }
+
+    fetchCategories()
+  }, [])
+
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (categoryDropdownOpen) {
+        const target = event.target as Element
+        if (!target.closest('[data-category-dropdown]')) {
+          setCategoryDropdownOpen(false)
+        }
+      }
+    }
+
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside)
+    }
+  }, [categoryDropdownOpen])
 
   const watchedFields = watch()
 
@@ -379,7 +445,13 @@ export function EditProductForm({ product, onSuccess, onCancel }: EditProductFor
     
     try {
       // Debug: Log current state
-      console.log('=== DEBUG: onSubmit ===')
+      console.log('=== DEBUG: onSubmit START ===')
+      console.log('Form data:', data)
+      console.log('Category ID from form:', data.category_id)
+      console.log('Original product category:', product.category)
+      console.log('Original product category_id:', product.category_id)
+      console.log('Current watchedFields:', watchedFields)
+      console.log('Current categories available:', categories)
       console.log('Current images:', images)
       console.log('Original images:', originalImages)
       console.log('Images length:', images.length)
@@ -817,13 +889,182 @@ export function EditProductForm({ product, onSuccess, onCancel }: EditProductFor
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="category_id">Category ID</Label>
-              <Input
-                id="category_id"
-                {...register('category_id')}
-                placeholder="Enter category ID"
-                className={errors.category_id ? 'border-red-500' : ''}
-              />
+              <Label htmlFor="category_id">Category</Label>
+              {loadingCategories ? (
+                <div className="animate-pulse">
+                  <div className="h-10 bg-gray-200 rounded-md"></div>
+                </div>
+              ) : (
+                <div className="relative" data-category-dropdown>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    role="combobox"
+                    aria-expanded={categoryDropdownOpen}
+                    className={cn(
+                      "w-full justify-between",
+                      !watchedFields.category_id && "text-muted-foreground",
+                      errors.category_id && "border-red-500"
+                    )}
+                    onClick={() => setCategoryDropdownOpen(!categoryDropdownOpen)}
+                  >
+                    {watchedFields.category_id ? (
+                      (() => {
+                        const selectedCategory = categories.find(cat => cat.id === watchedFields.category_id)
+                        if (!selectedCategory) return "Select a category"
+                        const level = selectedCategory.level || 0
+                        
+                        if (level > 0) {
+                          // Show parent > child for sub-categories
+                          const parent = categories.find(cat => cat.id === selectedCategory.parent_id)
+                          return `${parent?.name || ''} > ${selectedCategory.name}`
+                        } else {
+                          // Show just category name for parent categories
+                          return selectedCategory.name
+                        }
+                      })()
+                    ) : (
+                      "Select a category"
+                    )}
+                    <ChevronDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                  </Button>
+                  
+                  {categoryDropdownOpen && (
+                    <div className="absolute z-50 w-full mt-1 bg-white border border-gray-200 rounded-md shadow-lg max-h-60">
+                      <div 
+                        className="flex"
+                        onMouseLeave={() => setHoveredParentId(null)}
+                      >
+                        {/* Left Column - Parent Categories */}
+                        <div className="flex-1 p-1 border-r border-gray-100">
+                          {(() => {
+                            // Group categories by parent
+                            const parentCategories = categories.filter(cat => (cat.level || 0) === 0)
+                            
+                            return parentCategories.map((parentCategory) => {
+                              const children = categories.filter(cat => cat.parent_id === parentCategory.id)
+                              const isParentSelected = watchedFields.category_id === parentCategory.id
+                              
+                              return (
+                                <div 
+                                  key={parentCategory.id} 
+                                  className="relative group/parent"
+                                  onMouseEnter={() => {
+                                    // Set which parent is being hovered for sub-categories display
+                                    if (children.length > 0) {
+                                      setHoveredParentId(parentCategory.id)
+                                    }
+                                  }}
+                                >
+                                  {/* Parent Category */}
+                                  <div
+                                    className={cn(
+                                      "cursor-pointer select-none py-2.5 px-3 text-sm rounded transition-colors flex items-center justify-between",
+                                      isParentSelected 
+                                        ? "bg-blue-100 text-blue-900" 
+                                        : "hover:bg-gray-100"
+                                    )}
+                                    onClick={() => {
+                                      console.log('=== PARENT CATEGORY SELECTED ===')
+                                      console.log('Selected parent category:', parentCategory.id)
+                                      setValue('category_id', parentCategory.id)
+                                      setCategoryDropdownOpen(false)
+                                    }}
+                                  >
+                                    <div className="flex items-center">
+                                      <span className="font-medium text-gray-900">
+                                        {parentCategory.name}
+                                      </span>
+                                      {isParentSelected && (
+                                        <span className="text-blue-600 ml-2 font-bold">✓</span>
+                                      )}
+                                    </div>
+                                    <div className="flex items-center">
+                                      {children.length > 0 && (
+                                        <>
+                                          <span className="text-xs text-gray-500 mr-2">
+                                            {children.length}
+                                          </span>
+                                          <svg 
+                                            className="h-3 w-3 text-gray-400" 
+                                            fill="none" 
+                                            stroke="currentColor" 
+                                            viewBox="0 0 24 24"
+                                          >
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                                          </svg>
+                                        </>
+                                      )}
+                                    </div>
+                                  </div>
+                                </div>
+                              )
+                            })
+                          })()}
+                        </div>
+                        
+                        {/* Right Column - Sub Categories */}
+                        <div className="flex-1 p-1">
+                          {hoveredParentId ? (
+                            (() => {
+                              const hoveredParent = categories.find(cat => cat.id === hoveredParentId)
+                              const children = categories.filter(cat => cat.parent_id === hoveredParentId)
+                              
+                              if (!hoveredParent || children.length === 0) {
+                                return (
+                                  <div className="text-center py-4 text-gray-400 text-sm">
+                                    Hover over a category to see subcategories
+                                  </div>
+                                )
+                              }
+                              
+                              return (
+                                <div>
+                                  <div className="px-3 py-2 text-xs font-medium text-gray-600 border-b border-gray-100 mb-1">
+                                    {hoveredParent.name}
+                                  </div>
+                                  {children.map((childCategory) => {
+                                    const isChildSelected = watchedFields.category_id === childCategory.id
+                                    
+                                    return (
+                                      <div
+                                        key={childCategory.id}
+                                        className={cn(
+                                          "cursor-pointer select-none py-2 px-3 text-sm rounded transition-colors flex items-center justify-between",
+                                          isChildSelected 
+                                            ? "bg-blue-100 text-blue-900 font-medium" 
+                                            : "hover:bg-gray-100 text-gray-700"
+                                        )}
+                                        onClick={() => {
+                                          console.log('=== CHILD CATEGORY SELECTED ===')
+                                          console.log('Selected child category:', childCategory.id)
+                                          setValue('category_id', childCategory.id)
+                                          setCategoryDropdownOpen(false)
+                                        }}
+                                      >
+                                        <span>
+                                          {childCategory.name}
+                                        </span>
+                                        {isChildSelected && (
+                                          <span className="text-blue-600 font-bold">✓</span>
+                                        )}
+                                      </div>
+                                    )
+                                  })}
+                                </div>
+                              )
+                            })()
+                          ) : (
+                            <div className="text-center py-4 text-gray-400 text-sm">
+                              Hover over a category to see subcategories
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
               {errors.category_id && (
                 <p className="text-sm text-red-600 flex items-center gap-1">
                   <AlertCircle className="h-4 w-4" />

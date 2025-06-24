@@ -36,8 +36,20 @@ export function transformUpdateProductData(formData: any): UpdateProductRequest 
     transformed.weight = Number(formData.weight)
   }
   
-  if (formData.category_id && formData.category_id.trim()) {
-    transformed.category_id = formData.category_id.trim()
+  if (formData.category_id && formData.category_id.length > 0) {
+    console.log('=== transformUpdateProductData: Processing category_id ===')
+    console.log('formData.category_id:', formData.category_id)
+    console.log('formData.category_id type:', typeof formData.category_id)
+    console.log('formData.category_id length:', formData.category_id.length)
+    transformed.category_id = formData.category_id
+    console.log('transformed.category_id set to:', transformed.category_id)
+  } else {
+    console.log('=== transformUpdateProductData: category_id NOT included ===')
+    console.log('formData.category_id:', formData.category_id)
+    console.log('formData.category_id type:', typeof formData.category_id)
+    if (formData.category_id) {
+      console.log('formData.category_id length:', formData.category_id.length)
+    }
   }
   
   if (formData.status) {

@@ -204,9 +204,10 @@ export function AdminProductsPage() {
           ) : products.length > 0 ? (
             <div className="overflow-x-auto">
               {/* Table Header - Desktop */}
-              <div className="hidden md:grid grid-cols-[80px_1fr_140px_120px_100px_120px_140px] gap-4 p-4 bg-gray-50 border-b text-sm font-medium text-gray-600 min-w-[900px]">
+              <div className="hidden md:grid grid-cols-[80px_1fr_120px_140px_120px_100px_120px_140px] gap-4 p-4 bg-gray-50 border-b text-sm font-medium text-gray-600 min-w-[1000px]">
                 <div className="text-center">Image</div>
                 <div>Product</div>
+                <div className="text-center">Category</div>
                 <div className="text-center">Price</div>
                 <div className="text-center">Cost</div>
                 <div className="text-center">Stock</div>
@@ -217,7 +218,7 @@ export function AdminProductsPage() {
               {/* Table Body - Desktop */}
               <div className="hidden md:block">
                 {products.map((product) => (
-                  <div key={product.id} className="grid grid-cols-[80px_1fr_140px_120px_100px_120px_140px] gap-4 p-4 border-b hover:bg-gray-50 items-center min-w-[900px]">
+                  <div key={product.id} className="grid grid-cols-[80px_1fr_120px_140px_120px_100px_120px_140px] gap-4 p-4 border-b hover:bg-gray-50 items-center min-w-[1000px]">
                     {/* Product Image */}
                     <div className="w-16 h-16 relative overflow-hidden rounded-md border bg-gray-100 mx-auto">
                       {product.images?.[0]?.url ? (
@@ -257,6 +258,17 @@ export function AdminProductsPage() {
                             </Badge>
                           )}
                         </div>
+                      )}
+                    </div>
+
+                    {/* Category */}
+                    <div className="text-center">
+                      {product.category ? (
+                        <Badge variant="secondary" className="text-xs">
+                          {product.category.name}
+                        </Badge>
+                      ) : (
+                        <span className="text-gray-400 text-sm">No category</span>
                       )}
                     </div>
 
@@ -468,13 +480,18 @@ export function AdminProductsPage() {
 
                     {/* Bottom row with status badges and stock info */}
                     <div className="flex items-center justify-between pt-2 border-t">
-                      <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-2 flex-wrap">
                         <Badge variant={product.stock > 0 ? 'default' : 'destructive'} className="text-xs">
                           {product.stock > 0 ? 'In Stock' : 'Out'}
                         </Badge>
                         <Badge variant={product.status === 'active' ? 'default' : 'secondary'} className="text-xs">
                           {product.status}
                         </Badge>
+                        {product.category && (
+                          <Badge variant="outline" className="text-xs">
+                            {product.category.name}
+                          </Badge>
+                        )}
                         {product.compare_price && product.compare_price > product.price && (
                           <Badge variant="secondary" className="text-xs">Sale</Badge>
                         )}
@@ -629,6 +646,12 @@ export function AdminProductsPage() {
                           <span className="line-through text-gray-400">{formatPrice(selectedProduct.compare_price)}</span>
                         </div>
                       )}
+                      {selectedProduct.cost_price && (
+                        <div className="flex justify-between">
+                          <span className="text-gray-500">Cost Price:</span>
+                          <span className="font-medium">{formatPrice(selectedProduct.cost_price)}</span>
+                        </div>
+                      )}
                       <div className="flex justify-between">
                         <span className="text-gray-500">Stock:</span>
                         <span className={selectedProduct.stock > 0 ? 'text-green-600' : 'text-red-600'}>
@@ -641,6 +664,40 @@ export function AdminProductsPage() {
                           {selectedProduct.status}
                         </Badge>
                       </div>
+                      {selectedProduct.category && (
+                        <div className="flex justify-between">
+                          <span className="text-gray-500">Category:</span>
+                          <span className="font-medium">{selectedProduct.category.name}</span>
+                        </div>
+                      )}
+                      <div className="flex justify-between">
+                        <span className="text-gray-500">Product Type:</span>
+                        <Badge variant="outline" className="text-xs">
+                          {selectedProduct.is_digital ? 'Digital' : 'Physical'}
+                        </Badge>
+                      </div>
+                      {selectedProduct.weight && (
+                        <div className="flex justify-between">
+                          <span className="text-gray-500">Weight:</span>
+                          <span className="text-gray-700">{selectedProduct.weight} kg</span>
+                        </div>
+                      )}
+                      {selectedProduct.dimensions && (
+                        <div className="flex justify-between">
+                          <span className="text-gray-500">Dimensions:</span>
+                          <span className="text-gray-700">
+                            {selectedProduct.dimensions.length} × {selectedProduct.dimensions.width} × {selectedProduct.dimensions.height} cm
+                          </span>
+                        </div>
+                      )}
+                      {selectedProduct.rating && (
+                        <div className="flex justify-between">
+                          <span className="text-gray-500">Rating:</span>
+                          <span className="text-gray-700">
+                            ⭐ {selectedProduct.rating.average.toFixed(1)} ({selectedProduct.rating.count} reviews)
+                          </span>
+                        </div>
+                      )}
                     </div>
                   </div>
                   

@@ -142,9 +142,20 @@ class ProductService {
   }
 
   async updateProduct(id: string, data: UpdateProductRequest): Promise<Product> {
-    console.log('ProductService.updateProduct:', { id, data })
+    console.log('=== ProductService.updateProduct START ===')
+    console.log('Product ID:', id)
+    console.log('Update data:', data)
+    console.log('Update data category_id:', data.category_id)
+    console.log('Update data category_id type:', typeof data.category_id)
+    
     const response = await apiClient.put<Product>(`/admin/products/${id}`, data)
-    console.log('ProductService.updateProduct response:', response)
+    
+    console.log('=== ProductService.updateProduct RESPONSE ===')
+    console.log('Response:', response)
+    console.log('Response data:', response.data)
+    console.log('Response data category:', response.data?.category)
+    console.log('Response data category_id:', response.data?.category_id)
+    
     return response.data
   }
 

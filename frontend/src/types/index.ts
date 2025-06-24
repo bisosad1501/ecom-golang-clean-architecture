@@ -138,6 +138,8 @@ export interface Category extends BaseEntity {
   children?: Category[]
   is_active: boolean
   sort_order: number
+  level?: number
+  path?: string
   product_count?: number
 }
 
