@@ -49,20 +49,25 @@ class ApiClient {
   ): Promise<{ data: T; response: Response }> {
     const url = `${this.baseURL}${endpoint}`
     
-    const headers: HeadersInit = {
+    const headers: Record<string, string> = {
       'Content-Type': 'application/json',
-      ...options.headers,
+      ...(options.headers as Record<string, string> || {}),
     }
 
     // Add authorization header if token exists
     if (this.token) {
-      headers.Authorization = `Bearer ${this.token}`
+      headers['Authorization'] = `Bearer ${this.token}`
+      console.log('ApiClient: Using token for request:', this.token.substring(0, 20) + '...')
+    } else {
+      console.log('ApiClient: No token available for request to:', endpoint)
     }
 
     const config: RequestInit = {
       ...options,
       headers,
     }
+
+    console.log('ApiClient: Making request to:', url, 'with method:', options.method || 'GET')
 
     try {
       const response = await fetch(url, config)
@@ -74,6 +79,8 @@ class ApiClient {
       } catch {
         data = {} as ApiResponse<T>
       }
+
+      console.log('ApiClient: Response status:', response.status, 'data:', data)
 
       // Handle HTTP errors
       if (!response.ok) {
@@ -98,7 +105,7 @@ class ApiClient {
         throw new Error(errorMessage)
       }
 
-      return { data: data.data || data, response }
+      return { data: (data.data || data) as T, response }
     } catch (error) {
       console.error(`API Error [${options.method || 'GET'} ${url}]:`, error)
       throw error

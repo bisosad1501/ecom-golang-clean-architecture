@@ -6,8 +6,10 @@ import (
 	"ecom-golang-clean-architecture/internal/delivery/http/handlers"
 	"ecom-golang-clean-architecture/internal/delivery/http/routes"
 	"ecom-golang-clean-architecture/internal/domain/services"
+	"ecom-golang-clean-architecture/internal/domain/storage"
 	"ecom-golang-clean-architecture/internal/infrastructure/config"
 	"ecom-golang-clean-architecture/internal/infrastructure/database"
+	localStorage "ecom-golang-clean-architecture/internal/infrastructure/storage"
 	"ecom-golang-clean-architecture/internal/usecases"
 	"github.com/gin-gonic/gin"
 )
@@ -75,10 +77,24 @@ func main() {
 	cartRepo := database.NewCartRepository(db)
 	orderRepo := database.NewOrderRepository(db)
 	paymentRepo := database.NewPaymentRepository(db)
+	fileRepo := database.NewFileRepository(db)
 
 	// Initialize domain services
 	passwordService := services.NewPasswordService()
 	orderService := services.NewOrderService()
+
+	// Initialize storage service
+	fileStorageConfig := config.LoadFileStorageConfig()
+	var storageProvider storage.StorageProvider
+	var err2 error
+	
+	// For now, use local storage. In production, this would be configurable
+	storageProvider, err2 = localStorage.NewLocalStorage(&fileStorageConfig.LocalConfig)
+	if err2 != nil {
+		log.Fatal("Failed to initialize storage provider:", err2)
+	}
+
+	fileService := services.NewFileService(storageProvider, fileRepo)
 
 	// Initialize use cases
 	userUseCase := usecases.NewUserUseCase(
@@ -98,6 +114,7 @@ func main() {
 
 	categoryUseCase := usecases.NewCategoryUseCase(
 		categoryRepo,
+		fileService,
 	)
 
 	cartUseCase := usecases.NewCartUseCase(
@@ -113,18 +130,7 @@ func main() {
 		orderService,
 	)
 
-	// cartUseCase := usecases.NewCartUseCase(
-	// 	cartRepo,
-	// 	productRepo,
-	// )
-
-	// orderUseCase := usecases.NewOrderUseCase(
-	// 	orderRepo,
-	// 	cartRepo,
-	// 	productRepo,
-	// 	paymentRepo,
-	// 	orderService,
-	// )
+	fileUseCase := usecases.NewFileUseCase(fileService)
 
 	// Initialize handlers
 	userHandler := handlers.NewUserHandler(userUseCase)
@@ -132,6 +138,7 @@ func main() {
 	categoryHandler := handlers.NewCategoryHandler(categoryUseCase)
 	cartHandler := handlers.NewCartHandler(cartUseCase)
 	orderHandler := handlers.NewOrderHandler(orderUseCase)
+	fileHandler := handlers.NewFileHandler(fileUseCase)
 
 	// Initialize Gin router
 	router := gin.New()
@@ -145,6 +152,7 @@ func main() {
 		categoryHandler,
 		cartHandler,
 		orderHandler,
+		fileHandler,
 	)
 
 	// Start server

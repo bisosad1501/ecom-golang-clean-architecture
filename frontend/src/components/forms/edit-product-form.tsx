@@ -10,15 +10,16 @@ import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
-import { X, Upload, Link, Star, Image as ImageIcon, AlertCircle, ArrowUp, ArrowDown, Edit2, GripVertical, ChevronDown } from 'lucide-react'
+import { X, Image as ImageIcon, AlertCircle, ChevronDown } from 'lucide-react'
 import { useUpdateProduct } from '@/hooks/use-products'
 import { transformUpdateProductData } from '@/lib/utils/product-transform'
 import { Product, Category } from '@/types'
 import { categoryService } from '@/lib/services/categories'
 import { toast } from 'sonner'
 import Image from 'next/image'
-import { DragDropContext, Droppable, Draggable, type DropResult } from '@hello-pangea/dnd'
 import { cn } from '@/lib/utils'
+import { uploadMultipleImageFiles } from '@/lib/utils/image-upload'
+import { ImageUploadGrid, type ImageUploadItem } from '@/components/ui/image-upload-grid'
 
 const editProductSchema = z.object({
   name: z.string().min(1, 'Product name is required'),
@@ -37,11 +38,7 @@ const editProductSchema = z.object({
 
 type EditProductFormData = z.infer<typeof editProductSchema>
 
-interface ProductImage {
-  url: string
-  alt_text?: string
-  position: number
-}
+interface ProductImage extends ImageUploadItem {}
 
 interface EditProductFormProps {
   product: Product
@@ -59,7 +56,7 @@ export function EditProductForm({ product, onSuccess, onCancel }: EditProductFor
   const [imagesChanged, setImagesChanged] = useState(false) // Track if images were modified
   const [tags, setTags] = useState<string[]>([])
   const [newTag, setNewTag] = useState('')
-  const [imageUrl, setImageUrl] = useState('')
+  const [isUploadingImages, setIsUploadingImages] = useState(false)
   const [isSubmittingRef, setIsSubmittingRef] = useState(false) // Prevent double submission
   const [categories, setCategories] = useState<Category[]>([])
   const [loadingCategories, setLoadingCategories] = useState(true)
@@ -210,21 +207,6 @@ export function EditProductForm({ product, onSuccess, onCancel }: EditProductFor
 
   const watchedFields = watch()
 
-  const handleImageUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const files = event.target.files
-    if (!files) return
-
-    Array.from(files).forEach((file) => {
-      const reader = new FileReader()
-      reader.onload = (e) => {
-        if (e.target?.result && typeof e.target.result === 'string') {
-          addImage(e.target.result)
-        }
-      }
-      reader.readAsDataURL(file)
-    })
-  }
-
   // Helper function to compare images arrays intelligently
   const compareImages = (current: ProductImage[], original: ProductImage[]) => {
     console.log('=== compareImages ===')
@@ -256,116 +238,6 @@ export function EditProductForm({ product, onSuccess, onCancel }: EditProductFor
     
     console.log('No changes detected')
     return false
-  }
-
-  const addImage = (url: string, altText = '') => {
-    if (images.length >= 10) {
-      toast.error('Maximum 10 images allowed')
-      return
-    }
-
-    const newImage: ProductImage = {
-      url,
-      alt_text: altText,
-      position: images.length,
-    }
-
-    console.log('addImage: Adding new image:', newImage)
-    setImages(prev => {
-      const newImages = [...prev, newImage]
-      console.log('addImage: New images array:', newImages)
-      
-      // Check if actually changed using intelligent comparison
-      const actuallyChanged = compareImages(newImages, originalImages)
-      setImagesChanged(actuallyChanged)
-      console.log('addImage: Images changed?', actuallyChanged)
-      
-      return newImages
-    })
-  }
-
-  const removeImage = (index: number) => {
-    console.log('removeImage: Removing image at index:', index)
-    setImages(prev => {
-      const newImages = prev.filter((_, i) => i !== index).map((img, i) => ({ ...img, position: i }))
-      
-      // Check if images actually changed using intelligent comparison
-      const actuallyChanged = compareImages(newImages, originalImages)
-      setImagesChanged(actuallyChanged)
-      console.log('removeImage: Images changed?', actuallyChanged)
-      console.log('removeImage: New images count:', newImages.length)
-      console.log('removeImage: Original images count:', originalImages.length)
-      
-      return newImages
-    })
-  }
-
-  // Function to update image alt text
-  const updateImageAltText = (index: number, newAltText: string) => {
-    console.log('updateImageAltText: Updating alt text at index:', index, 'to:', newAltText)
-    setImages(prev => {
-      const newImages = [...prev]
-      newImages[index] = { ...newImages[index], alt_text: newAltText }
-      
-      // Check if actually changed using intelligent comparison
-      const actuallyChanged = compareImages(newImages, originalImages)
-      setImagesChanged(actuallyChanged)
-      console.log('updateImageAltText: Images changed?', actuallyChanged)
-      
-      return newImages
-    })
-  }
-
-  // Function to reorder images
-  const moveImage = (fromIndex: number, toIndex: number) => {
-    if (fromIndex === toIndex) return
-    
-    console.log('moveImage: Moving image from', fromIndex, 'to', toIndex)
-    setImages(prev => {
-      const newImages = [...prev]
-      const [movedImage] = newImages.splice(fromIndex, 1)
-      newImages.splice(toIndex, 0, movedImage)
-      
-      // Update positions
-      const reorderedImages = newImages.map((img, i) => ({ ...img, position: i }))
-      
-      // Check if actually changed using intelligent comparison
-      const actuallyChanged = compareImages(reorderedImages, originalImages)
-      setImagesChanged(actuallyChanged)
-      console.log('moveImage: Images changed?', actuallyChanged)
-      
-      return reorderedImages
-    })
-  }
-
-  // Handle drag and drop reordering
-  const handleDragEnd = (result: DropResult) => {
-    const { destination, source } = result
-    
-    // Dropped outside the list
-    if (!destination) {
-      return
-    }
-    
-    // Dropped in the same position
-    if (destination.index === source.index) {
-      return
-    }
-    
-    console.log('handleDragEnd: Moving from', source.index, 'to', destination.index)
-    moveImage(source.index, destination.index)
-  }
-
-  const addImageFromUrl = () => {
-    if (!imageUrl.trim()) return
-    
-    try {
-      new URL(imageUrl) // Validate URL
-      addImage(imageUrl)
-      setImageUrl('')
-    } catch {
-      toast.error('Please enter a valid image URL')
-    }
   }
 
   const addTag = () => {
@@ -535,7 +407,6 @@ export function EditProductForm({ product, onSuccess, onCancel }: EditProductFor
     setImagesChanged(false) // Reset flag
     setTags(product.tags?.map(tag => tag.name) || [])
     setNewTag('')
-    setImageUrl('')
   }
 
   return (
@@ -610,219 +481,32 @@ export function EditProductForm({ product, onSuccess, onCancel }: EditProductFor
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <ImageIcon className="h-5 w-5" />
-            Product Images ({images.length}/10)
+            Product Images
             {imagesChanged && (
               <Badge variant="outline" className="text-orange-600 border-orange-600">
                 Modified
               </Badge>
             )}
           </CardTitle>
-          <div className="text-sm text-gray-600 dark:text-gray-400">
-            <p>The first image will be used as the primary product image. You can:</p>
-            <ul className="list-disc list-inside mt-1 space-y-1">
-              <li>Drag images to reorder them</li>
-              <li>Use arrow buttons to move images up/down</li>
-              <li>Click the edit icon to add alt text</li>
-              <li>Click the X button to remove images</li>
-            </ul>
-          </div>
-          {/* Debug Info */}
-          <div className="text-xs text-gray-500 space-y-1">
-            <div>Original images: {originalImages.length}</div>
-            <div>Current images: {images.length}</div>
-            <div>Changes detected: {imagesChanged ? 'Yes' : 'No'}</div>
-          </div>
+          <p className="text-sm text-gray-600 dark:text-gray-400">
+            Upload images to showcase your product. The first image will be used as the primary product image.
+          </p>
         </CardHeader>
-        <CardContent className="space-y-4">
-          {/* Upload Controls */}
-          <div className="flex flex-col sm:flex-row gap-4">
-            <div className="flex-1">
-              <Label htmlFor="image-upload" className="cursor-pointer">
-                <div className="border-2 border-dashed border-gray-300 rounded-lg p-4 text-center hover:border-gray-400 transition-colors">
-                  <Upload className="h-8 w-8 mx-auto text-gray-400 mb-2" />
-                  <p className="text-sm text-gray-600">Click to upload images</p>
-                  <p className="text-xs text-gray-500">PNG, JPG up to 5MB each</p>
-                </div>
-                <Input
-                  id="image-upload"
-                  type="file"
-                  multiple
-                  accept="image/*"
-                  onChange={handleImageUpload}
-                  className="sr-only"
-                />
-              </Label>
-            </div>
-
-            <div className="flex-1">
-              <div className="flex gap-2">
-                <Input
-                  placeholder="Enter image URL"
-                  value={imageUrl}
-                  onChange={(e) => setImageUrl(e.target.value)}
-                  onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), addImageFromUrl())}
-                />
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={addImageFromUrl}
-                  disabled={!imageUrl.trim()}
-                >
-                  <Link className="h-4 w-4" />
-                </Button>
-              </div>
-            </div>
-          </div>
-
-          {/* Images Grid */}
-          {images.length > 0 && (
-            <DragDropContext onDragEnd={handleDragEnd}>
-              <Droppable droppableId="images-list" direction="horizontal">
-                {(provided, snapshot) => (
-                  <div
-                    ref={provided.innerRef}
-                    {...provided.droppableProps}
-                    className={`grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4 ${
-                      snapshot.isDraggingOver ? 'bg-blue-50 dark:bg-blue-950/20 rounded-lg p-2' : ''
-                    }`}
-                  >
-                    {images.map((image, index) => (
-                      <Draggable
-                        key={`${image.url}-${index}`}
-                        draggableId={`image-${index}`}
-                        index={index}
-                      >
-                        {(provided, snapshot) => (
-                          <div
-                            ref={provided.innerRef}
-                            {...provided.draggableProps}
-                            className={`relative group ${
-                              snapshot.isDragging ? 'rotate-6 scale-105 shadow-lg z-50' : ''
-                            }`}
-                          >
-                            <div className="aspect-square rounded-lg border overflow-hidden bg-gray-100">
-                              {/* Drag Handle */}
-                              <div
-                                {...provided.dragHandleProps}
-                                className="absolute top-1 left-1 z-10 opacity-0 group-hover:opacity-100 transition-opacity cursor-grab active:cursor-grabbing bg-black/50 rounded p-1"
-                                title="Drag to reorder"
-                              >
-                                <GripVertical className="h-3 w-3 text-white" />
-                              </div>
-
-                              <Image
-                                src={image.url}
-                                alt={image.alt_text || `Product image ${index + 1}`}
-                                fill
-                                className="object-cover"
-                                unoptimized={true}
-                                onError={(e) => {
-                                  const target = e.target as HTMLImageElement;
-                                  // Set a simple placeholder that won't cause additional requests
-                                  target.src = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAwIiBoZWlnaHQ9IjIwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iMjAwIiBoZWlnaHQ9IjIwMCIgZmlsbD0iI0Y3RjhGOSIvPjx0ZXh0IHg9IjUwJSIgeT0iNTAlIiBkb21pbmFudC1iYXNlbGluZT0ibWlkZGxlIiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBmb250LWZhbWlseT0ic3lzdGVtLXVpIiBmb250LXNpemU9IjE2IiBmaWxsPSIjOUNBM0FGIj5JbWFnZTwvdGV4dD48L3N2Zz4=';
-                                  // Prevent further error events
-                                  target.onerror = null;
-                                }}
-                              />
-                              
-                              {/* Primary Badge */}
-                              {index === 0 && (
-                                <Badge className="absolute top-2 left-2 bg-blue-600">
-                                  <Star className="h-3 w-3 mr-1" />
-                                  Primary
-                                </Badge>
-                              )}
-                              
-                              {/* Image Controls */}
-                              <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-30 transition-all duration-200 flex items-center justify-center">
-                                <div className="opacity-0 group-hover:opacity-100 flex gap-1 transition-opacity">
-                                  {/* Move Up */}
-                                  {index > 0 && (
-                                    <Button
-                                      type="button"
-                                      size="sm"
-                                      variant="secondary"
-                                      className="h-6 w-6 p-0"
-                                      onClick={() => moveImage(index, index - 1)}
-                                      title="Move up"
-                                    >
-                                      <ArrowUp className="h-3 w-3" />
-                                    </Button>
-                                  )}
-                                  
-                                  {/* Move Down */}
-                                  {index < images.length - 1 && (
-                                    <Button
-                                      type="button"
-                                      size="sm"
-                                      variant="secondary"
-                                      className="h-6 w-6 p-0"
-                                      onClick={() => moveImage(index, index + 1)}
-                                      title="Move down"
-                                    >
-                                      <ArrowDown className="h-3 w-3" />
-                                    </Button>
-                                  )}
-                                  
-                                  {/* Edit Alt Text */}
-                                  <Button
-                                    type="button"
-                                    size="sm"
-                                    variant="secondary"
-                                    className="h-6 w-6 p-0"
-                                    onClick={() => {
-                                      const newAltText = prompt('Enter alt text for this image:', image.alt_text || '')
-                                      if (newAltText !== null) {
-                                        updateImageAltText(index, newAltText)
-                                      }
-                                    }}
-                                    title="Edit alt text"
-                                  >
-                                    <Edit2 className="h-3 w-3" />
-                                  </Button>
-                                </div>
-                              </div>
-                              
-                              {/* Remove Button */}
-                              <Button
-                                type="button"
-                                size="sm"
-                                variant="destructive"
-                                className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity h-6 w-6 p-0"
-                                onClick={() => removeImage(index)}
-                                title="Remove image"
-                              >
-                                <X className="h-3 w-3" />
-                              </Button>
-                            </div>
-                            
-                            {/* Image Info */}
-                            <div className="mt-1 text-xs text-gray-500 text-center">
-                              <div className="truncate">Position: {index + 1}</div>
-                              {image.alt_text && (
-                                <div className="truncate" title={image.alt_text}>
-                                  Alt: {image.alt_text}
-                                </div>
-                              )}
-                            </div>
-                          </div>
-                        )}
-                      </Draggable>
-                    ))}
-                    {provided.placeholder}
-                  </div>
-                )}
-              </Droppable>
-            </DragDropContext>
-          )}
-
-          {images.length === 0 && (
-            <div className="text-center py-8 text-gray-500">
-              <ImageIcon className="h-12 w-12 mx-auto mb-4 opacity-50" />
-              <p>No images uploaded yet</p>
-              <p className="text-sm">Upload at least one image for your product</p>
-            </div>
-          )}
+        <CardContent>
+          <ImageUploadGrid
+            images={images}
+            onImagesChange={(newImages) => {
+              setImages(newImages)
+              // Check if images actually changed using intelligent comparison
+              const actuallyChanged = compareImages(newImages, originalImages)
+              setImagesChanged(actuallyChanged)
+            }}
+            onUploadFiles={async (files) => {
+              return await uploadMultipleImageFiles(files, '/admin/upload/image')
+            }}
+            maxImages={10}
+            isUploading={isUploadingImages}
+          />
         </CardContent>
       </Card>
 

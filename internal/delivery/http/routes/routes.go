@@ -16,6 +16,7 @@ func SetupRoutes(
 	categoryHandler *handlers.CategoryHandler,
 	cartHandler *handlers.CartHandler,
 	orderHandler *handlers.OrderHandler,
+	fileHandler *handlers.FileHandler,
 ) {
 	// Apply global middleware
 	router.Use(middleware.CORSMiddleware(&cfg.CORS))
@@ -23,6 +24,9 @@ func SetupRoutes(
 	router.Use(middleware.RequestIDMiddleware())
 	router.Use(middleware.ErrorHandlerMiddleware())
 	router.Use(middleware.ValidationMiddleware())
+
+	// Serve static files for uploads
+	router.Static("/uploads", "./uploads")
 
 	// Health check endpoint
 	router.GET("/health", func(c *gin.Context) {
@@ -42,6 +46,38 @@ func SetupRoutes(
 			auth.POST("/login", userHandler.Login)
 		}
 
+		// Public product routes
+		products := v1.Group("/products")
+		{
+			products.GET("", productHandler.GetProducts)
+			products.GET("/:id", productHandler.GetProduct)
+			products.GET("/search", productHandler.SearchProducts)
+			products.GET("/category/:categoryId", productHandler.GetProductsByCategory)
+		}
+
+		// Public category routes
+		categories := v1.Group("/categories")
+		{
+			categories.GET("", categoryHandler.GetCategories)
+			categories.GET("/:id", categoryHandler.GetCategory)
+			categories.GET("/tree", categoryHandler.GetCategoryTree)
+			categories.GET("/root", categoryHandler.GetRootCategories)
+			categories.GET("/:id/children", categoryHandler.GetCategoryChildren)
+		}
+
+		// Public file upload routes (no authentication required)
+		publicUpload := v1.Group("/public/upload")
+		{
+			publicUpload.POST("/image", fileHandler.UploadImagePublic)
+			publicUpload.POST("/document", fileHandler.UploadDocumentPublic)
+		}
+
+		// Public file routes
+		publicFiles := v1.Group("/public/files")
+		{
+			publicFiles.GET("/:id", fileHandler.GetFileUpload)
+		}
+
 		// Protected routes (authentication required)
 		protected := v1.Group("")
 		protected.Use(middleware.AuthMiddleware(cfg.JWT.Secret))
@@ -52,6 +88,21 @@ func SetupRoutes(
 				users.GET("/profile", userHandler.GetProfile)
 				users.PUT("/profile", userHandler.UpdateProfile)
 				users.POST("/change-password", userHandler.ChangePassword)
+			}
+
+			// Upload routes (authenticated users)
+			upload := protected.Group("/upload")
+			{
+				upload.POST("/image", fileHandler.UploadImage)
+				upload.POST("/document", fileHandler.UploadDocument)
+			}
+
+			// File management routes (authenticated users)
+			files := protected.Group("/files")
+			{
+				files.GET("", fileHandler.GetFileUploads)
+				files.GET("/:id", fileHandler.GetFileUpload)
+				files.DELETE("/:id", fileHandler.DeleteFile)
 			}
 
 			// Cart routes
@@ -72,25 +123,6 @@ func SetupRoutes(
 				orders.GET("/:id", orderHandler.GetOrder)
 				orders.POST("/:id/cancel", orderHandler.CancelOrder)
 			}
-		}
-
-		// Public product routes
-		products := v1.Group("/products")
-		{
-			products.GET("", productHandler.GetProducts)
-			products.GET("/:id", productHandler.GetProduct)
-			products.GET("/search", productHandler.SearchProducts)
-			products.GET("/category/:categoryId", productHandler.GetProductsByCategory)
-		}
-
-		// Public category routes
-		categories := v1.Group("/categories")
-		{
-			categories.GET("", categoryHandler.GetCategories)
-			categories.GET("/:id", categoryHandler.GetCategory)
-			categories.GET("/tree", categoryHandler.GetCategoryTree)
-			categories.GET("/root", categoryHandler.GetRootCategories)
-			categories.GET("/:id/children", categoryHandler.GetCategoryChildren)
 		}
 
 		// Admin routes (admin authentication required)
@@ -124,6 +156,21 @@ func SetupRoutes(
 				adminCategories.DELETE("/:id", categoryHandler.DeleteCategory)
 			}
 
+			// Admin file uploads
+			adminUpload := admin.Group("/upload")
+			{
+				adminUpload.POST("/image", fileHandler.UploadImageAdmin)
+				adminUpload.POST("/document", fileHandler.UploadDocumentAdmin)
+			}
+
+			// Admin file management
+			adminFiles := admin.Group("/files")
+			{
+				adminFiles.GET("", fileHandler.GetFileUploads)
+				adminFiles.GET("/:id", fileHandler.GetFileUpload)
+				adminFiles.DELETE("/:id", fileHandler.DeleteFile)
+			}
+
 			// Admin order management
 			adminOrders := admin.Group("/orders")
 			{
@@ -144,6 +191,13 @@ func SetupRoutes(
 				modProducts.PUT("/:id", productHandler.UpdateProduct)          // Complete replacement
 				modProducts.PATCH("/:id", productHandler.PatchProduct)         // Partial update  
 				modProducts.PUT("/:id/stock", productHandler.UpdateStock)
+			}
+
+			// Moderator file uploads
+			modUpload := moderator.Group("/upload")
+			{
+				modUpload.POST("/image", fileHandler.UploadImage)
+				modUpload.POST("/document", fileHandler.UploadDocument)
 			}
 		}
 	}

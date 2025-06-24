@@ -79,6 +79,18 @@ class ApiClient {
             message: ERROR_MESSAGES.NOT_FOUND,
             code: 'NOT_FOUND',
           }
+        case 409:
+          return {
+            message: data.message || 'Conflict occurred',
+            code: 'CONFLICT',
+            details: data.details,
+          }
+        case 422:
+          return {
+            message: data.message || 'Unprocessable entity',
+            code: 'UNPROCESSABLE_ENTITY',
+            details: data.details,
+          }
         case 429:
           return {
             message: ERROR_MESSAGES.RATE_LIMIT,
@@ -89,6 +101,7 @@ class ApiClient {
           return {
             message: data.message || ERROR_MESSAGES.SERVER_ERROR,
             code: 'SERVER_ERROR',
+            details: data.details,
           }
       }
     } else if (error.request) {

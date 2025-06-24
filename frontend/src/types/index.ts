@@ -132,7 +132,7 @@ export interface Category extends BaseEntity {
   name: string
   slug: string
   description?: string
-  image_url?: string
+  image?: string
   parent_id?: string
   parent?: Category
   children?: Category[]

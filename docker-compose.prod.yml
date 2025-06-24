@@ -1,0 +1,82 @@
+version: '3.8'
+
+services:
+  # PostgreSQL Database
+  postgres:
+    image: postgres:15-alpine
+    container_name: ecom_postgres_prod
+    environment:
+      POSTGRES_DB: ecommerce_db
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-secure_password_change_this}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./backups/postgres:/backups
+    networks:
+      - ecom_network
+    restart: unless-stopped
+
+  # Redis Cache
+  redis:
+    image: redis:7-alpine
+    container_name: ecom_redis_prod
+    volumes:
+      - redis_data:/data
+    networks:
+      - ecom_network
+    restart: unless-stopped
+
+  # E-commerce API
+  api:
+    build: .
+    container_name: ecom_api_prod
+    ports:
+      - "8080:8080"
+    environment:
+      - APP_ENV=production
+      - APP_HOST=0.0.0.0
+      - APP_PORT=8080
+      - DB_HOST=postgres
+      - DB_PORT=5432
+      - DB_USER=postgres
+      - DB_PASSWORD=${DB_PASSWORD:-secure_password_change_this}
+      - DB_NAME=ecommerce_db
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - JWT_SECRET=${JWT_SECRET:-your-super-secret-jwt-key-change-this}
+      - UPLOAD_PATH=/app/uploads
+    volumes:
+      # Production: Use named volume with backup strategy
+      - uploads_data:/app/uploads
+      # Alternative: Use bind mount to host directory
+      # - /var/ecom/uploads:/app/uploads
+    depends_on:
+      - postgres
+      - redis
+    networks:
+      - ecom_network
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: /var/ecom/postgres_data
+  redis_data:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: /var/ecom/redis_data
+  uploads_data:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: /var/ecom/uploads
+
+networks:
+  ecom_network:
+    driver: bridge

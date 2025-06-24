@@ -6,7 +6,7 @@ export interface CreateCategoryRequest {
   slug?: string
   description?: string
   parent_id?: string
-  image_url?: string
+  image?: string
   is_active?: boolean
   sort_order?: number
 }
@@ -58,17 +58,30 @@ class CategoryService {
 
   // Admin methods
   async createCategory(data: CreateCategoryRequest): Promise<Category> {
+    console.log('CategoryService: Creating category with data:', data)
     const response = await apiClient.post<Category>('/admin/categories', data)
+    console.log('CategoryService: Create response:', response.data)
     return response.data
   }
 
   async updateCategory(id: string, data: UpdateCategoryRequest): Promise<Category> {
+    console.log('CategoryService: Original data:', data)
+    console.log('CategoryService: Sending to backend:', data)
+    
     const response = await apiClient.put<Category>(`/admin/categories/${id}`, data)
+    console.log('CategoryService: Backend response:', response.data)
     return response.data
   }
 
   async deleteCategory(id: string): Promise<void> {
-    await apiClient.delete(`/admin/categories/${id}`)
+    console.log('CategoryService: Deleting category with ID:', id)
+    try {
+      const response = await apiClient.delete(`/admin/categories/${id}`)
+      console.log('CategoryService: Delete response:', response)
+    } catch (error) {
+      console.error('CategoryService: Delete error:', error)
+      throw error
+    }
   }
 
   async uploadCategoryImage(categoryId: string, file: File): Promise<{ url: string }> {

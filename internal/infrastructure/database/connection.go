@@ -74,6 +74,9 @@ func AutoMigrate(db *gorm.DB) error {
 		&entities.OrderItem{},
 		&entities.Payment{},
 
+		// File uploads
+		&entities.FileUpload{},
+
 		// User management
 		&entities.Address{},
 		&entities.Wishlist{},

@@ -45,6 +45,8 @@ services:
       - REDIS_HOST=redis
       - REDIS_PORT=6379
       - JWT_SECRET=your-super-secret-jwt-key
+    # volumes:
+      # - ./uploads:/app/uploads
     depends_on:
       - postgres
       - redis
@@ -71,6 +73,7 @@ services:
 volumes:
   postgres_data:
   redis_data:
+  uploads_data:
 
 networks:
   ecom_network:

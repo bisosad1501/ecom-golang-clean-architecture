@@ -7,6 +7,8 @@ import (
 
 	"ecom-golang-clean-architecture/internal/domain/entities"
 	"ecom-golang-clean-architecture/internal/domain/repositories"
+	"ecom-golang-clean-architecture/internal/domain/services"
+	"ecom-golang-clean-architecture/pkg/utils"
 	"github.com/google/uuid"
 )
 
@@ -24,12 +26,14 @@ type CategoryUseCase interface {
 
 type categoryUseCase struct {
 	categoryRepo repositories.CategoryRepository
+	fileService  services.FileService
 }
 
 // NewCategoryUseCase creates a new category use case
-func NewCategoryUseCase(categoryRepo repositories.CategoryRepository) CategoryUseCase {
+func NewCategoryUseCase(categoryRepo repositories.CategoryRepository, fileService services.FileService) CategoryUseCase {
 	return &categoryUseCase{
 		categoryRepo: categoryRepo,
+		fileService:  fileService,
 	}
 }
 
@@ -141,6 +145,9 @@ func (uc *categoryUseCase) UpdateCategory(ctx context.Context, id uuid.UUID, req
 		return nil, entities.ErrCategoryNotFound
 	}
 
+	// Store old image URL for cleanup
+	oldImageURL := category.Image
+
 	// Update fields
 	if req.Name != nil {
 		category.Name = *req.Name
@@ -185,15 +192,36 @@ func (uc *categoryUseCase) UpdateCategory(ctx context.Context, id uuid.UUID, req
 		return nil, err
 	}
 
+	// Delete old image file if image was updated and it's different
+	if req.Image != nil && oldImageURL != "" && oldImageURL != *req.Image {
+		// Log for debugging
+		println("DEBUG: Attempting to delete old image")
+		println("DEBUG: Old image URL:", oldImageURL)
+		println("DEBUG: New image URL:", *req.Image)
+		
+		// Extract object key from URL and delete using storage service
+		if objectKey := utils.ExtractFilePathFromURL(oldImageURL); objectKey != "" {
+			if err := uc.fileService.DeleteFile(ctx, objectKey); err != nil {
+				// Log error but don't fail the update
+				println("DEBUG: Failed to delete old image file:", err.Error())
+			} else {
+				println("DEBUG: Successfully deleted old image file")
+			}
+		}
+	}
+
 	return uc.toCategoryResponse(category), nil
 }
 
 // DeleteCategory deletes a category
 func (uc *categoryUseCase) DeleteCategory(ctx context.Context, id uuid.UUID) error {
-	_, err := uc.categoryRepo.GetByID(ctx, id)
+	category, err := uc.categoryRepo.GetByID(ctx, id)
 	if err != nil {
 		return entities.ErrCategoryNotFound
 	}
+
+	// Store image URL for cleanup
+	imageURL := category.Image
 
 	// Check if category has children
 	children, err := uc.categoryRepo.GetChildren(ctx, id)
@@ -204,7 +232,20 @@ func (uc *categoryUseCase) DeleteCategory(ctx context.Context, id uuid.UUID) err
 		return entities.ErrConflict // Cannot delete category with children
 	}
 
-	return uc.categoryRepo.Delete(ctx, id)
+	// Delete category from database
+	if err := uc.categoryRepo.Delete(ctx, id); err != nil {
+		return err
+	}
+
+	// Delete associated image file if exists
+	if imageURL != "" {
+		if err := utils.DeleteImageFile(imageURL); err != nil {
+			// Log error but don't fail the deletion
+			// The category is already deleted from database
+		}
+	}
+
+	return nil
 }
 
 // GetCategories gets list of categories

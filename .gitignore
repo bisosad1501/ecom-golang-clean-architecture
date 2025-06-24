@@ -68,3 +68,10 @@ coverage.html
 # Air (live reload)
 .air.toml
 tmp/
+
+# Uploads (local development)
+uploads/*
+!uploads/.gitkeep
+
+# Backups
+backups/
