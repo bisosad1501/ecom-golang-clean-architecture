@@ -27,6 +27,11 @@ type User struct {
 	IsActive  bool      `json:"is_active" gorm:"default:true"`
 	CreatedAt time.Time `json:"created_at" gorm:"autoCreateTime"`
 	UpdatedAt time.Time `json:"updated_at" gorm:"autoUpdateTime"`
+
+	// Relationships
+	Profile   *UserProfile `json:"profile,omitempty" gorm:"foreignKey:UserID"`
+	Addresses []Address    `json:"addresses,omitempty" gorm:"foreignKey:UserID"`
+	Wishlist  []Product    `json:"wishlist,omitempty" gorm:"many2many:user_wishlists;"`
 }
 
 // TableName returns the table name for User entity

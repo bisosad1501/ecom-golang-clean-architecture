@@ -3,6 +3,7 @@ package config
 import (
 	"os"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/joho/godotenv"
@@ -212,8 +213,14 @@ func getEnvAsInt64(key string, defaultValue int64) int64 {
 
 func getEnvAsSlice(key string, defaultValue []string) []string {
 	if value := os.Getenv(key); value != "" {
-		// Simple split by comma - you might want to use a more sophisticated parser
-		return []string{value}
+		// Split by comma and trim spaces
+		var result []string
+		for _, item := range strings.Split(value, ",") {
+			if trimmed := strings.TrimSpace(item); trimmed != "" {
+				result = append(result, trimmed)
+			}
+		}
+		return result
 	}
 	return defaultValue
 }

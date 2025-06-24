@@ -64,6 +64,15 @@ type ProductRepository interface {
 	
 	// GetRelated retrieves related products
 	GetRelated(ctx context.Context, productID uuid.UUID, limit int) ([]*entities.Product, error)
+	
+	// ClearTags removes all tag associations for a product
+	ClearTags(ctx context.Context, productID uuid.UUID) error
+	
+	// AddTag adds a tag association to a product
+	AddTag(ctx context.Context, productID, tagID uuid.UUID) error
+	
+	// ReplaceTags replaces all tag associations for a product with new ones
+	ReplaceTags(ctx context.Context, productID uuid.UUID, tagIDs []uuid.UUID) error
 }
 
 // CategoryRepository defines the interface for category data access

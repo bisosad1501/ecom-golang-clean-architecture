@@ -41,4 +41,7 @@ type CartRepository interface {
 	
 	// GetItems retrieves all items in a cart
 	GetItems(ctx context.Context, cartID uuid.UUID) ([]*entities.CartItem, error)
+	
+	// RemoveItemsByProductID removes all cart items with the specified product ID
+	RemoveItemsByProductID(ctx context.Context, productID uuid.UUID) error
 }

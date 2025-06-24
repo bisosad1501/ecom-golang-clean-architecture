@@ -1,6 +1,7 @@
 package middleware
 
 import (
+	"fmt"
 	"net/http"
 	"strings"
 
@@ -76,6 +77,9 @@ func AdminMiddleware() gin.HandlerFunc {
 			return
 		}
 
+		// Add debug logging
+		fmt.Printf("AdminMiddleware: role=%v, expectedRole=%s\n", role, string(entities.UserRoleAdmin))
+
 		if role != string(entities.UserRoleAdmin) {
 			c.JSON(http.StatusForbidden, gin.H{
 				"error": "Admin access required",
@@ -101,6 +105,11 @@ func ModeratorMiddleware() gin.HandlerFunc {
 		}
 
 		userRole := role.(string)
+		
+		// Add debug logging
+		fmt.Printf("ModeratorMiddleware: role=%s, checking against admin=%s or moderator=%s\n", 
+			userRole, string(entities.UserRoleAdmin), string(entities.UserRoleModerator))
+		
 		if userRole != string(entities.UserRoleAdmin) && userRole != string(entities.UserRoleModerator) {
 			c.JSON(http.StatusForbidden, gin.H{
 				"error": "Moderator or admin access required",

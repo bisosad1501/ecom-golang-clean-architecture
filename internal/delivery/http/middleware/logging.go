@@ -60,9 +60,26 @@ func ErrorHandlerMiddleware() gin.HandlerFunc {
 	}
 }
 
-// ValidationMiddleware validates request body
+// ValidationMiddleware validates request body using struct tags
 func ValidationMiddleware() gin.HandlerFunc {
 	return func(c *gin.Context) {
+		// Skip validation for GET requests and non-JSON content
+		if c.Request.Method == "GET" || c.ContentType() != "application/json" {
+			c.Next()
+			return
+		}
+		
+		// Validate request body is present for POST/PUT/PATCH
+		if c.Request.Method == "POST" || c.Request.Method == "PUT" || c.Request.Method == "PATCH" {
+			if c.Request.ContentLength == 0 {
+				c.JSON(400, gin.H{
+					"error": "Request body is required",
+				})
+				c.Abort()
+				return
+			}
+		}
+		
 		c.Next()
 	}
 }

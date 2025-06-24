@@ -42,10 +42,60 @@ var (
 	ErrRefundAmountExceedsPayment  = errors.New("refund amount exceeds payment amount")
 	ErrPaymentAlreadyProcessed     = errors.New("payment already processed")
 
+	// Address errors
+	ErrAddressNotFound = errors.New("address not found")
+
+	// Wishlist errors
+	ErrWishlistItemNotFound = errors.New("wishlist item not found")
+
+	// User preference errors
+	ErrUserPreferenceNotFound = errors.New("user preference not found")
+
+	// Account verification errors
+	ErrAccountVerificationNotFound = errors.New("account verification not found")
+	ErrInvalidVerificationCode     = errors.New("invalid verification code")
+	ErrVerificationCodeExpired     = errors.New("verification code expired")
+
+	// Password reset errors
+	ErrPasswordResetNotFound = errors.New("password reset not found")
+	ErrPasswordResetExpired  = errors.New("password reset expired")
+	ErrPasswordResetUsed     = errors.New("password reset already used")
+
+	// Review errors
+	ErrReviewNotFound = errors.New("review not found")
+	ErrReviewVoteNotFound = errors.New("review vote not found")
+
+	// Coupon errors
+	ErrCouponNotFound = errors.New("coupon not found")
+	ErrCouponInvalid = errors.New("coupon is invalid")
+	ErrCouponExpired = errors.New("coupon has expired")
+	ErrCouponNotApplicable = errors.New("coupon is not applicable")
+	ErrCouponUsageLimitExceeded = errors.New("coupon usage limit exceeded")
+
+	// Promotion errors
+	ErrPromotionNotFound = errors.New("promotion not found")
+
+	// Loyalty program errors
+	ErrLoyaltyProgramNotFound = errors.New("loyalty program not found")
+	ErrInsufficientPoints = errors.New("insufficient loyalty points")
+
 	// General errors
-	ErrInvalidInput    = errors.New("invalid input")
-	ErrInternalError   = errors.New("internal server error")
-	ErrNotFound        = errors.New("resource not found")
-	ErrConflict        = errors.New("resource conflict")
+	ErrInvalidInput     = errors.New("invalid input")
+	ErrInternalError    = errors.New("internal server error")
+	ErrNotFound         = errors.New("resource not found")
+	ErrConflict         = errors.New("resource conflict")
 	ErrValidationFailed = errors.New("validation failed")
+	ErrNotImplemented   = errors.New("feature not implemented")
+
+	// File upload errors
+	ErrInvalidFileType = errors.New("invalid file type")
+	ErrFileTooLarge    = errors.New("file too large")
+	ErrFileNotFound    = errors.New("file not found")
+	ErrNoValidFiles    = errors.New("no valid files provided")
+
+	// Shipping errors
+	ErrShippingMethodNotFound = errors.New("shipping method not found")
+	ErrShipmentNotFound       = errors.New("shipment not found")
+	ErrReturnNotFound         = errors.New("return not found")
+	ErrOrderCannotBeReturned  = errors.New("order cannot be returned")
 )

@@ -28,13 +28,17 @@ type Product struct {
 	Weight      *float64      `json:"weight" validate:"omitempty,gt=0"`
 	Dimensions  *Dimensions   `json:"dimensions" gorm:"embedded"`
 	CategoryID  uuid.UUID     `json:"category_id" gorm:"type:uuid;index"`
-	Category    Category      `json:"category" gorm:"foreignKey:CategoryID"`
-	Images      []ProductImage `json:"images" gorm:"foreignKey:ProductID"`
-	Tags        []ProductTag  `json:"tags" gorm:"many2many:product_tags;"`
 	Status      ProductStatus `json:"status" gorm:"default:'draft'" validate:"required"`
 	IsDigital   bool          `json:"is_digital" gorm:"default:false"`
 	CreatedAt   time.Time     `json:"created_at" gorm:"autoCreateTime"`
 	UpdatedAt   time.Time     `json:"updated_at" gorm:"autoUpdateTime"`
+
+	// Relationships
+	Category    Category      `json:"category,omitempty" gorm:"foreignKey:CategoryID"`
+	Images      []ProductImage `json:"images,omitempty" gorm:"foreignKey:ProductID"`
+	Tags        []ProductTag  `json:"tags,omitempty" gorm:"many2many:product_tag_associations;"`
+	Reviews     []Review      `json:"reviews,omitempty" gorm:"foreignKey:ProductID"`
+	Suppliers   []Supplier    `json:"suppliers,omitempty" gorm:"many2many:supplier_products;"`
 }
 
 // TableName returns the table name for Product entity
@@ -74,7 +78,7 @@ type ProductTag struct {
 
 // TableName returns the table name for ProductTag entity
 func (ProductTag) TableName() string {
-	return "product_tags"
+	return "tags"
 }
 
 // IsAvailable checks if the product is available for purchase

@@ -70,12 +70,11 @@ func main() {
 	userProfileRepo := database.NewUserProfileRepository(db)
 	productRepo := database.NewProductRepository(db)
 	categoryRepo := database.NewCategoryRepository(db)
+	tagRepo := database.NewTagRepository(db)
+	imageRepo := database.NewImageRepository(db)
 	cartRepo := database.NewCartRepository(db)
 	orderRepo := database.NewOrderRepository(db)
 	paymentRepo := database.NewPaymentRepository(db)
-	// cartRepo := database.NewCartRepository(db)
-	// orderRepo := database.NewOrderRepository(db)
-	// paymentRepo := database.NewPaymentRepository(db)
 
 	// Initialize domain services
 	passwordService := services.NewPasswordService()
@@ -92,6 +91,9 @@ func main() {
 	productUseCase := usecases.NewProductUseCase(
 		productRepo,
 		categoryRepo,
+		tagRepo,
+		imageRepo,
+		cartRepo,
 	)
 
 	categoryUseCase := usecases.NewCategoryUseCase(
@@ -126,7 +128,7 @@ func main() {
 
 	// Initialize handlers
 	userHandler := handlers.NewUserHandler(userUseCase)
-	productHandler := handlers.NewProductHandler(productUseCase)
+	productHandler := handlers.NewProductHandler(productUseCase) // Use consolidated implementation
 	categoryHandler := handlers.NewCategoryHandler(categoryUseCase)
 	cartHandler := handlers.NewCartHandler(cartUseCase)
 	orderHandler := handlers.NewOrderHandler(orderUseCase)

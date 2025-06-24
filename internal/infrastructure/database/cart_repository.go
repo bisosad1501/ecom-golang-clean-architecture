@@ -138,3 +138,10 @@ func (r *cartRepository) GetItems(ctx context.Context, cartID uuid.UUID) ([]*ent
 		Find(&items).Error
 	return items, err
 }
+
+// RemoveItemsByProductID removes all cart items with the specified product ID
+func (r *cartRepository) RemoveItemsByProductID(ctx context.Context, productID uuid.UUID) error {
+	return r.db.WithContext(ctx).
+		Where("product_id = ?", productID).
+		Delete(&entities.CartItem{}).Error
+}

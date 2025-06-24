@@ -1,8 +1,10 @@
 package handlers
 
 import (
+	"fmt"
 	"net/http"
 	"strconv"
+	"strings"
 
 	"ecom-golang-clean-architecture/internal/usecases"
 	"github.com/gin-gonic/gin"
@@ -207,31 +209,126 @@ func (h *ProductHandler) SearchProducts(c *gin.Context) {
 // @Failure 404 {object} ErrorResponse
 // @Router /admin/products/{id} [put]
 func (h *ProductHandler) UpdateProduct(c *gin.Context) {
-	productID, err := uuid.Parse(c.Param("id"))
+	// Parse product ID
+	productIDStr := c.Param("id")
+	productID, err := uuid.Parse(productIDStr)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, ErrorResponse{
-			Error: "Invalid product ID",
+			Error: "Invalid product ID format",
 		})
 		return
 	}
 
+	// Get user info from middleware
+	userID, _ := c.Get("user_id")
+	role, _ := c.Get("role")
+	
+	fmt.Printf("UpdateProduct: ProductID=%s, UserID=%v, Role=%v\n", productID.String(), userID, role)
+
+	// Parse the request
 	var req usecases.UpdateProductRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
+		fmt.Printf("UpdateProduct: JSON binding error: %v\n", err)
 		c.JSON(http.StatusBadRequest, ErrorResponse{
-			Error:   "Invalid request format",
-			Details: err.Error(),
+			Error: "Invalid request format: " + err.Error(),
 		})
 		return
 	}
 
+	// Validate the request
+	if err := h.validateUpdateProductRequest(&req); err != nil {
+		fmt.Printf("UpdateProduct: Validation error: %v\n", err)
+		c.JSON(http.StatusBadRequest, ErrorResponse{
+			Error: "Validation failed: " + err.Error(),
+		})
+		return
+	}
+
+	// Log the request data
+	fmt.Printf("UpdateProduct: Request data: %+v\n", req)
+
+	// Use the clean implementation
 	product, err := h.productUseCase.UpdateProduct(c.Request.Context(), productID, req)
 	if err != nil {
+		fmt.Printf("UpdateProduct: UseCase error: %v\n", err)
 		c.JSON(getErrorStatusCode(err), ErrorResponse{
 			Error: err.Error(),
 		})
 		return
 	}
 
+	fmt.Printf("UpdateProduct: Success for ProductID=%s\n", productID.String())
+	c.JSON(http.StatusOK, SuccessResponse{
+		Message: "Product updated successfully",
+		Data:    product,
+	})
+}
+
+// PatchProduct handles partially updating a product
+// @Summary Partially update product
+// @Description Partially update an existing product - only updates provided fields (admin/moderator only)
+// @Tags products
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Param id path string true "Product ID"
+// @Param request body usecases.PatchProductRequest true "Patch product request"
+// @Success 200 {object} usecases.ProductResponse
+// @Failure 400 {object} ErrorResponse
+// @Failure 401 {object} ErrorResponse
+// @Failure 403 {object} ErrorResponse
+// @Failure 404 {object} ErrorResponse
+// @Router /admin/products/{id} [patch]
+func (h *ProductHandler) PatchProduct(c *gin.Context) {
+	// Parse product ID
+	productIDStr := c.Param("id")
+	productID, err := uuid.Parse(productIDStr)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, ErrorResponse{
+			Error: "Invalid product ID format",
+		})
+		return
+	}
+
+	// Get user info from middleware
+	userID, _ := c.Get("user_id")
+	role, _ := c.Get("role")
+	
+	fmt.Printf("PatchProduct: ProductID=%s, UserID=%v, Role=%v\n", productID.String(), userID, role)
+
+	// Parse the request
+	var req usecases.PatchProductRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		fmt.Printf("PatchProduct: JSON binding error: %v\n", err)
+		c.JSON(http.StatusBadRequest, ErrorResponse{
+			Error: "Invalid request format: " + err.Error(),
+		})
+		return
+	}
+
+	// Validate the request
+	if err := h.validatePatchProductRequest(&req); err != nil {
+		fmt.Printf("PatchProduct: Validation error: %v\n", err)
+		c.JSON(http.StatusBadRequest, ErrorResponse{
+			Error: "Validation failed: " + err.Error(),
+		})
+		return
+	}
+
+	// Log the request data
+	fmt.Printf("PatchProduct: Request data: %+v\n", req)
+
+	// Use the patch implementation
+	product, err := h.productUseCase.PatchProduct(c.Request.Context(), productID, req)
+	if err != nil {
+		fmt.Printf("PatchProduct: UseCase error: %v\n", err)
+		c.JSON(getErrorStatusCode(err), ErrorResponse{
+			Error: err.Error(),
+		})
+		return
+	}
+
+	fmt.Printf("PatchProduct: Success for ProductID=%s\n", productID.String())
 	c.JSON(http.StatusOK, SuccessResponse{
 		Message: "Product updated successfully",
 		Data:    product,
@@ -358,3 +455,191 @@ func (h *ProductHandler) UpdateStock(c *gin.Context) {
 		Message: "Product stock updated successfully",
 	})
 }
+
+// validateUpdateProductRequest validates the update product request
+func (h *ProductHandler) validateUpdateProductRequest(req *usecases.UpdateProductRequest) error {
+	// Validate name
+	if req.Name != nil {
+		if len(strings.TrimSpace(*req.Name)) == 0 {
+			return fmt.Errorf("name cannot be empty")
+		}
+		if len(*req.Name) > 255 {
+			return fmt.Errorf("name cannot exceed 255 characters")
+		}
+	}
+	
+	// Validate description
+	if req.Description != nil && len(*req.Description) > 2000 {
+		return fmt.Errorf("description cannot exceed 2000 characters")
+	}
+	
+	// Validate price fields (validation moved to usecase for better business logic)
+	// Keep basic validation here for early feedback
+	if req.Price != nil && *req.Price <= 0 {
+		return fmt.Errorf("price must be greater than 0")
+	}
+	if req.ComparePrice != nil && *req.ComparePrice <= 0 {
+		return fmt.Errorf("compare price must be greater than 0")
+	}
+	if req.CostPrice != nil && *req.CostPrice < 0 {
+		return fmt.Errorf("cost price cannot be negative")
+	}
+	
+	// Validate stock
+	if req.Stock != nil && *req.Stock < 0 {
+		return fmt.Errorf("stock cannot be negative")
+	}
+	
+	// Validate weight
+	if req.Weight != nil && *req.Weight <= 0 {
+		return fmt.Errorf("weight must be greater than 0")
+	}
+	
+	// Validate dimensions
+	if req.Dimensions != nil {
+		if req.Dimensions.Length <= 0 {
+			return fmt.Errorf("dimension length must be greater than 0")
+		}
+		if req.Dimensions.Width <= 0 {
+			return fmt.Errorf("dimension width must be greater than 0")
+		}
+		if req.Dimensions.Height <= 0 {
+			return fmt.Errorf("dimension height must be greater than 0")
+		}
+	}
+	
+	// Validate images
+	if req.Images != nil {
+		if len(req.Images) > 10 { // Reasonable limit
+			return fmt.Errorf("cannot have more than 10 images per product")
+		}
+		for i, img := range req.Images {
+			if strings.TrimSpace(img.URL) == "" {
+				return fmt.Errorf("image URL cannot be empty at position %d", i+1)
+			}
+			if len(img.URL) > 500 {
+				return fmt.Errorf("image URL too long at position %d", i+1)
+			}
+			if len(img.AltText) > 255 {
+				return fmt.Errorf("image alt text too long at position %d", i+1)
+			}
+		}
+	}
+	
+	// Validate tags
+	if req.Tags != nil {
+		if len(req.Tags) > 20 { // Reasonable limit
+			return fmt.Errorf("cannot have more than 20 tags per product")
+		}
+		for i, tag := range req.Tags {
+			if len(strings.TrimSpace(tag)) == 0 {
+				continue // Skip empty tags, they'll be filtered out
+			}
+			if len(tag) > 50 {
+				return fmt.Errorf("tag too long at position %d (max 50 characters)", i+1)
+			}
+		}
+	}
+	
+	// Validate that at least one field is being updated
+	if req.Name == nil && req.Description == nil && req.Price == nil && 
+	   req.ComparePrice == nil && req.CostPrice == nil && req.Stock == nil &&
+	   req.Weight == nil && req.CategoryID == nil && req.Status == nil &&
+	   req.IsDigital == nil && req.Dimensions == nil && req.Images == nil &&
+	   req.Tags == nil {
+		return fmt.Errorf("at least one field must be provided for update")
+	}
+	
+	return nil
+}
+
+// validatePatchProductRequest validates the patch product request
+func (h *ProductHandler) validatePatchProductRequest(req *usecases.PatchProductRequest) error {
+	// Validate name if provided
+	if req.Name != nil {
+		if len(strings.TrimSpace(*req.Name)) == 0 {
+			return fmt.Errorf("name cannot be empty")
+		}
+		if len(*req.Name) > 255 {
+			return fmt.Errorf("name cannot exceed 255 characters")
+		}
+	}
+	
+	// Validate description if provided
+	if req.Description != nil && len(*req.Description) > 2000 {
+		return fmt.Errorf("description cannot exceed 2000 characters")
+	}
+	
+	// Validate price fields if provided
+	if req.Price != nil && *req.Price <= 0 {
+		return fmt.Errorf("price must be greater than 0")
+	}
+	if req.ComparePrice != nil && *req.ComparePrice <= 0 {
+		return fmt.Errorf("compare price must be greater than 0")
+	}
+	if req.CostPrice != nil && *req.CostPrice < 0 {
+		return fmt.Errorf("cost price cannot be negative")
+	}
+	
+	// Validate stock if provided
+	if req.Stock != nil && *req.Stock < 0 {
+		return fmt.Errorf("stock cannot be negative")
+	}
+	
+	// Validate weight if provided
+	if req.Weight != nil && *req.Weight <= 0 {
+		return fmt.Errorf("weight must be greater than 0")
+	}
+	
+	// Validate dimensions if provided
+	if req.Dimensions != nil {
+		if req.Dimensions.Length <= 0 {
+			return fmt.Errorf("dimension length must be greater than 0")
+		}
+		if req.Dimensions.Width <= 0 {
+			return fmt.Errorf("dimension width must be greater than 0")
+		}
+		if req.Dimensions.Height <= 0 {
+			return fmt.Errorf("dimension height must be greater than 0")
+		}
+	}
+	
+	// Validate images if provided
+	if req.Images != nil {
+		if len(*req.Images) > 10 { // Reasonable limit
+			return fmt.Errorf("cannot have more than 10 images per product")
+		}
+		for i, img := range *req.Images {
+			if strings.TrimSpace(img.URL) == "" {
+				return fmt.Errorf("image URL cannot be empty at position %d", i+1)
+			}
+			if len(img.URL) > 500 {
+				return fmt.Errorf("image URL too long at position %d", i+1)
+			}
+			if len(img.AltText) > 255 {
+				return fmt.Errorf("image alt text too long at position %d", i+1)
+			}
+		}
+	}
+	
+	// Validate tags if provided
+	if req.Tags != nil {
+		if len(*req.Tags) > 20 { // Reasonable limit
+			return fmt.Errorf("cannot have more than 20 tags per product")
+		}
+		for i, tag := range *req.Tags {
+			if len(strings.TrimSpace(tag)) == 0 {
+				continue // Skip empty tags, they'll be filtered out
+			}
+			if len(tag) > 50 {
+				return fmt.Errorf("tag too long at position %d (max 50 characters)", i+1)
+			}
+		}
+	}
+	
+	// For PATCH, we don't require at least one field (unlike PUT)
+	// This allows for edge cases where user might want to trigger validation only
+	
+	return nil
+}
+

@@ -45,8 +45,8 @@ type Order struct {
 	DiscountAmount  float64         `json:"discount_amount" gorm:"default:0"`
 	Total           float64         `json:"total" gorm:"not null"`
 	Currency        string          `json:"currency" gorm:"default:'USD'"`
-	ShippingAddress *Address        `json:"shipping_address" gorm:"embedded;embeddedPrefix:shipping_"`
-	BillingAddress  *Address        `json:"billing_address" gorm:"embedded;embeddedPrefix:billing_"`
+	ShippingAddress *OrderAddress   `json:"shipping_address" gorm:"embedded;embeddedPrefix:shipping_"`
+	BillingAddress  *OrderAddress   `json:"billing_address" gorm:"embedded;embeddedPrefix:billing_"`
 	Notes           string          `json:"notes" gorm:"type:text"`
 	Payment         *Payment        `json:"payment" gorm:"foreignKey:OrderID"`
 	CreatedAt       time.Time       `json:"created_at" gorm:"autoCreateTime"`
@@ -77,8 +77,8 @@ func (OrderItem) TableName() string {
 	return "order_items"
 }
 
-// Address represents an address
-type Address struct {
+// OrderAddress represents an address for orders
+type OrderAddress struct {
 	FirstName string `json:"first_name" validate:"required"`
 	LastName  string `json:"last_name" validate:"required"`
 	Company   string `json:"company"`
@@ -92,12 +92,12 @@ type Address struct {
 }
 
 // GetFullName returns the full name from the address
-func (a *Address) GetFullName() string {
+func (a *OrderAddress) GetFullName() string {
 	return a.FirstName + " " + a.LastName
 }
 
 // GetFullAddress returns the formatted full address
-func (a *Address) GetFullAddress() string {
+func (a *OrderAddress) GetFullAddress() string {
 	address := a.Address1
 	if a.Address2 != "" {
 		address += ", " + a.Address2

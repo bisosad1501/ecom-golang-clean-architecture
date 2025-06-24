@@ -60,17 +60,78 @@ func AutoMigrate(db *gorm.DB) error {
 	log.Println("Running database migrations...")
 
 	err := db.AutoMigrate(
+		// Core entities
 		&entities.User{},
 		&entities.UserProfile{},
 		&entities.Category{},
 		&entities.Product{},
 		&entities.ProductImage{},
 		&entities.ProductTag{},
+		// &entities.ProductProductTag{}, // Remove custom join table, let GORM handle it
 		&entities.Cart{},
 		&entities.CartItem{},
 		&entities.Order{},
 		&entities.OrderItem{},
 		&entities.Payment{},
+
+		// User management
+		&entities.Address{},
+		&entities.Wishlist{},
+		&entities.UserPreference{},
+		&entities.AccountVerification{},
+		&entities.PasswordReset{},
+
+		// Reviews & Ratings
+		&entities.Review{},
+		&entities.ReviewImage{},
+		&entities.ReviewVote{},
+		&entities.ProductRating{},
+
+		// Coupons & Promotions
+		&entities.Coupon{},
+		&entities.CouponUsage{},
+		&entities.Promotion{},
+		&entities.LoyaltyProgram{},
+		&entities.UserLoyaltyPoints{},
+
+		// Inventory Management
+		&entities.Inventory{},
+		&entities.InventoryMovement{},
+		&entities.Warehouse{},
+		&entities.StockAlert{},
+		&entities.Supplier{},
+
+		// Shipping & Delivery
+		&entities.ShippingMethod{},
+		&entities.ShippingZone{},
+		&entities.ShippingRate{},
+		&entities.Shipment{},
+		&entities.ShipmentTracking{},
+		&entities.Return{},
+		&entities.ReturnItem{},
+
+		// Notifications
+		&entities.Notification{},
+		&entities.NotificationTemplate{},
+		&entities.NotificationPreference{},
+		&entities.NotificationQueue{},
+
+		// Analytics
+		&entities.AnalyticsEvent{},
+		&entities.SalesReport{},
+		&entities.ProductAnalytics{},
+		&entities.UserAnalytics{},
+		&entities.CategoryAnalytics{},
+		&entities.SearchAnalytics{},
+
+		// Customer Support
+		&entities.SupportTicket{},
+		&entities.TicketMessage{},
+		&entities.TicketAttachment{},
+		&entities.FAQ{},
+		&entities.KnowledgeBase{},
+		&entities.LiveChatSession{},
+		&entities.ChatMessage{},
 	)
 
 	if err != nil {

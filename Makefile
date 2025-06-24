@@ -44,6 +44,11 @@ clean:
 	@rm -rf $(BUILD_DIR)
 	@rm -f coverage.out coverage.html
 
+# Seed admin user
+setup-users:
+	@echo "Setting up admin, moderator, and customer users..."
+	@./scripts/setup_users.sh
+
 # Database migrations
 migrate-up:
 	@echo "Running database migrations..."
@@ -106,6 +111,7 @@ help:
 	@echo "  test-coverage  - Run tests with coverage"
 	@echo "  test-integration - Run integration tests"
 	@echo "  clean          - Clean build artifacts"
+	@echo "  setup-users    - Create admin, moderator, customer test accounts"
 	@echo "  migrate-up     - Run database migrations"
 	@echo "  migrate-down   - Rollback database migrations"
 	@echo "  docker-build   - Build Docker image"

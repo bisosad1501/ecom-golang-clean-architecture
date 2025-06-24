@@ -110,7 +110,8 @@ func SetupRoutes(
 			adminProducts := admin.Group("/products")
 			{
 				adminProducts.POST("", productHandler.CreateProduct)
-				adminProducts.PUT("/:id", productHandler.UpdateProduct)
+				adminProducts.PUT("/:id", productHandler.UpdateProduct)        // Complete replacement
+				adminProducts.PATCH("/:id", productHandler.PatchProduct)       // Partial update
 				adminProducts.DELETE("/:id", productHandler.DeleteProduct)
 				adminProducts.PUT("/:id/stock", productHandler.UpdateStock)
 			}
@@ -140,7 +141,8 @@ func SetupRoutes(
 			modProducts := moderator.Group("/products")
 			{
 				modProducts.POST("", productHandler.CreateProduct)
-				modProducts.PUT("/:id", productHandler.UpdateProduct)
+				modProducts.PUT("/:id", productHandler.UpdateProduct)          // Complete replacement
+				modProducts.PATCH("/:id", productHandler.PatchProduct)         // Partial update  
 				modProducts.PUT("/:id/stock", productHandler.UpdateStock)
 			}
 		}

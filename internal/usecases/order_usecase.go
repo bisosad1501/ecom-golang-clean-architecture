@@ -96,8 +96,8 @@ type OrderResponse struct {
 	DiscountAmount  float64                 `json:"discount_amount"`
 	Total           float64                 `json:"total"`
 	Currency        string                  `json:"currency"`
-	ShippingAddress *AddressResponse        `json:"shipping_address"`
-	BillingAddress  *AddressResponse        `json:"billing_address"`
+	ShippingAddress *OrderAddressResponse   `json:"shipping_address"`
+	BillingAddress  *OrderAddressResponse   `json:"billing_address"`
 	Notes           string                  `json:"notes"`
 	Payment         *PaymentResponse        `json:"payment"`
 	ItemCount       int                     `json:"item_count"`
@@ -118,8 +118,8 @@ type OrderItemResponse struct {
 	Total       float64          `json:"total"`
 }
 
-// AddressResponse represents address response
-type AddressResponse struct {
+// OrderAddressResponse represents order address response
+type OrderAddressResponse struct {
 	FirstName string `json:"first_name"`
 	LastName  string `json:"last_name"`
 	Company   string `json:"company"`
@@ -203,7 +203,7 @@ func (uc *orderUseCase) CreateOrder(ctx context.Context, userID uuid.UUID, req C
 	}
 
 	// Set addresses
-	order.ShippingAddress = &entities.Address{
+	order.ShippingAddress = &entities.OrderAddress{
 		FirstName: req.ShippingAddress.FirstName,
 		LastName:  req.ShippingAddress.LastName,
 		Company:   req.ShippingAddress.Company,
@@ -217,7 +217,7 @@ func (uc *orderUseCase) CreateOrder(ctx context.Context, userID uuid.UUID, req C
 	}
 
 	if req.BillingAddress != nil {
-		order.BillingAddress = &entities.Address{
+		order.BillingAddress = &entities.OrderAddress{
 			FirstName: req.BillingAddress.FirstName,
 			LastName:  req.BillingAddress.LastName,
 			Company:   req.BillingAddress.Company,
@@ -412,7 +412,7 @@ func (uc *orderUseCase) toOrderResponse(order *entities.Order) *OrderResponse {
 
 	// Convert addresses
 	if order.ShippingAddress != nil {
-		response.ShippingAddress = &AddressResponse{
+		response.ShippingAddress = &OrderAddressResponse{
 			FirstName: order.ShippingAddress.FirstName,
 			LastName:  order.ShippingAddress.LastName,
 			Company:   order.ShippingAddress.Company,
@@ -427,7 +427,7 @@ func (uc *orderUseCase) toOrderResponse(order *entities.Order) *OrderResponse {
 	}
 
 	if order.BillingAddress != nil {
-		response.BillingAddress = &AddressResponse{
+		response.BillingAddress = &OrderAddressResponse{
 			FirstName: order.BillingAddress.FirstName,
 			LastName:  order.BillingAddress.LastName,
 			Company:   order.BillingAddress.Company,
