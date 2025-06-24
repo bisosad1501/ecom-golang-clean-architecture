@@ -252,7 +252,7 @@ func (h *UserHandler) GetUsers(c *gin.Context) {
 	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "10"))
 	offset, _ := strconv.Atoi(c.DefaultQuery("offset", "0"))
 
-	users, err := h.userUseCase.GetUsers(c.Request.Context(), limit, offset)
+	usersResponse, err := h.userUseCase.GetUsers(c.Request.Context(), limit, offset)
 	if err != nil {
 		c.JSON(getErrorStatusCode(err), ErrorResponse{
 			Error: err.Error(),
@@ -260,8 +260,20 @@ func (h *UserHandler) GetUsers(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusOK, SuccessResponse{
-		Data: users,
+	// Calculate pagination
+	page := (offset / limit) + 1
+	totalPages := int((usersResponse.Total + int64(limit) - 1) / int64(limit))
+
+	c.JSON(http.StatusOK, PaginatedResponse{
+		Data: usersResponse.Users,
+		Pagination: Pagination{
+			Page:       page,
+			Limit:      limit,
+			Total:      usersResponse.Total,
+			TotalPages: totalPages,
+			HasNext:    page < totalPages,
+			HasPrev:    page > 1,
+		},
 	})
 }
 

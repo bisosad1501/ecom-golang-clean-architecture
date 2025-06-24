@@ -18,7 +18,7 @@ type UserUseCase interface {
 	GetProfile(ctx context.Context, userID uuid.UUID) (*UserResponse, error)
 	UpdateProfile(ctx context.Context, userID uuid.UUID, req UpdateProfileRequest) (*UserResponse, error)
 	ChangePassword(ctx context.Context, userID uuid.UUID, req ChangePasswordRequest) error
-	GetUsers(ctx context.Context, limit, offset int) ([]*UserResponse, error)
+	GetUsers(ctx context.Context, limit, offset int) (*UsersListResponse, error)
 	DeactivateUser(ctx context.Context, userID uuid.UUID) error
 	ActivateUser(ctx context.Context, userID uuid.UUID) error
 }
@@ -85,6 +85,12 @@ type UserResponse struct {
 	Profile   *UserProfileResponse `json:"profile,omitempty"`
 	CreatedAt time.Time           `json:"created_at"`
 	UpdatedAt time.Time           `json:"updated_at"`
+}
+
+// UsersListResponse represents paginated users response
+type UsersListResponse struct {
+	Users []*UserResponse `json:"users"`
+	Total int64           `json:"total"`
 }
 
 // UserProfileResponse represents user profile response
@@ -239,7 +245,7 @@ func (uc *userUseCase) ChangePassword(ctx context.Context, userID uuid.UUID, req
 }
 
 // GetUsers gets list of users
-func (uc *userUseCase) GetUsers(ctx context.Context, limit, offset int) ([]*UserResponse, error) {
+func (uc *userUseCase) GetUsers(ctx context.Context, limit, offset int) (*UsersListResponse, error) {
 	users, err := uc.userRepo.List(ctx, limit, offset)
 	if err != nil {
 		return nil, err
@@ -250,7 +256,15 @@ func (uc *userUseCase) GetUsers(ctx context.Context, limit, offset int) ([]*User
 		responses[i] = uc.toUserResponse(user)
 	}
 
-	return responses, nil
+	total, err := uc.userRepo.Count(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	return &UsersListResponse{
+		Users: responses,
+		Total: total,
+	}, nil
 }
 
 // DeactivateUser deactivates a user

@@ -22,12 +22,16 @@ class ApiClient {
     this.client.interceptors.request.use(
       (config) => {
         const token = this.getToken()
+        console.log('API Client - Request URL:', config.url)
+        console.log('API Client - Token found:', token ? 'Yes' : 'No')
         if (token) {
           config.headers.Authorization = `Bearer ${token}`
+          console.log('API Client - Authorization header set')
         }
         return config
       },
       (error) => {
+        console.error('API Client - Request error:', error)
         return Promise.reject(error)
       }
     )
@@ -35,9 +39,12 @@ class ApiClient {
     // Response interceptor to handle errors
     this.client.interceptors.response.use(
       (response: AxiosResponse) => {
+        console.log('API Client - Response status:', response.status)
+        console.log('API Client - Response data:', response.data)
         return response
       },
       (error) => {
+        console.error('API Client - Response error:', error)
         const apiError = this.handleError(error)
         return Promise.reject(apiError)
       }

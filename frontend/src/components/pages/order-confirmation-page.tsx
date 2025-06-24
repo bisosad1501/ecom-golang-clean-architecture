@@ -65,24 +65,36 @@ export function OrderConfirmationPage() {
   }, [order.id])
 
   return (
-    <div className="min-h-screen bg-gray-50 py-12">
+    <div className="min-h-screen bg-gradient-to-br from-emerald-50 via-background to-green-50 py-16">
       <div className="container mx-auto px-4">
-        <div className="max-w-3xl mx-auto">
+        <div className="max-w-4xl mx-auto">
           {/* Success Header */}
-          <div className="text-center mb-8">
-            <div className="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-6">
-              <CheckCircle className="h-12 w-12 text-green-600" />
+          <div className="text-center mb-16">
+            {/* Success Animation */}
+            <div className="relative mb-8">
+              <div className="w-32 h-32 bg-gradient-to-br from-emerald-500 to-green-600 rounded-full flex items-center justify-center mx-auto shadow-2xl animate-bounce-slow">
+                <CheckCircle className="h-20 w-20 text-white" />
+              </div>
+              <div className="absolute inset-0 w-32 h-32 bg-emerald-400/30 rounded-full mx-auto animate-ping"></div>
             </div>
-            <h1 className="text-3xl font-bold text-gray-900 mb-2">
-              Order Confirmed!
+
+            <h1 className="text-5xl lg:text-6xl font-bold text-foreground mb-6">
+              Order <span className="text-gradient bg-gradient-to-r from-emerald-600 to-green-600 bg-clip-text text-transparent">Confirmed!</span>
             </h1>
-            <p className="text-lg text-gray-600 mb-4">
-              Thank you for your purchase. Your order has been received and is being processed.
+            <p className="text-2xl text-muted-foreground mb-8 leading-relaxed">
+              Thank you for your purchase! Your order has been received and is being processed with care.
             </p>
-            <div className="flex items-center justify-center space-x-4 text-sm text-gray-500">
-              <span>Order #{order.number}</span>
-              <span>•</span>
-              <span>{order.date}</span>
+
+            {/* Order Info */}
+            <div className="flex flex-col sm:flex-row items-center justify-center gap-6 text-lg">
+              <div className="flex items-center gap-2">
+                <Package className="h-5 w-5 text-primary" />
+                <span className="font-semibold">Order #{order.number}</span>
+              </div>
+              <div className="hidden sm:block w-2 h-2 bg-muted-foreground rounded-full"></div>
+              <div className="flex items-center gap-2">
+                <span className="text-muted-foreground">{order.date}</span>
+              </div>
             </div>
           </div>
 

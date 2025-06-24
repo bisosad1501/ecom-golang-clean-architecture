@@ -101,7 +101,24 @@ export function useRequireAuth(redirectTo?: string) {
 }
 
 export function useRequireAdmin(redirectTo?: string) {
-  return useAuthGuard({ requireAdmin: true, redirectTo })
+  const { user, isAuthenticated, isLoading, isHydrated } = useAuthStore()
+  const router = useRouter()
+  const pathname = usePathname()
+  
+  console.log('useRequireAdmin debug:', {
+    user: !!user,
+    userRole: user?.role,
+    isAuthenticated,
+    isLoading,
+    isHydrated,
+    pathname,
+    canAccess: user ? canAccessRoute(user.role, pathname) : false
+  })
+  
+  const result = useAuthGuard({ requireAdmin: true, redirectTo })
+  console.log('useRequireAdmin result:', result)
+  
+  return result
 }
 
 export function useRequireRole(roles: string[], redirectTo?: string) {

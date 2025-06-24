@@ -3,18 +3,18 @@ import { cva, type VariantProps } from 'class-variance-authority'
 import { cn } from '@/lib/utils'
 
 const inputVariants = cva(
-  'flex w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50',
+  'flex w-full rounded-xl border bg-background px-4 py-3 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-1 disabled:cursor-not-allowed disabled:opacity-50 transition-all duration-200 shadow-sm hover:shadow-medium',
   {
     variants: {
       variant: {
-        default: 'border-input focus-visible:ring-ring',
-        error: 'border-destructive focus-visible:ring-destructive',
-        success: 'border-success focus-visible:ring-success',
+        default: 'border-border focus-visible:ring-primary/30 focus-visible:border-primary',
+        error: 'border-destructive focus-visible:ring-destructive/30 focus-visible:border-destructive',
+        success: 'border-success focus-visible:ring-success/30 focus-visible:border-success',
       },
       size: {
-        default: 'h-10 px-3 py-2',
-        sm: 'h-9 px-3 py-2 text-sm',
-        lg: 'h-11 px-4 py-3',
+        default: 'h-12 px-4 py-3',
+        sm: 'h-10 px-3 py-2 text-sm rounded-lg',
+        lg: 'h-14 px-5 py-4 text-base',
       },
     },
     defaultVariants: {
@@ -60,15 +60,15 @@ const Input = React.forwardRef<HTMLInputElement, InputProps>(
         {label && (
           <label
             htmlFor={inputId}
-            className="mb-2 block text-sm font-medium text-gray-900"
+            className="mb-3 block text-sm font-semibold text-foreground"
           >
             {label}
-            {props.required && <span className="ml-1 text-red-500">*</span>}
+            {props.required && <span className="ml-1 text-destructive">*</span>}
           </label>
         )}
         <div className="relative">
           {leftIcon && (
-            <div className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">
+            <div className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground">
               {leftIcon}
             </div>
           )}
@@ -76,8 +76,8 @@ const Input = React.forwardRef<HTMLInputElement, InputProps>(
             type={type}
             className={cn(
               inputVariants({ variant: finalVariant, size }),
-              leftIcon && 'pl-10',
-              rightIcon && 'pr-10',
+              leftIcon && 'pl-12',
+              rightIcon && 'pr-12',
               className
             )}
             ref={ref}
@@ -85,7 +85,7 @@ const Input = React.forwardRef<HTMLInputElement, InputProps>(
             {...props}
           />
           {rightIcon && (
-            <div className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400">
+            <div className="absolute right-4 top-1/2 -translate-y-1/2 text-muted-foreground">
               {rightIcon}
             </div>
           )}
@@ -93,8 +93,8 @@ const Input = React.forwardRef<HTMLInputElement, InputProps>(
         {(error || helperText) && (
           <p
             className={cn(
-              'mt-2 text-sm',
-              hasError ? 'text-red-600' : 'text-gray-600'
+              'mt-2 text-sm font-medium',
+              hasError ? 'text-destructive' : 'text-muted-foreground'
             )}
           >
             {error || helperText}

@@ -76,22 +76,65 @@ export function CartPage() {
 
   if (!cart || cart.items.length === 0) {
     return (
-      <div className="min-h-screen bg-gray-50 py-12">
+      <div className="min-h-screen bg-gradient-to-br from-background via-muted/20 to-background py-16">
         <div className="container mx-auto px-4">
           <div className="max-w-2xl mx-auto text-center">
-            <ShoppingBag className="h-24 w-24 text-gray-300 mx-auto mb-6" />
-            <h1 className="text-3xl font-bold text-gray-900 mb-4">
-              Your cart is empty
+            {/* Empty cart illustration */}
+            <div className="relative mb-8">
+              <div className="w-32 h-32 mx-auto rounded-full bg-gradient-to-br from-muted to-muted/50 flex items-center justify-center shadow-large">
+                <ShoppingBag className="h-16 w-16 text-muted-foreground" />
+              </div>
+              <div className="absolute -top-2 -right-2 w-8 h-8 bg-gradient-to-br from-primary to-violet-600 rounded-full flex items-center justify-center shadow-medium">
+                <span className="text-white text-sm font-bold">0</span>
+              </div>
+            </div>
+
+            <h1 className="text-4xl lg:text-5xl font-bold text-foreground mb-6">
+              Your cart is <span className="text-gradient">empty</span>
             </h1>
-            <p className="text-gray-600 mb-8">
-              Looks like you haven't added any items to your cart yet.
+            <p className="text-xl text-muted-foreground mb-12 leading-relaxed">
+              Discover amazing products and start building your perfect collection.
             </p>
-            <Button size="lg" asChild>
-              <Link href="/products">
-                <ArrowLeft className="mr-2 h-5 w-5" />
-                Continue Shopping
-              </Link>
-            </Button>
+
+            {/* Action buttons */}
+            <div className="flex flex-col sm:flex-row gap-4 justify-center">
+              <Button size="xl" variant="gradient" asChild>
+                <Link href="/products">
+                  <ArrowLeft className="mr-2 h-5 w-5" />
+                  Start Shopping
+                </Link>
+              </Button>
+              <Button size="xl" variant="outline" asChild>
+                <Link href="/">
+                  Browse Categories
+                </Link>
+              </Button>
+            </div>
+
+            {/* Features */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mt-16">
+              <div className="text-center">
+                <div className="w-12 h-12 rounded-2xl bg-emerald-100 flex items-center justify-center mx-auto mb-3">
+                  <span className="text-emerald-600 text-lg">🚚</span>
+                </div>
+                <h3 className="font-semibold text-foreground mb-1">Free Shipping</h3>
+                <p className="text-sm text-muted-foreground">On orders over $50</p>
+              </div>
+              <div className="text-center">
+                <div className="w-12 h-12 rounded-2xl bg-blue-100 flex items-center justify-center mx-auto mb-3">
+                  <span className="text-blue-600 text-lg">🔒</span>
+                </div>
+                <h3 className="font-semibold text-foreground mb-1">Secure Payment</h3>
+                <p className="text-sm text-muted-foreground">100% secure checkout</p>
+              </div>
+              <div className="text-center">
+                <div className="w-12 h-12 rounded-2xl bg-purple-100 flex items-center justify-center mx-auto mb-3">
+                  <span className="text-purple-600 text-lg">↩️</span>
+                </div>
+                <h3 className="font-semibold text-foreground mb-1">Easy Returns</h3>
+                <p className="text-sm text-muted-foreground">30-day return policy</p>
+              </div>
+            </div>
           </div>
         </div>
       </div>
@@ -99,139 +142,169 @@ export function CartPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 py-8">
+    <div className="min-h-screen bg-gradient-to-br from-background via-muted/20 to-background py-12">
       <div className="container mx-auto px-4">
-        {/* Header */}
-        <div className="mb-8">
-          <div className="flex items-center justify-between">
-            <h1 className="text-3xl font-bold text-gray-900">
-              Shopping Cart ({cartItemCount} items)
-            </h1>
-            <Button
-              variant="outline"
-              onClick={handleClearCart}
-              disabled={isLoading}
-            >
-              Clear Cart
-            </Button>
+        {/* Enhanced Header */}
+        <div className="mb-12">
+          <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-6">
+            <div>
+              <div className="flex items-center gap-3 mb-4">
+                <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-primary-500 to-violet-600 flex items-center justify-center shadow-large">
+                  <ShoppingBag className="h-6 w-6 text-white" />
+                </div>
+                <span className="text-primary font-semibold">SHOPPING CART</span>
+              </div>
+
+              <h1 className="text-4xl lg:text-5xl font-bold text-foreground mb-4">
+                Your <span className="text-gradient">Shopping Cart</span>
+              </h1>
+              <p className="text-xl text-muted-foreground">
+                {cartItemCount} {cartItemCount === 1 ? 'item' : 'items'} ready for checkout
+              </p>
+            </div>
+
+            <div className="flex flex-col sm:flex-row gap-4">
+              <Button
+                variant="outline"
+                size="lg"
+                onClick={handleClearCart}
+                disabled={isLoading}
+                className="border-2 hover:border-destructive hover:text-destructive transition-all duration-200"
+              >
+                <Trash2 className="mr-2 h-5 w-5" />
+                Clear Cart
+              </Button>
+
+              <Button variant="ghost" size="lg" asChild>
+                <Link href="/products" className="flex items-center">
+                  <ArrowLeft className="mr-2 h-5 w-5" />
+                  Continue Shopping
+                </Link>
+              </Button>
+            </div>
           </div>
-          <Link 
-            href="/products" 
-            className="inline-flex items-center text-primary-600 hover:text-primary-700 mt-2"
-          >
-            <ArrowLeft className="mr-1 h-4 w-4" />
-            Continue Shopping
-          </Link>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-12">
           {/* Cart Items */}
-          <div className="lg:col-span-2">
-            <Card>
-              <CardHeader>
-                <CardTitle>Cart Items</CardTitle>
-              </CardHeader>
-              <CardContent className="p-0">
-                <div className="divide-y">
-                  {cart.items.map((item) => (
-                    <div key={item.id} className="p-6">
-                      <div className="flex items-center space-x-4">
-                        {/* Product Image */}
-                        <div className="relative h-20 w-20 flex-shrink-0 overflow-hidden rounded-md border">
-                          <Image
-                            src={item.product.images?.[0]?.url || '/placeholder-product.jpg'}
-                            alt={item.product.name}
-                            fill
-                            className="object-cover"
-                          />
-                        </div>
+          <div className="lg:col-span-2 space-y-6">
+            {cart.items.map((item) => (
+              <Card key={item.id} variant="elevated" className="border-0 shadow-large hover:shadow-xl transition-all duration-300">
+                <CardContent className="p-8">
+                  <div className="flex flex-col sm:flex-row gap-6">
+                    {/* Product Image */}
+                    <div className="relative h-32 w-32 flex-shrink-0 overflow-hidden rounded-2xl border-2 border-border shadow-medium">
+                      <Image
+                        src={item.product.images?.[0]?.url || '/placeholder-product.jpg'}
+                        alt={item.product.name}
+                        fill
+                        className="object-cover transition-transform duration-300 hover:scale-105"
+                      />
+                    </div>
 
-                        {/* Product Details */}
-                        <div className="flex-1 min-w-0">
-                          <h3 className="text-lg font-medium text-gray-900">
-                            <Link 
+                    {/* Product Details */}
+                    <div className="flex-1 min-w-0">
+                      <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
+                        <div className="flex-1">
+                          <h3 className="text-xl font-bold text-foreground mb-2">
+                            <Link
                               href={`/products/${item.product.id}`}
-                              className="hover:text-primary-600"
+                              className="hover:text-primary transition-colors"
                             >
                               {item.product.name}
                             </Link>
                           </h3>
-                          <p className="text-sm text-gray-500 mt-1">
+                          <p className="text-sm text-muted-foreground mb-3">
                             SKU: {item.product.sku}
                           </p>
-                          <p className="text-lg font-semibold text-gray-900 mt-2">
-                            {formatPrice(item.unit_price)}
-                          </p>
+                          <div className="flex items-center gap-4">
+                            <p className="text-2xl font-bold text-primary">
+                              {formatPrice(item.unit_price)}
+                            </p>
+                            <p className="text-lg font-semibold text-foreground">
+                              Total: {formatPrice(item.unit_price * item.quantity)}
+                            </p>
+                          </div>
                         </div>
 
-                        {/* Quantity Controls */}
-                        <div className="flex items-center space-x-3">
-                          <Button
-                            variant="outline"
-                            size="icon"
-                            onClick={() => handleUpdateQuantity(item.id, item.quantity - 1)}
-                            disabled={isLoading || item.quantity <= 1}
-                          >
-                            <Minus className="h-4 w-4" />
-                          </Button>
-                          
-                          <span className="text-lg font-medium w-12 text-center">
-                            {item.quantity}
-                          </span>
-                          
-                          <Button
-                            variant="outline"
-                            size="icon"
-                            onClick={() => handleUpdateQuantity(item.id, item.quantity + 1)}
-                            disabled={isLoading}
-                          >
-                            <Plus className="h-4 w-4" />
-                          </Button>
-                        </div>
+                        {/* Quantity & Actions */}
+                        <div className="flex flex-col gap-4">
+                          {/* Quantity Controls */}
+                          <div className="flex items-center gap-3">
+                            <span className="text-sm font-medium text-muted-foreground">Qty:</span>
+                            <div className="flex items-center bg-muted rounded-xl p-1">
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => handleUpdateQuantity(item.id, item.quantity - 1)}
+                                disabled={isLoading || item.quantity <= 1}
+                                className="h-8 w-8 rounded-lg hover:bg-background"
+                              >
+                                <Minus className="h-4 w-4" />
+                              </Button>
 
-                        {/* Total Price */}
-                        <div className="text-right">
-                          <p className="text-lg font-semibold text-gray-900">
-                            {formatPrice(item.total_price)}
-                          </p>
+                              <span className="text-lg font-bold w-12 text-center">
+                                {item.quantity}
+                              </span>
+
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => handleUpdateQuantity(item.id, item.quantity + 1)}
+                                disabled={isLoading}
+                                className="h-8 w-8 rounded-lg hover:bg-background"
+                              >
+                                <Plus className="h-4 w-4" />
+                              </Button>
+                            </div>
+                          </div>
+
+                          {/* Remove Button */}
                           <Button
-                            variant="ghost"
+                            variant="outline"
                             size="sm"
                             onClick={() => handleRemoveItem(item.id)}
                             disabled={isLoading}
-                            className="text-red-600 hover:text-red-700 mt-2"
+                            className="border-destructive/30 text-destructive hover:bg-destructive hover:text-destructive-foreground transition-all duration-200"
                           >
-                            <Trash2 className="h-4 w-4 mr-1" />
+                            <Trash2 className="h-4 w-4 mr-2" />
                             Remove
                           </Button>
                         </div>
                       </div>
                     </div>
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
           </div>
 
-          {/* Order Summary */}
+          {/* Enhanced Order Summary */}
           <div className="lg:col-span-1">
-            <div className="sticky top-8 space-y-6">
+            <div className="sticky top-8 space-y-8">
               {/* Coupon Code */}
-              <Card>
-                <CardHeader>
-                  <CardTitle>Coupon Code</CardTitle>
+              <Card variant="elevated" className="border-0 shadow-large">
+                <CardHeader className="pb-4">
+                  <CardTitle className="flex items-center gap-2">
+                    <span className="text-lg">🎫</span>
+                    Promo Code
+                  </CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <div className="flex space-x-2">
+                  <div className="flex gap-3">
                     <Input
-                      placeholder="Enter coupon code"
+                      placeholder="Enter promo code"
                       value={couponCode}
                       onChange={(e) => setCouponCode(e.target.value)}
+                      size="lg"
+                      className="flex-1"
                     />
                     <Button
                       onClick={handleApplyCoupon}
                       disabled={!couponCode.trim() || isApplyingCoupon}
                       isLoading={isApplyingCoupon}
+                      size="lg"
+                      variant="outline"
                     >
                       Apply
                     </Button>
@@ -240,72 +313,98 @@ export function CartPage() {
               </Card>
 
               {/* Order Summary */}
-              <Card>
-                <CardHeader>
-                  <CardTitle>Order Summary</CardTitle>
+              <Card variant="elevated" className="border-0 shadow-large">
+                <CardHeader className="pb-6">
+                  <CardTitle className="text-xl">Order Summary</CardTitle>
                 </CardHeader>
-                <CardContent className="space-y-4">
-                  <div className="flex justify-between">
-                    <span>Subtotal</span>
-                    <span>{formatPrice(cartTotal)}</span>
+                <CardContent className="space-y-6">
+                  <div className="space-y-4">
+                    <div className="flex justify-between text-lg">
+                      <span className="text-muted-foreground">Subtotal</span>
+                      <span className="font-semibold">{formatPrice(cartTotal)}</span>
+                    </div>
+
+                    <div className="flex justify-between text-lg">
+                      <span className="text-muted-foreground">Shipping</span>
+                      <span className="font-semibold">
+                        {shippingCost === 0 ? (
+                          <span className="text-emerald-600 font-bold">Free</span>
+                        ) : (
+                          formatPrice(shippingCost)
+                        )}
+                      </span>
+                    </div>
+
+                    <div className="flex justify-between text-lg">
+                      <span className="text-muted-foreground">Tax</span>
+                      <span className="font-semibold">{formatPrice(tax)}</span>
+                    </div>
                   </div>
-                  
-                  <div className="flex justify-between">
-                    <span>Shipping</span>
-                    <span>
-                      {shippingCost === 0 ? (
-                        <span className="text-green-600">Free</span>
-                      ) : (
-                        formatPrice(shippingCost)
-                      )}
-                    </span>
-                  </div>
-                  
-                  <div className="flex justify-between">
-                    <span>Tax</span>
-                    <span>{formatPrice(tax)}</span>
-                  </div>
-                  
-                  <div className="border-t pt-4">
-                    <div className="flex justify-between text-lg font-semibold">
+
+                  <div className="border-t-2 border-border pt-6">
+                    <div className="flex justify-between text-2xl font-bold">
                       <span>Total</span>
-                      <span>{formatPrice(finalTotal)}</span>
+                      <span className="text-primary">{formatPrice(finalTotal)}</span>
                     </div>
                   </div>
 
                   {cartTotal < 50 && (
-                    <div className="bg-blue-50 border border-blue-200 rounded-md p-3">
-                      <p className="text-sm text-blue-800">
-                        Add {formatPrice(50 - cartTotal)} more to get free shipping!
-                      </p>
+                    <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border-2 border-blue-200 rounded-2xl p-4">
+                      <div className="flex items-center gap-3">
+                        <span className="text-2xl">🚚</span>
+                        <div>
+                          <p className="font-semibold text-blue-900">Almost there!</p>
+                          <p className="text-sm text-blue-700">
+                            Add {formatPrice(50 - cartTotal)} more for free shipping
+                          </p>
+                        </div>
+                      </div>
                     </div>
                   )}
 
-                  <Button size="lg" className="w-full" asChild>
-                    <Link href="/checkout">
-                      Proceed to Checkout
-                    </Link>
-                  </Button>
+                  <div className="space-y-4">
+                    <Button size="xl" variant="gradient" className="w-full" asChild>
+                      <Link href="/checkout">
+                        <span className="text-lg font-semibold">Proceed to Checkout</span>
+                      </Link>
+                    </Button>
 
-                  <div className="text-center">
-                    <Link 
-                      href="/products" 
-                      className="text-sm text-primary-600 hover:text-primary-700"
-                    >
-                      Continue Shopping
-                    </Link>
+                    <div className="text-center">
+                      <Link
+                        href="/products"
+                        className="text-sm text-primary hover:text-primary-600 transition-colors font-medium"
+                      >
+                        ← Continue Shopping
+                      </Link>
+                    </div>
                   </div>
                 </CardContent>
               </Card>
 
-              {/* Security Notice */}
-              <Card>
-                <CardContent className="p-4">
-                  <div className="flex items-center space-x-2 text-sm text-gray-600">
-                    <div className="w-4 h-4 bg-green-500 rounded-full flex items-center justify-center">
-                      <span className="text-white text-xs">✓</span>
+              {/* Trust Signals */}
+              <Card variant="elevated" className="border-0 shadow-medium">
+                <CardContent className="p-6">
+                  <div className="space-y-4">
+                    <div className="flex items-center gap-3">
+                      <div className="w-8 h-8 bg-emerald-100 rounded-full flex items-center justify-center">
+                        <span className="text-emerald-600 text-sm">🔒</span>
+                      </div>
+                      <span className="text-sm font-medium text-foreground">Secure SSL encryption</span>
                     </div>
-                    <span>Secure checkout with SSL encryption</span>
+
+                    <div className="flex items-center gap-3">
+                      <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
+                        <span className="text-blue-600 text-sm">💳</span>
+                      </div>
+                      <span className="text-sm font-medium text-foreground">Multiple payment options</span>
+                    </div>
+
+                    <div className="flex items-center gap-3">
+                      <div className="w-8 h-8 bg-purple-100 rounded-full flex items-center justify-center">
+                        <span className="text-purple-600 text-sm">↩️</span>
+                      </div>
+                      <span className="text-sm font-medium text-foreground">30-day return policy</span>
+                    </div>
                   </div>
                 </CardContent>
               </Card>

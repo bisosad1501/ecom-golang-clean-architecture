@@ -4,7 +4,7 @@ import { useEffect, useRef } from 'react'
 import { useAuthStore } from '@/store/auth'
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
-  const { setHydrated, token, user } = useAuthStore()
+  const { setHydrated, token, user, isAuthenticated } = useAuthStore()
   const hasHydrated = useRef(false)
 
   useEffect(() => {
@@ -12,16 +12,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     if (!hasHydrated.current) {
       hasHydrated.current = true
       setHydrated(true)
-      
-      if (process.env.NODE_ENV === 'development') {
-        console.log('Auth Provider: Hydration complete', { 
-          hasToken: !!token, 
-          hasUser: !!user,
-          userRole: user?.role 
-        })
-      }
     }
-  }, [setHydrated, token, user])
+  }, [setHydrated])
+
+  useEffect(() => {
+    // Log auth state changes for debugging
+    if (process.env.NODE_ENV === 'development') {
+      console.log('Auth Provider: Auth state changed', { 
+        hasToken: !!token, 
+        hasUser: !!user,
+        isAuthenticated,
+        userRole: user?.role 
+      })
+    }
+  }, [token, user, isAuthenticated])
 
   return <>{children}</>
 }

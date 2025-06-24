@@ -8,7 +8,8 @@ import {
   Users, 
   Package,
   Eye,
-  MoreHorizontal
+  MoreHorizontal,
+  Star
 } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -17,91 +18,71 @@ import { useAuthStore } from '@/store/auth'
 import { hasPermission, PERMISSIONS } from '@/lib/permissions'
 import { RequirePermission } from '@/components/auth/permission-guard'
 import { formatPrice } from '@/lib/utils'
+import { useAdminOrders } from '@/hooks/use-orders'
+import { useUsers } from '@/hooks/use-users'
+import { useProducts } from '@/hooks/use-products'
 
 export function AdminDashboard() {
-  const { user } = useAuthStore()
+  console.log('=== AdminDashboard COMPONENT RENDERING ===')
+  
+  const { user, isAuthenticated } = useAuthStore()
 
-  // Mock data - would come from API
+  console.log('AdminDashboard - Auth state:', { user: !!user, isAuthenticated, userRole: user?.role })
+
+  // Fetch real data from APIs
+  const { data: ordersData, isLoading: ordersLoading } = useAdminOrders({ limit: 4 })
+  const { data: usersData, isLoading: usersLoading, error: usersError } = useUsers({ limit: 100 })
+  const { data: productsData, isLoading: productsLoading } = useProducts({ limit: 100 })
+
+  // Debug logging
+  console.log('Debug - usersData:', usersData)
+  console.log('Debug - usersLoading:', usersLoading)
+  console.log('Debug - usersError:', usersError)
+  console.log('Debug - ordersData:', ordersData)
+  console.log('Debug - productsData:', productsData)
+
+  const recentOrders = ordersData?.data || []
+  const totalUsers = usersData?.pagination?.total || 0
+  const totalProducts = productsData?.pagination?.total || 0
+  const totalOrders = ordersData?.pagination?.total || 0
+
+  // Calculate revenue from orders
+  const totalRevenue = recentOrders.reduce((sum, order) => sum + order.total_amount, 0)
+
+  // Mock previous data for comparison (would come from a different API call)
   const stats = {
     revenue: {
-      current: 45231.89,
-      previous: 42150.32,
-      change: 7.3,
+      current: totalRevenue,
+      previous: totalRevenue * 0.85, // Mock 15% growth
+      change: 15.0,
     },
     orders: {
-      current: 1234,
-      previous: 1156,
-      change: 6.7,
+      current: totalOrders,
+      previous: Math.floor(totalOrders * 0.9), // Mock 10% growth
+      change: 10.0,
     },
     customers: {
-      current: 8945,
-      previous: 8721,
-      change: 2.6,
+      current: totalUsers,
+      previous: Math.floor(totalUsers * 0.95), // Mock 5% growth
+      change: 5.0,
     },
     products: {
-      current: 567,
-      previous: 543,
-      change: 4.4,
+      current: totalProducts,
+      previous: Math.floor(totalProducts * 0.92), // Mock 8% growth
+      change: 8.0,
     },
   }
 
-  const recentOrders = [
-    {
-      id: 'ORD-001',
-      customer: 'John Doe',
-      amount: 129.99,
-      status: 'completed',
-      date: '2024-01-15',
-    },
-    {
-      id: 'ORD-002',
-      customer: 'Jane Smith',
-      amount: 89.50,
-      status: 'processing',
-      date: '2024-01-15',
-    },
-    {
-      id: 'ORD-003',
-      customer: 'Bob Johnson',
-      amount: 199.99,
-      status: 'shipped',
-      date: '2024-01-14',
-    },
-    {
-      id: 'ORD-004',
-      customer: 'Alice Brown',
-      amount: 59.99,
-      status: 'pending',
-      date: '2024-01-14',
-    },
-  ]
-
-  const topProducts = [
-    {
-      id: '1',
-      name: 'Wireless Headphones',
-      sales: 234,
-      revenue: 18720,
-    },
-    {
-      id: '2',
-      name: 'Smartphone Case',
-      sales: 189,
-      revenue: 3780,
-    },
-    {
-      id: '3',
-      name: 'USB Cable',
-      sales: 156,
-      revenue: 3120,
-    },
-    {
-      id: '4',
-      name: 'Bluetooth Speaker',
-      sales: 98,
-      revenue: 9800,
-    },
-  ]
+  // Get top products from products data (mock popularity)
+  const topProducts = (productsData?.data || [])
+    .slice(0, 4)
+    .map((product, index) => ({
+      id: product.id,
+      name: product.name,
+      sales: Math.floor(Math.random() * 200) + 50, // Mock sales data
+      revenue: product.price * (Math.floor(Math.random() * 100) + 20), // Mock revenue
+    }))
+    .sort((a, b) => b.revenue - a.revenue)
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -118,181 +99,370 @@ export function AdminDashboard() {
     }
   }
 
+  // Loading state
+  if (ordersLoading || usersLoading || productsLoading) {
+    return (
+      <div className="space-y-8">
+        {/* Loading skeleton for stats */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
+          {[...Array(4)].map((_, i) => (
+            <Card key={i} variant="elevated" className="border-0 shadow-large animate-pulse">
+              <CardContent className="p-8">
+                <div className="flex items-center justify-between mb-6">
+                  <div className="w-16 h-16 rounded-3xl bg-muted"></div>
+                  <div className="w-20 h-6 bg-muted rounded-full"></div>
+                </div>
+                <div className="space-y-2">
+                  <div className="h-4 bg-muted rounded w-24"></div>
+                  <div className="h-8 bg-muted rounded w-32"></div>
+                  <div className="h-3 bg-muted rounded w-28"></div>
+                </div>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+
+        {/* Loading skeleton for content */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+          {[...Array(2)].map((_, i) => (
+            <Card key={i} variant="elevated" className="border-0 shadow-large animate-pulse">
+              <CardHeader className="pb-6">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-2xl bg-muted"></div>
+                    <div className="h-6 bg-muted rounded w-32"></div>
+                  </div>
+                  <div className="h-8 bg-muted rounded w-20"></div>
+                </div>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-4">
+                  {[...Array(3)].map((_, j) => (
+                    <div key={j} className="h-16 bg-muted rounded-2xl"></div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      </div>
+    )
+  }
+
   return (
-    <div className="space-y-6">
-      {/* Welcome Message */}
-      <div>
-        <h1 className="text-3xl font-bold text-gray-900">
-          Welcome back, {user?.first_name}!
-        </h1>
-        <p className="text-gray-600 mt-2">
-          Here's what's happening with your store today.
-        </p>
+    <div className="space-y-8">
+      {/* Enhanced Welcome Header */}
+      <div className="relative overflow-hidden bg-gradient-to-br from-primary-500 via-primary-600 to-violet-600 rounded-3xl shadow-2xl">
+        <div className="absolute inset-0 bg-black/10"></div>
+        <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full -translate-y-32 translate-x-32"></div>
+        <div className="absolute bottom-0 left-0 w-48 h-48 bg-white/5 rounded-full translate-y-24 -translate-x-24"></div>
+
+        <div className="relative p-8 lg:p-12">
+          <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-6">
+            <div className="text-white">
+              <div className="flex items-center gap-3 mb-4">
+                <div className="w-12 h-12 rounded-2xl bg-white/20 backdrop-blur-sm flex items-center justify-center">
+                  <TrendingUp className="h-6 w-6 text-white" />
+                </div>
+                <span className="text-white/90 font-semibold">ADMIN DASHBOARD</span>
+              </div>
+
+              <h1 className="text-4xl lg:text-5xl font-bold mb-4">
+                Welcome back, <span className="text-white/90">{user?.first_name}!</span>
+              </h1>
+              <p className="text-xl text-white/80 leading-relaxed">
+                Here's your store performance overview and key metrics for today.
+              </p>
+            </div>
+
+            <div className="flex flex-col sm:flex-row gap-4">
+              <div className="bg-white/10 backdrop-blur-sm rounded-2xl p-6 text-center">
+                <p className="text-white/70 text-sm font-medium">Last Updated</p>
+                <p className="text-white font-semibold text-lg">
+                  {new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                </p>
+              </div>
+
+              <div className="bg-white/10 backdrop-blur-sm rounded-2xl p-6 text-center">
+                <p className="text-white/70 text-sm font-medium">Store Status</p>
+                <div className="flex items-center justify-center gap-2 mt-1">
+                  <div className="w-2 h-2 bg-emerald-400 rounded-full animate-pulse"></div>
+                  <p className="text-white font-semibold">Online</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
 
-      {/* Stats Cards */}
+      {/* Enhanced Stats Cards */}
       <RequirePermission permission={PERMISSIONS.ANALYTICS_VIEW}>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Total Revenue</CardTitle>
-              <DollarSign className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{formatPrice(stats.revenue.current)}</div>
-              <div className="flex items-center text-xs text-muted-foreground">
-                <TrendingUp className="mr-1 h-3 w-3 text-green-500" />
-                +{stats.revenue.change}% from last month
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
+          <Card variant="elevated" className="border-0 shadow-large hover:shadow-xl transition-all duration-300 group">
+            <CardContent className="p-8">
+              <div className="flex items-center justify-between mb-6">
+                <div className="w-16 h-16 rounded-3xl bg-gradient-to-br from-emerald-500 to-emerald-600 flex items-center justify-center shadow-large group-hover:scale-110 transition-transform duration-300">
+                  <DollarSign className="h-8 w-8 text-white" />
+                </div>
+                <div className="flex items-center gap-2 px-3 py-1 bg-emerald-100 rounded-full">
+                  <TrendingUp className="h-4 w-4 text-emerald-600" />
+                  <span className="text-sm font-semibold text-emerald-600">+{stats.revenue.change}%</span>
+                </div>
+              </div>
+
+              <div>
+                <p className="text-sm font-medium text-muted-foreground mb-2">Total Revenue</p>
+                <p className="text-3xl font-bold text-foreground">{formatPrice(stats.revenue.current)}</p>
+                <p className="text-sm text-muted-foreground mt-2">
+                  vs {formatPrice(stats.revenue.previous)} last month
+                </p>
               </div>
             </CardContent>
           </Card>
 
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Orders</CardTitle>
-              <ShoppingCart className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{stats.orders.current.toLocaleString()}</div>
-              <div className="flex items-center text-xs text-muted-foreground">
-                <TrendingUp className="mr-1 h-3 w-3 text-green-500" />
-                +{stats.orders.change}% from last month
+          <Card variant="elevated" className="border-0 shadow-large hover:shadow-xl transition-all duration-300 group">
+            <CardContent className="p-8">
+              <div className="flex items-center justify-between mb-6">
+                <div className="w-16 h-16 rounded-3xl bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center shadow-large group-hover:scale-110 transition-transform duration-300">
+                  <ShoppingCart className="h-8 w-8 text-white" />
+                </div>
+                <div className="flex items-center gap-2 px-3 py-1 bg-blue-100 rounded-full">
+                  <TrendingUp className="h-4 w-4 text-blue-600" />
+                  <span className="text-sm font-semibold text-blue-600">+{stats.orders.change}%</span>
+                </div>
+              </div>
+
+              <div>
+                <p className="text-sm font-medium text-muted-foreground mb-2">Total Orders</p>
+                <p className="text-3xl font-bold text-foreground">{stats.orders.current.toLocaleString()}</p>
+                <p className="text-sm text-muted-foreground mt-2">
+                  vs {stats.orders.previous.toLocaleString()} last month
+                </p>
               </div>
             </CardContent>
           </Card>
 
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Customers</CardTitle>
-              <Users className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{stats.customers.current.toLocaleString()}</div>
-              <div className="flex items-center text-xs text-muted-foreground">
-                <TrendingUp className="mr-1 h-3 w-3 text-green-500" />
-                +{stats.customers.change}% from last month
+          <Card variant="elevated" className="border-0 shadow-large hover:shadow-xl transition-all duration-300 group">
+            <CardContent className="p-8">
+              <div className="flex items-center justify-between mb-6">
+                <div className="w-16 h-16 rounded-3xl bg-gradient-to-br from-purple-500 to-purple-600 flex items-center justify-center shadow-large group-hover:scale-110 transition-transform duration-300">
+                  <Users className="h-8 w-8 text-white" />
+                </div>
+                <div className="flex items-center gap-2 px-3 py-1 bg-purple-100 rounded-full">
+                  <TrendingUp className="h-4 w-4 text-purple-600" />
+                  <span className="text-sm font-semibold text-purple-600">+{stats.customers.change}%</span>
+                </div>
+              </div>
+
+              <div>
+                <p className="text-sm font-medium text-muted-foreground mb-2">Total Customers</p>
+                <p className="text-3xl font-bold text-foreground">{stats.customers.current.toLocaleString()}</p>
+                <p className="text-sm text-muted-foreground mt-2">
+                  vs {stats.customers.previous.toLocaleString()} last month
+                </p>
               </div>
             </CardContent>
           </Card>
 
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Products</CardTitle>
-              <Package className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{stats.products.current}</div>
-              <div className="flex items-center text-xs text-muted-foreground">
-                <TrendingUp className="mr-1 h-3 w-3 text-green-500" />
-                +{stats.products.change}% from last month
+          <Card variant="elevated" className="border-0 shadow-large hover:shadow-xl transition-all duration-300 group">
+            <CardContent className="p-8">
+              <div className="flex items-center justify-between mb-6">
+                <div className="w-16 h-16 rounded-3xl bg-gradient-to-br from-orange-500 to-orange-600 flex items-center justify-center shadow-large group-hover:scale-110 transition-transform duration-300">
+                  <Package className="h-8 w-8 text-white" />
+                </div>
+                <div className="flex items-center gap-2 px-3 py-1 bg-orange-100 rounded-full">
+                  <TrendingUp className="h-4 w-4 text-orange-600" />
+                  <span className="text-sm font-semibold text-orange-600">+{stats.products.change}%</span>
+                </div>
+              </div>
+
+              <div>
+                <p className="text-sm font-medium text-muted-foreground mb-2">Total Products</p>
+                <p className="text-3xl font-bold text-foreground">{stats.products.current}</p>
+                <p className="text-sm text-muted-foreground mt-2">
+                  vs {stats.products.previous} last month
+                </p>
               </div>
             </CardContent>
           </Card>
         </div>
       </RequirePermission>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Recent Orders */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+        {/* Enhanced Recent Orders */}
         <RequirePermission permission={PERMISSIONS.ORDERS_VIEW_ALL}>
-          <Card>
-            <CardHeader>
+          <Card variant="elevated" className="border-0 shadow-large">
+            <CardHeader className="pb-6">
               <div className="flex items-center justify-between">
-                <CardTitle>Recent Orders</CardTitle>
-                <Button variant="outline" size="sm">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-2xl bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center">
+                    <ShoppingCart className="h-5 w-5 text-white" />
+                  </div>
+                  <CardTitle className="text-xl">Recent Orders</CardTitle>
+                </div>
+                <Button variant="outline" size="sm" className="border-2 hover:border-primary transition-colors">
                   <Eye className="mr-2 h-4 w-4" />
                   View All
                 </Button>
               </div>
             </CardHeader>
             <CardContent>
-              <div className="space-y-4">
-                {recentOrders.map((order) => (
-                  <div key={order.id} className="flex items-center justify-between">
-                    <div className="space-y-1">
-                      <p className="text-sm font-medium">{order.id}</p>
-                      <p className="text-sm text-gray-600">{order.customer}</p>
+              <div className="space-y-6">
+                {recentOrders.length > 0 ? (
+                  recentOrders.map((order) => (
+                    <div key={order.id} className="flex items-center justify-between p-4 bg-muted/30 rounded-2xl hover:bg-muted/50 transition-colors">
+                      <div className="flex items-center gap-4">
+                        <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-primary-100 to-primary-200 flex items-center justify-center">
+                          <span className="text-primary font-bold text-sm">{order.order_number}</span>
+                        </div>
+                        <div>
+                          <p className="font-semibold text-foreground">{order.order_number}</p>
+                          <p className="text-sm text-muted-foreground">
+                            {order.user ? `${order.user.first_name} ${order.user.last_name}` : 'Guest'}
+                          </p>
+                          <p className="text-xs text-muted-foreground">
+                            {new Date(order.created_at).toLocaleDateString()}
+                          </p>
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <p className="text-lg font-bold text-foreground">{formatPrice(order.total_amount)}</p>
+                        <Badge variant={getStatusColor(order.status) as any} className="text-xs font-semibold">
+                          {order.status.charAt(0).toUpperCase() + order.status.slice(1)}
+                        </Badge>
+                      </div>
                     </div>
-                    <div className="text-right space-y-1">
-                      <p className="text-sm font-medium">{formatPrice(order.amount)}</p>
-                      <Badge variant={getStatusColor(order.status) as any} className="text-xs">
-                        {order.status}
-                      </Badge>
+                  ))
+                ) : (
+                  <div className="text-center py-8">
+                    <div className="w-16 h-16 rounded-full bg-muted flex items-center justify-center mx-auto mb-4">
+                      <ShoppingCart className="h-8 w-8 text-muted-foreground" />
                     </div>
+                    <h3 className="text-lg font-semibold text-foreground mb-2">No orders yet</h3>
+                    <p className="text-muted-foreground">When customers place orders, they'll appear here.</p>
                   </div>
-                ))}
+                )}
               </div>
             </CardContent>
           </Card>
         </RequirePermission>
 
-        {/* Top Products */}
+        {/* Enhanced Top Products */}
         <RequirePermission permission={PERMISSIONS.ANALYTICS_VIEW}>
-          <Card>
-            <CardHeader>
+          <Card variant="elevated" className="border-0 shadow-large">
+            <CardHeader className="pb-6">
               <div className="flex items-center justify-between">
-                <CardTitle>Top Products</CardTitle>
-                <Button variant="outline" size="sm">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-2xl bg-gradient-to-br from-orange-500 to-orange-600 flex items-center justify-center">
+                    <Package className="h-5 w-5 text-white" />
+                  </div>
+                  <CardTitle className="text-xl">Top Products</CardTitle>
+                </div>
+                <Button variant="outline" size="sm" className="border-2 hover:border-primary transition-colors">
                   <Eye className="mr-2 h-4 w-4" />
                   View All
                 </Button>
               </div>
             </CardHeader>
             <CardContent>
-              <div className="space-y-4">
-                {topProducts.map((product, index) => (
-                  <div key={product.id} className="flex items-center justify-between">
-                    <div className="flex items-center space-x-3">
-                      <div className="w-8 h-8 bg-primary-100 rounded-full flex items-center justify-center">
-                        <span className="text-primary-600 text-sm font-medium">
-                          {index + 1}
-                        </span>
+              <div className="space-y-6">
+                {topProducts.length > 0 ? (
+                  topProducts.map((product, index) => (
+                    <div key={product.id} className="flex items-center justify-between p-4 bg-muted/30 rounded-2xl hover:bg-muted/50 transition-colors">
+                      <div className="flex items-center gap-4">
+                        <div className="relative">
+                          <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-primary-500 to-violet-600 flex items-center justify-center shadow-medium">
+                            <span className="text-white font-bold text-lg">#{index + 1}</span>
+                          </div>
+                          {index === 0 && (
+                            <div className="absolute -top-1 -right-1 w-6 h-6 bg-gradient-to-br from-yellow-400 to-yellow-500 rounded-full flex items-center justify-center">
+                              <Star className="h-3 w-3 text-white" />
+                            </div>
+                          )}
+                        </div>
+                        <div>
+                          <p className="font-semibold text-foreground">{product.name}</p>
+                          <p className="text-sm text-muted-foreground">{product.sales} sales this month</p>
+                        </div>
                       </div>
-                      <div>
-                        <p className="text-sm font-medium">{product.name}</p>
-                        <p className="text-sm text-gray-600">{product.sales} sales</p>
+                      <div className="text-right">
+                        <p className="text-lg font-bold text-foreground">{formatPrice(product.revenue)}</p>
+                        <p className="text-sm text-muted-foreground">Revenue</p>
                       </div>
                     </div>
-                    <p className="text-sm font-medium">{formatPrice(product.revenue)}</p>
+                  ))
+                ) : (
+                  <div className="text-center py-8">
+                    <div className="w-16 h-16 rounded-full bg-muted flex items-center justify-center mx-auto mb-4">
+                      <Package className="h-8 w-8 text-muted-foreground" />
+                    </div>
+                    <h3 className="text-lg font-semibold text-foreground mb-2">No products yet</h3>
+                    <p className="text-muted-foreground">Add products to see top performers here.</p>
                   </div>
-                ))}
+                )}
               </div>
             </CardContent>
           </Card>
         </RequirePermission>
       </div>
 
-      {/* Quick Actions */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Quick Actions</CardTitle>
+      {/* Enhanced Quick Actions */}
+      <Card variant="elevated" className="border-0 shadow-large">
+        <CardHeader className="pb-6">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-2xl bg-gradient-to-br from-primary-500 to-violet-600 flex items-center justify-center">
+              <TrendingUp className="h-5 w-5 text-white" />
+            </div>
+            <CardTitle className="text-xl">Quick Actions</CardTitle>
+          </div>
         </CardHeader>
         <CardContent>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
             <RequirePermission permission={PERMISSIONS.PRODUCTS_CREATE}>
-              <Button variant="outline" className="h-20 flex-col">
-                <Package className="h-6 w-6 mb-2" />
-                Add Product
+              <Button
+                variant="outline"
+                className="h-24 flex-col gap-3 border-2 hover:border-primary hover:bg-primary/5 transition-all duration-200 group"
+              >
+                <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-emerald-500 to-emerald-600 flex items-center justify-center group-hover:scale-110 transition-transform duration-200">
+                  <Package className="h-6 w-6 text-white" />
+                </div>
+                <span className="font-semibold">Add Product</span>
               </Button>
             </RequirePermission>
 
             <RequirePermission permission={PERMISSIONS.ORDERS_VIEW_ALL}>
-              <Button variant="outline" className="h-20 flex-col">
-                <ShoppingCart className="h-6 w-6 mb-2" />
-                View Orders
+              <Button
+                variant="outline"
+                className="h-24 flex-col gap-3 border-2 hover:border-primary hover:bg-primary/5 transition-all duration-200 group"
+              >
+                <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center group-hover:scale-110 transition-transform duration-200">
+                  <ShoppingCart className="h-6 w-6 text-white" />
+                </div>
+                <span className="font-semibold">View Orders</span>
               </Button>
             </RequirePermission>
 
             <RequirePermission permission={PERMISSIONS.USERS_VIEW_ALL}>
-              <Button variant="outline" className="h-20 flex-col">
-                <Users className="h-6 w-6 mb-2" />
-                Manage Users
+              <Button
+                variant="outline"
+                className="h-24 flex-col gap-3 border-2 hover:border-primary hover:bg-primary/5 transition-all duration-200 group"
+              >
+                <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-purple-500 to-purple-600 flex items-center justify-center group-hover:scale-110 transition-transform duration-200">
+                  <Users className="h-6 w-6 text-white" />
+                </div>
+                <span className="font-semibold">Manage Users</span>
               </Button>
             </RequirePermission>
 
             <RequirePermission permission={PERMISSIONS.ANALYTICS_VIEW}>
-              <Button variant="outline" className="h-20 flex-col">
-                <TrendingUp className="h-6 w-6 mb-2" />
-                View Analytics
+              <Button
+                variant="outline"
+                className="h-24 flex-col gap-3 border-2 hover:border-primary hover:bg-primary/5 transition-all duration-200 group"
+              >
+                <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-orange-500 to-orange-600 flex items-center justify-center group-hover:scale-110 transition-transform duration-200">
+                  <TrendingUp className="h-6 w-6 text-white" />
+                </div>
+                <span className="font-semibold">View Analytics</span>
               </Button>
             </RequirePermission>
           </div>

@@ -61,65 +61,90 @@ export function ProductsPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Header */}
-      <div className="bg-white border-b">
-        <div className="container mx-auto px-4 py-6">
-          <div className="flex items-center justify-between">
-            <div>
-              <h1 className="text-3xl font-bold text-gray-900">Products</h1>
-              {params.search && (
-                <p className="text-gray-600 mt-1">
-                  Search results for "{params.search}"
-                </p>
-              )}
-              {pagination && (
-                <p className="text-sm text-gray-500 mt-1">
-                  Showing {((pagination.page - 1) * pagination.limit) + 1} - {Math.min(pagination.page * pagination.limit, pagination.total)} of {pagination.total} products
-                </p>
-              )}
+    <div className="min-h-screen bg-gradient-to-br from-background via-muted/20 to-background">
+      {/* Enhanced Header */}
+      <div className="bg-gradient-to-r from-primary-50/50 to-violet-50/50 border-b border-border/30">
+        <div className="container mx-auto px-4 py-12">
+          <div className="text-center mb-8">
+            <div className="flex items-center justify-center gap-3 mb-6">
+              <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-primary-500 to-violet-600 flex items-center justify-center shadow-large">
+                <Grid className="h-6 w-6 text-white" />
+              </div>
+              <span className="text-primary font-semibold">PRODUCT COLLECTION</span>
             </div>
 
-            <div className="flex items-center space-x-4">
-              {/* View mode toggle */}
-              <div className="flex items-center border rounded-lg">
-                <Button
-                  variant={viewMode === 'grid' ? 'default' : 'ghost'}
-                  size="sm"
-                  onClick={() => setViewMode('grid')}
-                  className="rounded-r-none"
-                >
-                  <Grid className="h-4 w-4" />
-                </Button>
-                <Button
-                  variant={viewMode === 'list' ? 'default' : 'ghost'}
-                  size="sm"
-                  onClick={() => setViewMode('list')}
-                  className="rounded-l-none"
-                >
-                  <List className="h-4 w-4" />
-                </Button>
-              </div>
+            <h1 className="text-4xl lg:text-6xl font-bold text-foreground mb-4">
+              {params.search ? (
+                <>Search Results for <span className="text-gradient">"{params.search}"</span></>
+              ) : (
+                <>Discover Our <span className="text-gradient">Premium Products</span></>
+              )}
+            </h1>
 
-              {/* Filters toggle (mobile) */}
+            {pagination && (
+              <p className="text-lg text-muted-foreground mb-6">
+                Showing {((pagination.page - 1) * pagination.limit) + 1} - {Math.min(pagination.page * pagination.limit, pagination.total)} of {pagination.total} products
+              </p>
+            )}
+
+            {/* Quick stats */}
+            <div className="flex items-center justify-center gap-8">
+              <div className="text-center">
+                <div className="text-2xl font-bold text-primary">{pagination?.total || 0}</div>
+                <div className="text-sm text-muted-foreground">Products</div>
+              </div>
+              <div className="text-center">
+                <div className="text-2xl font-bold text-emerald-600">4.9★</div>
+                <div className="text-sm text-muted-foreground">Avg Rating</div>
+              </div>
+              <div className="text-center">
+                <div className="text-2xl font-bold text-blue-600">24h</div>
+                <div className="text-sm text-muted-foreground">Fast Delivery</div>
+              </div>
+            </div>
+          </div>
+
+          <div className="flex items-center justify-center gap-6">
+            {/* View mode toggle */}
+            <div className="flex items-center bg-background border-2 border-border rounded-2xl p-1 shadow-medium">
               <Button
-                variant="outline"
+                variant={viewMode === 'grid' ? 'default' : 'ghost'}
                 size="sm"
-                onClick={() => setShowFilters(!showFilters)}
-                className="lg:hidden"
+                onClick={() => setViewMode('grid')}
+                className="rounded-xl h-10 px-4"
               >
-                <SlidersHorizontal className="h-4 w-4 mr-2" />
-                Filters
+                <Grid className="h-4 w-4 mr-2" />
+                Grid
+              </Button>
+              <Button
+                variant={viewMode === 'list' ? 'default' : 'ghost'}
+                size="sm"
+                onClick={() => setViewMode('list')}
+                className="rounded-xl h-10 px-4"
+              >
+                <List className="h-4 w-4 mr-2" />
+                List
               </Button>
             </div>
+
+            {/* Filters toggle (mobile) */}
+            <Button
+              variant="outline"
+              size="lg"
+              onClick={() => setShowFilters(!showFilters)}
+              className="lg:hidden rounded-2xl border-2 hover:border-primary transition-all duration-200"
+            >
+              <SlidersHorizontal className="h-5 w-5 mr-2" />
+              Filters
+            </Button>
           </div>
         </div>
       </div>
 
-      <div className="container mx-auto px-4 py-8">
-        <div className="flex gap-8">
-          {/* Sidebar Filters */}
-          <aside className={`w-80 flex-shrink-0 ${showFilters ? 'block' : 'hidden lg:block'}`}>
+      <div className="container mx-auto px-4 py-12">
+        <div className="flex flex-col lg:flex-row gap-12">
+          {/* Enhanced Sidebar Filters */}
+          <aside className={`lg:w-96 flex-shrink-0 ${showFilters ? 'block' : 'hidden lg:block'}`}>
             <div className="sticky top-8">
               <ProductFilters currentParams={params} />
             </div>

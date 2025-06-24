@@ -74,124 +74,145 @@ export function RegisterForm() {
   }
 
   return (
-    <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
+    <form onSubmit={handleSubmit(onSubmit)} className="space-y-8">
       {/* Name fields */}
       <div className="grid grid-cols-2 gap-4">
-        <Input
-          {...register('first_name')}
-          type="text"
-          label="First name"
-          placeholder="John"
-          error={errors.first_name?.message}
-          required
-          autoComplete="given-name"
-        />
-        <Input
-          {...register('last_name')}
-          type="text"
-          label="Last name"
-          placeholder="Doe"
-          error={errors.last_name?.message}
-          required
-          autoComplete="family-name"
-        />
+        <div className="space-y-2">
+          <Input
+            {...register('first_name')}
+            type="text"
+            label="First name"
+            placeholder="John"
+            error={errors.first_name?.message}
+            required
+            autoComplete="given-name"
+            size="lg"
+            className="transition-all duration-200 focus:scale-[1.02]"
+          />
+        </div>
+        <div className="space-y-2">
+          <Input
+            {...register('last_name')}
+            type="text"
+            label="Last name"
+            placeholder="Doe"
+            error={errors.last_name?.message}
+            required
+            autoComplete="family-name"
+            size="lg"
+            className="transition-all duration-200 focus:scale-[1.02]"
+          />
+        </div>
       </div>
 
       {/* Email */}
-      <Input
-        {...register('email')}
-        type="email"
-        label="Email address"
-        placeholder="john@example.com"
-        error={errors.email?.message}
-        required
-        autoComplete="email"
-      />
+      <div className="space-y-2">
+        <Input
+          {...register('email')}
+          type="email"
+          label="Email address"
+          placeholder="john@example.com"
+          error={errors.email?.message}
+          required
+          autoComplete="email"
+          size="lg"
+          className="transition-all duration-200 focus:scale-[1.02]"
+        />
+      </div>
 
       {/* Password */}
-      <Input
-        {...register('password')}
-        type={showPassword ? 'text' : 'password'}
-        label="Password"
-        placeholder="Create a strong password"
-        error={errors.password?.message}
-        required
-        autoComplete="new-password"
-        helperText="Must contain at least 8 characters with uppercase, lowercase, and number"
-        rightIcon={
-          <button
-            type="button"
-            onClick={() => setShowPassword(!showPassword)}
-            className="text-gray-400 hover:text-gray-600"
-          >
-            {showPassword ? (
-              <EyeOff className="h-4 w-4" />
-            ) : (
-              <Eye className="h-4 w-4" />
-            )}
-          </button>
-        }
-      />
+      <div className="space-y-2">
+        <Input
+          {...register('password')}
+          type={showPassword ? 'text' : 'password'}
+          label="Password"
+          placeholder="Create a strong password"
+          error={errors.password?.message}
+          required
+          autoComplete="new-password"
+          size="lg"
+          className="transition-all duration-200 focus:scale-[1.02]"
+          helperText="Must contain at least 8 characters with uppercase, lowercase, and number"
+          rightIcon={
+            <button
+              type="button"
+              onClick={() => setShowPassword(!showPassword)}
+              className="text-muted-foreground hover:text-primary transition-colors p-1 rounded-lg hover:bg-muted"
+            >
+              {showPassword ? (
+                <EyeOff className="h-5 w-5" />
+              ) : (
+                <Eye className="h-5 w-5" />
+              )}
+            </button>
+          }
+        />
+      </div>
 
       {/* Confirm Password */}
-      <Input
-        {...register('confirm_password')}
-        type={showConfirmPassword ? 'text' : 'password'}
-        label="Confirm password"
-        placeholder="Confirm your password"
-        error={errors.confirm_password?.message}
-        required
-        autoComplete="new-password"
-        rightIcon={
-          <button
-            type="button"
-            onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-            className="text-gray-400 hover:text-gray-600"
-          >
-            {showConfirmPassword ? (
-              <EyeOff className="h-4 w-4" />
-            ) : (
-              <Eye className="h-4 w-4" />
-            )}
-          </button>
-        }
-      />
+      <div className="space-y-2">
+        <Input
+          {...register('confirm_password')}
+          type={showConfirmPassword ? 'text' : 'password'}
+          label="Confirm password"
+          placeholder="Confirm your password"
+          error={errors.confirm_password?.message}
+          required
+          autoComplete="new-password"
+          size="lg"
+          className="transition-all duration-200 focus:scale-[1.02]"
+          rightIcon={
+            <button
+              type="button"
+              onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+              className="text-muted-foreground hover:text-primary transition-colors p-1 rounded-lg hover:bg-muted"
+            >
+              {showConfirmPassword ? (
+                <EyeOff className="h-5 w-5" />
+              ) : (
+                <Eye className="h-5 w-5" />
+              )}
+            </button>
+          }
+        />
+      </div>
 
       {/* Terms and conditions */}
-      <div className="flex items-start">
-        <input
-          {...register('terms_accepted')}
-          id="terms"
-          type="checkbox"
-          className="h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300 rounded mt-1"
-        />
-        <label htmlFor="terms" className="ml-2 block text-sm text-gray-900">
-          I agree to the{' '}
-          <a href="/terms" className="text-primary-600 hover:text-primary-500" target="_blank">
-            Terms of Service
-          </a>{' '}
-          and{' '}
-          <a href="/privacy" className="text-primary-600 hover:text-primary-500" target="_blank">
-            Privacy Policy
-          </a>
-        </label>
+      <div className="space-y-2">
+        <div className="flex items-start gap-3">
+          <input
+            {...register('terms_accepted')}
+            id="terms"
+            type="checkbox"
+            className="h-4 w-4 text-primary focus:ring-primary/30 border-border rounded mt-1 transition-colors"
+          />
+          <label htmlFor="terms" className="block text-sm font-medium text-foreground leading-relaxed">
+            I agree to the{' '}
+            <a href="/terms" className="text-primary hover:text-primary-600 transition-colors font-semibold" target="_blank">
+              Terms of Service
+            </a>{' '}
+            and{' '}
+            <a href="/privacy" className="text-primary hover:text-primary-600 transition-colors font-semibold" target="_blank">
+              Privacy Policy
+            </a>
+          </label>
+        </div>
+        {errors.terms_accepted && (
+          <p className="text-sm text-destructive ml-7">{errors.terms_accepted.message}</p>
+        )}
       </div>
-      {errors.terms_accepted && (
-        <p className="text-sm text-error-600">{errors.terms_accepted.message}</p>
-      )}
 
       {/* Submit button */}
-      <div className="mt-6">
-        <Button
-          type="submit"
-          className="w-full"
-          size="lg"
-          isLoading={isLoading}
-          loadingText="Creating account..."
-        >
-          Create account
-        </Button>
-      </div>
+      <Button
+        type="submit"
+        className="w-full"
+        size="xl"
+        variant="gradient"
+        isLoading={isLoading}
+        loadingText="Creating your account..."
+      >
+        Create your account
+      </Button>
 
       {/* Social registration */}
       <div className="mt-6">

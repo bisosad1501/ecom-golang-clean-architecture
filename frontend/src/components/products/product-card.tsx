@@ -91,9 +91,11 @@ export function ProductCard({
   }
 
   return (
-    <Card 
+    <Card
+      variant="elevated"
+      padding="none"
       className={cn(
-        'group relative overflow-hidden transition-all duration-300 hover:shadow-lg',
+        'group relative overflow-hidden card-hover border-0 bg-white',
         className
       )}
       onMouseEnter={() => setIsHovered(true)}
@@ -101,12 +103,12 @@ export function ProductCard({
     >
       <Link href={`/products/${product.id}`}>
         {/* Image container */}
-        <div className="relative aspect-square overflow-hidden bg-gray-100">
+        <div className="relative aspect-square overflow-hidden bg-gradient-to-br from-gray-50 to-gray-100 rounded-t-xl">
           {/* Discount badge */}
           {hasDiscount && (
-            <Badge 
-              variant="destructive" 
-              className="absolute top-2 left-2 z-10"
+            <Badge
+              variant="destructive"
+              className="absolute top-3 left-3 z-10 shadow-soft font-bold"
             >
               -{discountPercentage}%
             </Badge>
@@ -114,9 +116,9 @@ export function ProductCard({
 
           {/* Out of stock badge */}
           {isOutOfStock && (
-            <Badge 
-              variant="secondary" 
-              className="absolute top-2 right-2 z-10"
+            <Badge
+              variant="secondary"
+              className="absolute top-3 right-3 z-10 shadow-soft"
             >
               Out of Stock
             </Badge>
@@ -140,19 +142,19 @@ export function ProductCard({
 
           {/* Overlay actions */}
           <div className={cn(
-            'absolute inset-0 bg-black bg-opacity-0 transition-all duration-300 flex items-center justify-center',
-            isHovered && 'bg-opacity-20'
+            'absolute inset-0 bg-gradient-to-t from-black/20 via-transparent to-transparent transition-all duration-300 flex items-center justify-center',
+            isHovered && 'from-black/40'
           )}>
             <div className={cn(
-              'flex space-x-2 transform transition-all duration-300',
-              isHovered ? 'translate-y-0 opacity-100' : 'translate-y-4 opacity-0'
+              'flex space-x-3 transform transition-all duration-300',
+              isHovered ? 'translate-y-0 opacity-100 scale-100' : 'translate-y-4 opacity-0 scale-95'
             )}>
               {/* Quick view */}
               {showQuickView && (
                 <Button
-                  variant="secondary"
+                  variant="ghost"
                   size="icon"
-                  className="h-10 w-10 rounded-full bg-white hover:bg-gray-100"
+                  className="h-11 w-11 rounded-full glass-effect hover:bg-white/90 shadow-medium"
                   onClick={handleQuickView}
                 >
                   <Eye className="h-4 w-4" />
@@ -162,9 +164,9 @@ export function ProductCard({
               {/* Wishlist */}
               {showWishlist && isAuthenticated && (
                 <Button
-                  variant="secondary"
+                  variant="ghost"
                   size="icon"
-                  className="h-10 w-10 rounded-full bg-white hover:bg-gray-100"
+                  className="h-11 w-11 rounded-full glass-effect hover:bg-white/90 shadow-medium"
                   onClick={handleWishlistToggle}
                   disabled={addToWishlistMutation.isPending || removeFromWishlistMutation.isPending}
                 >
@@ -175,9 +177,9 @@ export function ProductCard({
               {/* Add to cart */}
               {!isOutOfStock && (
                 <Button
-                  variant="default"
+                  variant="gradient"
                   size="icon"
-                  className="h-10 w-10 rounded-full"
+                  className="h-11 w-11 rounded-full shadow-large"
                   onClick={handleAddToCart}
                   disabled={cartLoading}
                 >
@@ -189,48 +191,48 @@ export function ProductCard({
         </div>
 
         {/* Product info */}
-        <div className="p-4">
+        <div className="p-5">
           {/* Category */}
           {product.category && (
-            <p className="text-xs text-gray-500 uppercase tracking-wide mb-1">
+            <p className="text-xs text-muted-foreground uppercase tracking-wider mb-2 font-medium">
               {product.category.name}
             </p>
           )}
 
           {/* Product name */}
-          <h3 className="font-medium text-gray-900 mb-2 line-clamp-2 group-hover:text-primary-600 transition-colors">
+          <h3 className="font-semibold text-foreground mb-3 line-clamp-2 group-hover:text-primary transition-colors duration-200 text-base leading-tight">
             {product.name}
           </h3>
 
           {/* Rating */}
           {product.rating && (
-            <div className="flex items-center space-x-1 mb-2">
+            <div className="flex items-center space-x-2 mb-3">
               <div className="flex">
                 {[...Array(5)].map((_, i) => (
                   <Star
                     key={i}
                     className={cn(
-                      'h-3 w-3',
+                      'h-3.5 w-3.5',
                       i < Math.floor(product.rating!.average)
-                        ? 'text-yellow-400 fill-current'
+                        ? 'text-amber-400 fill-current'
                         : 'text-gray-300'
                     )}
                   />
                 ))}
               </div>
-              <span className="text-xs text-gray-500">
+              <span className="text-xs text-muted-foreground font-medium">
                 ({product.rating.count})
               </span>
             </div>
           )}
 
           {/* Price */}
-          <div className="flex items-center space-x-2">
-            <span className="text-lg font-semibold text-gray-900">
+          <div className="flex items-baseline space-x-2 mb-2">
+            <span className="text-xl font-bold text-foreground">
               {formatPrice(displayPrice)}
             </span>
             {hasDiscount && (
-              <span className="text-sm text-gray-500 line-through">
+              <span className="text-sm text-muted-foreground line-through">
                 {formatPrice(product.price)}
               </span>
             )}
@@ -238,7 +240,7 @@ export function ProductCard({
 
           {/* Stock status */}
           {product.stock <= 5 && product.stock > 0 && (
-            <p className="text-xs text-orange-600 mt-1">
+            <p className="text-xs text-warning font-medium">
               Only {product.stock} left in stock
             </p>
           )}
@@ -248,11 +250,12 @@ export function ProductCard({
       {/* Quick add to cart button (bottom) */}
       {!isOutOfStock && (
         <div className={cn(
-          'absolute bottom-0 left-0 right-0 p-4 transform transition-all duration-300',
+          'absolute bottom-0 left-0 right-0 p-4 bg-gradient-to-t from-white via-white to-transparent transform transition-all duration-300',
           isHovered ? 'translate-y-0 opacity-100' : 'translate-y-full opacity-0'
         )}>
           <Button
-            className="w-full"
+            variant="gradient"
+            className="w-full shadow-medium"
             onClick={handleAddToCart}
             disabled={cartLoading}
             size="sm"

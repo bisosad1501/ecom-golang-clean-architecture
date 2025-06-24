@@ -9,11 +9,16 @@ export default function AdminLayoutWrapper({
 }: {
   children: React.ReactNode
 }) {
+  console.log('=== AdminLayoutWrapper RENDERING ===')
+  
   const { isLoading, canAccess } = useRequireAdmin()
   const isHydrated = useHydration()
 
+  console.log('AdminLayoutWrapper - state:', { isLoading, canAccess, isHydrated })
+
   // Show loading while hydrating or checking auth
   if (!isHydrated || isLoading) {
+    console.log('AdminLayoutWrapper - showing loading...')
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
         <div className="text-center">
@@ -25,8 +30,10 @@ export default function AdminLayoutWrapper({
   }
 
   if (!canAccess) {
+    console.log('AdminLayoutWrapper - no access, redirecting...')
     return null // useRequireAdmin will handle redirect
   }
 
+  console.log('AdminLayoutWrapper - rendering AdminLayout with children')
   return <AdminLayout>{children}</AdminLayout>
 }

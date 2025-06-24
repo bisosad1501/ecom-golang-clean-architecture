@@ -127,8 +127,11 @@ export const useAuthStore = create<AuthStore>()(
           apiClient.setToken(token)
           
           // Fetch fresh user data
-          const response = await apiClient.get<User>('/users/profile')
-          const user = response.data
+          const response = await apiClient.get<{ data: User }>('/users/profile')
+          console.log('refreshUser response:', response)
+          
+          // Handle nested data structure from backend
+          const user = response.data?.data || response.data
 
           set({
             user,
@@ -137,6 +140,7 @@ export const useAuthStore = create<AuthStore>()(
             error: null,
           })
         } catch (error: any) {
+          console.error('refreshUser error:', error)
           // Token is invalid, clear auth state
           get().logout()
           set({ isLoading: false })
@@ -166,6 +170,7 @@ export const useAuthStore = create<AuthStore>()(
 
       checkAuth: async () => {
         const { token } = get()
+        console.log('checkAuth - starting with token:', !!token)
         if (!token) return
 
         try {
@@ -178,8 +183,14 @@ export const useAuthStore = create<AuthStore>()(
           }
           
           // Verify token by fetching user profile
-          const response = await apiClient.get<User>('/users/profile')
-          const user = response.data
+          const response = await apiClient.get<{ data: User }>('/users/profile')
+          console.log('checkAuth response:', response)
+          console.log('checkAuth response.data:', response.data)
+          console.log('checkAuth response.data.data:', response.data.data)
+          
+          // Handle nested data structure from backend
+          const user = response.data?.data || response.data
+          console.log('checkAuth extracted user:', user)
 
           set({
             user,
@@ -187,7 +198,10 @@ export const useAuthStore = create<AuthStore>()(
             isLoading: false,
             error: null,
           })
+          
+          console.log('checkAuth - auth state updated successfully')
         } catch (error: any) {
+          console.error('checkAuth error:', error)
           // Token is invalid, clear auth state
           get().logout()
           set({ isLoading: false })

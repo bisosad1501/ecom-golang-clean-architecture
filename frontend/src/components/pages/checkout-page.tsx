@@ -76,17 +76,25 @@ export function CheckoutPage() {
 
   if (!cart || cart.items.length === 0) {
     return (
-      <div className="min-h-screen bg-gray-50 py-12">
+      <div className="min-h-screen bg-gradient-to-br from-background via-muted/20 to-background py-16">
         <div className="container mx-auto px-4">
           <div className="max-w-2xl mx-auto text-center">
-            <h1 className="text-3xl font-bold text-gray-900 mb-4">
-              Your cart is empty
+            <div className="w-24 h-24 mx-auto rounded-full bg-gradient-to-br from-muted to-muted/50 flex items-center justify-center shadow-large mb-8">
+              <CreditCard className="h-12 w-12 text-muted-foreground" />
+            </div>
+
+            <h1 className="text-4xl font-bold text-foreground mb-6">
+              Your cart is <span className="text-gradient">empty</span>
             </h1>
-            <p className="text-gray-600 mb-8">
+            <p className="text-xl text-muted-foreground mb-12">
               Add some items to your cart before proceeding to checkout.
             </p>
-            <Button asChild>
-              <a href="/products">Continue Shopping</a>
+
+            <Button size="xl" variant="gradient" asChild>
+              <Link href="/products">
+                <ArrowLeft className="mr-2 h-5 w-5" />
+                Continue Shopping
+              </Link>
             </Button>
           </div>
         </div>
@@ -124,18 +132,31 @@ export function CheckoutPage() {
   ]
 
   return (
-    <div className="min-h-screen bg-gray-50 py-8">
+    <div className="min-h-screen bg-gradient-to-br from-background via-muted/20 to-background py-12">
       <div className="container mx-auto px-4">
-        {/* Header */}
-        <div className="mb-8">
+        {/* Enhanced Header */}
+        <div className="mb-12">
           <button
             onClick={() => router.back()}
-            className="flex items-center text-primary-600 hover:text-primary-700 mb-4"
+            className="flex items-center text-primary hover:text-primary-600 transition-colors mb-6 group"
           >
-            <ArrowLeft className="mr-2 h-4 w-4" />
+            <ArrowLeft className="mr-2 h-5 w-5 group-hover:-translate-x-1 transition-transform" />
             Back to Cart
           </button>
-          <h1 className="text-3xl font-bold text-gray-900">Checkout</h1>
+
+          <div className="flex items-center gap-3 mb-6">
+            <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-primary-500 to-violet-600 flex items-center justify-center shadow-large">
+              <CreditCard className="h-6 w-6 text-white" />
+            </div>
+            <span className="text-primary font-semibold">SECURE CHECKOUT</span>
+          </div>
+
+          <h1 className="text-4xl lg:text-5xl font-bold text-foreground mb-4">
+            Complete Your <span className="text-gradient">Order</span>
+          </h1>
+          <p className="text-xl text-muted-foreground">
+            Review your order and provide shipping details
+          </p>
         </div>
 
         {/* Progress Steps */}
