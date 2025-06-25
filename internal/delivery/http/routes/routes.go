@@ -17,6 +17,16 @@ func SetupRoutes(
 	cartHandler *handlers.CartHandler,
 	orderHandler *handlers.OrderHandler,
 	fileHandler *handlers.FileHandler,
+	reviewHandler *handlers.ReviewHandler,
+	wishlistHandler *handlers.WishlistHandler,
+	couponHandler *handlers.CouponHandler,
+	inventoryHandler *handlers.InventoryHandler,
+	notificationHandler *handlers.NotificationHandler,
+	analyticsHandler *handlers.AnalyticsHandler,
+	addressHandler *handlers.AddressHandler,
+	paymentHandler *handlers.PaymentHandler,
+	shippingHandler *handlers.ShippingHandler,
+	adminHandler *handlers.AdminHandler,
 ) {
 	// Apply global middleware
 	router.Use(middleware.CORSMiddleware(&cfg.CORS))
@@ -53,6 +63,13 @@ func SetupRoutes(
 			products.GET("/:id", productHandler.GetProduct)
 			products.GET("/search", productHandler.SearchProducts)
 			products.GET("/category/:categoryId", productHandler.GetProductsByCategory)
+			products.GET("/featured", productHandler.GetFeaturedProducts)
+			products.GET("/trending", productHandler.GetTrendingProducts)
+			if reviewHandler != nil {
+				products.GET("/:id/reviews", reviewHandler.GetProductReviews)
+				products.GET("/:id/rating", reviewHandler.GetProductRating)
+			}
+			products.GET("/:id/related", productHandler.GetRelatedProducts)
 		}
 
 		// Public category routes
@@ -78,6 +95,23 @@ func SetupRoutes(
 			publicFiles.GET("/:id", fileHandler.GetFileUpload)
 		}
 
+		// Shipping routes (public)
+		if shippingHandler != nil {
+			shipping := v1.Group("/shipping")
+			{
+				shipping.GET("/methods", shippingHandler.GetShippingMethods)
+				// shipping.POST("/calculate", shippingHandler.CalculateShipping) // TODO: Implement CalculateShipping method
+				shipping.GET("/track/:tracking_number", shippingHandler.TrackShipment)
+			}
+		}
+
+		// Coupon routes (public validation)
+		coupons := v1.Group("/coupons")
+		{
+			// coupons.GET("/public", couponHandler.GetActiveCoupons) // TODO: Implement GetActiveCoupons method
+			coupons.POST("/validate", couponHandler.ValidateCoupon)
+		}
+
 		// Protected routes (authentication required)
 		protected := v1.Group("")
 		protected.Use(middleware.AuthMiddleware(cfg.JWT.Secret))
@@ -88,6 +122,10 @@ func SetupRoutes(
 				users.GET("/profile", userHandler.GetProfile)
 				users.PUT("/profile", userHandler.UpdateProfile)
 				users.POST("/change-password", userHandler.ChangePassword)
+				// users.DELETE("/account", userHandler.DeleteAccount) // TODO: Implement DeleteAccount method
+				if reviewHandler != nil {
+					users.GET("/:user_id/reviews", reviewHandler.GetUserReviews)
+				}
 			}
 
 			// Upload routes (authenticated users)
@@ -113,6 +151,7 @@ func SetupRoutes(
 				cart.PUT("/items", cartHandler.UpdateCartItem)
 				cart.DELETE("/items/:productId", cartHandler.RemoveFromCart)
 				cart.DELETE("", cartHandler.ClearCart)
+				// cart.POST("/sync", cartHandler.SyncCart) // TODO: Implement SyncCart method
 			}
 
 			// Order routes
@@ -122,6 +161,64 @@ func SetupRoutes(
 				orders.GET("", orderHandler.GetUserOrders)
 				orders.GET("/:id", orderHandler.GetOrder)
 				orders.POST("/:id/cancel", orderHandler.CancelOrder)
+				// orders.GET("/:id/invoice", orderHandler.GetOrderInvoice) // TODO: Implement GetOrderInvoice method
+				// orders.POST("/:id/reorder", orderHandler.ReorderItems) // TODO: Implement ReorderItems method
+			}
+
+			// Review routes
+			reviews := protected.Group("/reviews")
+			{
+				reviews.POST("", reviewHandler.CreateReview)
+				reviews.GET("/:id", reviewHandler.GetReview)
+				reviews.PUT("/:id", reviewHandler.UpdateReview)
+				reviews.DELETE("/:id", reviewHandler.DeleteReview)
+				reviews.POST("/:id/vote", reviewHandler.VoteReview)
+			}
+
+			// Wishlist routes
+			wishlist := protected.Group("/wishlist")
+			{
+				wishlist.GET("", wishlistHandler.GetWishlist)
+				wishlist.POST("/items", wishlistHandler.AddToWishlist)
+				wishlist.DELETE("/items/:id", wishlistHandler.RemoveFromWishlist)
+				wishlist.DELETE("/clear", wishlistHandler.ClearWishlist)
+				// wishlist.POST("/items/:product_id/move-to-cart", wishlistHandler.MoveToCart) // TODO: Implement MoveToCart method
+				wishlist.GET("/count", wishlistHandler.GetWishlistCount)
+			}
+
+			// Address routes
+			addresses := protected.Group("/addresses")
+			{
+				// addresses.GET("", addressHandler.GetUserAddresses) // TODO: Implement GetUserAddresses method
+				addresses.POST("", addressHandler.CreateAddress)
+				addresses.GET("/:id", addressHandler.GetAddress)
+				addresses.PUT("/:id", addressHandler.UpdateAddress)
+				addresses.DELETE("/:id", addressHandler.DeleteAddress)
+				addresses.PUT("/:id/default", addressHandler.SetDefaultAddress)
+				// addresses.POST("/validate", addressHandler.ValidateAddress) // TODO: Implement ValidateAddress method
+			}
+
+			// Payment routes
+			payments := protected.Group("/payments")
+			{
+				payments.POST("", paymentHandler.ProcessPayment)
+				payments.GET("/:id", paymentHandler.GetPayment)
+				payments.POST("/:id/refund", paymentHandler.ProcessRefund)
+				payments.GET("/methods", paymentHandler.GetUserPaymentMethods)
+				payments.POST("/methods", paymentHandler.SavePaymentMethod)
+				payments.DELETE("/methods/:id", paymentHandler.DeletePaymentMethod)
+				payments.PUT("/methods/:id/default", paymentHandler.SetDefaultPaymentMethod)
+			}
+
+			// Notification routes
+			notifications := protected.Group("/notifications")
+			{
+				notifications.GET("", notificationHandler.GetUserNotifications)
+				notifications.PUT("/:id/read", notificationHandler.MarkAsRead)
+				notifications.PUT("/read-all", notificationHandler.MarkAllAsRead)
+				notifications.GET("/count", notificationHandler.GetUnreadCount)
+				// notifications.GET("/preferences", notificationHandler.GetUserPreferences) // TODO: Implement GetUserPreferences method
+				// notifications.PUT("/preferences", notificationHandler.UpdateUserPreferences) // TODO: Implement UpdateUserPreferences method
 			}
 		}
 
@@ -130,12 +227,21 @@ func SetupRoutes(
 		admin.Use(middleware.AuthMiddleware(cfg.JWT.Secret))
 		admin.Use(middleware.AdminMiddleware())
 		{
+			// Dashboard routes
+			dashboard := admin.Group("/dashboard")
+			{
+				dashboard.GET("", adminHandler.GetDashboard)
+				dashboard.GET("/stats", adminHandler.GetSystemStats)
+				dashboard.GET("/real-time", analyticsHandler.GetRealTimeMetrics)
+			}
+
 			// Admin user management
 			adminUsers := admin.Group("/users")
 			{
-				adminUsers.GET("", userHandler.GetUsers)
-				adminUsers.POST("/:id/activate", userHandler.ActivateUser)
-				adminUsers.POST("/:id/deactivate", userHandler.DeactivateUser)
+				adminUsers.GET("", adminHandler.GetUsers)
+				adminUsers.PUT("/:id/status", adminHandler.UpdateUserStatus)
+				adminUsers.PUT("/:id/role", adminHandler.UpdateUserRole)
+				adminUsers.GET("/:id/activity", adminHandler.GetUserActivity)
 			}
 
 			// Admin product management
@@ -174,8 +280,71 @@ func SetupRoutes(
 			// Admin order management
 			adminOrders := admin.Group("/orders")
 			{
-				adminOrders.GET("", orderHandler.GetOrders)
-				adminOrders.PUT("/:id/status", orderHandler.UpdateOrderStatus)
+				adminOrders.GET("", adminHandler.GetOrders)
+				adminOrders.GET("/:id", adminHandler.GetOrderDetails)
+				adminOrders.PUT("/:id/status", adminHandler.UpdateOrderStatus)
+				adminOrders.POST("/:id/refund", adminHandler.ProcessRefund)
+			}
+
+			// Review management routes
+			adminReviews := admin.Group("/reviews")
+			{
+				adminReviews.GET("", adminHandler.ManageReviews)
+				adminReviews.PUT("/:id/status", adminHandler.UpdateReviewStatus)
+			}
+
+			// Inventory management routes
+			inventory := admin.Group("/inventory")
+			{
+				inventory.GET("", inventoryHandler.GetInventories)
+				inventory.GET("/:id", inventoryHandler.GetInventory)
+				inventory.PUT("/:id", inventoryHandler.UpdateInventory)
+				inventory.POST("/movements", inventoryHandler.RecordMovement)
+				inventory.GET("/movements", inventoryHandler.GetMovements)
+				inventory.POST("/adjust", inventoryHandler.AdjustStock)
+				inventory.POST("/transfer", inventoryHandler.TransferStock)
+				inventory.GET("/alerts", inventoryHandler.GetStockAlerts)
+				inventory.PUT("/alerts/:id/resolve", inventoryHandler.ResolveAlert)
+				inventory.GET("/low-stock", inventoryHandler.GetLowStockItems)
+				inventory.GET("/out-of-stock", inventoryHandler.GetOutOfStockItems)
+			}
+
+			// Coupon management routes
+			adminCoupons := admin.Group("/coupons")
+			{
+				adminCoupons.GET("", couponHandler.ListCoupons)
+				adminCoupons.POST("", couponHandler.CreateCoupon)
+				adminCoupons.GET("/:id", couponHandler.GetCoupon)
+				adminCoupons.PUT("/:id", couponHandler.UpdateCoupon)
+				adminCoupons.DELETE("/:id", couponHandler.DeleteCoupon)
+			}
+
+			// Analytics routes
+			analytics := admin.Group("/analytics")
+			{
+				analytics.GET("/sales", analyticsHandler.GetSalesMetrics)
+				analytics.GET("/products", analyticsHandler.GetProductMetrics)
+				analytics.GET("/users", analyticsHandler.GetUserMetrics)
+				analytics.GET("/traffic", analyticsHandler.GetTrafficMetrics)
+				analytics.POST("/events", analyticsHandler.TrackEvent)
+				analytics.GET("/top-products", analyticsHandler.GetTopProducts)
+				analytics.GET("/top-categories", analyticsHandler.GetTopCategories)
+			}
+
+			// Reports routes
+			reports := admin.Group("/reports")
+			{
+				reports.POST("/generate", adminHandler.GenerateReport)
+				reports.GET("", adminHandler.GetReports)
+				reports.GET("/:id/download", adminHandler.DownloadReport)
+			}
+
+			// System management routes
+			system := admin.Group("/system")
+			{
+				system.GET("/logs", adminHandler.GetSystemLogs)
+				system.GET("/audit", adminHandler.GetAuditLogs)
+				system.POST("/backup", adminHandler.BackupDatabase)
 			}
 		}
 

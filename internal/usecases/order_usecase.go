@@ -21,11 +21,12 @@ type OrderUseCase interface {
 }
 
 type orderUseCase struct {
-	orderRepo    repositories.OrderRepository
-	cartRepo     repositories.CartRepository
-	productRepo  repositories.ProductRepository
-	paymentRepo  repositories.PaymentRepository
-	orderService services.OrderService
+	orderRepo     repositories.OrderRepository
+	cartRepo      repositories.CartRepository
+	productRepo   repositories.ProductRepository
+	paymentRepo   repositories.PaymentRepository
+	inventoryRepo repositories.InventoryRepository
+	orderService  services.OrderService
 }
 
 // NewOrderUseCase creates a new order use case
@@ -34,14 +35,16 @@ func NewOrderUseCase(
 	cartRepo repositories.CartRepository,
 	productRepo repositories.ProductRepository,
 	paymentRepo repositories.PaymentRepository,
+	inventoryRepo repositories.InventoryRepository,
 	orderService services.OrderService,
 ) OrderUseCase {
 	return &orderUseCase{
-		orderRepo:    orderRepo,
-		cartRepo:     cartRepo,
-		productRepo:  productRepo,
-		paymentRepo:  paymentRepo,
-		orderService: orderService,
+		orderRepo:     orderRepo,
+		cartRepo:      cartRepo,
+		productRepo:   productRepo,
+		paymentRepo:   paymentRepo,
+		inventoryRepo: inventoryRepo,
+		orderService:  orderService,
 	}
 }
 
@@ -132,19 +135,7 @@ type OrderAddressResponse struct {
 	Phone     string `json:"phone"`
 }
 
-// PaymentResponse represents payment response
-type PaymentResponse struct {
-	ID            uuid.UUID             `json:"id"`
-	Amount        float64               `json:"amount"`
-	Currency      string                `json:"currency"`
-	Method        entities.PaymentMethod `json:"method"`
-	Status        entities.PaymentStatus `json:"status"`
-	TransactionID string                `json:"transaction_id"`
-	ProcessedAt   *time.Time            `json:"processed_at"`
-	RefundedAt    *time.Time            `json:"refunded_at"`
-	RefundAmount  float64               `json:"refund_amount"`
-	CreatedAt     time.Time             `json:"created_at"`
-}
+
 
 // CreateOrder creates a new order
 func (uc *orderUseCase) CreateOrder(ctx context.Context, userID uuid.UUID, req CreateOrderRequest) (*OrderResponse, error) {

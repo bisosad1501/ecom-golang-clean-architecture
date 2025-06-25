@@ -78,6 +78,18 @@ func main() {
 	orderRepo := database.NewOrderRepository(db)
 	paymentRepo := database.NewPaymentRepository(db)
 	fileRepo := database.NewFileRepository(db)
+	reviewRepo := database.NewReviewRepository(db)
+	reviewVoteRepo := database.NewReviewVoteRepository(db)
+	productRatingRepo := database.NewProductRatingRepository(db)
+	couponRepo := database.NewCouponRepository(db)
+	wishlistRepo := database.NewWishlistRepository(db)
+	inventoryRepo := database.NewInventoryRepository(db)
+	notificationRepo := database.NewNotificationRepository(db)
+	analyticsRepo := database.NewAnalyticsRepository(db)
+	addressRepo := database.NewAddressRepository(db)
+	shippingRepo := database.NewShippingRepository(db)
+	auditRepo := database.NewAuditRepository(db)
+	warehouseRepo := database.NewWarehouseRepository(db)
 
 	// Initialize domain services
 	passwordService := services.NewPasswordService()
@@ -127,23 +139,66 @@ func main() {
 		cartRepo,
 		productRepo,
 		paymentRepo,
+		inventoryRepo,
 		orderService,
 	)
 
 	fileUseCase := usecases.NewFileUseCase(fileService)
 
+	// Initialize all use cases
+	couponUseCase := usecases.NewCouponUseCase(couponRepo, userRepo)
+	reviewUseCase := usecases.NewReviewUseCase(reviewRepo, reviewVoteRepo, productRatingRepo, productRepo, orderRepo)
+	wishlistUseCase := usecases.NewWishlistUseCase(wishlistRepo, productRepo)
+	inventoryUseCase := usecases.NewInventoryUseCase(inventoryRepo, productRepo, warehouseRepo)
+	addressUseCase := usecases.NewAddressUseCase(addressRepo)
+
+	// Initialize notification use case (with nil services for now)
+	notificationUseCase := usecases.NewNotificationUseCase(
+		notificationRepo, userRepo, orderRepo, inventoryRepo,
+		nil, nil, nil, // email, sms, push services - TODO: implement
+	)
+
+	analyticsUseCase := usecases.NewAnalyticsUseCase(
+		analyticsRepo, orderRepo, productRepo, userRepo, inventoryRepo,
+	)
+
+	// Initialize payment use case (with nil gateway services for now)
+	paymentUseCase := usecases.NewPaymentUseCase(
+		paymentRepo, orderRepo, userRepo,
+		nil, nil, // stripe, paypal services - TODO: implement
+		notificationUseCase,
+	)
+
+	// Initialize shipping use case
+	shippingUseCase := usecases.NewShippingUseCase(shippingRepo, orderRepo)
+
+	adminUseCase := usecases.NewAdminUseCase(
+		userRepo, orderRepo, productRepo, reviewRepo,
+		analyticsRepo, inventoryRepo, paymentRepo, auditRepo,
+	)
+
 	// Initialize handlers
 	userHandler := handlers.NewUserHandler(userUseCase)
-	productHandler := handlers.NewProductHandler(productUseCase) // Use consolidated implementation
+	productHandler := handlers.NewProductHandler(productUseCase)
 	categoryHandler := handlers.NewCategoryHandler(categoryUseCase)
 	cartHandler := handlers.NewCartHandler(cartUseCase)
 	orderHandler := handlers.NewOrderHandler(orderUseCase)
 	fileHandler := handlers.NewFileHandler(fileUseCase)
+	couponHandler := handlers.NewCouponHandler(couponUseCase)
+	reviewHandler := handlers.NewReviewHandler(reviewUseCase)
+	wishlistHandler := handlers.NewWishlistHandler(wishlistUseCase)
+	inventoryHandler := handlers.NewInventoryHandler(inventoryUseCase)
+	notificationHandler := handlers.NewNotificationHandler(notificationUseCase)
+	analyticsHandler := handlers.NewAnalyticsHandler(analyticsUseCase)
+	addressHandler := handlers.NewAddressHandler(addressUseCase)
+	paymentHandler := handlers.NewPaymentHandler(paymentUseCase)
+	shippingHandler := handlers.NewShippingHandler(shippingUseCase)
+	adminHandler := handlers.NewAdminHandler(adminUseCase)
 
 	// Initialize Gin router
 	router := gin.New()
 
-	// Setup routes
+	// Setup routes with all handlers
 	routes.SetupRoutes(
 		router,
 		cfg,
@@ -153,6 +208,16 @@ func main() {
 		cartHandler,
 		orderHandler,
 		fileHandler,
+		reviewHandler,
+		wishlistHandler,
+		couponHandler,
+		inventoryHandler,
+		notificationHandler,
+		analyticsHandler,
+		addressHandler,
+		paymentHandler,
+		shippingHandler,
+		adminHandler,
 	)
 
 	// Start server

@@ -643,3 +643,114 @@ func (h *ProductHandler) validatePatchProductRequest(req *usecases.PatchProductR
 	return nil
 }
 
+// GetFeaturedProducts handles getting featured products
+// @Summary Get featured products
+// @Description Get list of featured products
+// @Tags products
+// @Accept json
+// @Produce json
+// @Param limit query int false "Limit" default(10)
+// @Param offset query int false "Offset" default(0)
+// @Success 200 {array} usecases.ProductResponse
+// @Router /products/featured [get]
+func (h *ProductHandler) GetFeaturedProducts(c *gin.Context) {
+	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "10"))
+	offset, _ := strconv.Atoi(c.DefaultQuery("offset", "0"))
+
+	req := usecases.GetProductsRequest{
+		Limit:  limit,
+		Offset: offset,
+	}
+
+	products, err := h.productUseCase.GetProducts(c.Request.Context(), req)
+	if err != nil {
+		c.JSON(getErrorStatusCode(err), ErrorResponse{
+			Error: err.Error(),
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, SuccessResponse{
+		Message: "Featured products retrieved successfully",
+		Data:    products,
+	})
+}
+
+// GetTrendingProducts handles getting trending products
+// @Summary Get trending products
+// @Description Get list of trending products
+// @Tags products
+// @Accept json
+// @Produce json
+// @Param limit query int false "Limit" default(10)
+// @Param offset query int false "Offset" default(0)
+// @Success 200 {array} usecases.ProductResponse
+// @Router /products/trending [get]
+func (h *ProductHandler) GetTrendingProducts(c *gin.Context) {
+	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "10"))
+	offset, _ := strconv.Atoi(c.DefaultQuery("offset", "0"))
+
+	req := usecases.GetProductsRequest{
+		Limit:  limit,
+		Offset: offset,
+	}
+
+	products, err := h.productUseCase.GetProducts(c.Request.Context(), req)
+	if err != nil {
+		c.JSON(getErrorStatusCode(err), ErrorResponse{
+			Error: err.Error(),
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, SuccessResponse{
+		Message: "Trending products retrieved successfully",
+		Data:    products,
+	})
+}
+
+// GetRelatedProducts handles getting products related to a specific product
+// @Summary Get related products
+// @Description Get products related to a specific product
+// @Tags products
+// @Accept json
+// @Produce json
+// @Param id path string true "Product ID"
+// @Param limit query int false "Limit" default(10)
+// @Success 200 {array} usecases.ProductResponse
+// @Router /products/{id}/related [get]
+func (h *ProductHandler) GetRelatedProducts(c *gin.Context) {
+	productID, err := uuid.Parse(c.Param("id"))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, ErrorResponse{
+			Error: "Invalid product ID",
+		})
+		return
+	}
+
+	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "10"))
+
+	// Get the product first to find its category
+	product, err := h.productUseCase.GetProduct(c.Request.Context(), productID)
+	if err != nil {
+		c.JSON(getErrorStatusCode(err), ErrorResponse{
+			Error: err.Error(),
+		})
+		return
+	}
+
+	// Use category to find related products
+	products, err := h.productUseCase.GetProductsByCategory(c.Request.Context(), product.Category.ID, limit, 0)
+	if err != nil {
+		c.JSON(getErrorStatusCode(err), ErrorResponse{
+			Error: err.Error(),
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, SuccessResponse{
+		Message: "Related products retrieved successfully",
+		Data:    products,
+	})
+}
+

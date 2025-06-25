@@ -114,6 +114,7 @@ type ProductRating struct {
 	Rating3Count  int       `json:"rating_3_count" gorm:"default:0"`
 	Rating4Count  int       `json:"rating_4_count" gorm:"default:0"`
 	Rating5Count  int       `json:"rating_5_count" gorm:"default:0"`
+	CreatedAt     time.Time `json:"created_at" gorm:"autoCreateTime"`
 	UpdatedAt     time.Time `json:"updated_at" gorm:"autoUpdateTime"`
 }
 

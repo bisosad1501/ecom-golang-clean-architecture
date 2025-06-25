@@ -38,6 +38,10 @@ type UserRepository interface {
 	
 	// SetActive sets user active status
 	SetActive(ctx context.Context, userID uuid.UUID, isActive bool) error
+
+	// Additional methods for admin dashboard
+	CountUsers(ctx context.Context) (int64, error)
+	CountActiveUsers(ctx context.Context) (int64, error)
 }
 
 // UserProfileRepository defines the interface for user profile data access

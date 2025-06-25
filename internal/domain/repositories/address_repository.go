@@ -8,6 +8,20 @@ import (
 	"github.com/google/uuid"
 )
 
+// AddressFilters represents filters for address queries
+type AddressFilters struct {
+	UserID    *uuid.UUID             `json:"user_id"`
+	Type      *entities.AddressType  `json:"type"`
+	IsDefault *bool                  `json:"is_default"`
+	Country   string                 `json:"country"`
+	State     string                 `json:"state"`
+	City      string                 `json:"city"`
+	SortBy    string                 `json:"sort_by"`    // created_at, updated_at, type
+	SortOrder string                 `json:"sort_order"` // asc, desc
+	Limit     int                    `json:"limit"`
+	Offset    int                    `json:"offset"`
+}
+
 // AddressRepository defines the interface for address data access
 type AddressRepository interface {
 	// Basic CRUD operations
@@ -24,6 +38,10 @@ type AddressRepository interface {
 
 	// Validation
 	ExistsByUserIDAndID(ctx context.Context, userID, addressID uuid.UUID) (bool, error)
+
+	// Advanced queries with filters
+	List(ctx context.Context, filters AddressFilters) ([]*entities.Address, error)
+	Count(ctx context.Context, filters AddressFilters) (int64, error)
 }
 
 // WishlistRepository defines the interface for wishlist data access

@@ -6,6 +6,16 @@ import (
 	"github.com/google/uuid"
 )
 
+// UserStatus represents user account status
+type UserStatus string
+
+const (
+	UserStatusActive    UserStatus = "active"
+	UserStatusInactive  UserStatus = "inactive"
+	UserStatusSuspended UserStatus = "suspended"
+	UserStatusPending   UserStatus = "pending"
+)
+
 // UserRole represents the role of a user
 type UserRole string
 
@@ -22,9 +32,10 @@ type User struct {
 	Password  string    `json:"-" gorm:"not null" validate:"required,min=6"`
 	FirstName string    `json:"first_name" gorm:"not null" validate:"required"`
 	LastName  string    `json:"last_name" gorm:"not null" validate:"required"`
-	Phone     string    `json:"phone" gorm:"index"`
-	Role      UserRole  `json:"role" gorm:"default:'customer'" validate:"required"`
-	IsActive  bool      `json:"is_active" gorm:"default:true"`
+	Phone     string     `json:"phone" gorm:"index"`
+	Role      UserRole   `json:"role" gorm:"default:'customer'" validate:"required"`
+	Status    UserStatus `json:"status" gorm:"default:'active'" validate:"required"`
+	IsActive  bool       `json:"is_active" gorm:"default:true"`
 	CreatedAt time.Time `json:"created_at" gorm:"autoCreateTime"`
 	UpdatedAt time.Time `json:"updated_at" gorm:"autoUpdateTime"`
 

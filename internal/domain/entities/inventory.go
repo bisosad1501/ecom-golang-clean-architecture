@@ -6,6 +6,39 @@ import (
 	"github.com/google/uuid"
 )
 
+// WarehouseStatus represents warehouse status
+type WarehouseStatus string
+
+const (
+	WarehouseStatusActive     WarehouseStatus = "active"
+	WarehouseStatusInactive   WarehouseStatus = "inactive"
+	WarehouseStatusMaintenance WarehouseStatus = "maintenance"
+	WarehouseStatusClosed     WarehouseStatus = "closed"
+)
+
+// WarehouseType represents warehouse type
+type WarehouseType string
+
+const (
+	WarehouseTypeDistribution WarehouseType = "distribution"
+	WarehouseTypeFulfillment  WarehouseType = "fulfillment"
+	WarehouseTypeStorage      WarehouseType = "storage"
+	WarehouseTypeRetail       WarehouseType = "retail"
+	WarehouseTypeColdStorage  WarehouseType = "cold_storage"
+)
+
+// WarehouseRole represents user role in warehouse
+type WarehouseRole string
+
+const (
+	WarehouseRoleManager     WarehouseRole = "manager"
+	WarehouseRoleSupervisor  WarehouseRole = "supervisor"
+	WarehouseRoleWorker      WarehouseRole = "worker"
+	WarehouseRoleDriver      WarehouseRole = "driver"
+	WarehouseRoleSecurity    WarehouseRole = "security"
+	WarehouseRoleMaintenance WarehouseRole = "maintenance"
+)
+
 // InventoryMovementType represents the type of inventory movement
 type InventoryMovementType string
 
@@ -195,6 +228,28 @@ func (Warehouse) TableName() string {
 	return "warehouses"
 }
 
+// WarehouseZone represents a zone within a warehouse
+type WarehouseZone struct {
+	ID          uuid.UUID `json:"id" gorm:"type:uuid;primary_key;default:gen_random_uuid()"`
+	WarehouseID uuid.UUID `json:"warehouse_id" gorm:"type:uuid;not null;index"`
+	Name        string    `json:"name" gorm:"not null"`
+	Code        string    `json:"code" gorm:"not null"`
+	Type        string    `json:"type" gorm:"not null"` // storage, picking, packing, shipping, receiving
+	Description string    `json:"description,omitempty"`
+	IsActive    bool      `json:"is_active" gorm:"default:true"`
+	CreatedAt   time.Time `json:"created_at" gorm:"autoCreateTime"`
+	UpdatedAt   time.Time `json:"updated_at" gorm:"autoUpdateTime"`
+
+	// Relationships
+	Warehouse *Warehouse  `json:"warehouse,omitempty" gorm:"foreignKey:WarehouseID"`
+	Inventory []Inventory `json:"inventory,omitempty" gorm:"foreignKey:ZoneID"`
+}
+
+// TableName returns the table name for WarehouseZone entity
+func (WarehouseZone) TableName() string {
+	return "warehouse_zones"
+}
+
 // StockAlertType represents the type of stock alert
 type StockAlertType string
 
@@ -317,4 +372,12 @@ func (s *Supplier) GetOverallRating() float64 {
 // IsReliable checks if supplier is reliable based on ratings
 func (s *Supplier) IsReliable() bool {
 	return s.GetOverallRating() >= 4.0
+}
+
+// WarehouseStats represents warehouse statistics
+type WarehouseStats struct {
+	TotalProducts    int64   `json:"total_products"`
+	LowStockCount    int64   `json:"low_stock_count"`
+	OutOfStockCount  int64   `json:"out_of_stock_count"`
+	TotalValue       float64 `json:"total_value"`
 }

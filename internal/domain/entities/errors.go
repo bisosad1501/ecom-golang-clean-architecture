@@ -67,6 +67,7 @@ var (
 
 	// Coupon errors
 	ErrCouponNotFound = errors.New("coupon not found")
+	ErrCouponCodeExists = errors.New("coupon code already exists")
 	ErrCouponInvalid = errors.New("coupon is invalid")
 	ErrCouponExpired = errors.New("coupon has expired")
 	ErrCouponNotApplicable = errors.New("coupon is not applicable")

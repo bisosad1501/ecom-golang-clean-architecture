@@ -62,19 +62,6 @@ func (p *Payment) IsRefunded() bool {
 	return p.Status == PaymentStatusRefunded
 }
 
-// CanBeRefunded checks if the payment can be refunded
-func (p *Payment) CanBeRefunded() bool {
-	return p.Status == PaymentStatusPaid && p.RefundAmount < p.Amount
-}
-
-// GetRemainingRefundAmount returns the remaining amount that can be refunded
-func (p *Payment) GetRemainingRefundAmount() float64 {
-	if !p.CanBeRefunded() {
-		return 0
-	}
-	return p.Amount - p.RefundAmount
-}
-
 // MarkAsProcessed marks the payment as processed
 func (p *Payment) MarkAsProcessed(transactionID string) {
 	p.Status = PaymentStatusPaid
@@ -111,4 +98,66 @@ func (p *Payment) AddRefund(amount float64) error {
 	
 	p.UpdatedAt = time.Now()
 	return nil
+}
+
+// Refund represents a payment refund
+type Refund struct {
+	ID            uuid.UUID     `json:"id" gorm:"type:uuid;primary_key;default:gen_random_uuid()"`
+	PaymentID     uuid.UUID     `json:"payment_id" gorm:"type:uuid;not null;index"`
+	Amount        float64       `json:"amount" gorm:"not null" validate:"required,gt=0"`
+	Reason        string        `json:"reason" gorm:"not null"`
+	Status        RefundStatus  `json:"status" gorm:"default:'pending'"`
+	TransactionID string        `json:"transaction_id" gorm:"index"`
+	ExternalID    string        `json:"external_id" gorm:"index"`
+	ProcessedAt   *time.Time    `json:"processed_at"`
+	CreatedAt     time.Time     `json:"created_at" gorm:"autoCreateTime"`
+	UpdatedAt     time.Time     `json:"updated_at" gorm:"autoUpdateTime"`
+
+	// Relationships
+	Payment *Payment `json:"payment,omitempty" gorm:"foreignKey:PaymentID"`
+}
+
+// RefundStatus represents the refund status
+type RefundStatus string
+
+const (
+	RefundStatusPending   RefundStatus = "pending"
+	RefundStatusCompleted RefundStatus = "completed"
+	RefundStatusFailed    RefundStatus = "failed"
+	RefundStatusCancelled RefundStatus = "cancelled"
+)
+
+// TableName returns the table name for Refund entity
+func (Refund) TableName() string {
+	return "refunds"
+}
+
+// IsCompleted checks if the refund is completed
+func (r *Refund) IsCompleted() bool {
+	return r.Status == RefundStatusCompleted
+}
+
+// MarkAsCompleted marks the refund as completed
+func (r *Refund) MarkAsCompleted(transactionID string) {
+	r.Status = RefundStatusCompleted
+	r.TransactionID = transactionID
+	now := time.Now()
+	r.ProcessedAt = &now
+	r.UpdatedAt = now
+}
+
+// MarkAsFailed marks the refund as failed
+func (r *Refund) MarkAsFailed() {
+	r.Status = RefundStatusFailed
+	r.UpdatedAt = time.Now()
+}
+
+// GetRemainingRefundAmount returns the remaining amount that can be refunded
+func (p *Payment) GetRemainingRefundAmount() float64 {
+	return p.Amount - p.RefundAmount
+}
+
+// CanBeRefunded checks if the payment can be refunded
+func (p *Payment) CanBeRefunded() bool {
+	return p.Status == PaymentStatusPaid && p.RefundAmount < p.Amount
 }

@@ -126,6 +126,25 @@ func (r *userRepository) SetActive(ctx context.Context, userID uuid.UUID, isActi
 	return nil
 }
 
+// CountUsers counts total number of users
+func (r *userRepository) CountUsers(ctx context.Context) (int64, error) {
+	var count int64
+	err := r.db.WithContext(ctx).
+		Model(&entities.User{}).
+		Count(&count).Error
+	return count, err
+}
+
+// CountActiveUsers counts active users
+func (r *userRepository) CountActiveUsers(ctx context.Context) (int64, error) {
+	var count int64
+	err := r.db.WithContext(ctx).
+		Model(&entities.User{}).
+		Where("is_active = ? AND status = ?", true, entities.UserStatusActive).
+		Count(&count).Error
+	return count, err
+}
+
 type userProfileRepository struct {
 	db *gorm.DB
 }

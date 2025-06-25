@@ -73,6 +73,9 @@ type ProductRepository interface {
 	
 	// ReplaceTags replaces all tag associations for a product with new ones
 	ReplaceTags(ctx context.Context, productID uuid.UUID, tagIDs []uuid.UUID) error
+
+	// Additional methods for admin dashboard
+	CountProducts(ctx context.Context) (int64, error)
 }
 
 // CategoryRepository defines the interface for category data access

@@ -2,6 +2,7 @@ package database
 
 import (
 	"context"
+	"fmt"
 	"strings"
 	"time"
 
@@ -255,6 +256,36 @@ func (r *orderRepository) GetTotalSales(ctx context.Context, startDate, endDate 
 	return total, err
 }
 
+// GetTotalRevenue gets total revenue from all orders
+func (r *orderRepository) GetTotalRevenue(ctx context.Context) (float64, error) {
+	var total float64
+	err := r.db.WithContext(ctx).
+		Model(&entities.Order{}).
+		Where("status IN ?", []entities.OrderStatus{entities.OrderStatusDelivered}).
+		Select("COALESCE(SUM(total_amount), 0)").
+		Scan(&total).Error
+	return total, err
+}
+
+// CountOrders counts total number of orders
+func (r *orderRepository) CountOrders(ctx context.Context) (int64, error) {
+	var count int64
+	err := r.db.WithContext(ctx).
+		Model(&entities.Order{}).
+		Count(&count).Error
+	return count, err
+}
+
+// CountOrdersByStatus counts orders by status
+func (r *orderRepository) CountOrdersByStatus(ctx context.Context, status entities.OrderStatus) (int64, error) {
+	var count int64
+	err := r.db.WithContext(ctx).
+		Model(&entities.Order{}).
+		Where("status = ?", status).
+		Count(&count).Error
+	return count, err
+}
+
 type paymentRepository struct {
 	db *gorm.DB
 }
@@ -377,4 +408,41 @@ func (r *paymentRepository) GetRefundablePayments(ctx context.Context, limit, of
 		Order("created_at DESC").
 		Find(&payments).Error
 	return payments, err
+}
+
+// Refund-related methods
+func (r *paymentRepository) CreateRefund(ctx context.Context, refund *entities.Refund) error {
+	return r.db.WithContext(ctx).Create(refund).Error
+}
+
+func (r *paymentRepository) GetRefund(ctx context.Context, refundID uuid.UUID) (*entities.Refund, error) {
+	var refund entities.Refund
+	err := r.db.WithContext(ctx).Where("id = ?", refundID).First(&refund).Error
+	if err != nil {
+		if err == gorm.ErrRecordNotFound {
+			return nil, fmt.Errorf("refund not found")
+		}
+		return nil, err
+	}
+	return &refund, nil
+}
+
+func (r *paymentRepository) GetRefundsByPaymentID(ctx context.Context, paymentID uuid.UUID) ([]*entities.Refund, error) {
+	var refunds []*entities.Refund
+	err := r.db.WithContext(ctx).Where("payment_id = ?", paymentID).Find(&refunds).Error
+	return refunds, err
+}
+
+func (r *paymentRepository) UpdateRefund(ctx context.Context, refund *entities.Refund) error {
+	return r.db.WithContext(ctx).Save(refund).Error
+}
+
+func (r *paymentRepository) ListRefunds(ctx context.Context, limit, offset int) ([]*entities.Refund, error) {
+	var refunds []*entities.Refund
+	err := r.db.WithContext(ctx).
+		Limit(limit).
+		Offset(offset).
+		Order("created_at DESC").
+		Find(&refunds).Error
+	return refunds, err
 }

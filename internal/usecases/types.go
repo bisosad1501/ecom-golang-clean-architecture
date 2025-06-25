@@ -57,3 +57,260 @@ type ProductTagResponse struct {
 	Name string    `json:"name"`
 	Slug string    `json:"slug"`
 }
+
+// Inventory Types
+
+// InventoryResponse represents inventory response
+type InventoryResponse struct {
+	ID                uuid.UUID            `json:"id"`
+	ProductID         uuid.UUID            `json:"product_id"`
+	WarehouseID       uuid.UUID            `json:"warehouse_id"`
+	QuantityOnHand    int                  `json:"quantity_on_hand"`
+	QuantityReserved  int                  `json:"quantity_reserved"`
+	QuantityAvailable int                  `json:"quantity_available"`
+	ReorderLevel      int                  `json:"reorder_level"`
+	MaxStockLevel     *int                 `json:"max_stock_level"`
+	MinStockLevel     *int                 `json:"min_stock_level"`
+	AverageCost       float64              `json:"average_cost"`
+	LastCost          *float64             `json:"last_cost"`
+	LastMovementAt    *time.Time           `json:"last_movement_at"`
+	LastCountAt       *time.Time           `json:"last_count_at"`
+	IsLowStock        bool                 `json:"is_low_stock"`
+	IsOutOfStock      bool                 `json:"is_out_of_stock"`
+	IsOverStock       bool                 `json:"is_over_stock"`
+	IsActive          bool                 `json:"is_active"`
+	Product           *ProductResponse     `json:"product,omitempty"`
+	Warehouse         *WarehouseResponse   `json:"warehouse,omitempty"`
+	CreatedAt         time.Time            `json:"created_at"`
+	UpdatedAt         time.Time            `json:"updated_at"`
+}
+
+// WarehouseResponse represents warehouse response
+type WarehouseResponse struct {
+	ID          uuid.UUID `json:"id"`
+	Code        string    `json:"code"`
+	Name        string    `json:"name"`
+	Description string    `json:"description"`
+	Address     string    `json:"address"`
+	City        string    `json:"city"`
+	State       string    `json:"state"`
+	Country     string    `json:"country"`
+	Type        string    `json:"type"`
+	IsActive    bool      `json:"is_active"`
+	IsDefault   bool      `json:"is_default"`
+}
+
+// AdjustStockRequest represents adjust stock request
+type AdjustStockRequest struct {
+	ProductID     uuid.UUID `json:"product_id" validate:"required"`
+	WarehouseID   uuid.UUID `json:"warehouse_id" validate:"required"`
+	QuantityDelta int       `json:"quantity_delta" validate:"required"`
+	Reason        string    `json:"reason" validate:"required"`
+	Notes         string    `json:"notes"`
+	BatchNumber   string    `json:"batch_number"`
+	ExpiryDate    *time.Time `json:"expiry_date"`
+	AdjustedBy    uuid.UUID `json:"adjusted_by" validate:"required"`
+}
+
+// GetLowStockItemsRequest represents request for getting low stock items
+type GetLowStockItemsRequest struct {
+	WarehouseID *uuid.UUID `json:"warehouse_id"`
+	Page        int        `json:"page"`
+	Limit       int        `json:"limit"`
+}
+
+// LowStockItemsResponse represents response for low stock items
+type LowStockItemsResponse struct {
+	Items      []*InventoryResponse `json:"items"`
+	Total      int64                `json:"total"`
+	Pagination PaginationResponse   `json:"pagination"`
+}
+
+// UpdateInventoryRequest represents update inventory request
+type UpdateInventoryRequest struct {
+	ProductID       uuid.UUID  `json:"product_id" validate:"required"`
+	WarehouseID     uuid.UUID  `json:"warehouse_id" validate:"required"`
+	QuantityOnHand  *int       `json:"quantity_on_hand"`
+	ReorderLevel    *int       `json:"reorder_level"`
+	MaxStockLevel   *int       `json:"max_stock_level"`
+	MinStockLevel   *int       `json:"min_stock_level"`
+	AverageCost     *float64   `json:"average_cost"`
+	LastCost        *float64   `json:"last_cost"`
+	LastCountAt     *time.Time `json:"last_count_at"`
+	UpdatedBy       uuid.UUID  `json:"updated_by" validate:"required"`
+}
+
+// GetInventoriesRequest represents request for getting inventories
+type GetInventoriesRequest struct {
+	Page          int    `json:"page"`
+	Limit         int    `json:"limit"`
+	Search        string `json:"search"`
+	LowStockOnly  bool   `json:"low_stock_only"`
+	OutOfStockOnly bool  `json:"out_of_stock_only"`
+}
+
+// InventoriesListResponse represents inventories list response
+type InventoriesListResponse struct {
+	Items      []*InventoryResponse `json:"items"`
+	Total      int64                `json:"total"`
+	Pagination PaginationResponse   `json:"pagination"`
+}
+
+// MovementResponse represents inventory movement response
+type MovementResponse struct {
+	ID             uuid.UUID  `json:"id"`
+	InventoryID    uuid.UUID  `json:"inventory_id"`
+	Type           string     `json:"type"`
+	Reason         string     `json:"reason"`
+	Quantity       int        `json:"quantity"`
+	UnitCost       *float64   `json:"unit_cost"`
+	TotalCost      *float64   `json:"total_cost"`
+	QuantityBefore int        `json:"quantity_before"`
+	QuantityAfter  int        `json:"quantity_after"`
+	ReferenceType  *string    `json:"reference_type"`
+	ReferenceID    *uuid.UUID `json:"reference_id"`
+	Notes          string     `json:"notes"`
+	BatchNumber    *string    `json:"batch_number"`
+	ExpiryDate     *time.Time `json:"expiry_date"`
+	CreatedBy      uuid.UUID  `json:"created_by"`
+	CreatedAt      time.Time  `json:"created_at"`
+}
+
+// RecordMovementRequest represents record movement request
+type RecordMovementRequest struct {
+	ProductID     uuid.UUID  `json:"product_id" validate:"required"`
+	WarehouseID   uuid.UUID  `json:"warehouse_id" validate:"required"`
+	Type          string     `json:"type" validate:"required"`
+	Reason        string     `json:"reason" validate:"required"`
+	Quantity      int        `json:"quantity" validate:"required"`
+	UnitCost      *float64   `json:"unit_cost"`
+	ReferenceType *string    `json:"reference_type"`
+	ReferenceID   *uuid.UUID `json:"reference_id"`
+	Notes         string     `json:"notes"`
+	BatchNumber   *string    `json:"batch_number"`
+	ExpiryDate    *time.Time `json:"expiry_date"`
+	CreatedBy     uuid.UUID  `json:"created_by" validate:"required"`
+}
+
+// GetMovementsRequest represents request for getting movements
+type GetMovementsRequest struct {
+	InventoryID *uuid.UUID `json:"inventory_id"`
+	ProductID   *uuid.UUID `json:"product_id"`
+	WarehouseID *uuid.UUID `json:"warehouse_id"`
+	Type        string     `json:"type"`
+	DateFrom    *time.Time `json:"date_from"`
+	DateTo      *time.Time `json:"date_to"`
+	Page        int        `json:"page"`
+	Limit       int        `json:"limit"`
+}
+
+// MovementsListResponse represents movements list response
+type MovementsListResponse struct {
+	Items      []*MovementResponse `json:"items"`
+	Total      int64               `json:"total"`
+	Pagination PaginationResponse  `json:"pagination"`
+}
+
+// TransferStockRequest represents transfer stock request
+type TransferStockRequest struct {
+	ProductID         uuid.UUID `json:"product_id" validate:"required"`
+	FromWarehouseID   uuid.UUID `json:"from_warehouse_id" validate:"required"`
+	ToWarehouseID     uuid.UUID `json:"to_warehouse_id" validate:"required"`
+	Quantity          int       `json:"quantity" validate:"required"`
+	Reason            string    `json:"reason" validate:"required"`
+	Notes             string    `json:"notes"`
+	TransferredBy     uuid.UUID `json:"transferred_by" validate:"required"`
+}
+
+// GetAlertsRequest represents request for getting alerts
+type GetAlertsRequest struct {
+	Type        string     `json:"type"`
+	Status      string     `json:"status"`
+	WarehouseID *uuid.UUID `json:"warehouse_id"`
+	ProductID   *uuid.UUID `json:"product_id"`
+	Page        int        `json:"page"`
+	Limit       int        `json:"limit"`
+}
+
+// AlertsListResponse represents alerts list response
+type AlertsListResponse struct {
+	Items      []*AlertResponse   `json:"items"`
+	Total      int64              `json:"total"`
+	Pagination PaginationResponse `json:"pagination"`
+}
+
+// AlertResponse represents alert response
+type AlertResponse struct {
+	ID          uuid.UUID  `json:"id"`
+	Type        string     `json:"type"`
+	Message     string     `json:"message"`
+	Severity    string     `json:"severity"`
+	Status      string     `json:"status"`
+	ProductID   *uuid.UUID `json:"product_id"`
+	WarehouseID *uuid.UUID `json:"warehouse_id"`
+	TriggeredAt time.Time  `json:"triggered_at"`
+	ResolvedAt  *time.Time `json:"resolved_at"`
+	ResolvedBy  *uuid.UUID `json:"resolved_by"`
+	Resolution  string     `json:"resolution"`
+}
+
+// InventoryReportRequest represents inventory report request
+type InventoryReportRequest struct {
+	WarehouseID *uuid.UUID `json:"warehouse_id"`
+	CategoryID  *uuid.UUID `json:"category_id"`
+	DateFrom    *time.Time `json:"date_from"`
+	DateTo      *time.Time `json:"date_to"`
+	ReportType  string     `json:"report_type"`
+}
+
+// MovementReportRequest represents movement report request
+type MovementReportRequest struct {
+	WarehouseID *uuid.UUID `json:"warehouse_id"`
+	ProductID   *uuid.UUID `json:"product_id"`
+	DateFrom    *time.Time `json:"date_from"`
+	DateTo      *time.Time `json:"date_to"`
+	MovementType string    `json:"movement_type"`
+}
+
+// MovementReportResponse represents movement report response
+type MovementReportResponse struct {
+	ReportType   string                     `json:"report_type"`
+	GeneratedAt  time.Time                  `json:"generated_at"`
+	DateRange    *DateRangeResponse         `json:"date_range,omitempty"`
+	Summary      *MovementReportSummary     `json:"summary"`
+	Items        []*MovementReportItem      `json:"items"`
+}
+
+// MovementReportSummary represents movement report summary
+type MovementReportSummary struct {
+	TotalMovements   int     `json:"total_movements"`
+	TotalInbound     int     `json:"total_inbound"`
+	TotalOutbound    int     `json:"total_outbound"`
+	TotalAdjustments int     `json:"total_adjustments"`
+	NetChange        int     `json:"net_change"`
+	ValueChange      float64 `json:"value_change"`
+}
+
+// MovementReportItem represents movement report item
+type MovementReportItem struct {
+	Date         time.Time        `json:"date"`
+	Product      *ProductResponse `json:"product"`
+	Warehouse    *WarehouseResponse `json:"warehouse"`
+	Type         string           `json:"type"`
+	Reason       string           `json:"reason"`
+	Quantity     int              `json:"quantity"`
+	UnitCost     *float64         `json:"unit_cost"`
+	TotalCost    *float64         `json:"total_cost"`
+}
+
+// DateRangeResponse represents date range response
+type DateRangeResponse struct {
+	From time.Time `json:"from"`
+	To   time.Time `json:"to"`
+}
+
+// PaginationResponse represents pagination response
+type PaginationResponse = PaginationInfo
+
+// Note: Notification types are defined in notification_usecase.go to avoid duplication
+// Note: Payment types are defined in payment_usecase.go to avoid duplication

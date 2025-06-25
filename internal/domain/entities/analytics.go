@@ -257,6 +257,101 @@ func (ua *UserAnalytics) GetEngagementScore() float64 {
 	return score
 }
 
+// SalesMetrics represents sales analytics metrics
+type SalesMetrics struct {
+	TotalSales        float64 `json:"total_sales"`
+	TotalOrders       int64   `json:"total_orders"`
+	AverageOrderValue float64 `json:"average_order_value"`
+}
+
+// ProductMetrics represents product performance metrics
+type ProductMetrics struct {
+	UnitsSold   int64   `json:"units_sold"`
+	Revenue     float64 `json:"revenue"`
+	ViewCount   int64   `json:"view_count"`
+}
+
+// UserMetrics represents user analytics metrics
+type UserMetrics struct {
+	NewUsers    int64 `json:"new_users"`
+	ActiveUsers int64 `json:"active_users"`
+	TotalUsers  int64 `json:"total_users"`
+}
+
+// TrafficMetrics represents website traffic metrics
+type TrafficMetrics struct {
+	PageViews      int64   `json:"page_views"`
+	UniqueVisitors int64   `json:"unique_visitors"`
+	BounceRate     float64 `json:"bounce_rate"`
+}
+
+// TopProduct represents top selling product data
+type TopProduct struct {
+	ID        uuid.UUID `json:"id"`
+	Name      string    `json:"name"`
+	Price     float64   `json:"price"`
+	UnitsSold int64     `json:"units_sold"`
+	Revenue   float64   `json:"revenue"`
+}
+
+// TopCategory represents top performing category data
+type TopCategory struct {
+	ID        uuid.UUID `json:"id"`
+	Name      string    `json:"name"`
+	UnitsSold int64     `json:"units_sold"`
+	Revenue   float64   `json:"revenue"`
+}
+
+// RevenueData represents revenue data for a period
+type RevenueData struct {
+	Period     string  `json:"period"`
+	Revenue    float64 `json:"revenue"`
+	OrderCount int64   `json:"order_count"`
+}
+
+// ConversionMetrics represents conversion rate metrics
+type ConversionMetrics struct {
+	TotalSessions     int64   `json:"total_sessions"`
+	ConvertedSessions int64   `json:"converted_sessions"`
+	ConversionRate    float64 `json:"conversion_rate"`
+}
+
+// RealTimeMetrics represents real-time metrics
+type RealTimeMetrics struct {
+	ActiveUsers int64   `json:"active_users"`
+	PageViews   int64   `json:"page_views"`
+	Orders      int64   `json:"orders"`
+	Revenue     float64 `json:"revenue"`
+}
+
+// CustomerLifetimeValue represents customer lifetime value metrics
+type CustomerLifetimeValue struct {
+	TotalSpent       float64    `json:"total_spent"`
+	OrderCount       int64      `json:"order_count"`
+	AverageOrderValue float64   `json:"average_order_value"`
+	FirstOrderDate   *time.Time `json:"first_order_date"`
+	LastOrderDate    *time.Time `json:"last_order_date"`
+}
+
+// InventoryMetrics represents inventory analytics
+type InventoryMetrics struct {
+	TotalProducts        int64   `json:"total_products"`
+	LowStockItems        int64   `json:"low_stock_items"`
+	OutOfStockItems      int64   `json:"out_of_stock_items"`
+	TotalInventoryValue  float64 `json:"total_inventory_value"`
+}
+
+// RatingDistribution represents rating distribution data
+type RatingDistribution struct {
+	Rating1Count  int64   `json:"rating_1_count"`
+	Rating2Count  int64   `json:"rating_2_count"`
+	Rating3Count  int64   `json:"rating_3_count"`
+	Rating4Count  int64   `json:"rating_4_count"`
+	Rating5Count  int64   `json:"rating_5_count"`
+	TotalReviews  int64   `json:"total_reviews"`
+	AverageRating float64 `json:"average_rating"`
+}
+
 // CategoryAnalytics represents category performance analytics
 type CategoryAnalytics struct {
 	ID              uuid.UUID `json:"id" gorm:"type:uuid;primary_key;default:gen_random_uuid()"`

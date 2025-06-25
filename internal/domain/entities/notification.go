@@ -31,6 +31,17 @@ const (
 	NotificationCategoryInventory NotificationCategory = "inventory"
 )
 
+// NotificationChannel represents the delivery channel
+type NotificationChannel string
+
+const (
+	NotificationChannelEmail  NotificationChannel = "email"
+	NotificationChannelSMS    NotificationChannel = "sms"
+	NotificationChannelPush   NotificationChannel = "push"
+	NotificationChannelInApp  NotificationChannel = "in_app"
+	NotificationChannelWebhook NotificationChannel = "webhook"
+)
+
 // NotificationStatus represents the status of a notification
 type NotificationStatus string
 
@@ -102,6 +113,62 @@ type Notification struct {
 func (Notification) TableName() string {
 	return "notifications"
 }
+
+// NotificationTemplate represents a notification template
+type NotificationTemplate struct {
+	ID          uuid.UUID        `json:"id" gorm:"type:uuid;primary_key;default:gen_random_uuid()"`
+	Type        NotificationType `json:"type" gorm:"not null;index"`
+	Channel     NotificationChannel `json:"channel" gorm:"not null;index"`
+	Name        string           `json:"name" gorm:"not null"`
+	Subject     string           `json:"subject,omitempty"`
+	Body        string           `json:"body" gorm:"not null"`
+	Variables   []string         `json:"variables,omitempty" gorm:"type:jsonb"`
+	IsActive    bool             `json:"is_active" gorm:"default:true"`
+	CreatedAt   time.Time        `json:"created_at" gorm:"autoCreateTime"`
+	UpdatedAt   time.Time        `json:"updated_at" gorm:"autoUpdateTime"`
+}
+
+// TableName returns the table name for NotificationTemplate entity
+func (NotificationTemplate) TableName() string {
+	return "notification_templates"
+}
+
+// NotificationPreferences represents user notification preferences
+type NotificationPreferences struct {
+	ID                uuid.UUID `json:"id" gorm:"type:uuid;primary_key;default:gen_random_uuid()"`
+	UserID            uuid.UUID `json:"user_id" gorm:"type:uuid;not null;uniqueIndex"`
+	EmailEnabled      bool      `json:"email_enabled" gorm:"default:true"`
+	SMSEnabled        bool      `json:"sms_enabled" gorm:"default:false"`
+	PushEnabled       bool      `json:"push_enabled" gorm:"default:true"`
+	InAppEnabled      bool      `json:"in_app_enabled" gorm:"default:true"`
+	OrderUpdates      bool      `json:"order_updates" gorm:"default:true"`
+	PromotionalEmails bool      `json:"promotional_emails" gorm:"default:true"`
+	SecurityAlerts    bool      `json:"security_alerts" gorm:"default:true"`
+	NewsletterEnabled bool      `json:"newsletter_enabled" gorm:"default:false"`
+	CreatedAt         time.Time `json:"created_at" gorm:"autoCreateTime"`
+	UpdatedAt         time.Time `json:"updated_at" gorm:"autoUpdateTime"`
+
+	// Relationships
+	User *User `json:"user,omitempty" gorm:"foreignKey:UserID"`
+}
+
+// TableName returns the table name for NotificationPreferences entity
+func (NotificationPreferences) TableName() string {
+	return "notification_preferences"
+}
+
+// DeliveryStatus represents notification delivery status
+type DeliveryStatus string
+
+const (
+	DeliveryStatusPending   DeliveryStatus = "pending"
+	DeliveryStatusSent      DeliveryStatus = "sent"
+	DeliveryStatusDelivered DeliveryStatus = "delivered"
+	DeliveryStatusFailed    DeliveryStatus = "failed"
+	DeliveryStatusBounced   DeliveryStatus = "bounced"
+	DeliveryStatusOpened    DeliveryStatus = "opened"
+	DeliveryStatusClicked   DeliveryStatus = "clicked"
+)
 
 // IsPending checks if notification is pending
 func (n *Notification) IsPending() bool {
@@ -176,91 +243,10 @@ func (n *Notification) MarkAsFailed(errorMessage, errorCode string) {
 	n.UpdatedAt = now
 }
 
-// NotificationTemplate represents email/SMS templates
-type NotificationTemplate struct {
-	ID          uuid.UUID            `json:"id" gorm:"type:uuid;primary_key;default:gen_random_uuid()"`
-	Name        string               `json:"name" gorm:"uniqueIndex;not null" validate:"required"`
-	Type        NotificationType     `json:"type" gorm:"not null"`
-	Category    NotificationCategory `json:"category" gorm:"not null"`
-	
-	// Template content
-	Subject     string               `json:"subject"`                             // For email
-	Body        string               `json:"body" gorm:"type:text;not null"`     // Template body with placeholders
-	Variables   string               `json:"variables" gorm:"type:text"`         // JSON array of available variables
-	
-	// Settings
-	IsActive    bool                 `json:"is_active" gorm:"default:true"`
-	IsDefault   bool                 `json:"is_default" gorm:"default:false"`
-	Language    string               `json:"language" gorm:"default:'en'"`
-	
-	// Metadata
-	Description string               `json:"description"`
-	CreatedBy   uuid.UUID            `json:"created_by" gorm:"type:uuid"`
-	CreatedAt   time.Time            `json:"created_at" gorm:"autoCreateTime"`
-	UpdatedAt   time.Time            `json:"updated_at" gorm:"autoUpdateTime"`
-}
 
-// TableName returns the table name for NotificationTemplate entity
-func (NotificationTemplate) TableName() string {
-	return "notification_templates"
-}
-
-// NotificationPreference represents user notification preferences
-type NotificationPreference struct {
-	ID                    uuid.UUID            `json:"id" gorm:"type:uuid;primary_key;default:gen_random_uuid()"`
-	UserID                uuid.UUID            `json:"user_id" gorm:"type:uuid;not null;uniqueIndex"`
-	User                  User                 `json:"user,omitempty" gorm:"foreignKey:UserID"`
-	
-	// Email preferences
-	EmailEnabled          bool                 `json:"email_enabled" gorm:"default:true"`
-	EmailOrderUpdates     bool                 `json:"email_order_updates" gorm:"default:true"`
-	EmailPaymentUpdates   bool                 `json:"email_payment_updates" gorm:"default:true"`
-	EmailShippingUpdates  bool                 `json:"email_shipping_updates" gorm:"default:true"`
-	EmailPromotions       bool                 `json:"email_promotions" gorm:"default:true"`
-	EmailNewsletter       bool                 `json:"email_newsletter" gorm:"default:false"`
-	EmailReviewReminders  bool                 `json:"email_review_reminders" gorm:"default:true"`
-	
-	// SMS preferences
-	SMSEnabled            bool                 `json:"sms_enabled" gorm:"default:false"`
-	SMSOrderUpdates       bool                 `json:"sms_order_updates" gorm:"default:false"`
-	SMSPaymentUpdates     bool                 `json:"sms_payment_updates" gorm:"default:false"`
-	SMSShippingUpdates    bool                 `json:"sms_shipping_updates" gorm:"default:false"`
-	SMSSecurityAlerts     bool                 `json:"sms_security_alerts" gorm:"default:true"`
-	
-	// Push notification preferences
-	PushEnabled           bool                 `json:"push_enabled" gorm:"default:true"`
-	PushOrderUpdates      bool                 `json:"push_order_updates" gorm:"default:true"`
-	PushPaymentUpdates    bool                 `json:"push_payment_updates" gorm:"default:true"`
-	PushShippingUpdates   bool                 `json:"push_shipping_updates" gorm:"default:true"`
-	PushPromotions        bool                 `json:"push_promotions" gorm:"default:false"`
-	PushReviewReminders   bool                 `json:"push_review_reminders" gorm:"default:true"`
-	
-	// In-app notification preferences
-	InAppEnabled          bool                 `json:"in_app_enabled" gorm:"default:true"`
-	InAppOrderUpdates     bool                 `json:"in_app_order_updates" gorm:"default:true"`
-	InAppPaymentUpdates   bool                 `json:"in_app_payment_updates" gorm:"default:true"`
-	InAppShippingUpdates  bool                 `json:"in_app_shipping_updates" gorm:"default:true"`
-	InAppPromotions       bool                 `json:"in_app_promotions" gorm:"default:true"`
-	InAppSystemUpdates    bool                 `json:"in_app_system_updates" gorm:"default:true"`
-	
-	// Frequency settings
-	DigestFrequency       string               `json:"digest_frequency" gorm:"default:'daily'"` // immediate, daily, weekly
-	QuietHoursStart       string               `json:"quiet_hours_start"`                       // HH:MM format
-	QuietHoursEnd         string               `json:"quiet_hours_end"`                         // HH:MM format
-	Timezone              string               `json:"timezone" gorm:"default:'UTC'"`
-	
-	// Metadata
-	CreatedAt             time.Time            `json:"created_at" gorm:"autoCreateTime"`
-	UpdatedAt             time.Time            `json:"updated_at" gorm:"autoUpdateTime"`
-}
-
-// TableName returns the table name for NotificationPreference entity
-func (NotificationPreference) TableName() string {
-	return "notification_preferences"
-}
 
 // IsNotificationEnabled checks if a specific notification type is enabled
-func (np *NotificationPreference) IsNotificationEnabled(notificationType NotificationType, category NotificationCategory) bool {
+func (np *NotificationPreferences) IsNotificationEnabled(notificationType NotificationType, category NotificationCategory) bool {
 	switch notificationType {
 	case NotificationTypeEmail:
 		if !np.EmailEnabled {
@@ -268,15 +254,15 @@ func (np *NotificationPreference) IsNotificationEnabled(notificationType Notific
 		}
 		switch category {
 		case NotificationCategoryOrder:
-			return np.EmailOrderUpdates
+			return np.OrderUpdates
 		case NotificationCategoryPayment:
-			return np.EmailPaymentUpdates
+			return np.OrderUpdates
 		case NotificationCategoryShipping:
-			return np.EmailShippingUpdates
+			return np.OrderUpdates
 		case NotificationCategoryPromotion:
-			return np.EmailPromotions
+			return np.PromotionalEmails
 		case NotificationCategoryReview:
-			return np.EmailReviewReminders
+			return np.OrderUpdates
 		default:
 			return true
 		}
@@ -287,13 +273,13 @@ func (np *NotificationPreference) IsNotificationEnabled(notificationType Notific
 		}
 		switch category {
 		case NotificationCategoryOrder:
-			return np.SMSOrderUpdates
+			return np.OrderUpdates
 		case NotificationCategoryPayment:
-			return np.SMSPaymentUpdates
+			return np.OrderUpdates
 		case NotificationCategoryShipping:
-			return np.SMSShippingUpdates
+			return np.OrderUpdates
 		case NotificationCategoryAccount:
-			return np.SMSSecurityAlerts
+			return np.SecurityAlerts
 		default:
 			return false
 		}
@@ -304,15 +290,15 @@ func (np *NotificationPreference) IsNotificationEnabled(notificationType Notific
 		}
 		switch category {
 		case NotificationCategoryOrder:
-			return np.PushOrderUpdates
+			return np.OrderUpdates
 		case NotificationCategoryPayment:
-			return np.PushPaymentUpdates
+			return np.OrderUpdates
 		case NotificationCategoryShipping:
-			return np.PushShippingUpdates
+			return np.OrderUpdates
 		case NotificationCategoryPromotion:
-			return np.PushPromotions
+			return np.PromotionalEmails
 		case NotificationCategoryReview:
-			return np.PushReviewReminders
+			return np.OrderUpdates
 		default:
 			return true
 		}
@@ -323,15 +309,15 @@ func (np *NotificationPreference) IsNotificationEnabled(notificationType Notific
 		}
 		switch category {
 		case NotificationCategoryOrder:
-			return np.InAppOrderUpdates
+			return np.OrderUpdates
 		case NotificationCategoryPayment:
-			return np.InAppPaymentUpdates
+			return np.OrderUpdates
 		case NotificationCategoryShipping:
-			return np.InAppShippingUpdates
+			return np.OrderUpdates
 		case NotificationCategoryPromotion:
-			return np.InAppPromotions
+			return np.PromotionalEmails
 		case NotificationCategorySystem:
-			return np.InAppSystemUpdates
+			return np.OrderUpdates
 		default:
 			return true
 		}

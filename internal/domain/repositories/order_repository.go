@@ -69,6 +69,11 @@ type OrderRepository interface {
 	
 	// GetTotalSales calculates total sales within a date range
 	GetTotalSales(ctx context.Context, startDate, endDate time.Time) (float64, error)
+
+	// Additional methods for admin dashboard
+	GetTotalRevenue(ctx context.Context) (float64, error)
+	CountOrders(ctx context.Context) (int64, error)
+	CountOrdersByStatus(ctx context.Context, status entities.OrderStatus) (int64, error)
 }
 
 // PaymentRepository defines the interface for payment data access
@@ -105,4 +110,11 @@ type PaymentRepository interface {
 	
 	// GetRefundablePayments retrieves payments that can be refunded
 	GetRefundablePayments(ctx context.Context, limit, offset int) ([]*entities.Payment, error)
+	
+	// Refund-related methods
+	CreateRefund(ctx context.Context, refund *entities.Refund) error
+	GetRefund(ctx context.Context, refundID uuid.UUID) (*entities.Refund, error)
+	GetRefundsByPaymentID(ctx context.Context, paymentID uuid.UUID) ([]*entities.Refund, error)
+	UpdateRefund(ctx context.Context, refund *entities.Refund) error
+	ListRefunds(ctx context.Context, limit, offset int) ([]*entities.Refund, error)
 }

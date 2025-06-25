@@ -360,3 +360,12 @@ func (r *productRepository) ReplaceTags(ctx context.Context, productID uuid.UUID
 	
 	return nil
 }
+
+// CountProducts counts total number of products
+func (r *productRepository) CountProducts(ctx context.Context) (int64, error) {
+	var count int64
+	err := r.db.WithContext(ctx).
+		Model(&entities.Product{}).
+		Count(&count).Error
+	return count, err
+}

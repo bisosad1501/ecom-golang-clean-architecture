@@ -46,6 +46,7 @@ type ReviewRepository interface {
 	GetAverageRating(ctx context.Context, productID uuid.UUID) (float64, error)
 	GetRatingDistribution(ctx context.Context, productID uuid.UUID) (map[int]int, error)
 	GetReviewStats(ctx context.Context, productID uuid.UUID) (*entities.ReviewSummary, error)
+	CountReviewsByStatus(ctx context.Context, status entities.ReviewStatus) (int64, error)
 }
 
 // ReviewVoteRepository defines the interface for review vote data access

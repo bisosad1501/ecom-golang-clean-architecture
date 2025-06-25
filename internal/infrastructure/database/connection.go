@@ -116,7 +116,7 @@ func AutoMigrate(db *gorm.DB) error {
 		// Notifications
 		&entities.Notification{},
 		&entities.NotificationTemplate{},
-		&entities.NotificationPreference{},
+		&entities.NotificationPreferences{},
 		&entities.NotificationQueue{},
 
 		// Analytics
