@@ -1,6 +1,7 @@
 package config
 
 import (
+	"fmt"
 	"os"
 
 	"golang.org/x/oauth2"
@@ -32,7 +33,6 @@ func NewOAuthConfig() *OAuthConfig {
 			ClientSecret: os.Getenv("FACEBOOK_APP_SECRET"),
 			RedirectURL:  os.Getenv("FACEBOOK_REDIRECT_URL"),
 			Scopes: []string{
-				"email",
 				"public_profile",
 			},
 			Endpoint: facebook.Endpoint,
@@ -103,10 +103,16 @@ func (g *GoogleUserInfo) ToStandardUserInfo() *OAuthUserInfo {
 
 // ToStandardUserInfo converts Facebook user info to standard format
 func (f *FacebookUserInfo) ToStandardUserInfo() *OAuthUserInfo {
+	// Generate a placeholder email if not available (Facebook doesn't provide email without app review)
+	email := f.Email
+	if email == "" {
+		email = fmt.Sprintf("facebook_%s@placeholder.local", f.ID)
+	}
+
 	return &OAuthUserInfo{
 		Provider:   ProviderFacebook,
 		ProviderID: f.ID,
-		Email:      f.Email,
+		Email:      email,
 		Name:       f.Name,
 		FirstName:  "", // Facebook doesn't provide separate first/last names in basic profile
 		LastName:   "",

@@ -68,7 +68,7 @@ func (s *Service) ExchangeFacebookCode(ctx context.Context, code string) (*confi
 	}
 
 	client := s.config.Facebook.Client(ctx, token)
-	resp, err := client.Get("https://graph.facebook.com/me?fields=id,name,email,picture")
+	resp, err := client.Get("https://graph.facebook.com/me?fields=id,name,picture")
 	if err != nil {
 		return nil, fmt.Errorf("failed to get Facebook user info: %w", err)
 	}
