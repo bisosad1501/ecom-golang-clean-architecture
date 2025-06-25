@@ -184,7 +184,7 @@ export const authApi = {
   },
 
   getProfile: async (): Promise<any> => {
-    const { data } = await apiClient.get('/auth/profile')
+    const { data } = await apiClient.get('/users/profile')
     return data
   },
 }

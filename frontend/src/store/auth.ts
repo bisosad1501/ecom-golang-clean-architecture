@@ -15,6 +15,7 @@ interface AuthState {
 interface AuthActions {
   login: (credentials: LoginRequest) => Promise<void>
   register: (data: RegisterRequest) => Promise<void>
+  setAuthData: (token: string, user: User) => void
   logout: () => void
   updateProfile: (data: Partial<User>) => Promise<void>
   clearError: () => void
@@ -96,6 +97,24 @@ export const useAuthStore = create<AuthStore>()(
           })
           throw error
         }
+      },
+
+      setAuthData: (token: string, user: User) => {
+        // Store token in API client
+        apiClient.setToken(token)
+        
+        // Also store in localStorage for API client to access
+        if (typeof window !== 'undefined') {
+          localStorage.setItem('auth_token', token)
+        }
+
+        set({
+          user,
+          token,
+          isAuthenticated: true,
+          isLoading: false,
+          error: null,
+        })
       },
 
       logout: () => {

@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"net/http"
+	"net/url"
 
 	"github.com/gin-gonic/gin"
 
@@ -80,26 +81,17 @@ func (h *OAuthHandler) GoogleCallback(c *gin.Context) {
 
 	response, err := h.oauthUseCase.HandleGoogleCallback(c.Request.Context(), req)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, ErrorResponse{
-			Error:   "Failed to process Google callback",
-			Details: err.Error(),
-		})
+		// Redirect to frontend with error (URL encode the error message)
+		frontendURL := "http://localhost:3000/auth/google/callback?error=" + url.QueryEscape(err.Error())
+		c.Redirect(http.StatusTemporaryRedirect, frontendURL)
 		return
 	}
 
-	// For web applications, you might want to redirect to frontend with token
-	// For API-only, return JSON response
-	if c.Query("redirect") == "web" {
-		// Redirect to frontend with token in URL fragment (more secure than query param)
-		frontendURL := "http://localhost:3000/auth/callback"
-		c.Redirect(http.StatusTemporaryRedirect, frontendURL+"#token="+response.Token)
-		return
-	}
-
-	c.JSON(http.StatusOK, SuccessResponse{
-		Message: "Google authentication successful",
-		Data:    response,
-	})
+	// Always redirect to frontend callback page with success token
+	// Use URL fragment to pass token (more secure than query params)
+	frontendURL := "http://localhost:3000/auth/google/callback"
+	redirectURL := frontendURL + "#token=" + response.Token + "&success=true"
+	c.Redirect(http.StatusTemporaryRedirect, redirectURL)
 }
 
 // FacebookCallback handles Facebook OAuth callback
@@ -128,26 +120,17 @@ func (h *OAuthHandler) FacebookCallback(c *gin.Context) {
 
 	response, err := h.oauthUseCase.HandleFacebookCallback(c.Request.Context(), req)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, ErrorResponse{
-			Error:   "Failed to process Facebook callback",
-			Details: err.Error(),
-		})
+		// Redirect to frontend with error (URL encode the error message)
+		frontendURL := "http://localhost:3000/auth/facebook/callback?error=" + url.QueryEscape(err.Error())
+		c.Redirect(http.StatusTemporaryRedirect, frontendURL)
 		return
 	}
 
-	// For web applications, you might want to redirect to frontend with token
-	// For API-only, return JSON response
-	if c.Query("redirect") == "web" {
-		// Redirect to frontend with token in URL fragment (more secure than query param)
-		frontendURL := "http://localhost:3000/auth/callback"
-		c.Redirect(http.StatusTemporaryRedirect, frontendURL+"#token="+response.Token)
-		return
-	}
-
-	c.JSON(http.StatusOK, SuccessResponse{
-		Message: "Facebook authentication successful",
-		Data:    response,
-	})
+	// Always redirect to frontend callback page with success token
+	// Use URL fragment to pass token (more secure than query params)
+	frontendURL := "http://localhost:3000/auth/facebook/callback"
+	redirectURL := frontendURL + "#token=" + response.Token + "&success=true"
+	c.Redirect(http.StatusTemporaryRedirect, redirectURL)
 }
 
 // GoogleLogin initiates Google OAuth flow (alternative endpoint)
