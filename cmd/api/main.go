@@ -9,6 +9,7 @@ import (
 	"ecom-golang-clean-architecture/internal/domain/storage"
 	"ecom-golang-clean-architecture/internal/infrastructure/config"
 	"ecom-golang-clean-architecture/internal/infrastructure/database"
+	"ecom-golang-clean-architecture/internal/infrastructure/payment"
 	localStorage "ecom-golang-clean-architecture/internal/infrastructure/storage"
 	"ecom-golang-clean-architecture/internal/usecases"
 	"github.com/gin-gonic/gin"
@@ -162,10 +163,14 @@ func main() {
 		analyticsRepo, orderRepo, productRepo, userRepo, inventoryRepo,
 	)
 
-	// Initialize payment use case (with nil gateway services for now)
+	// Initialize payment gateway services
+	stripeService := payment.NewStripeService(cfg.Payment.StripeSecretKey)
+	paypalService := payment.NewPayPalService(cfg.Payment.PayPalClientID, cfg.Payment.PayPalClientSecret, cfg.Payment.PayPalSandbox)
+
+	// Initialize payment use case
 	paymentUseCase := usecases.NewPaymentUseCase(
 		paymentRepo, orderRepo, userRepo,
-		nil, nil, // stripe, paypal services - TODO: implement
+		stripeService, paypalService,
 		notificationUseCase,
 	)
 

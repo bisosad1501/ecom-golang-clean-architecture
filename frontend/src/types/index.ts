@@ -495,3 +495,81 @@ export interface WishlistStore {
   removeItem: (productId: string) => Promise<void>
   fetchWishlist: () => Promise<void>
 }
+
+// Payment Types
+export interface PaymentMethod extends BaseEntity {
+  type: 'credit_card' | 'debit_card' | 'paypal' | 'stripe' | 'bank_transfer'
+  provider: string
+  last_four?: string
+  brand?: string
+  exp_month?: number
+  exp_year?: number
+  is_default: boolean
+}
+
+export interface Payment extends BaseEntity {
+  order_id: string
+  user_id: string
+  amount: number
+  currency: string
+  method: string
+  status: 'pending' | 'processing' | 'paid' | 'failed' | 'cancelled' | 'refunded'
+  transaction_id: string
+  external_id: string
+  gateway_response?: string
+  failure_reason?: string
+  processed_at?: string
+  refunded_at?: string
+  refund_amount: number
+}
+
+export interface CheckoutSession {
+  success: boolean
+  session_id: string
+  session_url: string
+  message: string
+}
+
+export interface CreateCheckoutSessionRequest {
+  order_id: string
+  amount: number
+  currency: string
+  description?: string
+  success_url: string
+  cancel_url: string
+  metadata?: Record<string, any>
+}
+
+export interface ProcessPaymentRequest {
+  order_id: string
+  amount: number
+  currency: string
+  payment_method: string
+  payment_token?: string
+  metadata?: Record<string, any>
+}
+
+export interface RefundRequest {
+  amount?: number
+  reason?: string
+}
+
+// Payment Store
+export interface PaymentStore {
+  paymentMethods: PaymentMethod[]
+  currentPayment: Payment | null
+  isLoading: boolean
+  error: string | null
+
+  // Payment methods
+  fetchPaymentMethods: () => Promise<void>
+  savePaymentMethod: (data: any) => Promise<void>
+  deletePaymentMethod: (methodId: string) => Promise<void>
+  setDefaultPaymentMethod: (methodId: string) => Promise<void>
+
+  // Payments
+  createCheckoutSession: (data: CreateCheckoutSessionRequest) => Promise<CheckoutSession>
+  processPayment: (data: ProcessPaymentRequest) => Promise<void>
+  getPayment: (paymentId: string) => Promise<void>
+  processRefund: (paymentId: string, data: RefundRequest) => Promise<void>
+}

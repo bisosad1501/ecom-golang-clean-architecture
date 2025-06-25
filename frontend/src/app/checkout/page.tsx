@@ -1,5 +1,10 @@
-import { CheckoutPage } from '@/components/pages/checkout-page'
+import CheckoutForm from '@/components/checkout/CheckoutForm'
 
-export default function Checkout() {
-  return <CheckoutPage />
+export default function CheckoutPage() {
+  return <CheckoutForm />
+}
+
+export const metadata = {
+  title: 'Checkout - E-commerce Store',
+  description: 'Complete your purchase securely with our checkout process.',
 }

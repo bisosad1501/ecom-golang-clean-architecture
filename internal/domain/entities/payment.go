@@ -22,6 +22,7 @@ const (
 type Payment struct {
 	ID                uuid.UUID     `json:"id" gorm:"type:uuid;primary_key;default:gen_random_uuid()"`
 	OrderID           uuid.UUID     `json:"order_id" gorm:"type:uuid;not null;index"`
+	UserID            uuid.UUID     `json:"user_id" gorm:"type:uuid;not null;index"`
 	Amount            float64       `json:"amount" gorm:"not null" validate:"required,gt=0"`
 	Currency          string        `json:"currency" gorm:"default:'USD'"`
 	Method            PaymentMethod `json:"method" gorm:"not null" validate:"required"`

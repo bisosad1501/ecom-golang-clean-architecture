@@ -202,6 +202,7 @@ func SetupRoutes(
 			payments := protected.Group("/payments")
 			{
 				payments.POST("", paymentHandler.ProcessPayment)
+				payments.POST("/checkout-session", paymentHandler.CreateCheckoutSession)
 				payments.GET("/:id", paymentHandler.GetPayment)
 				payments.POST("/:id/refund", paymentHandler.ProcessRefund)
 				payments.GET("/methods", paymentHandler.GetUserPaymentMethods)

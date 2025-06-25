@@ -93,17 +93,39 @@ cp .env.example .env
 # Edit .env with your configuration
 ```
 
-4. Start PostgreSQL and Redis
+4. **Configure Stripe Payment (Required for checkout):**
+   - Get your Stripe API keys from [Stripe Dashboard](https://dashboard.stripe.com/test/apikeys)
+   - Add them to your `.env` file:
+   ```bash
+   STRIPE_SECRET_KEY=sk_test_your_stripe_secret_key_here
+   STRIPE_PUBLISHABLE_KEY=pk_test_your_stripe_publishable_key_here
+   ```
+
+5. Install frontend dependencies:
+```bash
+cd frontend
+npm install
+cd ..
+```
+
+6. Start PostgreSQL and Redis
 ```bash
 docker-compose up -d postgres redis
 ```
 
-5. Run the application
+7. Run the application
 ```bash
+# Backend
 make run
 # or
 go run cmd/api/main.go
+
+# Frontend (in another terminal)
+cd frontend && npm run dev
 ```
+
+The API will be available at `http://localhost:8080`
+The Frontend will be available at `http://localhost:3000`
 
 ## 📚 API Documentation
 
@@ -157,6 +179,16 @@ go run cmd/api/main.go
 - `DELETE /api/v1/admin/categories/:id` - Delete category
 - `GET /api/v1/admin/orders` - List all orders
 - `PUT /api/v1/admin/orders/:id/status` - Update order status
+
+#### Payments
+- `POST /api/v1/payments/checkout-session` - Create Stripe checkout session
+- `POST /api/v1/payments` - Process direct payment
+- `GET /api/v1/payments/:id` - Get payment details
+- `POST /api/v1/payments/:id/refund` - Process refund
+- `GET /api/v1/payments/methods` - Get user payment methods
+- `POST /api/v1/payments/methods` - Save payment method
+- `DELETE /api/v1/payments/methods/:id` - Delete payment method
+- `PUT /api/v1/payments/methods/:id/default` - Set default payment method
 
 ### Example Usage
 

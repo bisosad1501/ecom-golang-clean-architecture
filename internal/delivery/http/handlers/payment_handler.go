@@ -322,3 +322,37 @@ func (h *PaymentHandler) GetPaymentReports(c *gin.Context) {
 		Data: report,
 	})
 }
+
+// CreateCheckoutSession creates a Stripe checkout session for hosted payment page
+func (h *PaymentHandler) CreateCheckoutSession(c *gin.Context) {
+	var req usecases.CreateCheckoutSessionRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, ErrorResponse{
+			Error: "Invalid request body",
+			Details: err.Error(),
+		})
+		return
+	}
+
+	// Create checkout session
+	response, err := h.paymentUseCase.CreateCheckoutSession(c.Request.Context(), req)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, ErrorResponse{
+			Error: "Failed to create checkout session",
+			Details: err.Error(),
+		})
+		return
+	}
+
+	if !response.Success {
+		c.JSON(http.StatusBadRequest, ErrorResponse{
+			Error: response.Message,
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, SuccessResponse{
+		Message: "Checkout session created successfully",
+		Data: response,
+	})
+}

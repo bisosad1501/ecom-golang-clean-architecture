@@ -68,6 +68,9 @@ type EmailConfig struct {
 type PaymentConfig struct {
 	StripeSecretKey      string
 	StripePublishableKey string
+	PayPalClientID       string
+	PayPalClientSecret   string
+	PayPalSandbox        bool
 }
 
 // UploadConfig holds file upload configuration
@@ -130,6 +133,9 @@ func Load() (*Config, error) {
 		Payment: PaymentConfig{
 			StripeSecretKey:      getEnv("STRIPE_SECRET_KEY", ""),
 			StripePublishableKey: getEnv("STRIPE_PUBLISHABLE_KEY", ""),
+			PayPalClientID:       getEnv("PAYPAL_CLIENT_ID", ""),
+			PayPalClientSecret:   getEnv("PAYPAL_CLIENT_SECRET", ""),
+			PayPalSandbox:        getEnvAsBool("PAYPAL_SANDBOX", true),
 		},
 		Upload: UploadConfig{
 			Path:        getEnv("UPLOAD_PATH", "./uploads"),
@@ -221,6 +227,15 @@ func getEnvAsSlice(key string, defaultValue []string) []string {
 			}
 		}
 		return result
+	}
+	return defaultValue
+}
+
+func getEnvAsBool(key string, defaultValue bool) bool {
+	if value := os.Getenv(key); value != "" {
+		if boolValue, err := strconv.ParseBool(value); err == nil {
+			return boolValue
+		}
 	}
 	return defaultValue
 }

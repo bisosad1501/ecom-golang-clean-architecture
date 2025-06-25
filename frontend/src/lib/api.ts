@@ -243,6 +243,134 @@ class ApiClient {
     }
   }
 
+  // Payment-specific methods
+  async createCheckoutSession(data: {
+    order_id: string;
+    amount: number;
+    currency: string;
+    description?: string;
+    success_url: string;
+    cancel_url: string;
+    metadata?: Record<string, any>;
+  }): Promise<ApiResponse<{
+    success: boolean;
+    session_id: string;
+    session_url: string;
+    message: string;
+  }>> {
+    return this.post('/payments/checkout-session', data)
+  }
+
+  async processPayment(data: {
+    order_id: string;
+    amount: number;
+    currency: string;
+    payment_method: string;
+    payment_token?: string;
+    metadata?: Record<string, any>;
+  }): Promise<ApiResponse<any>> {
+    return this.post('/payments', data)
+  }
+
+  async getPayment(paymentId: string): Promise<ApiResponse<any>> {
+    return this.get(`/payments/${paymentId}`)
+  }
+
+  async processRefund(paymentId: string, data: {
+    amount?: number;
+    reason?: string;
+  }): Promise<ApiResponse<any>> {
+    return this.post(`/payments/${paymentId}/refund`, data)
+  }
+
+  async getPaymentMethods(): Promise<ApiResponse<any[]>> {
+    return this.get('/payments/methods')
+  }
+
+  async savePaymentMethod(data: {
+    type: string;
+    provider: string;
+    token: string;
+    metadata?: Record<string, any>;
+  }): Promise<ApiResponse<any>> {
+    return this.post('/payments/methods', data)
+  }
+
+  async deletePaymentMethod(methodId: string): Promise<ApiResponse<any>> {
+    return this.delete(`/payments/methods/${methodId}`)
+  }
+
+  async setDefaultPaymentMethod(methodId: string): Promise<ApiResponse<any>> {
+    return this.put(`/payments/methods/${methodId}/default`, {})
+  }
+
+  // Order-specific methods
+  async createOrder(data: {
+    shipping_address: {
+      street: string;
+      city: string;
+      state: string;
+      zip_code: string;
+      country: string;
+    };
+    billing_address: {
+      street: string;
+      city: string;
+      state: string;
+      zip_code: string;
+      country: string;
+    };
+    coupon_code?: string;
+    notes?: string;
+  }): Promise<ApiResponse<any>> {
+    return this.post('/orders', data)
+  }
+
+  async getOrders(params?: {
+    page?: number;
+    limit?: number;
+    status?: string;
+  }): Promise<ApiResponse<any[]>> {
+    return this.get('/orders', { params })
+  }
+
+  async getOrder(orderId: string): Promise<ApiResponse<any>> {
+    return this.get(`/orders/${orderId}`)
+  }
+
+  async cancelOrder(orderId: string, reason?: string): Promise<ApiResponse<any>> {
+    return this.post(`/orders/${orderId}/cancel`, { reason })
+  }
+
+  // Cart-specific methods
+  async getCart(): Promise<ApiResponse<any>> {
+    return this.get('/cart')
+  }
+
+  async addToCart(data: {
+    product_id: string;
+    quantity: number;
+    variant_id?: string;
+  }): Promise<ApiResponse<any>> {
+    return this.post('/cart/items', data)
+  }
+
+  async updateCartItem(data: {
+    product_id: string;
+    quantity: number;
+    variant_id?: string;
+  }): Promise<ApiResponse<any>> {
+    return this.put('/cart/items', data)
+  }
+
+  async removeFromCart(productId: string): Promise<ApiResponse<any>> {
+    return this.delete(`/cart/items/${productId}`)
+  }
+
+  async clearCart(): Promise<ApiResponse<any>> {
+    return this.delete('/cart')
+  }
+
   // Get raw axios instance for custom requests
   getClient(): AxiosInstance {
     return this.client
