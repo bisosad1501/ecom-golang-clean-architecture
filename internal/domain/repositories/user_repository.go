@@ -17,7 +17,13 @@ type UserRepository interface {
 	
 	// GetByEmail retrieves a user by email
 	GetByEmail(ctx context.Context, email string) (*entities.User, error)
-	
+
+	// GetByGoogleID retrieves a user by Google ID
+	GetByGoogleID(ctx context.Context, googleID string) (*entities.User, error)
+
+	// GetByFacebookID retrieves a user by Facebook ID
+	GetByFacebookID(ctx context.Context, facebookID string) (*entities.User, error)
+
 	// Update updates an existing user
 	Update(ctx context.Context, user *entities.User) error
 	

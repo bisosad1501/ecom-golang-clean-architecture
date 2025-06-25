@@ -9,7 +9,9 @@ import (
 	"ecom-golang-clean-architecture/internal/domain/storage"
 	"ecom-golang-clean-architecture/internal/infrastructure/config"
 	"ecom-golang-clean-architecture/internal/infrastructure/database"
+	"ecom-golang-clean-architecture/internal/infrastructure/oauth"
 	"ecom-golang-clean-architecture/internal/infrastructure/payment"
+	infraServices "ecom-golang-clean-architecture/internal/infrastructure/services"
 	localStorage "ecom-golang-clean-architecture/internal/infrastructure/storage"
 	"ecom-golang-clean-architecture/internal/usecases"
 	"github.com/gin-gonic/gin"
@@ -182,6 +184,16 @@ func main() {
 		analyticsRepo, inventoryRepo, paymentRepo, auditRepo,
 	)
 
+	// Initialize JWT service
+	jwtService := infraServices.NewJWTService(cfg.JWT.Secret)
+
+	// Initialize OAuth configuration and service
+	oauthConfig := config.NewOAuthConfig()
+	oauthService := oauth.NewService(oauthConfig)
+
+	// Initialize OAuth use case
+	oauthUseCase := usecases.NewOAuthUseCase(userRepo, oauthService, jwtService)
+
 	// Initialize handlers
 	userHandler := handlers.NewUserHandler(userUseCase)
 	productHandler := handlers.NewProductHandler(productUseCase)
@@ -199,6 +211,7 @@ func main() {
 	paymentHandler := handlers.NewPaymentHandler(paymentUseCase)
 	shippingHandler := handlers.NewShippingHandler(shippingUseCase)
 	adminHandler := handlers.NewAdminHandler(adminUseCase)
+	oauthHandler := handlers.NewOAuthHandler(oauthUseCase)
 
 	// Initialize Gin router
 	router := gin.New()
@@ -223,6 +236,7 @@ func main() {
 		paymentHandler,
 		shippingHandler,
 		adminHandler,
+		oauthHandler,
 	)
 
 	// Start server

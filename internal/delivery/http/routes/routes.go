@@ -27,6 +27,7 @@ func SetupRoutes(
 	paymentHandler *handlers.PaymentHandler,
 	shippingHandler *handlers.ShippingHandler,
 	adminHandler *handlers.AdminHandler,
+	oauthHandler *handlers.OAuthHandler,
 ) {
 	// Apply global middleware
 	router.Use(middleware.CORSMiddleware(&cfg.CORS))
@@ -54,6 +55,21 @@ func SetupRoutes(
 		{
 			auth.POST("/register", userHandler.Register)
 			auth.POST("/login", userHandler.Login)
+
+			// OAuth routes
+			if oauthHandler != nil {
+				// OAuth URL generation (for frontend)
+				auth.GET("/google/url", oauthHandler.GetGoogleAuthURL)
+				auth.GET("/facebook/url", oauthHandler.GetFacebookAuthURL)
+
+				// OAuth callbacks
+				auth.GET("/google/callback", oauthHandler.GoogleCallback)
+				auth.GET("/facebook/callback", oauthHandler.FacebookCallback)
+
+				// Direct OAuth login (redirects to provider)
+				auth.GET("/google/login", oauthHandler.GoogleLogin)
+				auth.GET("/facebook/login", oauthHandler.FacebookLogin)
+			}
 		}
 
 		// Public product routes

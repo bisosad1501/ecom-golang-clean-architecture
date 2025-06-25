@@ -2,6 +2,7 @@ package database
 
 import (
 	"context"
+	"errors"
 
 	"ecom-golang-clean-architecture/internal/domain/entities"
 	"ecom-golang-clean-architecture/internal/domain/repositories"
@@ -42,6 +43,32 @@ func (r *userRepository) GetByEmail(ctx context.Context, email string) (*entitie
 	err := r.db.WithContext(ctx).Where("email = ?", email).First(&user).Error
 	if err != nil {
 		if err == gorm.ErrRecordNotFound {
+			return nil, entities.ErrUserNotFound
+		}
+		return nil, err
+	}
+	return &user, nil
+}
+
+// GetByGoogleID retrieves a user by Google ID
+func (r *userRepository) GetByGoogleID(ctx context.Context, googleID string) (*entities.User, error) {
+	var user entities.User
+	err := r.db.WithContext(ctx).Where("google_id = ?", googleID).First(&user).Error
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, entities.ErrUserNotFound
+		}
+		return nil, err
+	}
+	return &user, nil
+}
+
+// GetByFacebookID retrieves a user by Facebook ID
+func (r *userRepository) GetByFacebookID(ctx context.Context, facebookID string) (*entities.User, error) {
+	var user entities.User
+	err := r.db.WithContext(ctx).Where("facebook_id = ?", facebookID).First(&user).Error
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, entities.ErrUserNotFound
 		}
 		return nil, err

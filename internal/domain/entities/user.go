@@ -29,13 +29,21 @@ const (
 type User struct {
 	ID        uuid.UUID `json:"id" gorm:"type:uuid;primary_key;default:gen_random_uuid()"`
 	Email     string    `json:"email" gorm:"uniqueIndex;not null" validate:"required,email"`
-	Password  string    `json:"-" gorm:"not null" validate:"required,min=6"`
+	Password  string    `json:"-" gorm:"" validate:"omitempty,min=6"` // Made optional for OAuth users
 	FirstName string    `json:"first_name" gorm:"not null" validate:"required"`
 	LastName  string    `json:"last_name" gorm:"not null" validate:"required"`
 	Phone     string     `json:"phone" gorm:"index"`
 	Role      UserRole   `json:"role" gorm:"default:'customer'" validate:"required"`
 	Status    UserStatus `json:"status" gorm:"default:'active'" validate:"required"`
 	IsActive  bool       `json:"is_active" gorm:"default:true"`
+
+	// OAuth fields
+	GoogleID     string `json:"google_id,omitempty" gorm:"index"`
+	FacebookID   string `json:"facebook_id,omitempty" gorm:"index"`
+	Avatar       string `json:"avatar,omitempty"`
+	IsOAuthUser  bool   `json:"is_oauth_user" gorm:"default:false"`
+	EmailVerified bool  `json:"email_verified" gorm:"default:false"`
+
 	CreatedAt time.Time `json:"created_at" gorm:"autoCreateTime"`
 	UpdatedAt time.Time `json:"updated_at" gorm:"autoUpdateTime"`
 
