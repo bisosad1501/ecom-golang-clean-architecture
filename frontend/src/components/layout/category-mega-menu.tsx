@@ -13,9 +13,83 @@ interface CategoryMegaMenuProps {
   className?: string
 }
 
+function CategoryTree({
+  categories,
+  parentId = null,
+  expandedId,
+  setExpandedId,
+  activeId,
+  setActiveId,
+  level = 0
+}: {
+  categories: Category[];
+  parentId?: string | null;
+  expandedId: string | null;
+  setExpandedId: (id: string | null) => void;
+  activeId: string | null;
+  setActiveId: (id: string | null) => void;
+  level?: number;
+}) {
+  const children = categories.filter(cat => cat.parent_id === parentId)
+  if (!children.length) return null
+  return (
+    <div className={level === 0 ? "space-y-1" : "ml-4 border-l border-gray-800 pl-3"}>
+      {children.map(category => {
+        const hasChildren = categories.some(cat => cat.parent_id === category.id)
+        const isExpanded = expandedId === category.id
+        const isActive = activeId === category.id
+        return (
+          <div key={category.id}>
+            <button
+              type="button"
+              className={cn(
+                "flex items-center justify-between w-full p-2 rounded-lg transition-all duration-200 group text-left",
+                isActive ? "bg-gray-800 border border-orange-500/30 text-orange-500" : "border border-transparent text-gray-300 hover:bg-gray-800 hover:text-orange-500 hover:border-orange-500/30",
+                hasChildren && "pr-2"
+              )}
+              onClick={() => {
+                setActiveId(category.id)
+                if (hasChildren) setExpandedId(isExpanded ? null : category.id)
+              }}
+              onMouseEnter={() => setActiveId(category.id)}
+            >
+              <div className="flex items-center">
+                <Tag className={cn("h-4 w-4 mr-2", isActive ? "text-orange-500" : "text-gray-500 group-hover:text-orange-500")} />
+                <span className={cn("font-medium text-sm", isActive ? "text-orange-500" : "")}>{category.name}</span>
+                {category.product_count !== undefined && (
+                  <span className="ml-2 text-xs text-gray-500">{category.product_count}</span>
+                )}
+              </div>
+              {hasChildren && (
+                <ChevronRight className={cn(
+                  "h-4 w-4 transition-transform",
+                  isExpanded ? "rotate-90 text-orange-500" : "text-gray-400 group-hover:text-orange-500"
+                )} />
+              )}
+            </button>
+            {hasChildren && isExpanded && (
+              <CategoryTree
+                categories={categories}
+                parentId={category.id}
+                expandedId={expandedId}
+                setExpandedId={setExpandedId}
+                activeId={activeId}
+                setActiveId={setActiveId}
+                level={level + 1}
+              />
+            )}
+          </div>
+        )
+      })}
+    </div>
+  )
+}
+
 export function CategoryMegaMenu({ className }: CategoryMegaMenuProps) {
   const { data: categories, isLoading } = useCategories()
   const [isOpen, setIsOpen] = useState(false)
+  const [expandedId, setExpandedId] = useState<string | null>(null)
+  const [activeId, setActiveId] = useState<string | null>(null)
   const [hoveredCategory, setHoveredCategory] = useState<string | null>(null)
   const [activeTimeout, setActiveTimeout] = useState<NodeJS.Timeout | null>(null)
   const menuRef = useRef<HTMLDivElement>(null)
@@ -41,7 +115,7 @@ export function CategoryMegaMenu({ className }: CategoryMegaMenuProps) {
     
     const timeout = setTimeout(() => {
       setHoveredCategory(categoryId)
-    }, 100)
+    }, 50) // Giảm delay từ 100ms xuống 50ms
     
     setActiveTimeout(timeout)
   }
@@ -53,7 +127,7 @@ export function CategoryMegaMenu({ className }: CategoryMegaMenuProps) {
     
     const timeout = setTimeout(() => {
       setHoveredCategory(null)
-    }, 150)
+    }, 300) // Tăng delay từ 150ms lên 300ms để có thời gian di chuột
     
     setActiveTimeout(timeout)
   }
@@ -73,10 +147,10 @@ export function CategoryMegaMenu({ className }: CategoryMegaMenuProps) {
   if (isLoading) {
     return (
       <div className={className}>
-        <Button variant="ghost" className="h-12 px-4" disabled>
-          <Grid3X3 className="h-5 w-5 mr-2" />
-          Categories
-          <ChevronDown className="h-4 w-4 ml-2" />
+        <Button variant="ghost" className="h-14 px-4 hover:bg-orange-500/10 text-gray-300 hover:text-orange-500" disabled>
+          <Grid3X3 className="h-4 w-4 mr-2 text-gray-400" />
+          <span className="font-medium">All Categories</span>
+          <ChevronDown className="h-4 w-4 ml-2 text-gray-400" />
         </Button>
       </div>
     )
@@ -87,14 +161,14 @@ export function CategoryMegaMenu({ className }: CategoryMegaMenuProps) {
       <Button
         variant="ghost"
         className={cn(
-          "h-12 px-4 hover:bg-primary-50 transition-all duration-200",
-          isOpen && "bg-primary-50 text-primary-700"
+          "h-14 px-4 hover:bg-orange-500/10 transition-all duration-200 text-gray-300 hover:text-orange-500",
+          isOpen && "bg-orange-500/10 text-orange-500"
         )}
         onMouseEnter={() => setIsOpen(true)}
         onClick={() => setIsOpen(!isOpen)}
       >
-        <Grid3X3 className="h-5 w-5 mr-2" />
-        <span className="font-semibold">All Categories</span>
+        <Grid3X3 className="h-4 w-4 mr-2" />
+        <span className="font-medium">All Categories</span>
         <ChevronDown className={cn(
           "h-4 w-4 ml-2 transition-transform duration-200",
           isOpen && "rotate-180"
@@ -104,165 +178,26 @@ export function CategoryMegaMenu({ className }: CategoryMegaMenuProps) {
       {/* Mega Menu Dropdown */}
       {isOpen && (
         <div 
-          className="absolute top-full left-0 w-screen max-w-6xl bg-background border border-border rounded-lg shadow-2xl z-50 overflow-hidden"
+          className="absolute top-full left-0 min-w-[16rem] w-auto bg-gray-900 border border-gray-700 rounded-xl shadow-xl z-50 overflow-visible mt-1"
           onMouseLeave={() => {
             setIsOpen(false)
-            setHoveredCategory(null)
+            setActiveId(null)
+          }}
+          onMouseEnter={() => {
+            if (activeTimeout) {
+              clearTimeout(activeTimeout)
+              setActiveTimeout(null)
+            }
           }}
         >
-          <div className="flex h-[500px]">
-            {/* Left Column - Main Categories */}
-            <div className="w-64 bg-gray-50 border-r border-border overflow-y-auto">
-              <div className="p-4">
-                <h3 className="font-semibold text-sm text-gray-900 mb-3 flex items-center">
-                  <Package className="h-4 w-4 mr-2" />
-                  Browse Categories
-                </h3>
-                <div className="space-y-1">
-                  {rootCategories.map((category) => {
-                    const subcategories = getSubcategories(category.id)
-                    const isHovered = hoveredCategory === category.id
-                    
-                    return (
-                      <div key={category.id}>
-                        <Link
-                          href={`/categories/${category.id}`}
-                          className={cn(
-                            "flex items-center justify-between p-3 rounded-lg transition-all duration-200 group",
-                            "hover:bg-white hover:shadow-md",
-                            isHovered && "bg-white shadow-md text-primary-700"
-                          )}
-                          onMouseEnter={() => handleCategoryHover(category.id)}
-                          onMouseLeave={handleCategoryLeave}
-                        >
-                          <div className="flex items-center">
-                            <Tag className="h-4 w-4 mr-3 text-gray-500 group-hover:text-primary-600" />
-                            <div>
-                              <div className="font-medium text-sm">{category.name}</div>
-                              {category.product_count !== undefined && (
-                                <div className="text-xs text-gray-500">
-                                  {category.product_count} products
-                                </div>
-                              )}
-                            </div>
-                          </div>
-                          {subcategories.length > 0 && (
-                            <ChevronRight className="h-4 w-4 text-gray-400 group-hover:text-primary-600" />
-                          )}
-                        </Link>
-                      </div>
-                    )
-                  })}
-                </div>
-              </div>
-            </div>
-
-            {/* Right Column - Subcategories & Featured */}
-            <div className="flex-1 p-6">
-              {hoveredCategory ? (
-                <div>
-                  {/* Subcategories */}
-                  <div className="mb-6">
-                    <h4 className="font-semibold text-gray-900 mb-4 flex items-center">
-                      <ChevronRight className="h-4 w-4 mr-2" />
-                      {rootCategories.find(c => c.id === hoveredCategory)?.name} Subcategories
-                    </h4>
-                    <div className="grid grid-cols-2 gap-4">
-                      {getSubcategories(hoveredCategory).map((subcategory) => (
-                        <Link
-                          key={subcategory.id}
-                          href={`/categories/${subcategory.id}`}
-                          className="flex items-center p-3 rounded-lg hover:bg-gray-50 transition-colors group"
-                        >
-                          <div className="flex-1">
-                            <div className="font-medium text-sm group-hover:text-primary-600">
-                              {subcategory.name}
-                            </div>
-                            {subcategory.description && (
-                              <div className="text-xs text-gray-500 mt-1">
-                                {subcategory.description}
-                              </div>
-                            )}
-                            {subcategory.product_count !== undefined && (
-                              <Badge variant="secondary" className="mt-2 text-xs">
-                                {subcategory.product_count} items
-                              </Badge>
-                            )}
-                          </div>
-                          <ArrowRight className="h-4 w-4 text-gray-400 group-hover:text-primary-600 opacity-0 group-hover:opacity-100 transition-all duration-200" />
-                        </Link>
-                      ))}
-                    </div>
-                  </div>
-
-                  {/* View All Link */}
-                  <div className="pt-4 border-t border-border">
-                    <Link
-                      href={`/categories/${hoveredCategory}`}
-                      className="inline-flex items-center text-primary-600 hover:text-primary-700 font-medium transition-colors group"
-                    >
-                      View All {rootCategories.find(c => c.id === hoveredCategory)?.name}
-                      <ArrowRight className="h-4 w-4 ml-2 group-hover:translate-x-1 transition-transform duration-200" />
-                    </Link>
-                  </div>
-                </div>
-              ) : (
-                <div>
-                  {/* Featured Categories */}
-                  <div className="mb-6">
-                    <h4 className="font-semibold text-gray-900 mb-4 flex items-center">
-                      <Star className="h-4 w-4 mr-2 text-yellow-500" />
-                      Featured Categories
-                    </h4>
-                    <div className="grid grid-cols-2 gap-4">
-                      {getFeaturedCategories().map((category) => (
-                        <Link
-                          key={category.id}
-                          href={`/categories/${category.id}`}
-                          className="group"
-                        >
-                          <div className="bg-gradient-to-br from-primary-50 to-purple-50 p-4 rounded-xl border border-primary-100 hover:border-primary-200 transition-all duration-200 hover:shadow-md">
-                            <div className="flex items-center mb-2">
-                              <div className="h-8 w-8 rounded-lg bg-primary-100 flex items-center justify-center mr-3">
-                                <Tag className="h-4 w-4 text-primary-600" />
-                              </div>
-                              <div>
-                                <div className="font-semibold text-sm group-hover:text-primary-700">
-                                  {category.name}
-                                </div>
-                                <div className="text-xs text-gray-600">
-                                  {category.product_count} products
-                                </div>
-                              </div>
-                            </div>
-                            {category.description && (
-                              <p className="text-xs text-gray-600 line-clamp-2">
-                                {category.description}
-                              </p>
-                            )}
-                          </div>
-                        </Link>
-                      ))}
-                    </div>
-                  </div>
-
-                  {/* Trending */}
-                  <div className="pt-4 border-t border-border">
-                    <h4 className="font-semibold text-gray-900 mb-3 flex items-center">
-                      <TrendingUp className="h-4 w-4 mr-2 text-emerald-500" />
-                      Trending Now
-                    </h4>
-                    <div className="flex flex-wrap gap-2">
-                      {['Electronics', 'Fashion', 'Home & Garden', 'Sports', 'Books', 'Toys'].map((trend) => (
-                        <Badge key={trend} variant="outline" className="hover:bg-primary-50 cursor-pointer">
-                          {trend}
-                        </Badge>
-                      ))}
-                    </div>
-                  </div>
-                </div>
-              )}
-            </div>
+          <div className="py-2 px-2">
+            <CategoryTree
+              categories={categories || []}
+              expandedId={expandedId}
+              setExpandedId={setExpandedId}
+              activeId={activeId}
+              setActiveId={setActiveId}
+            />
           </div>
         </div>
       )}

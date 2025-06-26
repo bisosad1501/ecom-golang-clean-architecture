@@ -116,50 +116,31 @@ export function Header() {
         <div className="flex h-14 items-center justify-between">{/* Reduced height */}
           {/* Logo */}
           <div className="flex items-center">
-            <Link href="/" className="flex items-center space-x-2.5 group">{/* Reduced spacing */}
-              <div className="h-10 w-10 rounded-xl bg-black flex items-center justify-center shadow-large group-hover:shadow-xl group-hover:scale-105 transition-all duration-300">{/* Pure black background like PH */}
-                <span className="text-orange-500 font-bold text-xl">B</span>{/* PornHub orange */}
-              </div>
-              <span className="text-2xl font-bold">
+            <Link href="/" className="flex items-center space-x-2.5 group">
+              <span className="text-2xl font-bold flex items-center">
                 <span className="text-white">Bi</span>
-                <span className="text-orange-500">Hub</span>
+                <span className="ml-1 bg-orange-500 px-2 py-0.5 rounded-[2px] text-black font-bold" style={{letterSpacing: '0.5px'}}>hub</span>
               </span>
             </Link>
           </div>
 
           {/* Enhanced Search bar */}
-          <div className="hidden md:flex flex-1 max-w-2xl mx-8">{/* Smaller max-width and margin */}
+          <div className="hidden md:flex flex-1 max-w-2xl mx-8">
             <form onSubmit={handleSearch} className="flex w-full relative group">
               <div className="relative flex-1">
-                <Search className={`absolute left-2.5 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400 group-focus-within:text-orange-500 transition-colors`} />{/* Orange focus color */}
+                <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400 group-focus-within:text-orange-500 transition-colors z-10" />
                 <Input
                   type="search"
                   placeholder="Search for products, brands, categories..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className={`pl-9 pr-4 h-9 ${DESIGN_TOKENS.RADIUS.DEFAULT} border-r-0 focus:ring-2 focus:ring-orange-500/30 focus:border-orange-500 ${DESIGN_TOKENS.TYPOGRAPHY.BODY_SMALL} shadow-medium hover:shadow-large transition-all duration-200 bg-gray-50`}
+                  className="pl-12 pr-4 h-11 rounded-l-full rounded-r-none border-0 bg-gray-900 text-white placeholder:text-gray-400 focus:ring-2 focus:ring-orange-500/40 focus:outline-none shadow-lg transition-all duration-200 text-base"
                 />
-
-                {/* Search suggestions dropdown */}
-                {searchQuery && (
-                  <div className={`absolute top-full left-0 right-0 bg-background border border-border rounded-b-lg shadow-2xl z-50 max-h-80 overflow-y-auto`}>{/* Smaller max-height and border radius */}
-                    <div className={DESIGN_TOKENS.CONTAINERS.CARD_PADDING}>
-                      <div className={`${DESIGN_TOKENS.TYPOGRAPHY.BODY_SMALL} text-muted-foreground ${DESIGN_TOKENS.SPACING.MARGIN_SMALL} font-medium`}>Popular searches</div>
-                      <div className="space-y-1">{/* Smaller spacing */}
-                        {['Electronics', 'Fashion', 'Home & Garden', 'Sports'].map((suggestion) => (
-                          <div key={suggestion} className={`flex items-center ${DESIGN_TOKENS.SPACING.GAP_SMALL} p-2 hover:bg-muted ${DESIGN_TOKENS.RADIUS.SMALL} cursor-pointer transition-colors`}>
-                            <Search className={`${DESIGN_TOKENS.ICONS.DEFAULT} text-muted-foreground`} />
-                            <span className={DESIGN_TOKENS.TYPOGRAPHY.BODY_SMALL}>{suggestion}</span>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  </div>
-                )}
               </div>
               <Button
                 type="submit"
-                className={`rounded-l-none h-9 px-4 ${DESIGN_TOKENS.RADIUS.DEFAULT} bg-orange-500 hover:bg-orange-600 text-white ${DESIGN_TOKENS.TYPOGRAPHY.BODY_SMALL} font-semibold shadow-large hover:shadow-xl transition-all duration-200`}
+                className="rounded-r-full rounded-l-none h-11 px-6 bg-orange-500 hover:bg-orange-600 text-white text-base font-semibold shadow-lg transition-all duration-200 border-0"
+                style={{ boxShadow: '0 2px 8px 0 rgba(255,140,0,0.08)' }}
               >
                 Search
               </Button>
@@ -445,35 +426,35 @@ export function Header() {
       </div>
 
       {/* Navigation */}
-      <div className="border-t border-gray-200/30 bg-white/95 backdrop-blur-sm">
+      <div className="border-t border-gray-700/30 bg-black">
         <div className="container mx-auto px-4">
-          <div className="flex items-center h-11">
+          <div className="flex items-center h-14">
             {/* Category Mega Menu */}
-            <CategoryMegaMenu className="mr-6" />
+            <CategoryMegaMenu />
             
             {/* Navigation Links */}
-            <nav className="hidden md:flex items-center space-x-1 flex-1">
+            <nav className="hidden md:flex items-center space-x-1 flex-1 ml-6">
               <Link
                 href="/"
-                className="px-3 py-2 text-sm font-medium text-gray-700 hover:text-orange-500 hover:bg-orange-50/80 rounded-lg transition-all duration-200"
+                className="h-14 flex items-center px-4 text-sm font-medium text-white hover:text-orange-500 hover:bg-orange-500/10 border-b-2 border-transparent hover:border-orange-500 transition-all duration-200"
               >
                 Home
               </Link>
               <Link
                 href="/products"
-                className="px-3 py-2 text-sm font-medium text-gray-700 hover:text-orange-500 hover:bg-orange-50/80 rounded-lg transition-all duration-200"
+                className="h-14 flex items-center px-4 text-sm font-medium text-white hover:text-orange-500 hover:bg-orange-500/10 border-b-2 border-transparent hover:border-orange-500 transition-all duration-200"
               >
                 Products
               </Link>
               <Link
                 href="/about"
-                className="px-3 py-2 text-sm font-medium text-gray-700 hover:text-orange-500 hover:bg-orange-50/80 rounded-lg transition-all duration-200"
+                className="h-14 flex items-center px-4 text-sm font-medium text-white hover:text-orange-500 hover:bg-orange-500/10 border-b-2 border-transparent hover:border-orange-500 transition-all duration-200"
               >
                 About
               </Link>
               <Link
                 href="/contact"
-                className="px-3 py-2 text-sm font-medium text-gray-700 hover:text-orange-500 hover:bg-orange-50/80 rounded-lg transition-all duration-200"
+                className="h-14 flex items-center px-4 text-sm font-medium text-white hover:text-orange-500 hover:bg-orange-500/10 border-b-2 border-transparent hover:border-orange-500 transition-all duration-200"
               >
                 Contact
               </Link>
@@ -486,7 +467,7 @@ export function Header() {
 
       {/* Mobile menu */}
       {isMenuOpen && (
-        <div className="md:hidden border-t border-gray-200/60 bg-white/95 backdrop-blur-sm shadow-lg">
+        <div className="md:hidden border-t border-gray-700/60 bg-black shadow-lg">
           <div className="container mx-auto px-4 py-4">
             {/* Mobile search */}
             <form onSubmit={handleSearch} className="mb-4">
@@ -496,9 +477,9 @@ export function Header() {
                   placeholder="Search products..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className="rounded-r-none border-r-0"
+                  className="rounded-r-none border-r-0 bg-gray-900 border-gray-600 text-white placeholder:text-gray-400"
                 />
-                <Button type="submit" className="rounded-l-none">
+                <Button type="submit" className="rounded-l-none bg-orange-500 hover:bg-orange-600">
                   <Search className="h-4 w-4" />
                 </Button>
               </div>
@@ -508,28 +489,28 @@ export function Header() {
             <div className="space-y-2">
               <Link
                 href="/"
-                className="block py-2 text-base font-medium text-gray-700 hover:text-gray-900"
+                className="block py-2 text-base font-medium text-gray-300 hover:text-orange-500"
                 onClick={() => setIsMenuOpen(false)}
               >
                 Home
               </Link>
               <Link
                 href="/products"
-                className="block py-2 text-base font-medium text-gray-700 hover:text-gray-900"
+                className="block py-2 text-base font-medium text-gray-300 hover:text-orange-500"
                 onClick={() => setIsMenuOpen(false)}
               >
                 Products
               </Link>
               <Link
                 href="/about"
-                className="block py-2 text-base font-medium text-gray-700 hover:text-gray-900"
+                className="block py-2 text-base font-medium text-gray-300 hover:text-orange-500"
                 onClick={() => setIsMenuOpen(false)}
               >
                 About
               </Link>
               <Link
                 href="/contact"
-                className="block py-2 text-base font-medium text-gray-700 hover:text-gray-900"
+                className="block py-2 text-base font-medium text-gray-300 hover:text-orange-500"
                 onClick={() => setIsMenuOpen(false)}
               >
                 Contact
