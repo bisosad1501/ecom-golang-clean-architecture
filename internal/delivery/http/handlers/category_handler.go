@@ -280,3 +280,69 @@ func (h *CategoryHandler) DeleteCategory(c *gin.Context) {
 		Message: "Category deleted successfully",
 	})
 }
+
+// GetCategoryPath handles getting category path from root
+// @Summary Get category path
+// @Description Get full path from root to specified category (breadcrumbs)
+// @Tags categories
+// @Accept json
+// @Produce json
+// @Param id path string true "Category ID"
+// @Success 200 {array} usecases.CategoryResponse
+// @Failure 400 {object} ErrorResponse
+// @Router /categories/{id}/path [get]
+func (h *CategoryHandler) GetCategoryPath(c *gin.Context) {
+	categoryID, err := uuid.Parse(c.Param("id"))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, ErrorResponse{
+			Error: "Invalid category ID",
+		})
+		return
+	}
+
+	path, err := h.categoryUseCase.GetCategoryPath(c.Request.Context(), categoryID)
+	if err != nil {
+		c.JSON(getErrorStatusCode(err), ErrorResponse{
+			Error: err.Error(),
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, SuccessResponse{
+		Data: path,
+	})
+}
+
+// GetCategoryProductCount handles getting product count for category (including subcategories)
+// @Summary Get category product count
+// @Description Get total product count for category including all subcategories
+// @Tags categories
+// @Accept json
+// @Produce json
+// @Param id path string true "Category ID"
+// @Success 200 {object} map[string]int64
+// @Failure 400 {object} ErrorResponse
+// @Router /categories/{id}/product-count [get]
+func (h *CategoryHandler) GetCategoryProductCount(c *gin.Context) {
+	categoryID, err := uuid.Parse(c.Param("id"))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, ErrorResponse{
+			Error: "Invalid category ID",
+		})
+		return
+	}
+
+	count, err := h.categoryUseCase.GetCategoryProductCount(c.Request.Context(), categoryID)
+	if err != nil {
+		c.JSON(getErrorStatusCode(err), ErrorResponse{
+			Error: err.Error(),
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, SuccessResponse{
+		Data: map[string]int64{
+			"product_count": count,
+		},
+	})
+}

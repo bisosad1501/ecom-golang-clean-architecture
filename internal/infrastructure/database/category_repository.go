@@ -135,3 +135,107 @@ func (r *categoryRepository) GetTree(ctx context.Context) ([]*entities.Category,
 		Find(&categories).Error
 	return categories, err
 }
+
+// GetCategoryTree returns all descendant category IDs for a given category (including itself)
+func (r *categoryRepository) GetCategoryTree(ctx context.Context, categoryID uuid.UUID) ([]uuid.UUID, error) {
+	var categoryIDs []uuid.UUID
+
+	// Using recursive CTE query to get all descendants
+	query := `
+		WITH RECURSIVE category_tree AS (
+			-- Base case: start with the given category
+			SELECT id, parent_id, name
+			FROM categories 
+			WHERE id = $1 AND is_active = true
+
+			UNION ALL
+
+			-- Recursive case: find all children
+			SELECT c.id, c.parent_id, c.name
+			FROM categories c
+			INNER JOIN category_tree ct ON c.parent_id = ct.id
+			WHERE c.is_active = true
+		)
+		SELECT id FROM category_tree
+	`
+
+	rows, err := r.db.WithContext(ctx).Raw(query, categoryID).Rows()
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		var id uuid.UUID
+		if err := rows.Scan(&id); err != nil {
+			return nil, err
+		}
+		categoryIDs = append(categoryIDs, id)
+	}
+
+	return categoryIDs, nil
+}
+
+// GetCategoryPath returns the full path from root to the given category
+func (r *categoryRepository) GetCategoryPath(ctx context.Context, categoryID uuid.UUID) ([]*entities.Category, error) {
+	var categories []*entities.Category
+
+	// Using recursive CTE query to get path from root to category
+	query := `
+		WITH RECURSIVE category_path AS (
+			-- Start with the target category
+			SELECT id, parent_id, name, slug, sort_order, 0 as level
+			FROM categories 
+			WHERE id = $1 AND is_active = true
+
+			UNION ALL
+
+			-- Recursively find parent categories
+			SELECT c.id, c.parent_id, c.name, c.slug, c.sort_order, cp.level + 1 as level
+			FROM categories c
+			INNER JOIN category_path cp ON c.id = cp.parent_id
+			WHERE c.is_active = true
+		)
+		SELECT id, parent_id, name, slug, sort_order, level FROM category_path
+		ORDER BY level DESC
+	`
+
+	rows, err := r.db.WithContext(ctx).Raw(query, categoryID).Rows()
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		var category entities.Category
+		var level int
+		if err := rows.Scan(&category.ID, &category.ParentID, &category.Name,
+			&category.Slug, &category.SortOrder, &level); err != nil {
+			return nil, err
+		}
+		categories = append(categories, &category)
+	}
+
+	return categories, nil
+}
+
+// GetProductCountByCategory returns product count for each category (including descendants)
+func (r *categoryRepository) GetProductCountByCategory(ctx context.Context, categoryID uuid.UUID) (int64, error) {
+	// Get all descendant categories
+	categoryIDs, err := r.GetCategoryTree(ctx, categoryID)
+	if err != nil {
+		return 0, err
+	}
+
+	if len(categoryIDs) == 0 {
+		return 0, nil
+	}
+
+	var count int64
+	err = r.db.WithContext(ctx).
+		Model(&entities.Product{}).
+		Where("category_id IN ? AND status = ?", categoryIDs, "active").
+		Count(&count).Error
+
+	return count, err
+}

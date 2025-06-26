@@ -96,6 +96,8 @@ func SetupRoutes(
 			categories.GET("/tree", categoryHandler.GetCategoryTree)
 			categories.GET("/root", categoryHandler.GetRootCategories)
 			categories.GET("/:id/children", categoryHandler.GetCategoryChildren)
+			categories.GET("/:id/path", categoryHandler.GetCategoryPath)
+			categories.GET("/:id/count", categoryHandler.GetCategoryProductCount)
 		}
 
 		// Public file upload routes (no authentication required)

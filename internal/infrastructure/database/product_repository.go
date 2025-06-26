@@ -153,8 +153,45 @@ func (r *productRepository) Search(ctx context.Context, params repositories.Prod
 		query = query.Where("name ILIKE ? OR description ILIKE ?", "%"+params.Query+"%", "%"+params.Query+"%")
 	}
 
+	// Enhanced category filter with recursive search (includes subcategories)
 	if params.CategoryID != nil {
-		query = query.Where("category_id = ?", *params.CategoryID)
+		// Get all descendant categories using recursive CTE
+		categoryQuery := `
+			WITH RECURSIVE category_tree AS (
+				-- Base case: start with the given category
+				SELECT id FROM categories WHERE id = $1 AND is_active = true
+				
+				UNION ALL
+				
+				-- Recursive case: find all children
+				SELECT c.id FROM categories c
+				INNER JOIN category_tree ct ON c.parent_id = ct.id
+				WHERE c.is_active = true
+			)
+			SELECT id FROM category_tree
+		`
+		
+		var categoryIDs []uuid.UUID
+		rows, err := r.db.WithContext(ctx).Raw(categoryQuery, *params.CategoryID).Rows()
+		if err != nil {
+			return nil, err
+		}
+		defer rows.Close()
+		
+		for rows.Next() {
+			var id uuid.UUID
+			if err := rows.Scan(&id); err != nil {
+				return nil, err
+			}
+			categoryIDs = append(categoryIDs, id)
+		}
+		
+		if len(categoryIDs) > 0 {
+			query = query.Where("category_id IN ?", categoryIDs)
+		} else {
+			// If no categories found, still filter by the original category
+			query = query.Where("category_id = ?", *params.CategoryID)
+		}
 	}
 
 	if params.MinPrice != nil {

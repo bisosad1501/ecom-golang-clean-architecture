@@ -1,5 +1,6 @@
 import { Metadata } from 'next'
-import CategoriesPage from '@/components/pages/categories-page'
+import { Suspense } from 'react'
+import { SimpleCategoryPage } from '@/components/layout/simple-category-page'
 
 export const metadata: Metadata = {
   title: 'Categories | EcomStore',
@@ -12,6 +13,14 @@ export const metadata: Metadata = {
   },
 }
 
+function CategoriesContent() {
+  return <SimpleCategoryPage />
+}
+
 export default function Page() {
-  return <CategoriesPage />
+  return (
+    <Suspense fallback={<div>Loading...</div>}>
+      <CategoriesContent />
+    </Suspense>
+  )
 }

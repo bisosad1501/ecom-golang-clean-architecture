@@ -13,6 +13,7 @@ import { useAddToWishlist, useRemoveFromWishlist } from '@/hooks/use-products'
 import { Product } from '@/types'
 import { formatPrice, cn } from '@/lib/utils'
 import { toast } from 'sonner'
+import { DESIGN_TOKENS } from '@/constants/design-tokens'
 
 interface ProductCardProps {
   product: Product
@@ -38,12 +39,12 @@ export function ProductCard({
   const primaryImage = product.images?.[0]?.url || '/placeholder-product.jpg'
   const secondaryImage = product.images?.[1]?.url
   
-  const hasDiscount = product.sale_price && product.sale_price < product.price
+  const hasDiscount = product.compare_price && product.compare_price < product.price
   const discountPercentage = hasDiscount 
-    ? Math.round(((product.price - product.sale_price!) / product.price) * 100)
+    ? Math.round(((product.price - product.compare_price!) / product.price) * 100)
     : 0
 
-  const displayPrice = product.sale_price || product.price
+  const displayPrice = product.compare_price || product.price
   const isOutOfStock = product.stock <= 0
 
   const handleAddToCart = async (e: React.MouseEvent) => {
@@ -95,7 +96,7 @@ export function ProductCard({
       variant="elevated"
       padding="none"
       className={cn(
-        'group relative overflow-hidden card-hover border-0 bg-white',
+        'group relative overflow-hidden card-hover border border-gray-800 bg-gray-900 text-white',
         className
       )}
       onMouseEnter={() => setIsHovered(true)}
@@ -103,12 +104,12 @@ export function ProductCard({
     >
       <Link href={`/products/${product.id}`}>
         {/* Image container */}
-        <div className="relative aspect-square overflow-hidden bg-gradient-to-br from-gray-50 to-gray-100 rounded-t-xl">
+        <div className={`relative aspect-square overflow-hidden bg-gradient-to-br from-gray-800 to-gray-900 ${DESIGN_TOKENS.RADIUS.LARGE}`}>
           {/* Discount badge */}
           {hasDiscount && (
             <Badge
               variant="destructive"
-              className="absolute top-3 left-3 z-10 shadow-soft font-bold"
+              className="absolute top-3 left-3 z-10 shadow-soft font-bold bg-orange-500 text-white"
             >
               -{discountPercentage}%
             </Badge>
@@ -146,7 +147,7 @@ export function ProductCard({
             isHovered && 'from-black/40'
           )}>
             <div className={cn(
-              'flex space-x-3 transform transition-all duration-300',
+              `flex ${DESIGN_TOKENS.SPACING.GAP_SMALL} transform transition-all duration-300`,
               isHovered ? 'translate-y-0 opacity-100 scale-100' : 'translate-y-4 opacity-0 scale-95'
             )}>
               {/* Quick view */}
@@ -154,10 +155,10 @@ export function ProductCard({
                 <Button
                   variant="ghost"
                   size="icon"
-                  className="h-11 w-11 rounded-full glass-effect hover:bg-white/90 shadow-medium"
+                  className={`${DESIGN_TOKENS.BUTTONS.ICON_DEFAULT} ${DESIGN_TOKENS.RADIUS.FULL} glass-effect hover:bg-white/90 shadow-medium`}
                   onClick={handleQuickView}
                 >
-                  <Eye className="h-4 w-4" />
+                  <Eye className={DESIGN_TOKENS.ICONS.DEFAULT} />
                 </Button>
               )}
 
@@ -166,11 +167,11 @@ export function ProductCard({
                 <Button
                   variant="ghost"
                   size="icon"
-                  className="h-11 w-11 rounded-full glass-effect hover:bg-white/90 shadow-medium"
+                  className={`${DESIGN_TOKENS.BUTTONS.ICON_DEFAULT} ${DESIGN_TOKENS.RADIUS.FULL} glass-effect hover:bg-white/90 shadow-medium`}
                   onClick={handleWishlistToggle}
                   disabled={addToWishlistMutation.isPending || removeFromWishlistMutation.isPending}
                 >
-                  <Heart className="h-4 w-4" />
+                  <Heart className={DESIGN_TOKENS.ICONS.DEFAULT} />
                 </Button>
               )}
 
@@ -179,11 +180,11 @@ export function ProductCard({
                 <Button
                   variant="gradient"
                   size="icon"
-                  className="h-11 w-11 rounded-full shadow-large"
+                  className={`${DESIGN_TOKENS.BUTTONS.ICON_DEFAULT} ${DESIGN_TOKENS.RADIUS.FULL} shadow-large`}
                   onClick={handleAddToCart}
                   disabled={cartLoading}
                 >
-                  <ShoppingCart className="h-4 w-4" />
+                  <ShoppingCart className={DESIGN_TOKENS.ICONS.DEFAULT} />
                 </Button>
               )}
             </div>
@@ -191,28 +192,28 @@ export function ProductCard({
         </div>
 
         {/* Product info */}
-        <div className="p-5">
+        <div className={DESIGN_TOKENS.CONTAINERS.CARD_PADDING}>
           {/* Category */}
           {product.category && (
-            <p className="text-xs text-muted-foreground uppercase tracking-wider mb-2 font-medium">
+            <p className={`${DESIGN_TOKENS.TYPOGRAPHY.CAPTION} uppercase tracking-wider ${DESIGN_TOKENS.SPACING.MARGIN_TINY}`}>
               {product.category.name}
             </p>
           )}
 
           {/* Product name */}
-          <h3 className="font-semibold text-foreground mb-3 line-clamp-2 group-hover:text-primary transition-colors duration-200 text-base leading-tight">
+          <h3 className={`${DESIGN_TOKENS.TYPOGRAPHY.BODY_DEFAULT} font-semibold text-foreground ${DESIGN_TOKENS.SPACING.MARGIN_SMALL} line-clamp-2 group-hover:text-primary transition-colors duration-200 leading-tight`}>
             {product.name}
           </h3>
 
           {/* Rating */}
           {product.rating && (
-            <div className="flex items-center space-x-2 mb-3">
+            <div className={`flex items-center ${DESIGN_TOKENS.SPACING.GAP_TINY} ${DESIGN_TOKENS.SPACING.MARGIN_SMALL}`}>
               <div className="flex">
                 {[...Array(5)].map((_, i) => (
                   <Star
                     key={i}
                     className={cn(
-                      'h-3.5 w-3.5',
+                      DESIGN_TOKENS.ICONS.TINY,
                       i < Math.floor(product.rating!.average)
                         ? 'text-amber-400 fill-current'
                         : 'text-gray-300'
@@ -220,19 +221,19 @@ export function ProductCard({
                   />
                 ))}
               </div>
-              <span className="text-xs text-muted-foreground font-medium">
+              <span className={`${DESIGN_TOKENS.TYPOGRAPHY.CAPTION} font-medium`}>
                 ({product.rating.count})
               </span>
             </div>
           )}
 
           {/* Price */}
-          <div className="flex items-baseline space-x-2 mb-2">
-            <span className="text-xl font-bold text-foreground">
+          <div className={`flex items-baseline ${DESIGN_TOKENS.SPACING.GAP_TINY} ${DESIGN_TOKENS.SPACING.MARGIN_TINY}`}>
+            <span className={`${DESIGN_TOKENS.TYPOGRAPHY.BODY_LARGE} font-bold text-foreground`}>
               {formatPrice(displayPrice)}
             </span>
             {hasDiscount && (
-              <span className="text-sm text-muted-foreground line-through">
+              <span className={`${DESIGN_TOKENS.TYPOGRAPHY.CAPTION} line-through`}>
                 {formatPrice(product.price)}
               </span>
             )}
@@ -240,7 +241,7 @@ export function ProductCard({
 
           {/* Stock status */}
           {product.stock <= 5 && product.stock > 0 && (
-            <p className="text-xs text-warning font-medium">
+            <p className={`${DESIGN_TOKENS.TYPOGRAPHY.CAPTION} text-warning font-medium`}>
               Only {product.stock} left in stock
             </p>
           )}
@@ -250,7 +251,7 @@ export function ProductCard({
       {/* Quick add to cart button (bottom) */}
       {!isOutOfStock && (
         <div className={cn(
-          'absolute bottom-0 left-0 right-0 p-4 bg-gradient-to-t from-white via-white to-transparent transform transition-all duration-300',
+          `absolute bottom-0 left-0 right-0 ${DESIGN_TOKENS.CONTAINERS.CARD_PADDING} bg-gradient-to-t from-white via-white to-transparent transform transition-all duration-300`,
           isHovered ? 'translate-y-0 opacity-100' : 'translate-y-full opacity-0'
         )}>
           <Button

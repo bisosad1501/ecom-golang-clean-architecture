@@ -2,9 +2,12 @@
 export const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080/api/v1'
 
 // App Configuration
-export const APP_NAME = 'EcomStore'
-export const APP_DESCRIPTION = 'Modern E-commerce Platform'
+export const APP_NAME = 'BiHub'
+export const APP_DESCRIPTION = 'Your Ultimate Shopping Hub'
 export const APP_URL = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'
+
+// Export design tokens for consistent UI
+export { DESIGN_TOKENS } from './design-tokens'
 
 // Authentication
 export const AUTH_TOKEN_KEY = 'auth_token'
@@ -168,16 +171,16 @@ export const PRICE_RANGES = [
 
 // Social Links
 export const SOCIAL_LINKS = {
-  twitter: 'https://twitter.com/ecomstore',
-  facebook: 'https://facebook.com/ecomstore',
-  instagram: 'https://instagram.com/ecomstore',
-  linkedin: 'https://linkedin.com/company/ecomstore',
-  youtube: 'https://youtube.com/ecomstore',
+  twitter: 'https://twitter.com/bihub',
+  facebook: 'https://facebook.com/bihub',
+  instagram: 'https://instagram.com/bihub',
+  linkedin: 'https://linkedin.com/company/bihub',
+  youtube: 'https://youtube.com/bihub',
 }
 
 // Contact Information
 export const CONTACT_INFO = {
-  email: 'support@ecomstore.com',
+  email: 'support@bihub.com',
   phone: '+1 (555) 123-4567',
   address: '123 Commerce St, Business City, BC 12345',
   hours: 'Mon-Fri 9AM-6PM EST',
@@ -185,9 +188,9 @@ export const CONTACT_INFO = {
 
 // SEO
 export const DEFAULT_SEO = {
-  title: 'EcomStore - Modern E-commerce Platform',
-  description: 'Discover amazing products at great prices. Fast shipping, easy returns, and excellent customer service.',
-  keywords: 'ecommerce, online shopping, products, deals, fashion, electronics',
+  title: 'BiHub - Your Ultimate Shopping Hub',
+  description: 'Discover premium products at BiHub. Fast shipping, easy returns, and exceptional shopping experience.',
+  keywords: 'ecommerce, online shopping, products, deals, fashion, electronics, bihub, shopping hub',
   ogImage: '/images/og-image.jpg',
 }
 

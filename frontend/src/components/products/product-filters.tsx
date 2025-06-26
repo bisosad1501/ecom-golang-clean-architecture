@@ -10,6 +10,7 @@ import { Badge } from '@/components/ui/badge'
 import { ProductsParams } from '@/lib/services/products'
 import { PRICE_RANGES } from '@/constants'
 import { cn } from '@/lib/utils'
+import { EnhancedCategoryFilter } from './enhanced-category-filter'
 
 interface ProductFiltersProps {
   currentParams: ProductsParams
@@ -64,6 +65,14 @@ export function ProductFilters({ currentParams }: ProductFiltersProps) {
 
   return (
     <div className="space-y-6">
+      {/* Enhanced Category Filter */}
+      <EnhancedCategoryFilter
+        selectedCategoryId={currentParams.category_id}
+        onCategoryChange={(categoryId) => updateFilters({ category_id: categoryId })}
+        showProductCount={true}
+        showSearch={true}
+      />
+
       {/* Clear Filters */}
       {hasActiveFilters && (
         <Card>
@@ -95,8 +104,8 @@ export function ProductFilters({ currentParams }: ProductFiltersProps) {
               <button
                 key={`${range.min}-${range.max}`}
                 onClick={() => updateFilters({
-                  min_price: range.min,
-                  max_price: range.max,
+                  min_price: range.min ?? undefined,
+                  max_price: range.max ?? undefined,
                 })}
                 className={cn(
                   'w-full text-left px-3 py-2 text-sm rounded-md transition-colors',

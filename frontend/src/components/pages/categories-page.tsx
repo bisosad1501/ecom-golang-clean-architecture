@@ -8,7 +8,6 @@ import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
-import { Skeleton } from '@/components/ui/skeleton'
 import { Search, Grid, FolderTree, ArrowRight, Package } from 'lucide-react'
 import { useCategories } from '@/hooks/use-categories'
 import { Category } from '@/types'
@@ -19,15 +18,16 @@ export default function CategoriesPage() {
   const [viewMode, setViewMode] = useState<'grid' | 'tree'>('grid')
   
   const { 
-    data: categoriesData, 
+    data: categories, 
     isLoading, 
     error 
-  } = useCategories({
-    search: searchQuery,
-    limit: 50
-  })
+  } = useCategories()
 
-  const categories = categoriesData?.data || []
+  // Filter categories based on search query
+  const filteredCategories = categories?.filter(category =>
+    category.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    category.description?.toLowerCase().includes(searchQuery.toLowerCase())
+  ) || []
 
   const handleSearch = (query: string) => {
     setSearchQuery(query)
@@ -139,23 +139,19 @@ export default function CategoriesPage() {
             {[...Array(8)].map((_, i) => (
               <Card key={i} variant="elevated" className="border-0 shadow-large">
                 <CardContent className="p-6">
-                  <Skeleton className="w-full h-48 rounded-2xl mb-4" />
-                  <Skeleton className="h-6 w-3/4 mb-2" />
-                  <Skeleton className="h-4 w-1/2 mb-4" />
-                  <Skeleton className="h-4 w-1/4" />
+                  <div className="w-full h-48 rounded-2xl mb-4 bg-muted animate-pulse" />
+                  <div className="h-6 w-3/4 mb-2 bg-muted animate-pulse rounded" />
+                  <div className="h-4 w-1/2 mb-4 bg-muted animate-pulse rounded" />
+                  <div className="h-4 w-1/4 bg-muted animate-pulse rounded" />
                 </CardContent>
               </Card>
             ))}
           </div>
-        ) : categories.length > 0 ? (
+        ) : filteredCategories.length > 0 ? (
           viewMode === 'grid' ? (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8">
-              {categories.map((category) => (
-                <CategoryCard key={category.id} category={category} />
-              ))}
-            </div>
+            <CategoryHierarchyGrid categories={filteredCategories} />
           ) : (
-            <CategoryTree categories={categories} />
+            <CategoryTree categories={filteredCategories} />
           )
         ) : (
           <EmptyState searchQuery={searchQuery} onClearSearch={() => handleSearch('')} />
@@ -166,9 +162,19 @@ export default function CategoriesPage() {
 }
 
 // Category Card Component
-function CategoryCard({ category }: { category: Category }) {
+function CategoryCard({ 
+  category, 
+  isRoot = false, 
+  isOrphaned = false 
+}: { 
+  category: Category
+  isRoot?: boolean
+  isOrphaned?: boolean
+}) {
   return (
-    <Card variant="elevated" className="border-0 shadow-large hover:shadow-xl transition-all duration-300 group overflow-hidden">
+    <Card variant="elevated" className={`border-0 shadow-large hover:shadow-xl transition-all duration-300 group overflow-hidden ${
+      isOrphaned ? 'ring-2 ring-yellow-400 ring-opacity-50' : ''
+    }`}>
       <CardContent className="p-0">
         {/* Category Image */}
         <div className="relative h-48 overflow-hidden bg-muted">
@@ -181,9 +187,37 @@ function CategoryCard({ category }: { category: Category }) {
             />
           ) : (
             <div className="w-full h-full flex items-center justify-center text-muted-foreground bg-gradient-to-br from-muted to-muted/50">
-              <Package className="w-16 h-16" />
+              {isRoot ? (
+                <FolderTree className="w-16 h-16" />
+              ) : (
+                <Package className="w-16 h-16" />
+              )}
             </div>
           )}
+          
+          {/* Category Type Badge */}
+          <div className="absolute top-3 left-3">
+            {isOrphaned ? (
+              <Badge variant="destructive" className="text-xs">
+                ⚠ Orphaned
+              </Badge>
+            ) : isRoot ? (
+              <Badge variant="default" className="text-xs bg-blue-600">
+                📁 Main Category
+              </Badge>
+            ) : (
+              <Badge variant="secondary" className="text-xs">
+                📂 Subcategory
+              </Badge>
+            )}
+          </div>
+          
+          {/* Level indicator */}
+          <div className="absolute top-3 right-3">
+            <Badge variant="outline" className="text-xs bg-white/90">
+              Level {category.level || 0}
+            </Badge>
+          </div>
           
           {/* Overlay */}
           <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
@@ -201,9 +235,18 @@ function CategoryCard({ category }: { category: Category }) {
         
         {/* Category Info */}
         <div className="p-6">
-          <h3 className="text-xl font-bold text-foreground mb-2 group-hover:text-primary transition-colors">
-            {category.name}
-          </h3>
+          <div className="mb-3">
+            <h3 className="text-xl font-bold text-foreground mb-1 group-hover:text-primary transition-colors">
+              {category.name}
+            </h3>
+            
+            {/* Path breadcrumb for non-root categories */}
+            {!isRoot && category.path && (
+              <p className="text-xs text-muted-foreground mb-2 font-mono bg-muted/50 px-2 py-1 rounded">
+                {category.path}
+              </p>
+            )}
+          </div>
           
           {category.description && (
             <p className="text-muted-foreground text-sm mb-4 line-clamp-2">
@@ -254,7 +297,7 @@ function CategoryTreeNode({ category, allCategories, level = 0 }: {
   
   return (
     <div className={`${level > 0 ? 'ml-8' : ''}`}>
-      <Card variant={level === 0 ? "elevated" : "outline"} className="border-0 shadow-medium">
+      <Card variant={level === 0 ? "elevated" : "outlined"} className="border-0 shadow-medium">
         <CardContent className="p-6">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-4">
@@ -317,6 +360,90 @@ function CategoryTreeNode({ category, allCategories, level = 0 }: {
               level={level + 1}
             />
           ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
+// Category Hierarchy Grid Component
+function CategoryHierarchyGrid({ categories }: { categories: Category[] }) {
+  // Group categories by hierarchy
+  const rootCategories = categories.filter(cat => !cat.parent_id)
+  const childCategories = categories.filter(cat => cat.parent_id)
+  
+  return (
+    <div className="space-y-12">
+      {/* Root Categories Section */}
+      <div>
+        <div className="flex items-center gap-3 mb-8">
+          <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center">
+            <FolderTree className="h-4 w-4 text-white" />
+          </div>
+          <h2 className="text-2xl font-bold text-foreground">Main Categories</h2>
+          <Badge variant="outline" className="ml-2">
+            {rootCategories.length} categories
+          </Badge>
+        </div>
+        
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+          {rootCategories.map((category) => (
+            <CategoryCard key={category.id} category={category} isRoot={true} />
+          ))}
+        </div>
+      </div>
+
+      {/* Root Categories with their Children */}
+      {rootCategories.map((rootCategory) => {
+        const children = childCategories.filter(cat => cat.parent_id === rootCategory.id)
+        
+        if (children.length === 0) return null
+        
+        return (
+          <div key={`${rootCategory.id}-children`}>
+            <div className="flex items-center gap-3 mb-8">
+              <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-green-500 to-green-600 flex items-center justify-center">
+                <span className="text-white text-xs font-bold">└─</span>
+              </div>
+              <h2 className="text-2xl font-bold text-foreground">
+                <span className="text-muted-foreground">{rootCategory.name}</span> Subcategories
+              </h2>
+              <Badge variant="outline" className="ml-2">
+                {children.length} subcategories
+              </Badge>
+            </div>
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+              {children.map((category) => (
+                <CategoryCard key={category.id} category={category} isRoot={false} />
+              ))}
+            </div>
+          </div>
+        )
+      })}
+      
+      {/* Orphaned Categories (if any) */}
+      {childCategories.filter(child => 
+        !rootCategories.some(root => root.id === child.parent_id)
+      ).length > 0 && (
+        <div>
+          <div className="flex items-center gap-3 mb-8">
+            <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-yellow-500 to-orange-500 flex items-center justify-center">
+              <span className="text-white text-xs">⚠</span>
+            </div>
+            <h2 className="text-2xl font-bold text-foreground">Uncategorized Items</h2>
+            <Badge variant="destructive" className="ml-2">
+              Needs attention
+            </Badge>
+          </div>
+          
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+            {childCategories.filter(child => 
+              !rootCategories.some(root => root.id === child.parent_id)
+            ).map((category) => (
+              <CategoryCard key={category.id} category={category} isRoot={false} isOrphaned={true} />
+            ))}
+          </div>
         </div>
       )}
     </div>

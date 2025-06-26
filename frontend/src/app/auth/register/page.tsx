@@ -10,7 +10,7 @@ export default function RegisterPage() {
   useGuestOnly()
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-violet-50 via-background to-primary-50 relative overflow-hidden">
+    <div className="min-h-screen bg-gradient-to-br from-violet-50 via-background to-primary-50 relative overflow-hidden pt-[140px]">{/* Add padding top for header */}
       {/* Background Pattern */}
       <div className="absolute inset-0 opacity-5">
         <svg className="w-full h-full" viewBox="0 0 100 100" fill="none">
@@ -25,13 +25,13 @@ export default function RegisterPage() {
       <div className="absolute top-20 right-20 w-32 h-32 bg-gradient-to-br from-violet-400/20 to-primary-500/20 rounded-full blur-3xl animate-float"></div>
       <div className="absolute bottom-20 left-20 w-24 h-24 bg-gradient-to-br from-primary-400/20 to-violet-500/20 rounded-full blur-2xl animate-pulse-slow"></div>
 
-      <div className="relative z-10 min-h-screen flex">
+      <div className="relative z-10 min-h-[calc(100vh-140px)] flex">{/* Adjust inner container height */}
         {/* Left Side - Registration Form */}
-        <div className="flex-1 flex items-center justify-center px-4 sm:px-6 lg:px-8 py-12">
-          <div className="max-w-lg w-full space-y-8">
+        <div className="flex-1 flex items-center justify-center px-4 sm:px-6 lg:px-8 py-6">{/* Reduced padding */}
+          <div className="max-w-lg w-full space-y-6">{/* Reduced spacing */}
             {/* Mobile Logo */}
             <div className="lg:hidden text-center">
-              <Link href="/" className="flex items-center justify-center space-x-3 mb-8 group">
+              <Link href="/" className="flex items-center justify-center space-x-3 mb-6 group">{/* Reduced margin */}
                 <div className="h-12 w-12 rounded-2xl bg-gradient-to-br from-primary-500 to-violet-600 flex items-center justify-center shadow-large group-hover:shadow-xl transition-all duration-300">
                   <span className="text-white font-bold text-2xl">E</span>
                 </div>
@@ -40,16 +40,18 @@ export default function RegisterPage() {
             </div>
 
             <Card variant="elevated" className="border-0 shadow-2xl">
-              <CardHeader className="text-center pb-8">
-                <CardTitle className="text-3xl font-bold text-foreground mb-3">Join our community</CardTitle>
-                <CardDescription className="text-lg text-muted-foreground">
+              <CardHeader className="text-center pb-6">{/* Reduced padding */}
+                <CardTitle className="text-2xl font-bold text-foreground mb-2">{/* Smaller title and margin */}
+                  Join our community
+                </CardTitle>
+                <CardDescription className="text-base text-muted-foreground">{/* Smaller text */}
                   Create your account and start your shopping journey
                 </CardDescription>
               </CardHeader>
-              <CardContent className="px-8 pb-8">
+              <CardContent className="px-8 pb-6">{/* Reduced padding */}
                 <RegisterForm />
 
-                <div className="mt-8 text-center">
+                <div className="mt-6 text-center">{/* Reduced margin */}
                   <p className="text-muted-foreground">
                     Already have an account?{' '}
                     <Link

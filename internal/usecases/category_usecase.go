@@ -22,6 +22,8 @@ type CategoryUseCase interface {
 	GetCategoryTree(ctx context.Context) ([]*CategoryResponse, error)
 	GetRootCategories(ctx context.Context) ([]*CategoryResponse, error)
 	GetCategoryChildren(ctx context.Context, parentID uuid.UUID) ([]*CategoryResponse, error)
+	GetCategoryPath(ctx context.Context, categoryID uuid.UUID) ([]*CategoryResponse, error)
+	GetCategoryProductCount(ctx context.Context, categoryID uuid.UUID) (int64, error)
 }
 
 type categoryUseCase struct {
@@ -306,6 +308,26 @@ func (uc *categoryUseCase) GetCategoryChildren(ctx context.Context, parentID uui
 	}
 
 	return responses, nil
+}
+
+// GetCategoryPath returns the path from root to a specific category
+func (uc *categoryUseCase) GetCategoryPath(ctx context.Context, categoryID uuid.UUID) ([]*CategoryResponse, error) {
+	categories, err := uc.categoryRepo.GetCategoryPath(ctx, categoryID)
+	if err != nil {
+		return nil, err
+	}
+
+	responses := make([]*CategoryResponse, len(categories))
+	for i, category := range categories {
+		responses[i] = uc.toCategoryResponse(category)
+	}
+
+	return responses, nil
+}
+
+// GetCategoryProductCount returns the total number of products in a category and its subcategories
+func (uc *categoryUseCase) GetCategoryProductCount(ctx context.Context, categoryID uuid.UUID) (int64, error) {
+	return uc.categoryRepo.GetProductCountByCategory(ctx, categoryID)
 }
 
 // toCategoryResponse converts category entity to response

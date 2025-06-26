@@ -10,6 +10,7 @@ import { ProductCard } from '@/components/products/product-card'
 import { ProductFilters } from '@/components/products/product-filters'
 import { ProductSort } from '@/components/products/product-sort'
 import { Pagination } from '@/components/ui/pagination'
+import { CategoryBreadcrumbs } from '@/components/ui/category-breadcrumbs'
 import { useProducts } from '@/hooks/use-products'
 import { ProductsParams } from '@/lib/services/products'
 import { DEFAULT_PAGE_SIZE, PRODUCT_SORT_OPTIONS } from '@/constants'
@@ -103,6 +104,17 @@ export function ProductsPage() {
               </div>
             </div>
           </div>
+
+          {/* Category Breadcrumbs */}
+          {params.category_id && (
+            <div className="mt-6 flex justify-center">
+              <CategoryBreadcrumbs 
+                categoryId={params.category_id}
+                className="bg-white/80 backdrop-blur-sm rounded-xl px-4 py-2 border border-border/50 shadow-sm"
+                showHome={true}
+              />
+            </div>
+          )}
 
           <div className="flex items-center justify-center gap-6">
             {/* View mode toggle */}

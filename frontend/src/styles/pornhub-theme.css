@@ -1,0 +1,280 @@
+/* BiHub PornHub-inspired Theme */
+
+:root {
+  /* Primary PornHub Colors - Official color codes */
+  --ph-black: #000000;
+  --ph-orange: #FF9000;
+  --ph-white: #FFFFFF;
+  
+  /* Dark variants */
+  --ph-dark-gray: #1a1a1a;
+  --ph-darker-gray: #0f0f0f;
+  
+  /* Orange variants */
+  --ph-orange-light: #FFAB33;
+  --ph-orange-dark: #E6820E;
+  --ph-orange-darker: #995500;
+  
+  /* Override default CSS variables with PornHub theme */
+  --background: var(--ph-black);
+  --foreground: var(--ph-white);
+  --muted: var(--ph-dark-gray);
+  --muted-foreground: #a3a3a3;
+  --popover: var(--ph-white);
+  --popover-foreground: var(--ph-black);
+  --card: var(--ph-white);
+  --card-foreground: var(--ph-black);
+  --border: #262626;
+  --input: var(--ph-white);
+  --primary: var(--ph-orange);
+  --primary-foreground: var(--ph-white);
+  --secondary: var(--ph-dark-gray);
+  --secondary-foreground: var(--ph-white);
+  --accent: var(--ph-orange);
+  --accent-foreground: var(--ph-white);
+  --destructive: #ef4444;
+  --destructive-foreground: var(--ph-white);
+  --ring: var(--ph-orange);
+  --radius: 0.75rem;
+}
+
+/* Global overrides for BiHub theme */
+body {
+  background-color: var(--ph-black) !important;
+  color: var(--ph-white) !important;
+}
+
+/* Card styles */
+.card {
+  background-color: var(--ph-white);
+  color: var(--ph-black);
+  border: 1px solid #262626;
+}
+
+.card-dark {
+  background-color: #1a1a1a;
+  color: var(--ph-white);
+  border: 1px solid #404040;
+}
+
+/* Button variants */
+.btn-primary {
+  background-color: var(--ph-orange);
+  color: var(--ph-white);
+  border: none;
+}
+
+.btn-primary:hover {
+  background-color: var(--ph-orange-dark);
+}
+
+.btn-secondary {
+  background-color: transparent;
+  color: var(--ph-orange);
+  border: 2px solid var(--ph-orange);
+}
+
+.btn-secondary:hover {
+  background-color: var(--ph-orange);
+  color: var(--ph-white);
+}
+
+/* Input styles */
+.input-dark {
+  background-color: #1a1a1a;
+  color: var(--ph-white);
+  border: 1px solid #404040;
+}
+
+.input-dark:focus {
+  border-color: var(--ph-orange);
+  box-shadow: 0 0 0 2px rgba(255, 144, 0, 0.2);
+}
+
+/* Navigation styles */
+.nav-dark {
+  background-color: var(--ph-black);
+  border-bottom: 1px solid #262626;
+}
+
+.nav-link {
+  color: var(--ph-white);
+  transition: color 0.2s ease;
+}
+
+.nav-link:hover {
+  color: var(--ph-orange);
+}
+
+/* Section backgrounds */
+.section-dark {
+  background-color: var(--ph-black);
+}
+
+.section-dark-alt {
+  background: linear-gradient(135deg, #1a1a1a 0%, var(--ph-black) 50%, #1a1a1a 100%);
+}
+
+/* Text utilities */
+.text-orange {
+  color: var(--ph-orange) !important;
+}
+
+.text-orange-500 {
+  color: var(--ph-orange) !important;
+}
+
+.text-orange-400 {
+  color: #FFBF6F !important;
+}
+
+.text-orange-300 {
+  color: #FFCF93 !important;
+}
+
+.text-white {
+  color: var(--ph-white) !important;
+}
+
+.text-black {
+  color: var(--ph-black) !important;
+}
+
+/* Background utilities */
+.bg-ph-black {
+  background-color: var(--ph-black) !important;
+}
+
+.bg-ph-orange {
+  background-color: var(--ph-orange) !important;
+}
+
+.bg-orange-500 {
+  background-color: var(--ph-orange) !important;
+}
+
+.bg-orange-600 {
+  background-color: var(--ph-orange-dark) !important;
+}
+
+.bg-orange-500\/10 {
+  background-color: rgba(255, 144, 0, 0.1) !important;
+}
+
+.bg-orange-500\/20 {
+  background-color: rgba(255, 144, 0, 0.2) !important;
+}
+
+.bg-ph-white {
+  background-color: var(--ph-white) !important;
+}
+
+.bg-ph-dark {
+  background-color: var(--ph-dark-gray) !important;
+}
+
+/* Gradient utilities */
+.gradient-ph-hero {
+  background: linear-gradient(135deg, var(--ph-black) 0%, #1a1a1a 50%, var(--ph-black) 100%);
+}
+
+.gradient-ph-orange {
+  background: linear-gradient(135deg, var(--ph-orange) 0%, var(--ph-orange-dark) 100%);
+}
+
+.text-gradient-orange {
+  background: linear-gradient(135deg, var(--ph-orange) 0%, var(--ph-orange-light) 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+/* Border utilities */
+.border-ph-orange {
+  border-color: var(--ph-orange) !important;
+}
+
+.border-ph-dark {
+  border-color: #262626 !important;
+}
+
+/* Hover effects */
+.hover-ph-orange:hover {
+  background-color: var(--ph-orange) !important;
+  color: var(--ph-white) !important;
+}
+
+.hover-ph-orange-light:hover {
+  background-color: rgba(255, 144, 0, 0.1) !important;
+}
+
+.hover\:bg-orange-500:hover {
+  background-color: var(--ph-orange) !important;
+}
+
+.hover\:bg-orange-600:hover {
+  background-color: var(--ph-orange-dark) !important;
+}
+
+.hover\:text-orange-500:hover {
+  color: var(--ph-orange) !important;
+}
+
+.hover\:bg-orange-500\/10:hover {
+  background-color: rgba(255, 144, 0, 0.1) !important;
+}
+
+/* Focus states */
+.focus-ph-orange:focus {
+  outline: none;
+  box-shadow: 0 0 0 2px rgba(255, 144, 0, 0.5);
+}
+
+/* Animation for orange elements */
+@keyframes pulse-orange {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.7;
+  }
+}
+
+.animate-pulse-orange {
+  animation: pulse-orange 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+/* Dark mode overrides */
+.dark {
+  --background: var(--ph-black);
+  --foreground: var(--ph-white);
+}
+
+/* Scrollbar styling */
+::-webkit-scrollbar {
+  width: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--ph-black);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--ph-orange);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--ph-orange-dark);
+}
+
+/* Selection styling */
+::selection {
+  background-color: var(--ph-orange);
+  color: var(--ph-white);
+}
+
+::-moz-selection {
+  background-color: var(--ph-orange);
+  color: var(--ph-white);
+}

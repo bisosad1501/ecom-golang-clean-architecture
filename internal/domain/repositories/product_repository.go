@@ -112,4 +112,13 @@ type CategoryRepository interface {
 	
 	// GetTree retrieves the category tree
 	GetTree(ctx context.Context) ([]*entities.Category, error)
+	
+	// GetCategoryTree returns all descendant category IDs for a given category (including itself)
+	GetCategoryTree(ctx context.Context, categoryID uuid.UUID) ([]uuid.UUID, error)
+	
+	// GetCategoryPath returns the full path from root to the given category
+	GetCategoryPath(ctx context.Context, categoryID uuid.UUID) ([]*entities.Category, error)
+	
+	// GetProductCountByCategory returns product count for each category (including descendants)
+	GetProductCountByCategory(ctx context.Context, categoryID uuid.UUID) (int64, error)
 }

@@ -16,50 +16,62 @@ export interface UpdateCategoryRequest extends Partial<CreateCategoryRequest> {}
 class CategoryService {
   // Get all categories
   async getCategories(): Promise<Category[]> {
-    const response = await apiClient.get<Category[]>('/categories')
+    const response = await apiClient.get('/categories')
     return response.data
   }
 
   // Get root categories (no parent)
   async getRootCategories(): Promise<Category[]> {
     const response = await apiClient.get<Category[]>('/categories/root')
-    return response.data
+    return response.data || []
   }
 
   // Get category tree (hierarchical structure)
   async getCategoryTree(): Promise<Category[]> {
     const response = await apiClient.get<Category[]>('/categories/tree')
-    return response.data
+    return response.data || []
   }
 
   // Get single category by ID
   async getCategory(id: string): Promise<Category> {
-    const response = await apiClient.get<Category>(`/categories/${id}`)
+    const response = await apiClient.get(`/categories/${id}`)
     return response.data
   }
 
   // Get category by slug
   async getCategoryBySlug(slug: string): Promise<Category> {
-    const response = await apiClient.get<Category>(`/categories/slug/${slug}`)
+    const response = await apiClient.get(`/categories/slug/${slug}`)
     return response.data
   }
 
+  // Get category path (breadcrumbs)
+  async getCategoryPath(categoryId: string): Promise<Category[]> {
+    const response = await apiClient.get<Category[]>(`/categories/${categoryId}/path`)
+    return response.data || []
+  }
+
   // Get category children
-  async getCategoryChildren(id: string): Promise<Category[]> {
-    const response = await apiClient.get<Category[]>(`/categories/${id}/children`)
-    return response.data
+  async getCategoryChildren(categoryId: string): Promise<Category[]> {
+    const response = await apiClient.get<Category[]>(`/categories/${categoryId}/children`)
+    return response.data || []
+  }
+
+  // Get category product count (including subcategories)
+  async getCategoryProductCount(categoryId: string): Promise<number> {
+    const response = await apiClient.get<{ product_count: number }>(`/categories/${categoryId}/product-count`)
+    return response.data?.product_count || 0
   }
 
   // Get category breadcrumb
   async getCategoryBreadcrumb(id: string): Promise<Category[]> {
-    const response = await apiClient.get<Category[]>(`/categories/${id}/breadcrumb`)
+    const response = await apiClient.get(`/categories/${id}/breadcrumb`)
     return response.data
   }
 
   // Admin methods
   async createCategory(data: CreateCategoryRequest): Promise<Category> {
     console.log('CategoryService: Creating category with data:', data)
-    const response = await apiClient.post<Category>('/admin/categories', data)
+    const response = await apiClient.post('/admin/categories', data)
     console.log('CategoryService: Create response:', response.data)
     return response.data
   }
@@ -68,7 +80,7 @@ class CategoryService {
     console.log('CategoryService: Original data:', data)
     console.log('CategoryService: Sending to backend:', data)
     
-    const response = await apiClient.put<Category>(`/admin/categories/${id}`, data)
+    const response = await apiClient.put(`/admin/categories/${id}`, data)
     console.log('CategoryService: Backend response:', response.data)
     return response.data
   }
@@ -85,7 +97,7 @@ class CategoryService {
   }
 
   async uploadCategoryImage(categoryId: string, file: File): Promise<{ url: string }> {
-    const response = await apiClient.upload<{ url: string }>(`/admin/categories/${categoryId}/image`, file)
+    const response = await apiClient.upload(`/admin/categories/${categoryId}/image`, file)
     return response.data
   }
 
@@ -110,13 +122,13 @@ class CategoryService {
 
   // Popular categories
   async getPopularCategories(limit = 10): Promise<Category[]> {
-    const response = await apiClient.get<Category[]>(`/categories/popular?limit=${limit}`)
+    const response = await apiClient.get(`/categories/popular?limit=${limit}`)
     return response.data
   }
 
   // Search categories
   async searchCategories(query: string): Promise<Category[]> {
-    const response = await apiClient.get<Category[]>(`/categories/search?q=${query}`)
+    const response = await apiClient.get(`/categories/search?q=${query}`)
     return response.data
   }
 }
