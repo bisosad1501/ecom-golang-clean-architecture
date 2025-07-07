@@ -3,13 +3,13 @@ import { cva, type VariantProps } from 'class-variance-authority'
 import { cn } from '@/lib/utils'
 
 const inputVariants = cva(
-  'flex w-full rounded-xl border bg-background px-4 py-3 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-1 disabled:cursor-not-allowed disabled:opacity-50 transition-all duration-200 shadow-sm hover:shadow-medium',
+  'flex w-full rounded-xl border bg-gray-800 px-4 py-3 text-sm text-white ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-gray-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-1 disabled:cursor-not-allowed disabled:opacity-50 transition-all duration-200 shadow-sm hover:shadow-medium',
   {
     variants: {
       variant: {
-        default: 'border-border focus-visible:ring-primary/30 focus-visible:border-primary',
-        error: 'border-destructive focus-visible:ring-destructive/30 focus-visible:border-destructive',
-        success: 'border-success focus-visible:ring-success/30 focus-visible:border-success',
+        default: 'border-gray-600 focus-visible:ring-[#FF9000]/30 focus-visible:border-[#FF9000]',
+        error: 'border-red-500 focus-visible:ring-red-500/30 focus-visible:border-red-500',
+        success: 'border-green-500 focus-visible:ring-green-500/30 focus-visible:border-green-500',
       },
       size: {
         default: 'h-12 px-4 py-3',
@@ -60,15 +60,15 @@ const Input = React.forwardRef<HTMLInputElement, InputProps>(
         {label && (
           <label
             htmlFor={inputId}
-            className="mb-3 block text-sm font-semibold text-foreground"
+            className="mb-3 block text-sm font-semibold text-white"
           >
             {label}
-            {props.required && <span className="ml-1 text-destructive">*</span>}
+            {props.required && <span className="ml-1 text-red-400">*</span>}
           </label>
         )}
         <div className="relative">
           {leftIcon && (
-            <div className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground">
+            <div className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400">
               {leftIcon}
             </div>
           )}
@@ -85,7 +85,7 @@ const Input = React.forwardRef<HTMLInputElement, InputProps>(
             {...props}
           />
           {rightIcon && (
-            <div className="absolute right-4 top-1/2 -translate-y-1/2 text-muted-foreground">
+            <div className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400">
               {rightIcon}
             </div>
           )}
@@ -94,7 +94,7 @@ const Input = React.forwardRef<HTMLInputElement, InputProps>(
           <p
             className={cn(
               'mt-2 text-sm font-medium',
-              hasError ? 'text-destructive' : 'text-muted-foreground'
+              hasError ? 'text-red-400' : 'text-gray-400'
             )}
           >
             {error || helperText}

@@ -148,36 +148,36 @@ export function CartPage() {
         <div className="mb-12">
           <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-6">
             <div>
-              <div className="flex items-center gap-3 mb-4">
-                <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-primary-500 to-violet-600 flex items-center justify-center shadow-large">
-                  <ShoppingBag className="h-6 w-6 text-white" />
+              <div className="flex items-center gap-2 mb-3">
+                <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-orange-500 to-orange-600 flex items-center justify-center shadow-lg">
+                  <ShoppingBag className="h-4 w-4 text-white" />
                 </div>
-                <span className="text-primary font-semibold">SHOPPING CART</span>
+                <span className="text-orange-500 font-semibold text-sm">SHOPPING CART</span>
               </div>
 
-              <h1 className="text-4xl lg:text-5xl font-bold text-foreground mb-4">
-                Your <span className="text-gradient">Shopping Cart</span>
+              <h1 className="text-2xl lg:text-3xl font-bold text-white mb-2">
+                Your <span className="text-orange-400">Shopping Cart</span>
               </h1>
-              <p className="text-xl text-muted-foreground">
+              <p className="text-base text-gray-300">
                 {cartItemCount} {cartItemCount === 1 ? 'item' : 'items'} ready for checkout
               </p>
             </div>
 
-            <div className="flex flex-col sm:flex-row gap-4">
+            <div className="flex flex-col sm:flex-row gap-3">
               <Button
                 variant="outline"
-                size="lg"
+                size="default"
                 onClick={handleClearCart}
                 disabled={isLoading}
-                className="border-2 hover:border-destructive hover:text-destructive transition-all duration-200"
+                className="border border-red-600 text-red-400 hover:bg-red-600 hover:text-white transition-all duration-200"
               >
-                <Trash2 className="mr-2 h-5 w-5" />
+                <Trash2 className="mr-2 h-4 w-4" />
                 Clear Cart
               </Button>
 
-              <Button variant="ghost" size="lg" asChild>
-                <Link href="/products" className="flex items-center">
-                  <ArrowLeft className="mr-2 h-5 w-5" />
+              <Button variant="ghost" size="default" asChild>
+                <Link href="/products" className="flex items-center text-gray-300 hover:text-white">
+                  <ArrowLeft className="mr-2 h-4 w-4" />
                   Continue Shopping
                 </Link>
               </Button>
@@ -185,15 +185,15 @@ export function CartPage() {
           </div>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-12">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           {/* Cart Items */}
-          <div className="lg:col-span-2 space-y-6">
+          <div className="lg:col-span-2 space-y-4">
             {cart.items.map((item) => (
-              <Card key={item.id} variant="elevated" className="border-0 shadow-large hover:shadow-xl transition-all duration-300">
-                <CardContent className="p-8">
-                  <div className="flex flex-col sm:flex-row gap-6">
-                    {/* Product Image */}
-                    <div className="relative h-32 w-32 flex-shrink-0 overflow-hidden rounded-2xl border-2 border-border shadow-medium">
+              <Card key={item.id} className="bg-gray-800 border-gray-700 hover:border-gray-600 transition-all duration-300">
+                <CardContent className="p-4">
+                  <div className="flex flex-col sm:flex-row gap-4">
+                    {/* Product Image - More compact */}
+                    <div className="relative h-24 w-24 flex-shrink-0 overflow-hidden rounded-lg border border-gray-600">
                       <Image
                         src={item.product.images?.[0]?.url || '/placeholder-product.jpg'}
                         alt={item.product.name}
@@ -202,26 +202,26 @@ export function CartPage() {
                       />
                     </div>
 
-                    {/* Product Details */}
+                    {/* Product Details - More compact */}
                     <div className="flex-1 min-w-0">
-                      <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
+                      <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
                         <div className="flex-1">
-                          <h3 className="text-xl font-bold text-foreground mb-2">
+                          <h3 className="text-lg font-bold text-white mb-1">
                             <Link
                               href={`/products/${item.product.id}`}
-                              className="hover:text-primary transition-colors"
+                              className="hover:text-orange-400 transition-colors"
                             >
                               {item.product.name}
                             </Link>
                           </h3>
-                          <p className="text-sm text-muted-foreground mb-3">
+                          <p className="text-xs text-gray-400 mb-2">
                             SKU: {item.product.sku}
                           </p>
-                          <div className="flex items-center gap-4">
-                            <p className="text-2xl font-bold text-primary">
+                          <div className="flex items-center gap-3">
+                            <p className="text-lg font-bold text-orange-400">
                               {formatPrice(item.unit_price)}
                             </p>
-                            <p className="text-lg font-semibold text-foreground">
+                            <p className="text-sm font-semibold text-white">
                               Total: {formatPrice(item.unit_price * item.quantity)}
                             </p>
                           </div>

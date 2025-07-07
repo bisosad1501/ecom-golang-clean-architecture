@@ -1,172 +1,51 @@
-// Base Types
-export interface BaseEntity {
-  id: string
-  created_at: string
-  updated_at: string
-}
+// ===== UNIFIED TYPES EXPORT =====
+// Export all types from organized files
+export * from './common'
+export * from './auth'
+export * from './product'
 
-// User Types
-export interface User extends BaseEntity {
-  email: string
-  first_name: string
-  last_name: string
-  role: UserRole
-  is_active: boolean
-  email_verified: boolean
-  profile?: UserProfile
-}
+// Re-export commonly used types for convenience
+export type {
+  BaseEntity,
+  ApiResponse,
+  PaginatedResponse,
+  LoadingState,
+  SortOrder,
+  Address,
+  Image,
+  Theme,
+  NotificationType
+} from './common'
 
-export interface UserProfile extends BaseEntity {
-  user_id: string
-  phone?: string
-  date_of_birth?: string
-  gender?: 'male' | 'female' | 'other'
-  avatar_url?: string
-  bio?: string
-  preferences?: UserPreferences
-}
+export type {
+  User,
+  UserRole,
+  UserProfile,
+  AuthResponse,
+  LoginRequest,
+  RegisterRequest,
+  AuthContext
+} from './auth'
 
-export interface UserPreferences {
-  newsletter_subscribed: boolean
-  marketing_emails: boolean
-  order_updates: boolean
-  theme: 'light' | 'dark' | 'system'
-  language: string
-  currency: string
-}
+export type {
+  Product,
+  ProductListItem,
+  Category,
+  Brand,
+  ProductStatus,
+  ProductSearchParams,
+  ProductFilters,
+  WishlistItem
+} from './product'
 
-export type UserRole = 'customer' | 'admin' | 'moderator' | 'super_admin'
+// ===== ADDITIONAL MISSING TYPES =====
 
-// Authentication Types
-export interface AuthResponse {
-  user: User
-  token: string
-  refresh_token: string
-  expires_at: string
-}
-
-export interface LoginRequest {
-  email: string
-  password: string
-  remember_me?: boolean
-}
-
-export interface RegisterRequest {
-  email: string
-  password: string
-  first_name: string
-  last_name: string
-  terms_accepted: boolean
-}
-
-export interface ResetPasswordRequest {
-  email: string
-}
-
-export interface ChangePasswordRequest {
-  current_password: string
-  new_password: string
-  confirm_password: string
-}
-
-// Product Types
-export interface Product extends BaseEntity {
-  name: string
-  description: string
-  short_description?: string
-  sku: string
-  price: number
-  compare_price?: number
-  cost_price?: number
-  stock: number
-  status: ProductStatus
-  is_digital: boolean
-  is_available: boolean
-  has_discount: boolean
-  weight?: number
-  dimensions?: Dimensions
-  category_id: string
-  category?: Category
-  images: ProductImage[]
-  tags: ProductTag[]
-  reviews?: Review[]
-  rating?: ProductRating
-  inventory?: Inventory
-}
-
-export interface Dimensions {
-  length: number
-  width: number
-  height: number
-}
-
-export interface ProductImage extends BaseEntity {
-  product_id?: string
-  url: string
-  alt_text?: string
-  position: number
-}
-
-export interface ProductTag extends BaseEntity {
-  name: string
-  slug: string
-  color?: string
-}
-
-export interface ProductRating {
-  average: number
-  count: number
-  distribution: {
-    1: number
-    2: number
-    3: number
-    4: number
-    5: number
-  }
-}
-
-export type ProductStatus = 'draft' | 'active' | 'inactive' | 'archived'
-
-// Category Types
-export interface Category extends BaseEntity {
-  name: string
-  slug: string
-  description?: string
-  image?: string
-  parent_id?: string
-  parent?: Category
-  children?: Category[]
-  is_active: boolean
-  sort_order: number
-  level?: number
-  path?: string
-  product_count?: number
-}
-
-// Cart Types
-export interface Cart extends BaseEntity {
-  user_id: string
-  items: CartItem[]
-  total_amount: number
-  item_count: number
-}
-
-export interface CartItem extends BaseEntity {
-  cart_id: string
-  product_id: string
-  product: Product
-  quantity: number
-  unit_price: number
-  total_price: number
-}
-
-// Order Types
+// Order types
 export interface Order extends BaseEntity {
   order_number: string
   user_id: string
-  user?: User
-  status: OrderStatus
-  payment_status: PaymentStatus
+  status: 'pending' | 'confirmed' | 'processing' | 'shipped' | 'delivered' | 'cancelled' | 'refunded'
+  payment_status: 'pending' | 'processing' | 'completed' | 'failed' | 'cancelled' | 'refunded'
   items: OrderItem[]
   shipping_address: Address
   billing_address: Address
@@ -175,401 +54,98 @@ export interface Order extends BaseEntity {
   shipping_amount: number
   discount_amount: number
   total_amount: number
-  notes?: string
-  shipped_at?: string
-  delivered_at?: string
 }
 
-export interface OrderItem extends BaseEntity {
-  order_id: string
+export interface OrderItem {
+  id: string
   product_id: string
-  product: Product
+  product_name: string
+  product_image?: string
   quantity: number
-  unit_price: number
-  total_price: number
+  price: number
+  total: number
 }
 
-export type OrderStatus = 
-  | 'pending'
-  | 'confirmed'
-  | 'processing'
-  | 'shipped'
-  | 'delivered'
-  | 'cancelled'
-  | 'refunded'
-
-export type PaymentStatus = 
-  | 'pending'
-  | 'processing'
-  | 'completed'
-  | 'failed'
-  | 'cancelled'
-  | 'refunded'
-
-// Address Types
-export interface Address extends BaseEntity {
-  user_id: string
-  type: 'shipping' | 'billing'
-  first_name: string
-  last_name: string
-  company?: string
-  address1: string
-  address2?: string
-  city: string
-  state: string
-  zip_code: string
-  country: string
-  phone?: string
-  is_default: boolean
-}
-
-// Payment Types
-export interface Payment extends BaseEntity {
-  order_id: string
-  method: PaymentMethod
-  status: PaymentStatus
-  amount: number
-  currency: string
-  transaction_id?: string
-  gateway_response?: string
-  processed_at?: string
-}
-
-export type PaymentMethod = 'credit_card' | 'debit_card' | 'paypal' | 'stripe' | 'bank_transfer'
-
-// Review Types
-export interface Review extends BaseEntity {
-  product_id: string
-  user_id: string
-  user?: User
-  rating: number
-  title?: string
-  comment?: string
-  status: ReviewStatus
-  is_verified_purchase: boolean
-  helpful_count: number
-  images?: ReviewImage[]
-}
-
-export interface ReviewImage extends BaseEntity {
-  review_id: string
-  url: string
-  alt_text?: string
-}
-
-export type ReviewStatus = 'pending' | 'approved' | 'rejected'
-
-// Wishlist Types
-export interface Wishlist extends BaseEntity {
-  user_id: string
-  items: WishlistItem[]
-}
-
-export interface WishlistItem extends BaseEntity {
-  wishlist_id: string
-  product_id: string
-  product: Product
-}
-
-// Coupon Types
-export interface Coupon extends BaseEntity {
-  code: string
-  type: CouponType
-  value: number
-  minimum_amount?: number
-  maximum_discount?: number
-  usage_limit?: number
-  used_count: number
-  expires_at?: string
-  is_active: boolean
-}
-
-export type CouponType = 'percentage' | 'fixed_amount' | 'free_shipping'
-
-// Inventory Types
-export interface Inventory extends BaseEntity {
-  product_id: string
-  warehouse_id?: string
-  quantity: number
-  reserved_quantity: number
-  available_quantity: number
-  reorder_level: number
-  reorder_quantity: number
-}
-
-// Shipping Types
-export interface ShippingMethod extends BaseEntity {
-  name: string
-  description?: string
-  carrier: string
-  base_cost: number
-  cost_per_kg: number
-  min_delivery_days: number
-  max_delivery_days: number
-  is_active: boolean
-}
-
-export interface Shipment extends BaseEntity {
-  order_id: string
-  tracking_number: string
-  carrier: string
-  status: ShipmentStatus
-  shipped_at?: string
-  estimated_delivery?: string
-  actual_delivery?: string
-}
-
-export type ShipmentStatus = 
-  | 'pending'
-  | 'processing'
-  | 'shipped'
-  | 'in_transit'
-  | 'out_for_delivery'
-  | 'delivered'
-  | 'failed'
-  | 'returned'
-
-// API Response Types
-export interface ApiResponse<T = any> {
-  data: T
-  message?: string
-  success: boolean
-}
-
-export interface PaginatedResponse<T = any> {
-  data: T[]
-  pagination: {
-    page: number
-    limit: number
-    total: number
-    total_pages: number
-    has_next: boolean
-    has_prev: boolean
-  }
-}
-
-export interface ApiError {
-  message: string
-  code?: string
-  details?: Record<string, any>
-}
-
-// Filter and Search Types
-export interface ProductFilters {
-  category_id?: string
-  min_price?: number
-  max_price?: number
-  in_stock?: boolean
-  rating?: number
-  tags?: string[]
-  search?: string
-}
-
-export interface SortOption {
-  field: string
-  direction: 'asc' | 'desc'
-}
-
-export interface PaginationParams {
-  page?: number
-  limit?: number
-}
-
-// Form Types
-export interface ContactForm {
-  name: string
-  email: string
-  subject: string
-  message: string
-}
-
-export interface NewsletterForm {
-  email: string
-}
-
-// UI State Types
-export interface LoadingState {
-  isLoading: boolean
-  error?: string | null
-}
-
-export interface ModalState {
-  isOpen: boolean
-  data?: any
-}
-
-// Analytics Types
-export interface AnalyticsEvent {
-  event_type: string
-  event_name: string
-  properties?: Record<string, any>
-  user_id?: string
-  session_id: string
-}
-
-// Notification Types
-export interface Notification extends BaseEntity {
-  user_id: string
-  type: NotificationType
-  title: string
-  message: string
-  is_read: boolean
-  action_url?: string
-}
-
-export type NotificationType = 
-  | 'order_update'
-  | 'payment_success'
-  | 'payment_failed'
-  | 'product_back_in_stock'
-  | 'promotion'
-  | 'system'
-
-// Search Types
-export interface SearchResult {
-  products: Product[]
-  categories: Category[]
-  total_results: number
-  search_time: number
-  suggestions?: string[]
-}
-
-export interface SearchFilters extends ProductFilters {
-  sort_by?: string
-  sort_order?: 'asc' | 'desc'
-}
-
-// Theme Types
-export type Theme = 'light' | 'dark' | 'system'
-
-// Component Props Types
-export interface ButtonProps {
-  variant?: 'primary' | 'secondary' | 'outline' | 'ghost' | 'destructive'
-  size?: 'sm' | 'md' | 'lg'
-  isLoading?: boolean
-  disabled?: boolean
-  children: React.ReactNode
-  onClick?: () => void
-  type?: 'button' | 'submit' | 'reset'
-  className?: string
-}
-
-export interface InputProps {
-  label?: string
-  placeholder?: string
-  error?: string
-  required?: boolean
-  disabled?: boolean
-  type?: string
-  value?: string
-  onChange?: (value: string) => void
-  className?: string
-}
-
-// Store Types (for Zustand)
-export interface AuthStore {
-  user: User | null
-  token: string | null
-  isAuthenticated: boolean
-  isLoading: boolean
-  login: (credentials: LoginRequest) => Promise<void>
-  register: (data: RegisterRequest) => Promise<void>
-  logout: () => void
-  updateProfile: (data: Partial<UserProfile>) => Promise<void>
-}
-
-export interface CartStore {
-  cart: Cart | null
-  isLoading: boolean
-  addItem: (productId: string, quantity: number) => Promise<void>
-  updateItem: (itemId: string, quantity: number) => Promise<void>
-  removeItem: (itemId: string) => Promise<void>
-  clearCart: () => Promise<void>
-  fetchCart: () => Promise<void>
-}
-
-export interface WishlistStore {
-  wishlist: Wishlist | null
-  isLoading: boolean
-  addItem: (productId: string) => Promise<void>
-  removeItem: (productId: string) => Promise<void>
-  fetchWishlist: () => Promise<void>
-}
-
-// Payment Types
-export interface PaymentMethod extends BaseEntity {
-  type: 'credit_card' | 'debit_card' | 'paypal' | 'stripe' | 'bank_transfer'
-  provider: string
-  last_four?: string
-  brand?: string
-  exp_month?: number
-  exp_year?: number
-  is_default: boolean
-}
-
-export interface Payment extends BaseEntity {
-  order_id: string
-  user_id: string
-  amount: number
-  currency: string
-  method: string
-  status: 'pending' | 'processing' | 'paid' | 'failed' | 'cancelled' | 'refunded'
-  transaction_id: string
-  external_id: string
-  gateway_response?: string
-  failure_reason?: string
-  processed_at?: string
-  refunded_at?: string
-  refund_amount: number
-}
-
-export interface CheckoutSession {
-  success: boolean
-  session_id: string
-  session_url: string
-  message: string
-}
-
-export interface CreateCheckoutSessionRequest {
-  order_id: string
-  amount: number
-  currency: string
-  description?: string
-  success_url: string
-  cancel_url: string
-  metadata?: Record<string, any>
-}
-
-export interface ProcessPaymentRequest {
-  order_id: string
-  amount: number
-  currency: string
+export interface CreateOrderRequest {
+  items: Array<{
+    product_id: string
+    quantity: number
+    price: number
+  }>
+  shipping_address: Address
+  billing_address: Address
   payment_method: string
-  payment_token?: string
-  metadata?: Record<string, any>
 }
 
-export interface RefundRequest {
-  amount?: number
-  reason?: string
+// Cart types
+export interface Cart {
+  id: string
+  user_id?: string
+  items: CartItem[]
+  subtotal: number
+  total: number
+  created_at: string
+  updated_at: string
 }
 
-// Payment Store
+export interface CartItem {
+  id: string
+  product_id: string
+  product: Product
+  quantity: number
+  price: number
+  total: number
+}
+
+// Payment types
 export interface PaymentStore {
   paymentMethods: PaymentMethod[]
   currentPayment: Payment | null
   isLoading: boolean
   error: string | null
-
-  // Payment methods
-  fetchPaymentMethods: () => Promise<void>
-  savePaymentMethod: (data: any) => Promise<void>
-  deletePaymentMethod: (methodId: string) => Promise<void>
-  setDefaultPaymentMethod: (methodId: string) => Promise<void>
-
-  // Payments
-  createCheckoutSession: (data: CreateCheckoutSessionRequest) => Promise<CheckoutSession>
-  processPayment: (data: ProcessPaymentRequest) => Promise<void>
-  getPayment: (paymentId: string) => Promise<void>
-  processRefund: (paymentId: string, data: RefundRequest) => Promise<void>
 }
+
+export interface PaymentMethod {
+  id: string
+  type: 'card' | 'paypal' | 'bank_transfer' | 'cash_on_delivery'
+  name: string
+  details: Record<string, any>
+  is_default: boolean
+}
+
+export interface Payment {
+  id: string
+  order_id: string
+  amount: number
+  currency: string
+  status: 'pending' | 'processing' | 'completed' | 'failed' | 'cancelled' | 'refunded'
+  method: PaymentMethod
+  created_at: string
+}
+
+export interface CheckoutSession {
+  id: string
+  url: string
+  expires_at: string
+}
+
+export interface CreateCheckoutSessionRequest {
+  order_id: string
+  success_url: string
+  cancel_url: string
+}
+
+export interface ProcessPaymentRequest {
+  order_id: string
+  payment_method_id: string
+  amount: number
+}
+
+export interface RefundRequest {
+  payment_id: string
+  amount?: number
+  reason?: string
+}
+
+
+

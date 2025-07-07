@@ -1,62 +1,32 @@
-// API Configuration
-export const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080/api/v1'
+// ===== UNIFIED CONSTANTS EXPORT =====
+// Export all constants from organized files
+export * from './design-tokens'
+export * from './api'
+export * from './app'
 
-// App Configuration
-export const APP_NAME = 'BiHub'
-export const APP_DESCRIPTION = 'Your Ultimate Shopping Hub'
+// Re-export commonly used constants for convenience
+export { DESIGN_TOKENS } from './design-tokens'
+export { API_CONFIG, HTTP_STATUS, QUERY_KEYS, ERROR_MESSAGES, SUCCESS_MESSAGES } from './api'
+export { APP_CONFIG, ROUTES, STORAGE_KEYS, ANALYTICS_EVENTS, ORDER_STATUS, PAYMENT_STATUS, USER_ROLES } from './app'
+
+// Legacy constants (for backward compatibility - will be deprecated)
+export const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080/api/v1'
+export const APP_NAME = 'ShopHub'
+export const APP_DESCRIPTION = 'Your Ultimate Shopping Destination'
 export const APP_URL = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'
 
-// Export design tokens for consistent UI
-export { DESIGN_TOKENS } from './design-tokens'
+// Authentication (migrated to STORAGE_KEYS)
+export const AUTH_TOKEN_KEY = 'shophub-auth-token'
+export const REFRESH_TOKEN_KEY = 'shophub-refresh-token'
+export const USER_KEY = 'shophub-user'
 
-// Authentication
-export const AUTH_TOKEN_KEY = 'auth_token'
-export const REFRESH_TOKEN_KEY = 'refresh_token'
-export const USER_KEY = 'user'
-
-// Pagination
+// Pagination (migrated to PAGINATION)
 export const DEFAULT_PAGE_SIZE = 12
 export const DEFAULT_ADMIN_PAGE_SIZE = 20
 
-// File Upload
+// File Upload (migrated to UPLOAD_LIMITS)
 export const MAX_FILE_SIZE = 5 * 1024 * 1024 // 5MB
 export const ALLOWED_IMAGE_TYPES = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp']
-
-// Product Status
-export const PRODUCT_STATUS = {
-  DRAFT: 'draft',
-  PUBLISHED: 'published',
-  ARCHIVED: 'archived',
-} as const
-
-// Order Status
-export const ORDER_STATUS = {
-  PENDING: 'pending',
-  CONFIRMED: 'confirmed',
-  PROCESSING: 'processing',
-  SHIPPED: 'shipped',
-  DELIVERED: 'delivered',
-  CANCELLED: 'cancelled',
-  REFUNDED: 'refunded',
-} as const
-
-// Payment Status
-export const PAYMENT_STATUS = {
-  PENDING: 'pending',
-  PROCESSING: 'processing',
-  COMPLETED: 'completed',
-  FAILED: 'failed',
-  CANCELLED: 'cancelled',
-  REFUNDED: 'refunded',
-} as const
-
-// User Roles
-export const USER_ROLES = {
-  CUSTOMER: 'customer',
-  ADMIN: 'admin',
-  MODERATOR: 'moderator',
-  SUPER_ADMIN: 'super_admin',
-} as const
 
 // Navigation
 export const MAIN_NAV = [
@@ -193,39 +163,6 @@ export const DEFAULT_SEO = {
   keywords: 'ecommerce, online shopping, products, deals, fashion, electronics, bihub, shopping hub',
   ogImage: '/images/og-image.jpg',
 }
-
-// Error Messages
-export const ERROR_MESSAGES = {
-  NETWORK_ERROR: 'Network error. Please check your connection.',
-  UNAUTHORIZED: 'You are not authorized to perform this action.',
-  FORBIDDEN: 'Access denied.',
-  NOT_FOUND: 'The requested resource was not found.',
-  VALIDATION_ERROR: 'Please check your input and try again.',
-  SERVER_ERROR: 'Something went wrong. Please try again later.',
-  RATE_LIMIT: 'Too many requests. Please try again later.',
-}
-
-// Success Messages
-export const SUCCESS_MESSAGES = {
-  PRODUCT_ADDED: 'Product added successfully!',
-  PRODUCT_UPDATED: 'Product updated successfully!',
-  PRODUCT_DELETED: 'Product deleted successfully!',
-  ORDER_PLACED: 'Order placed successfully!',
-  PROFILE_UPDATED: 'Profile updated successfully!',
-  PASSWORD_CHANGED: 'Password changed successfully!',
-  EMAIL_SENT: 'Email sent successfully!',
-  ITEM_ADDED_TO_CART: 'Item added to cart!',
-  ITEM_REMOVED_FROM_CART: 'Item removed from cart!',
-  WISHLIST_UPDATED: 'Wishlist updated!',
-}
-
-// Loading States
-export const LOADING_STATES = {
-  IDLE: 'idle',
-  LOADING: 'loading',
-  SUCCESS: 'success',
-  ERROR: 'error',
-} as const
 
 // Theme
 export const THEME_OPTIONS = {

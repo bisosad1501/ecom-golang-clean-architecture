@@ -25,6 +25,7 @@ import { useCartStore } from '@/store/cart'
 import { useAuthStore } from '@/store/auth'
 import { formatPrice, cn } from '@/lib/utils'
 import { toast } from 'sonner'
+import { getHighContrastClasses, PAGE_CONTRAST } from '@/constants/contrast-system'
 
 interface ProductDetailPageProps {
   productId: string
@@ -43,16 +44,16 @@ export function ProductDetailPage({ productId }: ProductDetailPageProps) {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-gray-50 py-8">
+      <div className="min-h-screen bg-black py-8">
         <div className="container mx-auto px-4">
           <div className="animate-pulse">
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-12">
-              <div className="aspect-square bg-gray-200 rounded-lg"></div>
+              <div className="aspect-square bg-gray-800 rounded-lg"></div>
               <div className="space-y-4">
-                <div className="h-8 bg-gray-200 rounded w-3/4"></div>
-                <div className="h-6 bg-gray-200 rounded w-1/2"></div>
-                <div className="h-12 bg-gray-200 rounded w-full"></div>
-                <div className="h-10 bg-gray-200 rounded w-1/3"></div>
+                <div className="h-8 bg-gray-800 rounded w-3/4"></div>
+                <div className="h-6 bg-gray-800 rounded w-1/2"></div>
+                <div className="h-12 bg-gray-800 rounded w-full"></div>
+                <div className="h-10 bg-gray-800 rounded w-1/3"></div>
               </div>
             </div>
           </div>
@@ -63,16 +64,16 @@ export function ProductDetailPage({ productId }: ProductDetailPageProps) {
 
   if (error || !product) {
     return (
-      <div className="min-h-screen bg-gray-50 py-8">
+      <div className="min-h-screen bg-black py-8">
         <div className="container mx-auto px-4">
-          <Card className="p-8 text-center max-w-md mx-auto">
-            <h2 className="text-2xl font-bold text-gray-900 mb-4">
+          <Card className="p-8 text-center max-w-md mx-auto bg-gray-900 border-gray-700">
+            <h2 className="text-2xl font-bold text-white mb-4">
               Product Not Found
             </h2>
-            <p className="text-gray-600 mb-6">
+            <p className="text-gray-300 mb-6">
               The product you're looking for doesn't exist or has been removed.
             </p>
-            <Button asChild>
+            <Button asChild className="bg-orange-500 hover:bg-orange-600 text-white">
               <Link href="/products">Browse Products</Link>
             </Button>
           </Card>
@@ -132,38 +133,38 @@ export function ProductDetailPage({ productId }: ProductDetailPageProps) {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 py-8">
+    <div className="min-h-screen bg-black py-8">
       <div className="container mx-auto px-4">
         {/* Breadcrumb */}
-        <nav className="flex items-center space-x-2 text-sm text-gray-600 mb-8">
-          <Link href="/" className="hover:text-gray-900">Home</Link>
+        <nav className="flex items-center space-x-2 text-sm text-gray-400 mb-8">
+          <Link href="/" className="hover:text-orange-400 transition-colors">Home</Link>
           <span>/</span>
-          <Link href="/products" className="hover:text-gray-900">Products</Link>
+          <Link href="/products" className="hover:text-orange-400 transition-colors">Products</Link>
           {product.category && (
             <>
               <span>/</span>
-              <Link href={`/products?category=${product.category.id}`} className="hover:text-gray-900">
+              <Link href={`/products?category=${product.category.id}`} className="hover:text-orange-400 transition-colors">
                 {product.category.name}
               </Link>
             </>
           )}
           <span>/</span>
-          <span className="text-gray-900">{product.name}</span>
+          <span className="text-white">{product.name}</span>
         </nav>
 
-        {/* Product Details */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-12">
+        {/* Product Details - More compact */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
           {/* Product Images */}
-          <div className="space-y-4">
+          <div className="space-y-3">
             {/* Main Image */}
-            <div className="relative aspect-square overflow-hidden rounded-lg bg-gray-100">
+            <div className="relative aspect-square overflow-hidden rounded-lg bg-gray-800">
               {hasDiscount && (
-                <Badge variant="destructive" className="absolute top-4 left-4 z-10">
+                <Badge className="absolute top-4 left-4 z-10 bg-red-500 text-white">
                   -{discountPercentage}%
                 </Badge>
               )}
               {isOutOfStock && (
-                <Badge variant="secondary" className="absolute top-4 right-4 z-10">
+                <Badge className="absolute top-4 right-4 z-10 bg-gray-700 text-gray-200">
                   Out of Stock
                 </Badge>
               )}
@@ -174,15 +175,15 @@ export function ProductDetailPage({ productId }: ProductDetailPageProps) {
                 className="object-cover"
                 priority
               />
-              
+
               {/* Image Navigation */}
               {images.length > 1 && (
                 <>
                   <Button
                     variant="secondary"
                     size="icon"
-                    className="absolute left-4 top-1/2 transform -translate-y-1/2"
-                    onClick={() => setSelectedImageIndex(prev => 
+                    className="absolute left-4 top-1/2 transform -translate-y-1/2 bg-black/50 hover:bg-black/70 text-white border-gray-600"
+                    onClick={() => setSelectedImageIndex(prev =>
                       prev === 0 ? images.length - 1 : prev - 1
                     )}
                   >
@@ -191,8 +192,8 @@ export function ProductDetailPage({ productId }: ProductDetailPageProps) {
                   <Button
                     variant="secondary"
                     size="icon"
-                    className="absolute right-4 top-1/2 transform -translate-y-1/2"
-                    onClick={() => setSelectedImageIndex(prev => 
+                    className="absolute right-4 top-1/2 transform -translate-y-1/2 bg-black/50 hover:bg-black/70 text-white border-gray-600"
+                    onClick={() => setSelectedImageIndex(prev =>
                       prev === images.length - 1 ? 0 : prev + 1
                     )}
                   >
@@ -212,8 +213,8 @@ export function ProductDetailPage({ productId }: ProductDetailPageProps) {
                     className={cn(
                       'relative w-20 h-20 flex-shrink-0 overflow-hidden rounded-md border-2 transition-colors',
                       selectedImageIndex === index
-                        ? 'border-primary-500'
-                        : 'border-gray-200 hover:border-gray-300'
+                        ? 'border-orange-500'
+                        : 'border-gray-600 hover:border-gray-500'
                     )}
                   >
                     <Image
@@ -232,16 +233,16 @@ export function ProductDetailPage({ productId }: ProductDetailPageProps) {
           <div className="space-y-6">
             {/* Category */}
             {product.category && (
-              <Link 
+              <Link
                 href={`/products?category=${product.category.id}`}
-                className="text-sm text-primary-600 hover:text-primary-700 font-medium"
+                className="text-sm text-orange-400 hover:text-orange-300 font-medium transition-colors"
               >
                 {product.category.name}
               </Link>
             )}
 
-            {/* Title */}
-            <h1 className="text-3xl font-bold text-gray-900">{product.name}</h1>
+            {/* Title - More compact */}
+            <h1 className="text-2xl lg:text-3xl font-bold text-white">{product.name}</h1>
 
             {/* Rating */}
             {product.rating && (
@@ -254,39 +255,39 @@ export function ProductDetailPage({ productId }: ProductDetailPageProps) {
                         'h-5 w-5',
                         i < Math.floor(product.rating!.average)
                           ? 'text-yellow-400 fill-current'
-                          : 'text-gray-300'
+                          : 'text-gray-500'
                       )}
                     />
                   ))}
                 </div>
-                <span className="text-sm text-gray-600">
+                <span className="text-sm text-gray-300">
                   {product.rating.average.toFixed(1)} ({product.rating.count} reviews)
                 </span>
               </div>
             )}
 
-            {/* Price */}
-            <div className="space-y-2">
+            {/* Price - More compact */}
+            <div className="space-y-1.5">
               <div className="flex items-center space-x-3">
-                <span className="text-3xl font-bold text-gray-900">
+                <span className="text-2xl lg:text-3xl font-bold text-white">
                   {formatPrice(displayPrice)}
                 </span>
                 {hasDiscount && (
-                  <span className="text-xl text-gray-500 line-through">
+                  <span className="text-lg lg:text-xl text-gray-500 line-through">
                     {formatPrice(product.price)}
                   </span>
                 )}
               </div>
               {hasDiscount && (
-                <p className="text-green-600 font-medium">
+                <p className="text-green-400 font-medium">
                   You save {formatPrice(product.price - product.sale_price!)} ({discountPercentage}% off)
                 </p>
               )}
             </div>
 
-            {/* Short Description */}
+            {/* Short Description - More compact */}
             {product.short_description && (
-              <p className="text-gray-600 text-lg leading-relaxed">
+              <p className="text-gray-300 text-base leading-relaxed">
                 {product.short_description}
               </p>
             )}
@@ -294,11 +295,11 @@ export function ProductDetailPage({ productId }: ProductDetailPageProps) {
             {/* Stock Status */}
             <div className="flex items-center space-x-2">
               {isOutOfStock ? (
-                <Badge variant="destructive">Out of Stock</Badge>
+                <Badge className="bg-red-500 text-white">Out of Stock</Badge>
               ) : product.stock <= 5 ? (
-                <Badge variant="warning">Only {product.stock} left in stock</Badge>
+                <Badge className="bg-yellow-500 text-black">Only {product.stock} left in stock</Badge>
               ) : (
-                <Badge variant="success">In Stock</Badge>
+                <Badge className="bg-green-500 text-white">In Stock</Badge>
               )}
             </div>
 
@@ -306,55 +307,58 @@ export function ProductDetailPage({ productId }: ProductDetailPageProps) {
             {!isOutOfStock && (
               <div className="space-y-4">
                 <div className="flex items-center space-x-4">
-                  <span className="text-sm font-medium">Quantity:</span>
-                  <div className="flex items-center border rounded-md">
+                  <span className="text-sm font-medium text-white">Quantity:</span>
+                  <div className="flex items-center border border-gray-600 rounded-md bg-gray-800">
                     <Button
                       variant="ghost"
                       size="sm"
                       onClick={() => setQuantity(Math.max(1, quantity - 1))}
                       disabled={quantity <= 1}
+                      className="text-white hover:bg-gray-700"
                     >
                       <Minus className="h-4 w-4" />
                     </Button>
-                    <span className="px-4 py-2 text-center min-w-[60px]">{quantity}</span>
+                    <span className="px-4 py-2 text-center min-w-[60px] text-white">{quantity}</span>
                     <Button
                       variant="ghost"
                       size="sm"
                       onClick={() => setQuantity(Math.min(product.stock, quantity + 1))}
                       disabled={quantity >= product.stock}
+                      className="text-white hover:bg-gray-700"
                     >
                       <Plus className="h-4 w-4" />
                     </Button>
                   </div>
                 </div>
 
-                <div className="flex space-x-4">
+                <div className="flex space-x-3">
                   <Button
-                    size="lg"
-                    className="flex-1"
+                    size="default"
+                    className="flex-1 bg-orange-500 hover:bg-orange-600 text-white"
                     onClick={handleAddToCart}
                     disabled={cartLoading}
-                    isLoading={cartLoading}
                   >
-                    <ShoppingCart className="mr-2 h-5 w-5" />
-                    Add to Cart
+                    <ShoppingCart className="mr-2 h-4 w-4" />
+                    {cartLoading ? 'Adding...' : 'Add to Cart'}
                   </Button>
-                  
+
                   {isAuthenticated && (
                     <Button
                       variant="outline"
-                      size="lg"
+                      size="default"
                       onClick={handleAddToWishlist}
                       disabled={addToWishlistMutation.isPending}
+                      className="border-gray-600 text-white hover:bg-gray-800"
                     >
                       <Heart className="h-5 w-5" />
                     </Button>
                   )}
-                  
+
                   <Button
                     variant="outline"
                     size="lg"
                     onClick={handleShare}
+                    className="border-gray-600 text-white hover:bg-gray-800"
                   >
                     <Share2 className="h-5 w-5" />
                   </Button>
@@ -363,17 +367,17 @@ export function ProductDetailPage({ productId }: ProductDetailPageProps) {
             )}
 
             {/* Product Features */}
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 pt-6 border-t">
-              <div className="flex items-center space-x-2 text-sm text-gray-600">
-                <Truck className="h-5 w-5 text-primary-600" />
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 pt-6 border-t border-gray-700">
+              <div className="flex items-center space-x-2 text-sm text-gray-300">
+                <Truck className="h-5 w-5 text-orange-400" />
                 <span>Free shipping over $50</span>
               </div>
-              <div className="flex items-center space-x-2 text-sm text-gray-600">
-                <Shield className="h-5 w-5 text-primary-600" />
+              <div className="flex items-center space-x-2 text-sm text-gray-300">
+                <Shield className="h-5 w-5 text-orange-400" />
                 <span>1 year warranty</span>
               </div>
-              <div className="flex items-center space-x-2 text-sm text-gray-600">
-                <RotateCcw className="h-5 w-5 text-primary-600" />
+              <div className="flex items-center space-x-2 text-sm text-gray-300">
+                <RotateCcw className="h-5 w-5 text-orange-400" />
                 <span>30-day returns</span>
               </div>
             </div>
@@ -381,9 +385,9 @@ export function ProductDetailPage({ productId }: ProductDetailPageProps) {
         </div>
 
         {/* Product Tabs */}
-        <Card className="mb-12">
+        <Card className="mb-12 bg-gray-900 border-gray-700">
           <CardHeader>
-            <div className="flex space-x-8 border-b">
+            <div className="flex space-x-8 border-b border-gray-700">
               {[
                 { key: 'description', label: 'Description' },
                 { key: 'reviews', label: 'Reviews' },
@@ -395,8 +399,8 @@ export function ProductDetailPage({ productId }: ProductDetailPageProps) {
                   className={cn(
                     'pb-4 px-1 border-b-2 font-medium text-sm transition-colors',
                     activeTab === tab.key
-                      ? 'border-primary-500 text-primary-600'
-                      : 'border-transparent text-gray-500 hover:text-gray-700'
+                      ? 'border-orange-500 text-orange-400'
+                      : 'border-transparent text-gray-400 hover:text-gray-200'
                   )}
                 >
                   {tab.label}
@@ -407,32 +411,32 @@ export function ProductDetailPage({ productId }: ProductDetailPageProps) {
           <CardContent className="pt-6">
             {activeTab === 'description' && (
               <div className="prose max-w-none">
-                <p className="text-gray-600 leading-relaxed">
+                <p className="text-gray-300 leading-relaxed">
                   {product.description}
                 </p>
                 {/* Additional product details would go here */}
               </div>
             )}
-            
+
             {activeTab === 'reviews' && (
               <div className="text-center py-8">
-                <p className="text-gray-500">Reviews feature coming soon!</p>
+                <p className="text-gray-400">Reviews feature coming soon!</p>
               </div>
             )}
-            
+
             {activeTab === 'shipping' && (
               <div className="space-y-4">
                 <div>
-                  <h4 className="font-semibold mb-2">Shipping Information</h4>
-                  <ul className="text-gray-600 space-y-1">
+                  <h4 className="font-semibold mb-2 text-white">Shipping Information</h4>
+                  <ul className="text-gray-300 space-y-1">
                     <li>• Free shipping on orders over $50</li>
                     <li>• Standard delivery: 3-5 business days</li>
                     <li>• Express delivery: 1-2 business days</li>
                   </ul>
                 </div>
                 <div>
-                  <h4 className="font-semibold mb-2">Returns & Exchanges</h4>
-                  <ul className="text-gray-600 space-y-1">
+                  <h4 className="font-semibold mb-2 text-white">Returns & Exchanges</h4>
+                  <ul className="text-gray-300 space-y-1">
                     <li>• 30-day return policy</li>
                     <li>• Items must be in original condition</li>
                     <li>• Free return shipping</li>
@@ -446,7 +450,7 @@ export function ProductDetailPage({ productId }: ProductDetailPageProps) {
         {/* Related Products */}
         {relatedProducts && relatedProducts.length > 0 && (
           <div>
-            <h2 className="text-2xl font-bold text-gray-900 mb-6">Related Products</h2>
+            <h2 className="text-2xl font-bold text-white mb-6">Related Products</h2>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
               {relatedProducts.map((relatedProduct) => (
                 <ProductCard key={relatedProduct.id} product={relatedProduct} />

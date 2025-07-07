@@ -14,6 +14,7 @@ import { Product } from '@/types'
 import { formatPrice, cn } from '@/lib/utils'
 import { toast } from 'sonner'
 import { DESIGN_TOKENS } from '@/constants/design-tokens'
+import { getHighContrastClasses, PAGE_CONTRAST } from '@/constants/contrast-system'
 
 interface ProductCardProps {
   product: Product
@@ -96,7 +97,7 @@ export function ProductCard({
       variant="elevated"
       padding="none"
       className={cn(
-        'group relative overflow-hidden card-hover border border-gray-800 bg-gray-900 text-white',
+        'group relative overflow-hidden card-hover border border-gray-600 bg-gray-900 hover:border-gray-500 text-white transition-all duration-300',
         className
       )}
       onMouseEnter={() => setIsHovered(true)}
@@ -108,8 +109,8 @@ export function ProductCard({
           {/* Discount badge */}
           {hasDiscount && (
             <Badge
-              variant="destructive"
-              className="absolute top-3 left-3 z-10 shadow-soft font-bold bg-orange-500 text-white"
+              className="absolute top-2 left-2 z-10 shadow-lg font-bold text-white text-xs px-2 py-1"
+              style={{backgroundColor: '#FF9000'}}
             >
               -{discountPercentage}%
             </Badge>
@@ -118,8 +119,7 @@ export function ProductCard({
           {/* Out of stock badge */}
           {isOutOfStock && (
             <Badge
-              variant="secondary"
-              className="absolute top-3 right-3 z-10 shadow-soft"
+              className="absolute top-2 right-2 z-10 shadow-lg bg-gray-800 text-gray-200 border border-gray-600 text-xs px-2 py-1"
             >
               Out of Stock
             </Badge>
@@ -192,48 +192,54 @@ export function ProductCard({
         </div>
 
         {/* Product info */}
-        <div className={DESIGN_TOKENS.CONTAINERS.CARD_PADDING}>
+        <div className="p-3">
           {/* Category */}
           {product.category && (
-            <p className={`${DESIGN_TOKENS.TYPOGRAPHY.CAPTION} uppercase tracking-wider ${DESIGN_TOKENS.SPACING.MARGIN_TINY}`}>
+            <p className="text-xs uppercase tracking-wider text-gray-400 mb-1">
               {product.category.name}
             </p>
           )}
 
           {/* Product name */}
-          <h3 className={`${DESIGN_TOKENS.TYPOGRAPHY.BODY_DEFAULT} font-semibold text-foreground ${DESIGN_TOKENS.SPACING.MARGIN_SMALL} line-clamp-2 group-hover:text-primary transition-colors duration-200 leading-tight`}>
+          <h3 className="text-sm font-semibold text-white mb-2 line-clamp-2 transition-colors duration-200 leading-tight"
+            style={{
+              color: 'white'
+            }}
+            onMouseEnter={(e) => e.currentTarget.style.color = '#FF9000'}
+            onMouseLeave={(e) => e.currentTarget.style.color = 'white'}
+          >
             {product.name}
           </h3>
 
           {/* Rating */}
           {product.rating && (
-            <div className={`flex items-center ${DESIGN_TOKENS.SPACING.GAP_TINY} ${DESIGN_TOKENS.SPACING.MARGIN_SMALL}`}>
+            <div className="flex items-center gap-1 mb-2">
               <div className="flex">
                 {[...Array(5)].map((_, i) => (
                   <Star
                     key={i}
                     className={cn(
-                      DESIGN_TOKENS.ICONS.TINY,
+                      'h-3 w-3',
                       i < Math.floor(product.rating!.average)
                         ? 'text-amber-400 fill-current'
-                        : 'text-gray-300'
+                        : 'text-gray-500'
                     )}
                   />
                 ))}
               </div>
-              <span className={`${DESIGN_TOKENS.TYPOGRAPHY.CAPTION} font-medium`}>
+              <span className="text-xs font-medium text-gray-400">
                 ({product.rating.count})
               </span>
             </div>
           )}
 
           {/* Price */}
-          <div className={`flex items-baseline ${DESIGN_TOKENS.SPACING.GAP_TINY} ${DESIGN_TOKENS.SPACING.MARGIN_TINY}`}>
-            <span className={`${DESIGN_TOKENS.TYPOGRAPHY.BODY_LARGE} font-bold text-foreground`}>
+          <div className="flex items-baseline gap-2 mb-1">
+            <span className="text-base font-bold text-white">
               {formatPrice(displayPrice)}
             </span>
             {hasDiscount && (
-              <span className={`${DESIGN_TOKENS.TYPOGRAPHY.CAPTION} line-through`}>
+              <span className="text-xs line-through text-gray-500">
                 {formatPrice(product.price)}
               </span>
             )}
@@ -241,7 +247,7 @@ export function ProductCard({
 
           {/* Stock status */}
           {product.stock <= 5 && product.stock > 0 && (
-            <p className={`${DESIGN_TOKENS.TYPOGRAPHY.CAPTION} text-warning font-medium`}>
+            <p className="text-xs font-medium" style={{color: '#FF9000'}}>
               Only {product.stock} left in stock
             </p>
           )}
@@ -251,12 +257,12 @@ export function ProductCard({
       {/* Quick add to cart button (bottom) */}
       {!isOutOfStock && (
         <div className={cn(
-          `absolute bottom-0 left-0 right-0 ${DESIGN_TOKENS.CONTAINERS.CARD_PADDING} bg-gradient-to-t from-white via-white to-transparent transform transition-all duration-300`,
+          'absolute bottom-0 left-0 right-0 p-3 bg-gradient-to-t from-gray-900 via-gray-900 to-transparent transform transition-all duration-300',
           isHovered ? 'translate-y-0 opacity-100' : 'translate-y-full opacity-0'
         )}>
           <Button
             variant="gradient"
-            className="w-full shadow-medium"
+            className="w-full shadow-lg text-white"
             onClick={handleAddToCart}
             disabled={cartLoading}
             size="sm"

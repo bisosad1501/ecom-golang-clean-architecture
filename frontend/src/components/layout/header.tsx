@@ -23,7 +23,8 @@ import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
 import { useAuthStore } from '@/store/auth'
 import { useCartStore, getCartItemCount } from '@/store/cart'
-import { APP_NAME, MAIN_NAV, USER_NAV } from '@/constants'
+import { APP_CONFIG } from '@/constants/app'
+import { USER_NAV } from '@/constants'
 import { getVisibleNavItems } from '@/lib/permissions'
 import { RequireAuth, RequireGuest } from '@/components/auth/permission-guard'
 import { cn } from '@/lib/utils'
@@ -92,17 +93,27 @@ export function Header() {
         <div className="container mx-auto px-4">
           <div className="flex items-center justify-between text-xs text-white">{/* White text on dark background */}
             <div className="hidden md:flex items-center space-x-2">{/* Reduced spacing */}
-              <div className="flex items-center gap-1.5 bg-orange-500/20 rounded-full px-2.5 py-0.5">{/* PornHub orange accent */}
-                <Truck className="h-3.5 w-3.5 text-orange-500" />{/* PornHub orange */}
-                <span className="font-semibold text-orange-500">Free shipping on orders over $50</span>
+              <div className="flex items-center gap-1.5 rounded-full px-2.5 py-0.5" style={{backgroundColor: 'rgba(255, 144, 0, 0.2)'}}>{/* BiHub orange accent */}
+                <Truck className="h-3.5 w-3.5" style={{color: '#FF9000'}} />{/* BiHub orange */}
+                <span className="font-semibold" style={{color: '#FF9000'}}>Free shipping on orders over $50</span>
               </div>
             </div>
             <div className="flex items-center space-x-6">{/* Reduced spacing */}
-              <Link href="/help" className="hover:text-orange-500 transition-all duration-200 font-medium hover:scale-105 flex items-center gap-1 group">{/* PornHub orange hover */}
+              <Link
+                href="/help"
+                className="transition-all duration-200 font-medium hover:scale-105 flex items-center gap-1 group"
+                onMouseEnter={(e) => e.currentTarget.style.color = '#FF9000'}
+                onMouseLeave={(e) => e.currentTarget.style.color = 'white'}
+              >{/* BiHub orange hover */}
                 <span>Help</span>
                 <ArrowRight className="h-3 w-3 opacity-0 group-hover:opacity-100 group-hover:translate-x-1 transition-all duration-200" />
               </Link>
-              <Link href="/track-order" className="hover:text-orange-500 transition-all duration-200 font-medium hover:scale-105 flex items-center gap-1 group">
+              <Link
+                href="/track-order"
+                className="transition-all duration-200 font-medium hover:scale-105 flex items-center gap-1 group"
+                onMouseEnter={(e) => e.currentTarget.style.color = '#FF9000'}
+                onMouseLeave={(e) => e.currentTarget.style.color = 'white'}
+              >
                 <span>Track Order</span>
                 <ArrowRight className="h-3 w-3 opacity-0 group-hover:opacity-100 group-hover:translate-x-1 transition-all duration-200" />
               </Link>
@@ -119,7 +130,7 @@ export function Header() {
             <Link href="/" className="flex items-center space-x-2.5 group">
               <span className="text-2xl font-bold flex items-center">
                 <span className="text-white">Bi</span>
-                <span className="ml-1 bg-orange-500 px-2 py-0.5 rounded-[2px] text-black font-bold" style={{letterSpacing: '0.5px'}}>hub</span>
+                <span className="ml-1 px-2 py-0.5 rounded-[2px] text-black font-bold" style={{letterSpacing: '0.5px', backgroundColor: '#FF9000'}}>hub</span>
               </span>
             </Link>
           </div>
@@ -128,19 +139,39 @@ export function Header() {
           <div className="hidden md:flex flex-1 max-w-2xl mx-8">
             <form onSubmit={handleSearch} className="flex w-full relative group">
               <div className="relative flex-1">
-                <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400 group-focus-within:text-orange-500 transition-colors z-10" />
+                <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400 transition-colors z-10"
+                  style={{'--focus-color': '#FF9000'} as React.CSSProperties}
+                />
                 <Input
                   type="search"
                   placeholder="Search for products, brands, categories..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className="pl-12 pr-4 h-11 rounded-l-full rounded-r-none border-0 bg-gray-900 text-white placeholder:text-gray-400 focus:ring-2 focus:ring-orange-500/40 focus:outline-none shadow-lg transition-all duration-200 text-base"
+                  className="pl-12 pr-4 h-11 rounded-l-full rounded-r-none border-0 bg-gray-900 text-white placeholder:text-gray-400 focus:outline-none shadow-lg transition-all duration-200 text-base"
+                  style={{
+                    '--tw-ring-color': 'rgba(255, 144, 0, 0.4)',
+                  } as React.CSSProperties}
+                  onFocus={(e) => {
+                    e.currentTarget.style.boxShadow = '0 0 0 2px rgba(255, 144, 0, 0.4)';
+                    const searchIcon = e.currentTarget.parentElement?.querySelector('.lucide-search') as HTMLElement;
+                    if (searchIcon) searchIcon.style.color = '#FF9000';
+                  }}
+                  onBlur={(e) => {
+                    e.currentTarget.style.boxShadow = '';
+                    const searchIcon = e.currentTarget.parentElement?.querySelector('.lucide-search') as HTMLElement;
+                    if (searchIcon) searchIcon.style.color = '#9ca3af';
+                  }}
                 />
               </div>
               <Button
                 type="submit"
-                className="rounded-r-full rounded-l-none h-11 px-6 bg-orange-500 hover:bg-orange-600 text-white text-base font-semibold shadow-lg transition-all duration-200 border-0"
-                style={{ boxShadow: '0 2px 8px 0 rgba(255,140,0,0.08)' }}
+                className="rounded-r-full rounded-l-none h-11 px-6 text-white text-base font-semibold shadow-lg transition-all duration-200 border-0"
+                style={{
+                  backgroundColor: '#FF9000',
+                  boxShadow: '0 2px 8px 0 rgba(255,144,0,0.08)'
+                }}
+                onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#e67e00'}
+                onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#FF9000'}
               >
                 Search
               </Button>
@@ -148,7 +179,7 @@ export function Header() {
           </div>
 
           {/* Right side actions */}
-          <div className={`flex items-center ${DESIGN_TOKENS.SPACING.GAP_SMALL}`}>{/* Smaller spacing */}
+          <div className={`flex items-center ${DESIGN_TOKENS.SPACING.CLASSES.GAP_SMALL}`}>{/* Smaller spacing */}
             {/* Mobile search */}
             <Button
               variant="ghost"

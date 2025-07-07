@@ -64,7 +64,7 @@ export function ProductFilters({ currentParams }: ProductFiltersProps) {
   )
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       {/* Enhanced Category Filter */}
       <EnhancedCategoryFilter
         selectedCategoryId={currentParams.category_id}
@@ -75,15 +75,15 @@ export function ProductFilters({ currentParams }: ProductFiltersProps) {
 
       {/* Clear Filters */}
       {hasActiveFilters && (
-        <Card>
-          <CardContent className="p-4">
+        <Card className="bg-gray-800 border-gray-700">
+          <CardContent className="p-3">
             <div className="flex items-center justify-between">
-              <span className="text-sm font-medium">Active Filters</span>
+              <span className="text-sm font-medium text-white">Active Filters</span>
               <Button
                 variant="ghost"
                 size="sm"
                 onClick={clearAllFilters}
-                className="text-primary-600 hover:text-primary-700"
+                className="text-orange-400 hover:text-orange-300 hover:bg-orange-500/10"
               >
                 Clear All
               </Button>
@@ -93,13 +93,13 @@ export function ProductFilters({ currentParams }: ProductFiltersProps) {
       )}
 
       {/* Price Range */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-lg">Price Range</CardTitle>
+      <Card className="bg-gray-800 border-gray-700">
+        <CardHeader className="pb-3">
+          <CardTitle className="text-base text-white">Price Range</CardTitle>
         </CardHeader>
-        <CardContent className="space-y-4">
+        <CardContent className="space-y-3 pt-0">
           {/* Quick price ranges */}
-          <div className="space-y-2">
+          <div className="space-y-1">
             {PRICE_RANGES.map((range) => (
               <button
                 key={`${range.min}-${range.max}`}
@@ -108,11 +108,11 @@ export function ProductFilters({ currentParams }: ProductFiltersProps) {
                   max_price: range.max ?? undefined,
                 })}
                 className={cn(
-                  'w-full text-left px-3 py-2 text-sm rounded-md transition-colors',
-                  currentParams.min_price === range.min && 
+                  'w-full text-left px-3 py-2 text-sm rounded-lg transition-all duration-200',
+                  currentParams.min_price === range.min &&
                   currentParams.max_price === range.max
-                    ? 'bg-primary-100 text-primary-800'
-                    : 'hover:bg-gray-100'
+                    ? 'bg-orange-500 text-white shadow-md'
+                    : 'text-gray-300 hover:bg-gray-700 hover:text-white'
                 )}
               >
                 {range.label}
@@ -121,30 +121,29 @@ export function ProductFilters({ currentParams }: ProductFiltersProps) {
           </div>
 
           {/* Custom price range */}
-          <div className="pt-4 border-t">
-            <p className="text-sm font-medium mb-3">Custom Range</p>
+          <div className="pt-3 border-t border-gray-700">
+            <p className="text-sm font-medium mb-2 text-white">Custom Range</p>
             <div className="flex items-center space-x-2">
               <Input
                 type="number"
                 placeholder="Min"
                 value={priceRange.min}
                 onChange={(e) => setPriceRange(prev => ({ ...prev, min: e.target.value }))}
-                className="text-sm"
+                className="text-sm bg-gray-700 border-gray-600 text-white placeholder-gray-400"
               />
-              <span className="text-gray-500">-</span>
+              <span className="text-gray-400">-</span>
               <Input
                 type="number"
                 placeholder="Max"
                 value={priceRange.max}
                 onChange={(e) => setPriceRange(prev => ({ ...prev, max: e.target.value }))}
-                className="text-sm"
+                className="text-sm bg-gray-700 border-gray-600 text-white placeholder-gray-400"
               />
             </div>
             <Button
               onClick={applyPriceRange}
               size="sm"
-              className="w-full mt-3"
-              variant="outline"
+              className="w-full mt-2 bg-orange-500 hover:bg-orange-600 text-white"
             >
               Apply
             </Button>
@@ -153,20 +152,20 @@ export function ProductFilters({ currentParams }: ProductFiltersProps) {
       </Card>
 
       {/* Rating Filter */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-lg">Customer Rating</CardTitle>
+      <Card className="bg-gray-800 border-gray-700">
+        <CardHeader className="pb-3">
+          <CardTitle className="text-base text-white">Customer Rating</CardTitle>
         </CardHeader>
-        <CardContent className="space-y-2">
+        <CardContent className="space-y-1 pt-0">
           {[5, 4, 3, 2, 1].map((rating) => (
             <button
               key={rating}
               onClick={() => updateFilters({ rating })}
               className={cn(
-                'w-full flex items-center space-x-2 px-3 py-2 text-sm rounded-md transition-colors',
+                'w-full flex items-center space-x-2 px-3 py-2 text-sm rounded-lg transition-all duration-200',
                 currentParams.rating === rating
-                  ? 'bg-primary-100 text-primary-800'
-                  : 'hover:bg-gray-100'
+                  ? 'bg-orange-500 text-white shadow-md'
+                  : 'text-gray-300 hover:bg-gray-700 hover:text-white'
               )}
             >
               <div className="flex">
@@ -177,7 +176,7 @@ export function ProductFilters({ currentParams }: ProductFiltersProps) {
                       'h-4 w-4',
                       i < rating
                         ? 'text-yellow-400 fill-current'
-                        : 'text-gray-300'
+                        : 'text-gray-500'
                     )}
                   />
                 ))}
@@ -189,64 +188,31 @@ export function ProductFilters({ currentParams }: ProductFiltersProps) {
       </Card>
 
       {/* Availability */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-lg">Availability</CardTitle>
+      <Card className="bg-gray-800 border-gray-700">
+        <CardHeader className="pb-3">
+          <CardTitle className="text-base text-white">Availability</CardTitle>
         </CardHeader>
-        <CardContent>
+        <CardContent className="pt-0">
           <label className="flex items-center space-x-2 cursor-pointer">
             <input
               type="checkbox"
               checked={currentParams.in_stock === true}
-              onChange={(e) => updateFilters({ 
-                in_stock: e.target.checked ? true : undefined 
+              onChange={(e) => updateFilters({
+                in_stock: e.target.checked ? true : undefined
               })}
-              className="rounded border-gray-300 text-primary-600 focus:ring-primary-500"
+              className="rounded border-gray-600 text-orange-500 focus:ring-orange-500 bg-gray-700"
             />
-            <span className="text-sm">In Stock Only</span>
+            <span className="text-sm text-white">In Stock Only</span>
           </label>
         </CardContent>
       </Card>
 
-      {/* Categories */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-lg">Categories</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-2">
-            {/* This would be populated with actual categories from API */}
-            {[
-              { id: '1', name: 'Electronics', count: 150 },
-              { id: '2', name: 'Fashion', count: 89 },
-              { id: '3', name: 'Home & Garden', count: 67 },
-              { id: '4', name: 'Sports', count: 45 },
-              { id: '5', name: 'Books', count: 123 },
-            ].map((category) => (
-              <button
-                key={category.id}
-                onClick={() => updateFilters({ category_id: category.id })}
-                className={cn(
-                  'w-full flex items-center justify-between px-3 py-2 text-sm rounded-md transition-colors',
-                  currentParams.category_id === category.id
-                    ? 'bg-primary-100 text-primary-800'
-                    : 'hover:bg-gray-100'
-                )}
-              >
-                <span>{category.name}</span>
-                <span className="text-gray-500">({category.count})</span>
-              </button>
-            ))}
-          </div>
-        </CardContent>
-      </Card>
-
       {/* Popular Tags */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-lg">Popular Tags</CardTitle>
+      <Card className="bg-gray-800 border-gray-700">
+        <CardHeader className="pb-3">
+          <CardTitle className="text-base text-white">Popular Tags</CardTitle>
         </CardHeader>
-        <CardContent>
+        <CardContent className="pt-0">
           <div className="flex flex-wrap gap-2">
             {[
               'New Arrival',
@@ -261,7 +227,12 @@ export function ProductFilters({ currentParams }: ProductFiltersProps) {
                 <Badge
                   key={tag}
                   variant={isSelected ? 'default' : 'outline'}
-                  className="cursor-pointer"
+                  className={cn(
+                    "cursor-pointer transition-all duration-200",
+                    isSelected
+                      ? "bg-orange-500 text-white hover:bg-orange-600 border-orange-500"
+                      : "border-gray-600 text-gray-300 hover:bg-gray-700 hover:text-white hover:border-gray-500"
+                  )}
                   onClick={() => {
                     const currentTags = currentParams.tags || []
                     const newTags = isSelected

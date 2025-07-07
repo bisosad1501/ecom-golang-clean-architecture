@@ -1,70 +1,40 @@
-import { type ClassValue, clsx } from 'clsx'
-import { twMerge } from 'tailwind-merge'
+// ===== UNIFIED UTILITIES EXPORT =====
+// Export all utilities from organized files
+export * from './utils/cn'
+export * from './utils/format'
+export * from './utils/validation'
 
-export function cn(...inputs: ClassValue[]) {
-  return twMerge(clsx(inputs))
-}
+// Re-export commonly used utilities for convenience
+export { cn } from './utils/cn'
+export {
+  formatPrice,
+  formatDate,
+  formatRelativeTime,
+  formatNumber,
+  formatPercentage,
+  formatBytes,
+  truncateText,
+  formatSlug
+} from './utils/format'
+export {
+  isValidEmail,
+  isValidPhone,
+  validatePassword,
+  isValidUrl,
+  isRequired,
+  hasMinLength,
+  hasMaxLength
+} from './utils/validation'
 
-export function formatPrice(
+// Legacy utilities (for backward compatibility)
+export function formatCurrency(
   price: number,
-  options: {
-    currency?: 'USD' | 'VND'
-    notation?: Intl.NumberFormatOptions['notation']
-  } = {}
+  currency: string = 'USD'
 ) {
-  const { currency = 'USD', notation = 'standard' } = options
-
-  return new Intl.NumberFormat('en-US', {
-    style: 'currency',
-    currency,
-    notation,
-    maximumFractionDigits: 2,
-  }).format(price)
+  return formatPrice(price, { currency })
 }
 
-export function formatDate(date: Date | string, options?: Intl.DateTimeFormatOptions) {
-  return new Intl.DateTimeFormat('en-US', {
-    month: 'long',
-    day: 'numeric',
-    year: 'numeric',
-    ...options,
-  }).format(new Date(date))
-}
-
-export function formatRelativeTime(date: Date | string) {
-  const now = new Date()
-  const targetDate = new Date(date)
-  const diffInSeconds = Math.floor((now.getTime() - targetDate.getTime()) / 1000)
-
-  if (diffInSeconds < 60) {
-    return 'just now'
-  } else if (diffInSeconds < 3600) {
-    const minutes = Math.floor(diffInSeconds / 60)
-    return `${minutes} minute${minutes > 1 ? 's' : ''} ago`
-  } else if (diffInSeconds < 86400) {
-    const hours = Math.floor(diffInSeconds / 3600)
-    return `${hours} hour${hours > 1 ? 's' : ''} ago`
-  } else if (diffInSeconds < 2592000) {
-    const days = Math.floor(diffInSeconds / 86400)
-    return `${days} day${days > 1 ? 's' : ''} ago`
-  } else {
-    return formatDate(targetDate)
-  }
-}
-
-export function slugify(str: string) {
-  return str
-    .toLowerCase()
-    .replace(/[^\w\s-]/g, '')
-    .replace(/[\s_-]+/g, '-')
-    .replace(/^-+|-+$/g, '')
-}
-
-export function truncate(str: string, length: number) {
-  if (str.length <= length) return str
-  return str.slice(0, length) + '...'
-}
-
+// Additional commonly used utilities
 export function debounce<T extends (...args: any[]) => any>(
   func: T,
   wait: number
@@ -94,27 +64,8 @@ export function generateId() {
   return Math.random().toString(36).substr(2, 9)
 }
 
-export function isValidEmail(email: string) {
-  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
-  return emailRegex.test(email)
-}
-
-export function isValidPhone(phone: string) {
-  const phoneRegex = /^\+?[\d\s\-\(\)]+$/
-  return phoneRegex.test(phone) && phone.replace(/\D/g, '').length >= 10
-}
-
-export function capitalizeFirst(str: string) {
-  return str.charAt(0).toUpperCase() + str.slice(1)
-}
-
-export function getInitials(name: string) {
-  return name
-    .split(' ')
-    .map((n) => n[0])
-    .join('')
-    .toUpperCase()
-    .slice(0, 2)
+export function sleep(ms: number) {
+  return new Promise(resolve => setTimeout(resolve, ms))
 }
 
 export function copyToClipboard(text: string) {
@@ -146,36 +97,7 @@ export function downloadFile(url: string, filename: string) {
   document.body.removeChild(link)
 }
 
-export function getFileSize(bytes: number) {
-  const sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB']
-  if (bytes === 0) return '0 Bytes'
-  const i = Math.floor(Math.log(bytes) / Math.log(1024))
-  return Math.round(bytes / Math.pow(1024, i) * 100) / 100 + ' ' + sizes[i]
-}
-
-export function isImageFile(file: File) {
-  return file.type.startsWith('image/')
-}
-
-export function getImageDimensions(file: File): Promise<{ width: number; height: number }> {
-  return new Promise((resolve, reject) => {
-    const img = new Image()
-    img.onload = () => {
-      resolve({ width: img.width, height: img.height })
-    }
-    img.onerror = reject
-    img.src = URL.createObjectURL(file)
-  })
-}
-
-export function sleep(ms: number) {
-  return new Promise(resolve => setTimeout(resolve, ms))
-}
-
-export function randomBetween(min: number, max: number) {
-  return Math.floor(Math.random() * (max - min + 1)) + min
-}
-
+// Array utilities
 export function groupBy<T>(array: T[], key: keyof T) {
   return array.reduce((groups, item) => {
     const group = item[key] as string
@@ -189,7 +111,7 @@ export function sortBy<T>(array: T[], key: keyof T, direction: 'asc' | 'desc' = 
   return [...array].sort((a, b) => {
     const aVal = a[key]
     const bVal = b[key]
-    
+
     if (aVal < bVal) return direction === 'asc' ? -1 : 1
     if (aVal > bVal) return direction === 'asc' ? 1 : -1
     return 0
@@ -208,6 +130,7 @@ export function chunk<T>(array: T[], size: number) {
   return chunks
 }
 
+// Object utilities
 export function omit<T extends Record<string, any>, K extends keyof T>(
   obj: T,
   keys: K[]

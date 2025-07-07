@@ -20,6 +20,15 @@ import {
   Phone,
   MapPin,
 } from 'lucide-react'
+import {
+  PageWrapper,
+  PageHeader,
+  PageSection,
+  PageContainer,
+  PageGrid,
+  PageCard
+} from '@/components/layout'
+import { getHighContrastClasses, PAGE_CONTRAST } from '@/constants/contrast-system'
 
 export default function AboutPage() {
   const stats = [
@@ -113,54 +122,47 @@ export default function AboutPage() {
   ]
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-background via-muted/20 to-background">
+    <PageWrapper>
       {/* Hero Section */}
-      <section className="relative py-24 overflow-hidden">
-        <div className="container mx-auto px-4">
-          <div className="text-center mb-16">
-            <div className="flex items-center justify-center gap-3 mb-6">
-              <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-primary-500 to-violet-600 flex items-center justify-center shadow-large">
-                <Heart className="h-6 w-6 text-white" />
-              </div>
-              <span className="text-primary font-semibold">ABOUT US</span>
-            </div>
-            
-            <h1 className="text-4xl lg:text-6xl font-bold text-foreground mb-6">
-              Building the Future of <span className="text-gradient">E-commerce</span>
-            </h1>
-            <p className="text-xl text-muted-foreground max-w-3xl mx-auto leading-relaxed">
-              We're passionate about creating exceptional shopping experiences that connect 
-              people with products they love. Our mission is to make online shopping 
-              simple, secure, and delightful for everyone.
-            </p>
+      <PageSection size="xl" className="text-center">
+        <div className="flex items-center justify-center gap-2 mb-4">
+          <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-orange-500 to-orange-400 flex items-center justify-center shadow-lg">
+            <Heart className="h-4 w-4 text-white" />
           </div>
-
-          {/* Stats */}
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-8 mb-16">
-            {stats.map((stat, index) => (
-              <Card key={index} variant="elevated" className="border-0 shadow-large text-center">
-                <CardContent className="p-8">
-                  <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-primary-500 to-violet-600 flex items-center justify-center mx-auto mb-4 shadow-large">
-                    <stat.icon className="h-8 w-8 text-white" />
-                  </div>
-                  <div className="text-3xl font-bold text-foreground mb-2">{stat.value}</div>
-                  <div className="text-muted-foreground">{stat.label}</div>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
+          <span className="text-orange-400 font-semibold text-sm">ABOUT US</span>
         </div>
-      </section>
+
+        <h1 className="text-3xl lg:text-4xl xl:text-5xl font-bold text-white mb-4">
+          Building the Future of <span className="text-orange-400">E-commerce</span>
+        </h1>
+        <p className="text-base lg:text-lg text-gray-200 max-w-2xl mx-auto leading-relaxed mb-8">
+          We're passionate about creating exceptional shopping experiences that connect
+          people with products they love. Our mission is to make online shopping
+          simple, secure, and delightful for everyone.
+        </p>
+
+        {/* Stats */}
+        <PageGrid type="features" className="mt-8">
+          {stats.map((stat, index) => (
+            <PageCard key={index} padding="base" className="text-center bg-gray-900 border-gray-600">
+              <div className="w-12 h-12 rounded-lg bg-gradient-to-br from-orange-500 to-orange-400 flex items-center justify-center mx-auto mb-3 shadow-lg">
+                <stat.icon className="h-6 w-6 text-white" />
+              </div>
+              <div className="text-2xl font-bold text-white mb-1">{stat.value}</div>
+              <div className="text-gray-200 text-sm">{stat.label}</div>
+            </PageCard>
+          ))}
+        </PageGrid>
+      </PageSection>
 
       {/* Our Story */}
-      <section className="py-24">
-        <div className="container mx-auto px-4">
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-16 items-center">
-            <div>
-              <h2 className="text-3xl lg:text-4xl font-bold text-foreground mb-6">
-                Our Story
-              </h2>
-              <div className="space-y-6 text-lg text-muted-foreground leading-relaxed">
+      <PageSection size="lg">
+        <PageGrid type="twoColumn" className="items-center">
+          <div>
+            <h2 className="text-2xl lg:text-3xl font-bold text-white mb-4">
+              Our Story
+            </h2>
+            <div className="space-y-4 text-base text-gray-200 leading-relaxed">
                 <p>
                   Founded in 2014, EcomStore began as a small startup with a big dream: 
                   to create the most customer-centric e-commerce platform in the world. 
@@ -178,176 +180,147 @@ export default function AboutPage() {
                   creating a vibrant ecosystem where great products meet great people.
                 </p>
               </div>
-              
-              <div className="flex items-center gap-4 mt-8">
-                <Button size="lg" variant="gradient">
+
+              <div className="flex items-center gap-3 mt-6">
+                <Button size="default" className="bg-orange-500 hover:bg-orange-600 text-white">
                   Learn More
-                  <ArrowRight className="ml-2 h-5 w-5" />
+                  <ArrowRight className="ml-2 h-4 w-4" />
                 </Button>
-                <Button size="lg" variant="outline">
+                <Button size="default" variant="outline" className="border-gray-600 text-white hover:bg-gray-800">
                   Contact Us
                 </Button>
               </div>
             </div>
-            
+
             <div className="relative">
-              <Card variant="elevated" className="border-0 shadow-xl overflow-hidden">
-                <div className="aspect-[4/3] bg-gradient-to-br from-primary-100 to-violet-100 flex items-center justify-center">
+              <PageCard padding="lg" className="overflow-hidden">
+                <div className="aspect-[4/3] bg-gradient-to-br from-gray-800 to-gray-700 flex items-center justify-center">
                   <div className="text-center">
-                    <div className="w-24 h-24 rounded-full bg-gradient-to-br from-primary-500 to-violet-600 flex items-center justify-center mx-auto mb-4 shadow-large">
-                      <Target className="h-12 w-12 text-white" />
+                    <div className="w-16 h-16 rounded-full bg-gradient-to-br from-orange-500 to-orange-600 flex items-center justify-center mx-auto mb-3 shadow-lg">
+                      <Target className="h-8 w-8 text-white" />
                     </div>
-                    <h3 className="text-2xl font-bold text-foreground mb-2">Our Mission</h3>
-                    <p className="text-muted-foreground max-w-sm">
+                    <h3 className="text-xl font-bold text-white mb-2">Our Mission</h3>
+                    <p className="text-gray-300 text-sm max-w-sm">
                       To democratize commerce and empower everyone to build thriving businesses online.
                     </p>
                   </div>
                 </div>
-              </Card>
+              </PageCard>
             </div>
-          </div>
-        </div>
-      </section>
+        </PageGrid>
+      </PageSection>
 
       {/* Our Values */}
-      <section className="py-24 bg-muted/30">
-        <div className="container mx-auto px-4">
-          <div className="text-center mb-16">
-            <h2 className="text-3xl lg:text-4xl font-bold text-foreground mb-6">
-              Our Values
-            </h2>
-            <p className="text-xl text-muted-foreground max-w-3xl mx-auto">
-              These core principles guide everything we do and shape the way we serve our customers.
-            </p>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
-            {values.map((value, index) => (
-              <Card key={index} variant="elevated" className="border-0 shadow-large text-center group hover:shadow-xl transition-all duration-300">
-                <CardContent className="p-8">
-                  <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-primary-500 to-violet-600 flex items-center justify-center mx-auto mb-6 shadow-large group-hover:scale-110 transition-transform duration-300">
-                    <value.icon className="h-8 w-8 text-white" />
-                  </div>
-                  <h3 className="text-xl font-bold text-foreground mb-4">{value.title}</h3>
-                  <p className="text-muted-foreground leading-relaxed">{value.description}</p>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
-        </div>
-      </section>
+      <PageSection
+        size="lg"
+        title="Our Values"
+        subtitle="These core principles guide everything we do and shape the way we serve our customers."
+        className="bg-gray-900/50"
+      >
+        <PageGrid type="features">
+          {values.map((value, index) => (
+            <PageCard key={index} padding="base" className="text-center group hover:border-gray-600 transition-all duration-300">
+              <div className="w-12 h-12 rounded-lg bg-gradient-to-br from-orange-500 to-orange-600 flex items-center justify-center mx-auto mb-4 shadow-lg group-hover:scale-110 transition-transform duration-300">
+                <value.icon className="h-6 w-6 text-white" />
+              </div>
+              <h3 className="text-lg font-bold text-white mb-3">{value.title}</h3>
+              <p className="text-gray-300 text-sm leading-relaxed">{value.description}</p>
+            </PageCard>
+          ))}
+        </PageGrid>
+      </PageSection>
 
       {/* Timeline */}
-      <section className="py-24">
-        <div className="container mx-auto px-4">
-          <div className="text-center mb-16">
-            <h2 className="text-3xl lg:text-4xl font-bold text-foreground mb-6">
-              Our Journey
-            </h2>
-            <p className="text-xl text-muted-foreground max-w-3xl mx-auto">
-              From humble beginnings to global success, here are the key milestones in our story.
-            </p>
-          </div>
+      <PageSection
+        size="lg"
+        title="Our Journey"
+        subtitle="From humble beginnings to global success, here are the key milestones in our story."
+      >
 
-          <div className="relative">
-            {/* Timeline line */}
-            <div className="absolute left-1/2 transform -translate-x-1/2 w-1 h-full bg-gradient-to-b from-primary-500 to-violet-600 rounded-full"></div>
-            
-            <div className="space-y-16">
-              {milestones.map((milestone, index) => (
-                <div key={index} className={`flex items-center ${index % 2 === 0 ? 'flex-row' : 'flex-row-reverse'}`}>
-                  <div className={`w-1/2 ${index % 2 === 0 ? 'pr-8 text-right' : 'pl-8 text-left'}`}>
-                    <Card variant="elevated" className="border-0 shadow-large">
-                      <CardContent className="p-8">
-                        <Badge variant="outline" className="mb-4 text-primary border-primary">
-                          {milestone.year}
-                        </Badge>
-                        <h3 className="text-xl font-bold text-foreground mb-3">{milestone.title}</h3>
-                        <p className="text-muted-foreground">{milestone.description}</p>
-                      </CardContent>
-                    </Card>
-                  </div>
-                  
-                  {/* Timeline dot */}
-                  <div className="relative z-10">
-                    <div className="w-6 h-6 rounded-full bg-gradient-to-br from-primary-500 to-violet-600 border-4 border-background shadow-large"></div>
-                  </div>
-                  
-                  <div className="w-1/2"></div>
+        <div className="relative">
+          {/* Timeline line */}
+          <div className="absolute left-1/2 transform -translate-x-1/2 w-1 h-full bg-gradient-to-b from-orange-500 to-orange-600 rounded-full"></div>
+
+          <div className="space-y-12">
+            {milestones.map((milestone, index) => (
+              <div key={index} className={`flex items-center ${index % 2 === 0 ? 'flex-row' : 'flex-row-reverse'}`}>
+                <div className={`w-1/2 ${index % 2 === 0 ? 'pr-6 text-right' : 'pl-6 text-left'}`}>
+                  <PageCard padding="base">
+                    <Badge className="mb-3 text-orange-400 border-orange-400 bg-transparent text-xs">
+                      {milestone.year}
+                    </Badge>
+                    <h3 className="text-lg font-bold text-white mb-2">{milestone.title}</h3>
+                    <p className="text-gray-300 text-sm">{milestone.description}</p>
+                  </PageCard>
                 </div>
-              ))}
-            </div>
-          </div>
-        </div>
-      </section>
 
-      {/* Team */}
-      <section className="py-24 bg-muted/30">
-        <div className="container mx-auto px-4">
-          <div className="text-center mb-16">
-            <h2 className="text-3xl lg:text-4xl font-bold text-foreground mb-6">
-              Meet Our Team
-            </h2>
-            <p className="text-xl text-muted-foreground max-w-3xl mx-auto">
-              The passionate people behind our success, working every day to make your experience better.
-            </p>
-          </div>
+                {/* Timeline dot */}
+                <div className="relative z-10">
+                  <div className="w-4 h-4 rounded-full bg-gradient-to-br from-orange-500 to-orange-600 border-2 border-black shadow-lg"></div>
+                </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
-            {team.map((member, index) => (
-              <Card key={index} variant="elevated" className="border-0 shadow-large text-center group hover:shadow-xl transition-all duration-300">
-                <CardContent className="p-8">
-                  <div className="w-24 h-24 rounded-full overflow-hidden mx-auto mb-6 bg-gradient-to-br from-primary-100 to-violet-100 flex items-center justify-center">
-                    <Users className="h-12 w-12 text-primary" />
-                  </div>
-                  <h3 className="text-xl font-bold text-foreground mb-2">{member.name}</h3>
-                  <p className="text-primary font-semibold mb-3">{member.role}</p>
-                  <p className="text-muted-foreground text-sm">{member.description}</p>
-                </CardContent>
-              </Card>
+                <div className="w-1/2"></div>
+              </div>
             ))}
           </div>
         </div>
-      </section>
+      </PageSection>
+
+      {/* Team */}
+      <PageSection
+        size="lg"
+        title="Meet Our Team"
+        subtitle="The passionate people behind our success, working every day to make your experience better."
+        className="bg-gray-900/50"
+      >
+        <PageGrid type="features">
+          {team.map((member, index) => (
+            <PageCard key={index} padding="base" className="text-center group hover:border-gray-600 transition-all duration-300">
+              <div className="w-16 h-16 rounded-full overflow-hidden mx-auto mb-4 bg-gradient-to-br from-gray-700 to-gray-600 flex items-center justify-center">
+                <Users className="h-8 w-8 text-orange-400" />
+              </div>
+              <h3 className="text-lg font-bold text-white mb-1">{member.name}</h3>
+              <p className="text-orange-400 font-semibold mb-2 text-sm">{member.role}</p>
+              <p className="text-gray-300 text-xs">{member.description}</p>
+            </PageCard>
+          ))}
+        </PageGrid>
+      </PageSection>
 
       {/* Contact CTA */}
-      <section className="py-24">
-        <div className="container mx-auto px-4">
-          <Card variant="elevated" className="border-0 shadow-xl bg-gradient-to-br from-primary-50 to-violet-50">
-            <CardContent className="p-16 text-center">
-              <h2 className="text-3xl lg:text-4xl font-bold text-foreground mb-6">
-                Ready to Start Your Journey?
-              </h2>
-              <p className="text-xl text-muted-foreground mb-12 max-w-2xl mx-auto">
-                Join millions of satisfied customers and discover why EcomStore is the 
-                preferred choice for online shopping.
-              </p>
-              
-              <div className="flex flex-col sm:flex-row gap-6 justify-center items-center">
-                <Button size="xl" variant="gradient" className="shadow-large">
-                  Start Shopping
-                  <ArrowRight className="ml-2 h-5 w-5" />
-                </Button>
-                
-                <div className="flex items-center gap-6 text-sm text-muted-foreground">
-                  <div className="flex items-center gap-2">
-                    <CheckCircle className="h-5 w-5 text-emerald-600" />
-                    <span>Free Shipping</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <CheckCircle className="h-5 w-5 text-emerald-600" />
-                    <span>30-Day Returns</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <CheckCircle className="h-5 w-5 text-emerald-600" />
-                    <span>24/7 Support</span>
-                  </div>
-                </div>
+      <PageSection size="lg">
+        <PageCard padding="lg" className="bg-gradient-to-br from-gray-800 to-gray-700 text-center">
+          <h2 className="text-2xl lg:text-3xl font-bold text-white mb-4">
+            Ready to Start Your Journey?
+          </h2>
+          <p className="text-base text-gray-300 mb-8 max-w-xl mx-auto">
+            Join millions of satisfied customers and discover why BiHub is the
+            preferred choice for online shopping.
+          </p>
+
+          <div className="flex flex-col sm:flex-row gap-4 justify-center items-center">
+            <Button size="default" className="bg-orange-500 hover:bg-orange-600 text-white">
+              Start Shopping
+              <ArrowRight className="ml-2 h-4 w-4" />
+            </Button>
+
+            <div className="flex items-center gap-4 text-xs text-gray-300">
+              <div className="flex items-center gap-1">
+                <CheckCircle className="h-4 w-4 text-emerald-400" />
+                <span>Free Shipping</span>
               </div>
-            </CardContent>
-          </Card>
-        </div>
-      </section>
-    </div>
+              <div className="flex items-center gap-1">
+                <CheckCircle className="h-4 w-4 text-emerald-400" />
+                <span>30-Day Returns</span>
+              </div>
+              <div className="flex items-center gap-1">
+                <CheckCircle className="h-4 w-4 text-emerald-400" />
+                <span>24/7 Support</span>
+              </div>
+            </div>
+          </div>
+        </PageCard>
+      </PageSection>
+    </PageWrapper>
   )
 }

@@ -10,6 +10,7 @@ import { Badge } from '@/components/ui/badge'
 import { useCartStore, getCartTotal, getCartItemCount } from '@/store/cart'
 import { formatPrice } from '@/lib/utils'
 import { cn } from '@/lib/utils'
+import { getHighContrastClasses, PAGE_CONTRAST } from '@/constants/contrast-system'
 
 export function CartSidebar() {
   const pathname = usePathname()

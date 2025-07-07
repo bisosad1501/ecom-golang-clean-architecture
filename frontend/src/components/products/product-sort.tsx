@@ -30,15 +30,15 @@ export function ProductSort({ currentSort }: ProductSortProps) {
   return (
     <div className="relative">
       <div className="flex items-center space-x-2">
-        <span className="text-sm text-gray-600">Sort by:</span>
+        <span className="text-sm text-gray-300">Sort by:</span>
         <div className="relative">
           <select
             value={currentSort}
             onChange={(e) => updateSort(e.target.value)}
-            className="appearance-none bg-white border border-gray-300 rounded-md px-4 py-2 pr-8 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+            className="appearance-none bg-gray-800 border border-gray-600 rounded-md px-4 py-2 pr-8 text-sm text-white focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
           >
             {PRODUCT_SORT_OPTIONS.map((option) => (
-              <option key={option.value} value={option.value}>
+              <option key={option.value} value={option.value} className="bg-gray-800 text-white">
                 {option.label}
               </option>
             ))}

@@ -1,15 +1,13 @@
 import type { Metadata } from "next";
-import { Inter } from "next/font/google";
 import "./globals.css";
 import { Providers } from '@/components/providers'
 import { ConditionalLayout } from '@/components/layout/conditional-layout'
 import { CartSidebar } from '@/components/cart/cart-sidebar'
 import { Toaster } from 'sonner'
-import { APP_NAME, DEFAULT_SEO } from '@/constants'
-
-const inter = Inter({ subsets: ["latin"] });
+import { DEFAULT_SEO } from '@/constants'
 
 export const metadata: Metadata = {
+  metadataBase: new URL(process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'),
   title: DEFAULT_SEO.title,
   description: DEFAULT_SEO.description,
   keywords: DEFAULT_SEO.keywords,
@@ -33,7 +31,15 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" suppressHydrationWarning className="dark">
-      <body className={`${inter.className} bg-black text-white`}>
+      <head>
+        <link rel="preconnect" href="https://fonts.googleapis.com" />
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
+        <link
+          href="https://fonts.googleapis.com/css2?family=Inter:wght@100;200;300;400;500;600;700;800;900&display=swap"
+          rel="stylesheet"
+        />
+      </head>
+      <body className="bg-black text-white font-inter" suppressHydrationWarning>
         <Providers>
           <ConditionalLayout>
             {children}

@@ -15,6 +15,7 @@ import { useSearchProducts, useProductSuggestions } from '@/hooks/use-products'
 import { ProductsParams } from '@/lib/services/products'
 import { DEFAULT_PAGE_SIZE } from '@/constants'
 import { cn } from '@/lib/utils'
+import { PageWrapper, PageHeader, PageSection, PageGrid } from '@/components/layout'
 
 export function SearchPage() {
   const router = useRouter()

@@ -13,6 +13,7 @@ import { useAuthStore } from '@/store/auth'
 import { LoginRequest } from '@/types'
 import { toast } from 'sonner'
 import { OAuthButtons } from './OAuthButtons'
+import { getHighContrastClasses, PAGE_CONTRAST } from '@/constants/contrast-system'
 
 const loginSchema = z.object({
   email: z.string().email('Please enter a valid email address'),
@@ -76,9 +77,9 @@ export function LoginForm() {
   }
 
   return (
-    <form onSubmit={handleSubmit(onSubmit)} className="space-y-8">
+    <form onSubmit={handleSubmit(onSubmit)} className="space-y-3">
       {/* Email */}
-      <div className="space-y-2">
+      <div className="space-y-1">
         <Input
           {...register('email')}
           type="email"
@@ -88,12 +89,12 @@ export function LoginForm() {
           required
           autoComplete="email"
           size="lg"
-          className="transition-all duration-200 focus:scale-[1.02]"
+          className="transition-all duration-300 focus:scale-[1.01] bg-gray-800/90 border-gray-600/80 text-white placeholder:text-gray-400 focus:border-[#FF9000] focus:ring-2 focus:ring-[#FF9000]/20 hover:border-gray-500 h-10 text-sm rounded-lg backdrop-blur-sm"
         />
       </div>
 
       {/* Password */}
-      <div className="space-y-2">
+      <div className="space-y-1">
         <Input
           {...register('password')}
           type={showPassword ? 'text' : 'password'}
@@ -103,17 +104,17 @@ export function LoginForm() {
           required
           autoComplete="current-password"
           size="lg"
-          className="transition-all duration-200 focus:scale-[1.02]"
+          className="transition-all duration-300 focus:scale-[1.01] bg-gray-800/90 border-gray-600/80 text-white placeholder:text-gray-400 focus:border-[#FF9000] focus:ring-2 focus:ring-[#FF9000]/20 hover:border-gray-500 h-10 text-sm rounded-lg backdrop-blur-sm"
           rightIcon={
             <button
               type="button"
               onClick={() => setShowPassword(!showPassword)}
-              className="text-muted-foreground hover:text-primary transition-colors p-1 rounded-lg hover:bg-muted"
+              className="text-gray-400 hover:text-[#FF9000] transition-all duration-200 p-1 rounded-lg hover:bg-gray-700/50"
             >
               {showPassword ? (
-                <EyeOff className="h-5 w-5" />
+                <EyeOff className="h-4 w-4" />
               ) : (
-                <Eye className="h-5 w-5" />
+                <Eye className="h-4 w-4" />
               )}
             </button>
           }
@@ -121,22 +122,23 @@ export function LoginForm() {
       </div>
 
       {/* Remember me & Forgot password */}
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between pt-1">
         <div className="flex items-center">
           <input
             {...register('remember_me')}
             id="remember-me"
             type="checkbox"
-            className="h-4 w-4 text-primary focus:ring-primary/30 border-border rounded transition-colors"
+            className="h-3 w-3 border-gray-600 bg-gray-800 rounded transition-colors focus:ring-2 focus:ring-[#FF9000]/20"
+            style={{accentColor: '#FF9000'}}
           />
-          <label htmlFor="remember-me" className="ml-3 block text-sm font-medium text-foreground">
+          <label htmlFor="remember-me" className="ml-2 block text-xs font-medium text-gray-200">
             Remember me
           </label>
         </div>
 
         <Link
           href="/auth/forgot-password"
-          className="text-sm font-medium text-primary hover:text-primary-600 transition-colors"
+          className="text-xs font-medium text-[#FF9000] hover:text-[#e67e00] transition-all duration-200 hover:underline"
         >
           Forgot password?
         </Link>
@@ -145,29 +147,30 @@ export function LoginForm() {
       {/* Submit button */}
       <Button
         type="submit"
-        className="w-full"
-        size="xl"
-        variant="gradient"
+        className="w-full mt-4 bg-gradient-to-r from-[#FF9000] to-[#e67e00] hover:from-[#e67e00] hover:to-[#cc6600] text-white font-semibold py-3 text-sm rounded-lg transition-all duration-300 transform hover:scale-[1.02] hover:shadow-xl shadow-lg border-0"
+        size="lg"
         isLoading={isLoading}
-        loadingText="Signing you in..."
+        loadingText="Signing in..."
       >
         Sign in to your account
       </Button>
 
       {/* Social login divider */}
-      <div className="relative">
+      <div className="relative mt-4">
         <div className="absolute inset-0 flex items-center">
-          <div className="w-full border-t border-border"></div>
+          <div className="w-full border-t border-gray-600/60"></div>
         </div>
-        <div className="relative flex justify-center text-sm">
-          <span className="px-4 bg-background text-muted-foreground font-medium">Or continue with</span>
+        <div className="relative flex justify-center text-xs">
+          <span className="px-4 bg-gray-900/90 text-gray-400 font-medium backdrop-blur-sm">Or continue with</span>
         </div>
       </div>
 
       {/* OAuth login buttons */}
-      <OAuthButtons
-        onError={(error) => toast.error(error)}
-      />
+      <div className="mt-4">
+        <OAuthButtons
+          onError={(error) => toast.error(error)}
+        />
+      </div>
     </form>
   )
 }
