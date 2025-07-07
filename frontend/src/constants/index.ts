@@ -11,7 +11,7 @@ export { APP_CONFIG, ROUTES, STORAGE_KEYS, ANALYTICS_EVENTS, ORDER_STATUS, PAYME
 
 // Legacy constants (for backward compatibility - will be deprecated)
 export const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080/api/v1'
-export const APP_NAME = 'ShopHub'
+export const APP_NAME = 'Bihub'
 export const APP_DESCRIPTION = 'Your Ultimate Shopping Destination'
 export const APP_URL = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'
 

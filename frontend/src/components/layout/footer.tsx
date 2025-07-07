@@ -19,208 +19,167 @@ import { APP_NAME, SOCIAL_LINKS, CONTACT_INFO } from '@/constants'
 
 export function Footer() {
   return (
-    <footer className="bg-gradient-to-br from-black via-gray-900 to-black text-white relative overflow-hidden">
-      {/* Background pattern */}
-      <div className="absolute inset-0 opacity-5">
-        <svg className="w-full h-full" viewBox="0 0 100 100" fill="none">
-          <pattern id="footerGrid" width="10" height="10" patternUnits="userSpaceOnUse">
-            <path d="M 10 0 L 0 0 0 10" fill="none" stroke="currentColor" strokeWidth="0.5"/>
-          </pattern>
-          <rect width="100%" height="100%" fill="url(#footerGrid)" />
-        </svg>
+    <footer className="bg-black text-white border-t border-gray-800 relative overflow-hidden">
+      {/* Enhanced Background Effects */}
+      <div className="absolute inset-0">
+        <div className="absolute inset-0 bg-gradient-to-t from-[#FF9000]/5 to-transparent"></div>
+        <div className="absolute bottom-0 left-0 w-full h-px bg-gradient-to-r from-transparent via-[#FF9000]/30 to-transparent"></div>
       </div>
 
       {/* Main footer content */}
-      <div className="container mx-auto px-4 py-12 relative z-10">{/* Reduced padding from py-20 to py-12 */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">{/* Reduced gap from 12 to 8 */}
-          {/* Company info */}
-          <div className="space-y-6 lg:col-span-2">{/* Reduced spacing from 8 to 6 */}
-            <div className="flex items-center space-x-3">{/* Reduced spacing */}
-              <div className="h-10 w-10 rounded-xl bg-gradient-to-br from-primary-500 via-primary-600 to-violet-600 flex items-center justify-center shadow-2xl">{/* Smaller logo */}
-                <span className="text-white font-bold text-lg">E</span>{/* Smaller text */}
-              </div>
-              <span className="text-2xl font-bold text-gradient bg-gradient-to-r from-white via-violet-200 to-white bg-clip-text text-transparent">{APP_NAME}</span>{/* Smaller text */}
-            </div>
-            <p className="text-slate-300 text-base leading-relaxed max-w-md">{/* Smaller text */}
-              Elevating your shopping experience with premium products, exceptional service,
-              and innovative solutions that exceed expectations.
-            </p>
-
-            {/* Trust badges */}
-            <div className="flex items-center gap-4">{/* Reduced gap */}
-              <div className="flex items-center gap-1.5 bg-slate-800/50 rounded-full px-3 py-1.5 border border-slate-700/50">{/* Smaller padding */}
-                <Shield className="h-3.5 w-3.5 text-green-400" />{/* Smaller icon */}
-                <span className="text-xs font-medium text-slate-300">SSL Secured</span>{/* Smaller text */}
-              </div>
-              <div className="flex items-center gap-1.5 bg-slate-800/50 rounded-full px-3 py-1.5 border border-slate-700/50">
-                <Award className="h-3.5 w-3.5 text-yellow-400" />
-                <span className="text-xs font-medium text-slate-300">Verified Store</span>
-              </div>
-            </div>
-            <div className="flex space-x-3">{/* Reduced spacing */}
-              <Link href={SOCIAL_LINKS.facebook} className="w-10 h-10 rounded-xl bg-gradient-to-br from-slate-800 to-slate-700 hover:from-blue-600 hover:to-blue-700 flex items-center justify-center transition-all duration-300 hover:scale-110 shadow-large hover:shadow-xl group">{/* Smaller icons */}
-                <Globe className="h-4 w-4 group-hover:text-white transition-colors" />{/* Smaller icon */}
+      <div className="container mx-auto px-4 py-8 relative z-10">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+          {/* Quick Links */}
+          <div className="space-y-4">
+            <h3 className="text-lg font-bold text-white flex items-center gap-2">
+              <div className="w-2 h-2 bg-[#FF9000] rounded-full"></div>
+              Quick Links
+            </h3>
+            <div className="grid grid-cols-2 gap-2">
+              <Link href="/products" className="text-gray-300 hover:text-[#FF9000] transition-colors text-sm font-medium hover:translate-x-1 inline-block transition-transform">
+                Products
               </Link>
-              <Link href={SOCIAL_LINKS.twitter} className="w-10 h-10 rounded-xl bg-gradient-to-br from-slate-800 to-slate-700 hover:from-sky-500 hover:to-sky-600 flex items-center justify-center transition-all duration-300 hover:scale-110 shadow-large hover:shadow-xl group">
-                <MessageCircle className="h-4 w-4 group-hover:text-white transition-colors" />
+              <Link href="/categories" className="text-gray-300 hover:text-[#FF9000] transition-colors text-sm font-medium hover:translate-x-1 inline-block transition-transform">
+                Categories
               </Link>
-              <Link href={SOCIAL_LINKS.instagram} className="w-10 h-10 rounded-xl bg-gradient-to-br from-slate-800 to-slate-700 hover:from-pink-500 hover:to-purple-600 flex items-center justify-center transition-all duration-300 hover:scale-110 shadow-large hover:shadow-xl group">
-                <Send className="h-4 w-4 group-hover:text-white transition-colors" />
+              <Link href="/deals" className="text-gray-300 hover:text-[#FF9000] transition-colors text-sm font-medium hover:translate-x-1 inline-block transition-transform">
+                Deals
               </Link>
-              <Link href={SOCIAL_LINKS.youtube} className="w-10 h-10 rounded-xl bg-gradient-to-br from-slate-800 to-slate-700 hover:from-red-500 hover:to-red-600 flex items-center justify-center transition-all duration-300 hover:scale-110 shadow-large hover:shadow-xl group">
-                <Video className="h-4 w-4 group-hover:text-white transition-colors" />
+              <Link href="/new-arrivals" className="text-gray-300 hover:text-[#FF9000] transition-colors text-sm font-medium hover:translate-x-1 inline-block transition-transform">
+                New Arrivals
               </Link>
             </div>
           </div>
 
-          {/* Quick links */}
-          <div className="space-y-4">{/* Reduced spacing */}
-            <h3 className="text-lg font-bold text-white">Quick Links</h3>{/* Smaller heading */}
-            <ul className="space-y-2">{/* Reduced spacing */}
-              <li>
-                <Link href="/products" className="text-slate-300 hover:text-primary-400 transition-colors text-xs font-medium hover:translate-x-1 inline-block transition-transform">{/* Smaller text */}
-                  All Products
-                </Link>
-              </li>
-              <li>
-                <Link href="/categories" className="text-slate-300 hover:text-primary-400 transition-colors text-xs font-medium hover:translate-x-1 inline-block transition-transform">
-                  Categories
-                </Link>
-              </li>
-              <li>
-                <Link href="/deals" className="text-slate-300 hover:text-primary-400 transition-colors text-xs font-medium hover:translate-x-1 inline-block transition-transform">
-                  Special Deals
-                </Link>
-              </li>
-              <li>
-                <Link href="/new-arrivals" className="text-slate-300 hover:text-primary-400 transition-colors text-xs font-medium hover:translate-x-1 inline-block transition-transform">
-                  New Arrivals
-                </Link>
-              </li>
-              <li>
-                <Link href="/bestsellers" className="text-slate-300 hover:text-primary-400 transition-colors text-xs font-medium hover:translate-x-1 inline-block transition-transform">
-                  Best Sellers
-                </Link>
-              </li>
-              <li>
-                <Link href="/brands" className="text-slate-300 hover:text-primary-400 transition-colors text-xs font-medium hover:translate-x-1 inline-block transition-transform">
-                  Brands
-                </Link>
-              </li>
-            </ul>
+          {/* Support */}
+          <div className="space-y-4">
+            <h3 className="text-lg font-bold text-white flex items-center gap-2">
+              <div className="w-2 h-2 bg-[#FF9000] rounded-full"></div>
+              Support
+            </h3>
+            <div className="space-y-3">
+              <Link href="/help" className="text-gray-300 hover:text-[#FF9000] transition-colors text-sm font-medium hover:translate-x-1 inline-block transition-transform flex items-center gap-2">
+                <Mail className="h-4 w-4" />
+                Help Center
+              </Link>
+              <Link href="/contact" className="text-gray-300 hover:text-[#FF9000] transition-colors text-sm font-medium hover:translate-x-1 inline-block transition-transform flex items-center gap-2">
+                <MessageCircle className="h-4 w-4" />
+                Contact Us
+              </Link>
+              <Link href="/shipping" className="text-gray-300 hover:text-[#FF9000] transition-colors text-sm font-medium hover:translate-x-1 inline-block transition-transform flex items-center gap-2">
+                <Truck className="h-4 w-4" />
+                Shipping
+              </Link>
+            </div>
           </div>
 
-          {/* Customer service */}
-          <div className="space-y-4">{/* Reduced spacing */}
-            <h3 className="text-lg font-bold text-white">Customer Service</h3>{/* Smaller heading */}
-            <ul className="space-y-2">{/* Reduced spacing */}
-              <li>
-                <Link href="/help" className="text-slate-300 hover:text-primary-400 transition-colors text-xs font-medium hover:translate-x-1 inline-block transition-transform">{/* Smaller text */}
-                  Help Center
+          {/* Newsletter & Social */}
+          <div className="space-y-4">
+            <h3 className="text-lg font-bold text-white flex items-center gap-2">
+              <div className="w-2 h-2 bg-[#FF9000] rounded-full"></div>
+              Stay Connected
+            </h3>
+            
+            {/* Newsletter */}
+            <div className="space-y-3">
+              <p className="text-gray-300 text-sm">
+                Get exclusive deals & updates
+              </p>
+              <form className="space-y-2">
+                <Input
+                  type="email"
+                  placeholder="Enter your email"
+                  className="bg-gray-900 border-gray-700 text-white placeholder-gray-400 h-10 rounded-lg focus:ring-2 focus:ring-[#FF9000]/50 focus:border-[#FF9000] text-sm"
+                />
+                <Button className="w-full h-10 rounded-lg text-sm bg-[#FF9000] hover:bg-[#FF9000]/90 text-white">
+                  Subscribe
+                </Button>
+              </form>
+            </div>
+
+            {/* Social Links */}
+            <div className="space-y-2">
+              <p className="text-gray-300 text-sm">Follow us</p>
+              <div className="flex space-x-3">
+                <Link href={SOCIAL_LINKS.facebook} className="w-9 h-9 rounded-lg bg-gray-800 hover:bg-[#FF9000] flex items-center justify-center transition-all duration-300 hover:scale-110 group">
+                  <Globe className="h-4 w-4 text-gray-400 group-hover:text-white transition-colors" />
                 </Link>
-              </li>
-              <li>
-                <Link href="/contact" className="text-slate-300 hover:text-primary-400 transition-colors text-xs font-medium hover:translate-x-1 inline-block transition-transform">
-                  Contact Us
+                <Link href={SOCIAL_LINKS.twitter} className="w-9 h-9 rounded-lg bg-gray-800 hover:bg-[#FF9000] flex items-center justify-center transition-all duration-300 hover:scale-110 group">
+                  <MessageCircle className="h-4 w-4 text-gray-400 group-hover:text-white transition-colors" />
                 </Link>
-              </li>
-              <li>
-                <Link href="/shipping" className="text-slate-300 hover:text-primary-400 transition-colors text-xs font-medium hover:translate-x-1 inline-block transition-transform">
-                  Shipping Info
+                <Link href={SOCIAL_LINKS.instagram} className="w-9 h-9 rounded-lg bg-gray-800 hover:bg-[#FF9000] flex items-center justify-center transition-all duration-300 hover:scale-110 group">
+                  <Send className="h-4 w-4 text-gray-400 group-hover:text-white transition-colors" />
                 </Link>
-              </li>
-              <li>
-                <Link href="/returns" className="text-slate-300 hover:text-primary-400 transition-colors text-xs font-medium hover:translate-x-1 inline-block transition-transform">
-                  Returns & Exchanges
+                <Link href={SOCIAL_LINKS.youtube} className="w-9 h-9 rounded-lg bg-gray-800 hover:bg-[#FF9000] flex items-center justify-center transition-all duration-300 hover:scale-110 group">
+                  <Video className="h-4 w-4 text-gray-400 group-hover:text-white transition-colors" />
                 </Link>
-              </li>
-              <li>
-                <Link href="/size-guide" className="text-slate-300 hover:text-primary-400 transition-colors text-xs font-medium hover:translate-x-1 inline-block transition-transform">
-                  Size Guide
-                </Link>
-              </li>
-              <li>
-                <Link href="/track-order" className="text-slate-300 hover:text-primary-400 transition-colors text-xs font-medium hover:translate-x-1 inline-block transition-transform">
-                  Track Your Order
-                </Link>
-              </li>
-            </ul>
+              </div>
+            </div>
+          </div>        </div>
+
+        {/* Trust Badges & Contact Info */}
+        <div className="mt-8 pt-6 border-t border-gray-800 flex flex-col md:flex-row justify-between items-center space-y-4 md:space-y-0">
+          {/* Trust badges */}
+          <div className="flex items-center gap-4">
+            <div className="flex items-center gap-2 bg-gray-900 rounded-full px-3 py-1.5 border border-gray-700">
+              <Shield className="h-4 w-4 text-green-400" />
+              <span className="text-xs font-medium text-gray-300">Secure</span>
+            </div>
+            <div className="flex items-center gap-2 bg-gray-900 rounded-full px-3 py-1.5 border border-gray-700">
+              <Award className="h-4 w-4 text-[#FF9000]" />
+              <span className="text-xs font-medium text-gray-300">Verified</span>
+            </div>
+            <div className="flex items-center gap-2 bg-gray-900 rounded-full px-3 py-1.5 border border-gray-700">
+              <Truck className="h-4 w-4 text-blue-400" />
+              <span className="text-xs font-medium text-gray-300">Fast Ship</span>
+            </div>
           </div>
 
-          {/* Newsletter */}
-          <div className="space-y-4">{/* Reduced spacing */}
-            <h3 className="text-lg font-bold text-white">Stay Updated</h3>{/* Smaller heading */}
-            <p className="text-slate-300 text-xs leading-relaxed">{/* Smaller text */}
-              Subscribe to our newsletter for exclusive deals and updates.
-            </p>
-            <form className="space-y-2">{/* Reduced spacing */}
-              <Input
-                type="email"
-                placeholder="Enter your email"
-                className="bg-slate-800/50 border-slate-600 text-white placeholder-slate-400 h-10 rounded-lg focus:ring-2 focus:ring-primary/50 focus:border-primary text-sm"
-              />
-              <Button className="w-full h-10 rounded-lg text-sm" variant="gradient">{/* Smaller button */}
-                Subscribe
-              </Button>
-            </form>
-
-            {/* Contact info */}
-            <div className="space-y-2 pt-4 border-t border-slate-700">{/* Reduced spacing and padding */}
-              <div className="flex items-center space-x-2 text-xs text-slate-300">{/* Smaller spacing and text */}
-                <div className="w-6 h-6 rounded-lg bg-slate-800 flex items-center justify-center">{/* Smaller icon container */}
-                  <Mail className="h-3 w-3 text-primary-400" />{/* Smaller icon */}
-                </div>
-                <span>{CONTACT_INFO.email}</span>
-              </div>
-              <div className="flex items-center space-x-2 text-xs text-slate-300">
-                <div className="w-6 h-6 rounded-lg bg-slate-800 flex items-center justify-center">
-                  <Phone className="h-3 w-3 text-primary-400" />
-                </div>
-                <span>{CONTACT_INFO.phone}</span>
-              </div>
-              <div className="flex items-center space-x-2 text-xs text-slate-300">
-                <div className="w-6 h-6 rounded-lg bg-slate-800 flex items-center justify-center">
-                  <MapPin className="h-3 w-3 text-primary-400" />
-                </div>
-                <span>{CONTACT_INFO.address}</span>
-              </div>
+          {/* Contact info */}
+          <div className="flex items-center space-x-6 text-sm text-gray-400">
+            <div className="flex items-center space-x-2">
+              <Mail className="h-4 w-4 text-[#FF9000]" />
+              <span>{CONTACT_INFO.email}</span>
+            </div>
+            <div className="flex items-center space-x-2">
+              <Phone className="h-4 w-4 text-[#FF9000]" />
+              <span>{CONTACT_INFO.phone}</span>
             </div>
           </div>
         </div>
       </div>
 
-      
       {/* Bottom bar */}
-      <div className="border-t border-slate-700/50 bg-slate-900/50">
-        <div className="container mx-auto px-4 py-4">{/* Reduced padding */}
-          <div className="flex flex-col md:flex-row justify-between items-center space-y-3 md:space-y-0">{/* Reduced spacing */}
-            <div className="text-xs text-slate-400 font-medium">{/* Smaller text */}
-              © 2024 {APP_NAME}. All rights reserved.
+      <div className="border-t border-gray-800 bg-gray-950">
+        <div className="container mx-auto px-4 py-4">
+          <div className="flex flex-col md:flex-row justify-between items-center space-y-3 md:space-y-0">
+            <div className="text-sm text-gray-400">
+              © 2024 All rights reserved.
             </div>
 
-            <div className="flex items-center space-x-6">{/* Reduced spacing */}
-              <Link href="/privacy" className="text-xs text-slate-400 hover:text-primary-400 transition-colors font-medium">{/* Smaller text */}
-                Privacy Policy
+            <div className="flex items-center space-x-6">
+              <Link href="/privacy" className="text-sm text-gray-400 hover:text-[#FF9000] transition-colors">
+                Privacy
               </Link>
-              <Link href="/terms" className="text-xs text-slate-400 hover:text-primary-400 transition-colors font-medium">
-                Terms of Service
+              <Link href="/terms" className="text-sm text-gray-400 hover:text-[#FF9000] transition-colors">
+                Terms
               </Link>
-              <Link href="/cookies" className="text-xs text-slate-400 hover:text-primary-400 transition-colors font-medium">
-                Cookie Policy
+              <Link href="/cookies" className="text-sm text-gray-400 hover:text-[#FF9000] transition-colors">
+                Cookies
               </Link>
             </div>
 
-            <div className="flex items-center space-x-2">{/* Reduced spacing */}
-              <span className="text-xs text-slate-400 font-medium">We accept:</span>{/* Smaller text */}
-              <div className="flex space-x-1.5">{/* Reduced spacing */}
-                <div className="w-8 h-5 bg-slate-800 rounded-lg flex items-center justify-center shadow-soft hover:shadow-medium transition-all">{/* Smaller payment icons */}
-                  <span className="text-xs text-white font-bold">💳</span>
+            <div className="flex items-center space-x-3">
+              <span className="text-sm text-gray-400">Payment:</span>
+              <div className="flex space-x-2">
+                <div className="w-8 h-6 bg-gray-800 rounded border border-gray-700 flex items-center justify-center">
+                  <CreditCard className="h-3 w-3 text-gray-400" />
                 </div>
-                <div className="w-8 h-5 bg-slate-800 rounded-lg flex items-center justify-center shadow-soft hover:shadow-medium transition-all">
-                  <span className="text-xs text-white font-bold">💳</span>
+                <div className="w-8 h-6 bg-gray-800 rounded border border-gray-700 flex items-center justify-center">
+                  <span className="text-xs text-gray-400">💳</span>
                 </div>
-                <div className="w-8 h-5 bg-slate-800 rounded-lg flex items-center justify-center shadow-soft hover:shadow-medium transition-all">
-                  <span className="text-xs text-white font-bold">💳</span>
+                <div className="w-8 h-6 bg-gray-800 rounded border border-gray-700 flex items-center justify-center">
+                  <span className="text-xs text-gray-400">🏦</span>
                 </div>
               </div>
             </div>
