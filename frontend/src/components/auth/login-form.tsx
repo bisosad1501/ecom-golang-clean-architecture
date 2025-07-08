@@ -14,6 +14,7 @@ import { LoginRequest } from '@/types'
 import { toast } from 'sonner'
 import { OAuthButtons } from './OAuthButtons'
 import { getHighContrastClasses, PAGE_CONTRAST } from '@/constants/contrast-system'
+import { canAccessAdminPanel } from '@/lib/permissions'
 
 const loginSchema = z.object({
   email: z.string().email('Please enter a valid email address'),
@@ -45,23 +46,30 @@ export function LoginForm() {
   const onSubmit = async (data: LoginFormData) => {
     try {
       clearError()
-      await login(data as LoginRequest)
+      console.log('Starting login process...')
       
-      // Get fresh user data after login
-      const userRole = useAuthStore.getState().user?.role
-      console.log('User logged in with role:', userRole)
+      const user = await login(data as LoginRequest)
+      console.log('Login successful!')
+      console.log('User logged in with role:', user.role)
+      console.log('Full user data:', user)
       
       toast.success('Welcome back!')
       
-      // Redirect based on user role immediately
-      if (userRole === 'admin') {
-        console.log('Redirecting to admin panel')
+      // Check admin access using permission system
+      const canAccessAdmin = canAccessAdminPanel(user.role)
+      console.log('Can access admin panel:', canAccessAdmin)
+      
+      // Redirect based on user role
+      if (canAccessAdmin) {
+        console.log('Redirecting to admin panel at /admin')
         window.location.href = '/admin' // Force full page navigation for admin
       } else {
-        console.log('Redirecting to home')
+        console.log('Redirecting to home page')
         router.replace('/') // Use replace for cleaner history
       }
+      
     } catch (error: any) {
+      console.error('Login error:', error)
       if (error.code === 'VALIDATION_ERROR' && error.details) {
         // Handle field-specific validation errors
         Object.entries(error.details).forEach(([field, message]) => {

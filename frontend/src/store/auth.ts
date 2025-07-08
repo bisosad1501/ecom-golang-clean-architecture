@@ -1,7 +1,8 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
-import { apiClient, authApi } from '@/lib/api-client'
+import { apiClient } from '@/lib/api'
 import { User, AuthResponse, LoginRequest, RegisterRequest } from '@/types'
+import { AUTH_TOKEN_KEY } from '@/constants'
 
 interface AuthState {
   user: User | null
@@ -13,7 +14,7 @@ interface AuthState {
 }
 
 interface AuthActions {
-  login: (credentials: LoginRequest) => Promise<void>
+  login: (credentials: LoginRequest) => Promise<User>
   register: (data: RegisterRequest) => Promise<void>
   setAuthData: (token: string, user: User) => void
   logout: () => void
@@ -43,7 +44,7 @@ export const useAuthStore = create<AuthStore>()(
         try {
           set({ isLoading: true, error: null })
 
-          const authResponse = await authApi.login(credentials)
+          const authResponse = await apiClient.login(credentials)
           const { user, token } = authResponse
 
           // Store token in API client
@@ -51,7 +52,7 @@ export const useAuthStore = create<AuthStore>()(
           
           // Also store in localStorage for API client to access
           if (typeof window !== 'undefined') {
-            localStorage.setItem('auth_token', token)
+            localStorage.setItem(AUTH_TOKEN_KEY, token)
           }
 
           // Log role for debugging
@@ -64,6 +65,9 @@ export const useAuthStore = create<AuthStore>()(
             isLoading: false,
             error: null,
           })
+
+          // Return user data for immediate use
+          return user
         } catch (error: any) {
           set({
             isLoading: false,
@@ -77,7 +81,7 @@ export const useAuthStore = create<AuthStore>()(
         try {
           set({ isLoading: true, error: null })
 
-          const authResponse = await authApi.register(data)
+          const authResponse = await apiClient.register(data)
           const { user, token } = authResponse
 
           // Store token in API client
@@ -105,7 +109,7 @@ export const useAuthStore = create<AuthStore>()(
         
         // Also store in localStorage for API client to access
         if (typeof window !== 'undefined') {
-          localStorage.setItem('auth_token', token)
+          localStorage.setItem(AUTH_TOKEN_KEY, token)
         }
 
         set({
@@ -119,11 +123,11 @@ export const useAuthStore = create<AuthStore>()(
 
       logout: () => {
         // Clear token from API client
-        apiClient.setToken(null)
+        apiClient.clearToken()
         
         // Clear token from localStorage
         if (typeof window !== 'undefined') {
-          localStorage.removeItem('auth_token')
+          localStorage.removeItem(AUTH_TOKEN_KEY)
         }
 
         set({
@@ -146,11 +150,8 @@ export const useAuthStore = create<AuthStore>()(
           apiClient.setToken(token)
           
           // Fetch fresh user data
-          const response = await apiClient.get<{ data: User }>('/users/profile')
-          console.log('refreshUser response:', response)
-          
-          // Handle nested data structure from backend
-          const user = response.data?.data || response.data
+          const user = await apiClient.getUserProfile()
+          console.log('refreshUser response:', user)
 
           set({
             user,
@@ -198,17 +199,11 @@ export const useAuthStore = create<AuthStore>()(
           // Set token in API client and localStorage
           apiClient.setToken(token)
           if (typeof window !== 'undefined') {
-            localStorage.setItem('auth_token', token)
+            localStorage.setItem(AUTH_TOKEN_KEY, token)
           }
           
           // Verify token by fetching user profile
-          const response = await apiClient.get<{ data: User }>('/users/profile')
-          console.log('checkAuth response:', response)
-          console.log('checkAuth response.data:', response.data)
-          console.log('checkAuth response.data.data:', response.data.data)
-          
-          // Handle nested data structure from backend
-          const user = response.data?.data || response.data
+          const user = await apiClient.getUserProfile()
           console.log('checkAuth extracted user:', user)
 
           set({

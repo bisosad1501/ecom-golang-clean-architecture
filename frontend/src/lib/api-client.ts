@@ -1,4 +1,5 @@
 import { AuthResponse, LoginRequest, RegisterRequest } from '@/types'
+import { AUTH_TOKEN_KEY } from '@/constants'
 
 // API Configuration
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080/api/v1'
@@ -21,7 +22,7 @@ class ApiClient {
     
     // Load token from localStorage on initialization
     if (typeof window !== 'undefined') {
-      this.token = localStorage.getItem('auth_token')
+      this.token = localStorage.getItem(AUTH_TOKEN_KEY)
     }
   }
 
@@ -30,9 +31,9 @@ class ApiClient {
     this.token = token
     if (typeof window !== 'undefined') {
       if (token) {
-        localStorage.setItem('auth_token', token)
+        localStorage.setItem(AUTH_TOKEN_KEY, token)
       } else {
-        localStorage.removeItem('auth_token')
+        localStorage.removeItem(AUTH_TOKEN_KEY)
       }
     }
   }

@@ -1,6 +1,6 @@
 import axios, { AxiosInstance, AxiosRequestConfig, AxiosResponse } from 'axios'
 import { API_BASE_URL, AUTH_TOKEN_KEY, ERROR_MESSAGES } from '@/constants'
-import { ApiResponse, ApiError } from '@/types'
+import { ApiResponse, ApiError, AuthResponse, LoginRequest, RegisterRequest, User } from '@/types'
 
 class ApiClient {
   private client: AxiosInstance
@@ -369,6 +369,41 @@ class ApiClient {
 
   async clearCart(): Promise<ApiResponse<any>> {
     return this.delete('/cart')
+  }
+
+  // Authentication methods
+  async login(credentials: LoginRequest): Promise<AuthResponse> {
+    const response = await this.post<AuthResponse>('/auth/login', credentials)
+    return response.data!
+  }
+
+  async register(userData: RegisterRequest): Promise<AuthResponse> {
+    const response = await this.post<AuthResponse>('/auth/register', userData)
+    return response.data!
+  }
+
+  async logout(): Promise<void> {
+    try {
+      await this.post('/auth/logout')
+    } catch (error) {
+      // Ignore logout errors, just clear local token
+      console.warn('Logout API call failed:', error)
+    } finally {
+      this.clearToken()
+    }
+  }
+
+  async refreshToken(refreshToken: string): Promise<{ token: string; refresh_token: string }> {
+    const response = await this.post<{ token: string; refresh_token: string }>('/auth/refresh', {
+      refresh_token: refreshToken,
+    })
+    return response.data!
+  }
+
+  async getUserProfile(): Promise<User> {
+    const response = await this.get<{ data: User }>('/users/profile')
+    // Handle nested data structure from backend
+    return response.data?.data || response.data
   }
 
   // Get raw axios instance for custom requests
