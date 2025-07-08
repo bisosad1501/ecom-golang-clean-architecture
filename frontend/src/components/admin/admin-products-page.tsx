@@ -14,6 +14,7 @@ import { EditProductForm } from '@/components/forms/edit-product-form'
 import { Product } from '@/types'
 import { toast } from 'sonner'
 import Image from 'next/image'
+import { Badge } from '@/components/ui/badge'
 import {
   DropdownMenu,
   DropdownMenuContent,

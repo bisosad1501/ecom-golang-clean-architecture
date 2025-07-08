@@ -2,7 +2,7 @@
 
 import { useEffect } from 'react'
 import Link from 'next/link'
-import { CheckCircle, Package, Truck, Mail, ArrowRight } from 'lucide-react'
+import { CheckCircle, Package, Truck, Mail, ArrowRight, ShoppingBag, Star, Clock, CreditCard, Shield } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
@@ -65,111 +65,146 @@ export function OrderConfirmationPage() {
   }, [order.id])
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-emerald-50 via-background to-green-50 py-16">
+    <div className="min-h-screen hero-gradient py-16">
       <div className="container mx-auto px-4">
-        <div className="max-w-4xl mx-auto">
-          {/* Success Header */}
-          <div className="text-center mb-16">
+        <div className="max-w-5xl mx-auto">
+          {/* BiHub Success Header */}
+          <div className="text-center mb-16 animate-fade-in">
             {/* Success Animation */}
-            <div className="relative mb-8">
-              <div className="w-32 h-32 bg-gradient-to-br from-emerald-500 to-green-600 rounded-full flex items-center justify-center mx-auto shadow-2xl animate-bounce-slow">
-                <CheckCircle className="h-20 w-20 text-white" />
+            <div className="relative mb-12">
+              <div className="w-40 h-40 bg-gradient-to-br from-emerald-500 to-emerald-600 rounded-full flex items-center justify-center mx-auto shadow-2xl animate-scale-in">
+                <CheckCircle className="h-24 w-24 text-white" />
               </div>
-              <div className="absolute inset-0 w-32 h-32 bg-emerald-400/30 rounded-full mx-auto animate-ping"></div>
+              <div className="absolute -top-4 -right-4 w-16 h-16 bg-gradient-to-br from-orange-500 to-orange-600 rounded-full flex items-center justify-center shadow-xl animate-bounce-slow">
+                <span className="text-white text-2xl font-bold">✓</span>
+              </div>
+              <div className="absolute inset-0 w-40 h-40 bg-emerald-400/20 rounded-full mx-auto animate-ping"></div>
             </div>
 
-            <h1 className="text-5xl lg:text-6xl font-bold text-foreground mb-6">
-              Order <span className="text-gradient bg-gradient-to-r from-emerald-600 to-green-600 bg-clip-text text-transparent">Confirmed!</span>
+            <h1 className="text-5xl lg:text-6xl font-bold text-white mb-6 animate-slide-up">
+              Order <span className="text-gradient">Confirmed!</span>
             </h1>
-            <p className="text-2xl text-muted-foreground mb-8 leading-relaxed">
-              Thank you for your purchase! Your order has been received and is being processed with care.
+            <p className="text-xl text-gray-300 mb-8 leading-relaxed animate-slide-up max-w-3xl mx-auto">
+              Thank you for choosing <span className="text-orange-400 font-bold">BiHub</span>! Your order has been received and is being processed with care.
             </p>
 
-            {/* Order Info */}
-            <div className="flex flex-col sm:flex-row items-center justify-center gap-6 text-lg">
-              <div className="flex items-center gap-2">
-                <Package className="h-5 w-5 text-primary" />
-                <span className="font-semibold">Order #{order.number}</span>
-              </div>
-              <div className="hidden sm:block w-2 h-2 bg-muted-foreground rounded-full"></div>
-              <div className="flex items-center gap-2">
-                <span className="text-muted-foreground">{order.date}</span>
-              </div>
+            {/* BiHub Order Info */}
+            <div className="flex flex-col sm:flex-row items-center justify-center gap-6 text-lg animate-scale-in">
+              <Badge className="bg-emerald-500/20 text-emerald-400 border-emerald-500/30 px-6 py-3 text-lg">
+                <Package className="h-5 w-5 mr-2" />
+                Order #{order.number}
+              </Badge>
+              <Badge className="bg-orange-500/20 text-orange-400 border-orange-500/30 px-6 py-3 text-lg">
+                <Clock className="h-5 w-5 mr-2" />
+                {order.date}
+              </Badge>
+              <Badge className="bg-blue-500/20 text-blue-400 border-blue-500/30 px-6 py-3 text-lg">
+                <CreditCard className="h-5 w-5 mr-2" />
+                {formatPrice(order.total)}
+              </Badge>
             </div>
           </div>
 
-          {/* Order Status */}
-          <Card className="mb-8">
+          {/* BiHub Order Status */}
+          <Card className="mb-8 bg-gray-900/50 border-gray-700 hover:border-orange-500/50 transition-all duration-300 animate-slide-up">
             <CardHeader>
-              <CardTitle className="flex items-center space-x-2">
-                <Package className="h-5 w-5" />
+              <CardTitle className="flex items-center space-x-3 text-white">
+                <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-emerald-500 to-emerald-600 flex items-center justify-center">
+                  <Package className="h-5 w-5 text-white" />
+                </div>
                 <span>Order Status</span>
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="flex items-center justify-between">
+              <div className="flex items-center justify-between mb-6">
                 <div className="flex items-center space-x-4">
-                  <div className="w-8 h-8 bg-green-100 rounded-full flex items-center justify-center">
-                    <CheckCircle className="h-5 w-5 text-green-600" />
+                  <div className="w-12 h-12 bg-gradient-to-br from-emerald-500 to-emerald-600 rounded-full flex items-center justify-center">
+                    <CheckCircle className="h-6 w-6 text-white" />
                   </div>
                   <div>
-                    <p className="font-medium">Order Confirmed</p>
-                    <p className="text-sm text-gray-600">We've received your order</p>
+                    <p className="font-bold text-white text-lg">Order Confirmed</p>
+                    <p className="text-gray-400">We've received your BiHub order and it's being processed</p>
                   </div>
                 </div>
-                <Badge variant="success">Confirmed</Badge>
+                <Badge className="bg-emerald-500/20 text-emerald-400 border-emerald-500/30 px-4 py-2">
+                  Confirmed
+                </Badge>
               </div>
-              
-              <div className="mt-6 flex items-center space-x-4 text-sm text-gray-600">
-                <div className="flex items-center space-x-2">
-                  <Truck className="h-4 w-4" />
-                  <span>Estimated delivery: {order.estimated_delivery}</span>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="flex items-center space-x-3 p-3 bg-gray-800 rounded-lg">
+                  <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center">
+                    <Truck className="h-4 w-4 text-white" />
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium text-white">Estimated delivery</p>
+                    <p className="text-xs text-gray-400">{order.estimated_delivery}</p>
+                  </div>
                 </div>
-                <div className="flex items-center space-x-2">
-                  <Mail className="h-4 w-4" />
-                  <span>Confirmation email sent</span>
+                <div className="flex items-center space-x-3 p-3 bg-gray-800 rounded-lg">
+                  <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-purple-500 to-purple-600 flex items-center justify-center">
+                    <Mail className="h-4 w-4 text-white" />
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium text-white">Confirmation email</p>
+                    <p className="text-xs text-gray-400">Sent to your email</p>
+                  </div>
                 </div>
               </div>
             </CardContent>
           </Card>
 
-          {/* Order Summary */}
-          <Card className="mb-8">
+          {/* BiHub Order Summary */}
+          <Card className="mb-8 bg-gray-900/50 border-gray-700 hover:border-orange-500/50 transition-all duration-300 animate-slide-up">
             <CardHeader>
-              <CardTitle>Order Summary</CardTitle>
+              <CardTitle className="text-white flex items-center gap-3">
+                <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-orange-500 to-orange-600 flex items-center justify-center">
+                  <ShoppingBag className="h-5 w-5 text-white" />
+                </div>
+                Order Summary
+              </CardTitle>
             </CardHeader>
             <CardContent>
               <div className="space-y-4">
                 {order.items.map((item) => (
-                  <div key={item.id} className="flex items-center space-x-4">
-                    <div className="w-16 h-16 bg-gray-100 rounded-md flex items-center justify-center">
-                      <Package className="h-8 w-8 text-gray-400" />
+                  <div key={item.id} className="flex items-center space-x-4 p-4 bg-gray-800 rounded-lg hover:bg-gray-750 transition-colors">
+                    <div className="w-16 h-16 bg-gradient-to-br from-gray-700 to-gray-800 rounded-lg flex items-center justify-center border border-gray-600">
+                      <Package className="h-8 w-8 text-orange-400" />
                     </div>
                     <div className="flex-1">
-                      <h4 className="font-medium">{item.name}</h4>
-                      <p className="text-sm text-gray-600">Qty: {item.quantity}</p>
+                      <h4 className="font-bold text-white">{item.name}</h4>
+                      <div className="flex items-center gap-2 mt-1">
+                        <Badge className="bg-orange-500/20 text-orange-400 border-orange-500/30 text-xs">
+                          Qty: {item.quantity}
+                        </Badge>
+                        <div className="flex items-center gap-1">
+                          {[...Array(5)].map((_, i) => (
+                            <Star key={i} className="h-3 w-3 fill-orange-400 text-orange-400" />
+                          ))}
+                        </div>
+                      </div>
                     </div>
-                    <p className="font-medium">{formatPrice(item.price)}</p>
+                    <p className="font-bold text-orange-400 text-lg">{formatPrice(item.price)}</p>
                   </div>
                 ))}
               </div>
-              
-              <div className="border-t mt-6 pt-6 space-y-2">
-                <div className="flex justify-between">
+
+              <div className="border-t border-gray-700 mt-6 pt-6 space-y-3">
+                <div className="flex justify-between text-gray-300">
                   <span>Subtotal</span>
-                  <span>{formatPrice(order.subtotal)}</span>
+                  <span className="font-semibold">{formatPrice(order.subtotal)}</span>
                 </div>
-                <div className="flex justify-between">
+                <div className="flex justify-between text-gray-300">
                   <span>Shipping</span>
-                  <span>{formatPrice(order.shipping)}</span>
+                  <span className="font-semibold">{formatPrice(order.shipping)}</span>
                 </div>
-                <div className="flex justify-between">
+                <div className="flex justify-between text-gray-300">
                   <span>Tax</span>
-                  <span>{formatPrice(order.tax)}</span>
+                  <span className="font-semibold">{formatPrice(order.tax)}</span>
                 </div>
-                <div className="flex justify-between text-lg font-semibold border-t pt-2">
-                  <span>Total</span>
-                  <span>{formatPrice(order.total)}</span>
+                <div className="flex justify-between text-xl font-bold border-t border-gray-700 pt-3">
+                  <span className="text-white">Total</span>
+                  <span className="text-orange-400">{formatPrice(order.total)}</span>
                 </div>
               </div>
             </CardContent>
@@ -238,36 +273,47 @@ export function OrderConfirmationPage() {
             </CardContent>
           </Card>
 
-          {/* Action Buttons */}
-          <div className="flex flex-col sm:flex-row gap-4 justify-center">
+          {/* BiHub Action Buttons */}
+          <div className="flex flex-col sm:flex-row gap-6 justify-center animate-scale-in">
             {isAuthenticated && (
-              <Button variant="outline" asChild>
-                <Link href="/account">
+              <Button variant="outline" size="lg" className="border-gray-600 text-gray-300 hover:bg-gray-800 hover:text-white px-8 py-4" asChild>
+                <Link href="/profile">
+                  <Package className="mr-3 h-5 w-5" />
                   View Order History
                 </Link>
               </Button>
             )}
-            
-            <Button asChild>
+
+            <Button size="lg" className="btn-gradient px-8 py-4" asChild>
               <Link href="/products">
+                <ShoppingBag className="mr-3 h-5 w-5" />
                 Continue Shopping
-                <ArrowRight className="ml-2 h-4 w-4" />
+                <ArrowRight className="ml-3 h-5 w-5" />
               </Link>
             </Button>
           </div>
 
-          {/* Support */}
-          <div className="text-center mt-12 p-6 bg-gray-100 rounded-lg">
-            <h3 className="font-semibold mb-2">Need Help?</h3>
-            <p className="text-sm text-gray-600 mb-4">
-              If you have any questions about your order, our customer support team is here to help.
+          {/* BiHub Support */}
+          <div className="text-center mt-16 p-8 bg-gray-900/50 border border-gray-700 rounded-2xl animate-fade-in">
+            <div className="w-16 h-16 rounded-full bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center mx-auto mb-4">
+              <Shield className="h-8 w-8 text-white" />
+            </div>
+            <h3 className="font-bold text-white mb-3 text-xl">Need Help with Your BiHub Order?</h3>
+            <p className="text-gray-300 mb-6 max-w-2xl mx-auto">
+              Our BiHub customer support team is available 24/7 to assist you with any questions about your order, shipping, or returns.
             </p>
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
-              <Button variant="outline" size="sm" asChild>
-                <Link href="/contact">Contact Support</Link>
+              <Button variant="outline" className="border-gray-600 text-gray-300 hover:bg-gray-800 hover:text-white" asChild>
+                <Link href="/contact">
+                  <Mail className="mr-2 h-4 w-4" />
+                  Contact Support
+                </Link>
               </Button>
-              <Button variant="outline" size="sm" asChild>
-                <Link href="/help">View FAQ</Link>
+              <Button variant="outline" className="border-gray-600 text-gray-300 hover:bg-gray-800 hover:text-white" asChild>
+                <Link href="/help">
+                  <Package className="mr-2 h-4 w-4" />
+                  View FAQ
+                </Link>
               </Button>
             </div>
           </div>
