@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"fmt"
 	"net/http"
 
 	"ecom-golang-clean-architecture/internal/domain/entities"
@@ -74,6 +75,18 @@ func (h *AdminHandler) GetUsers(c *gin.Context) {
 		})
 		return
 	}
+
+	// Set default values if not provided
+	if req.Limit == 0 {
+		req.Limit = 20
+	}
+	if req.Offset < 0 {
+		req.Offset = 0
+	}
+
+	// Debug logging
+	fmt.Printf("DEBUG GetUsers - Limit: %d, Offset: %d, Status: %v, Role: %v, Search: %s\n", 
+		req.Limit, req.Offset, req.Status, req.Role, req.Search)
 
 	users, err := h.adminUseCase.GetUsers(c.Request.Context(), req)
 	if err != nil {

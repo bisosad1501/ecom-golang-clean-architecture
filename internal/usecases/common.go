@@ -12,6 +12,11 @@ type PaginationInfo struct {
 
 // NewPaginationInfo creates pagination info
 func NewPaginationInfo(offset, limit int, total int64) *PaginationInfo {
+	// Prevent division by zero
+	if limit <= 0 {
+		limit = 20 // default limit
+	}
+
 	currentPage := (offset / limit) + 1
 	totalPages := int((total + int64(limit) - 1) / int64(limit))
 
@@ -47,5 +52,3 @@ type TopCategoriesResponse struct {
 	Period     string        `json:"period"`
 	Total      int64         `json:"total"`
 }
-
-

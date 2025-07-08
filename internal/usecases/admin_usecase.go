@@ -2,6 +2,7 @@ package usecases
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	"ecom-golang-clean-architecture/internal/domain/entities"
@@ -1066,8 +1067,20 @@ func (uc *adminUseCase) GetProductAnalytics(ctx context.Context, productID uuid.
 
 // GetUsers gets users for admin
 func (uc *adminUseCase) GetUsers(ctx context.Context, req AdminUsersRequest) (*AdminUsersResponse, error) {
-	// Mock implementation for admin users
-	users := []struct {
+	// Get total count first
+	total, err := uc.userRepo.Count(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to count users: %w", err)
+	}
+
+	// Get users with pagination
+	userEntities, err := uc.userRepo.List(ctx, req.Limit, req.Offset)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get users: %w", err)
+	}
+
+	// Transform entities to response format
+	users := make([]struct {
 		ID          uuid.UUID           `json:"id"`
 		Email       string              `json:"email"`
 		FirstName   string              `json:"first_name"`
@@ -1078,34 +1091,42 @@ func (uc *adminUseCase) GetUsers(ctx context.Context, req AdminUsersRequest) (*A
 		OrderCount  int64               `json:"order_count"`
 		TotalSpent  float64             `json:"total_spent"`
 		CreatedAt   time.Time           `json:"created_at"`
-	}{
-		{
-			ID:         uuid.New(),
-			Email:      "john@example.com",
-			FirstName:  "John",
-			LastName:   "Doe",
-			Role:       entities.UserRoleCustomer,
-			Status:     entities.UserStatusActive,
-			OrderCount: 5,
-			TotalSpent: 1250.75,
-			LastLogin:  &[]time.Time{time.Now().AddDate(0, 0, -1)}[0],
-			CreatedAt:  time.Now().AddDate(0, -3, 0),
-		},
-		{
-			ID:         uuid.New(),
-			Email:      "jane@example.com",
-			FirstName:  "Jane",
-			LastName:   "Smith",
-			Role:       entities.UserRoleCustomer,
-			Status:     entities.UserStatusActive,
-			OrderCount: 12,
-			TotalSpent: 3450.25,
-			LastLogin:  &[]time.Time{time.Now().AddDate(0, 0, -2)}[0],
-			CreatedAt:  time.Now().AddDate(0, -6, 0),
-		},
+	}, len(userEntities))
+
+	for i, user := range userEntities {
+		// Convert user status to UserStatus enum
+		var status entities.UserStatus
+		if user.IsActive {
+			status = entities.UserStatusActive
+		} else {
+			status = entities.UserStatusInactive
+		}
+
+		users[i] = struct {
+			ID          uuid.UUID           `json:"id"`
+			Email       string              `json:"email"`
+			FirstName   string              `json:"first_name"`
+			LastName    string              `json:"last_name"`
+			Role        entities.UserRole   `json:"role"`
+			Status      entities.UserStatus `json:"status"`
+			LastLogin   *time.Time          `json:"last_login"`
+			OrderCount  int64               `json:"order_count"`
+			TotalSpent  float64             `json:"total_spent"`
+			CreatedAt   time.Time           `json:"created_at"`
+		}{
+			ID:         user.ID,
+			Email:      user.Email,
+			FirstName:  user.FirstName,
+			LastName:   user.LastName,
+			Role:       user.Role,
+			Status:     status,
+			LastLogin:  nil, // TODO: Implement last login tracking
+			OrderCount: 0, // TODO: Get actual order count from order repository
+			TotalSpent: 0, // TODO: Get actual total spent from order repository  
+			CreatedAt:  user.CreatedAt,
+		}
 	}
 
-	total := int64(len(users))
 	pagination := NewPaginationInfo(req.Offset, req.Limit, total)
 
 	response := &AdminUsersResponse{

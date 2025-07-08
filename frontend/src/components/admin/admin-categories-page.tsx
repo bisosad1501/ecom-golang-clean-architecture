@@ -118,7 +118,7 @@ export function AdminCategoriesPage() {
   }
 
   const getChildrenCount = (parentId: string) => {
-    return childCategories.filter(cat => cat.parent_id === parentId).length
+    return categories?.filter((cat: Category) => cat.parent_id === parentId).length || 0
   }
 
   if (showAddForm) {
@@ -369,7 +369,7 @@ export function AdminCategoriesPage() {
                     )}
                   </div>
                 </div>
-
+              </div>
               {/* Actions */}
               <div className={cn(
                 'flex items-center gap-2 mt-4',

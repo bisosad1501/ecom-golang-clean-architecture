@@ -100,12 +100,22 @@ export default function AdminUsersPage() {
   }
 
   const getTotalStats = () => {
+    // Use pagination.total for total users, not just current page
     const totalUsers = pagination?.total || 0
-    const activeUsers = users.filter(user => user.is_active).length
-    const adminUsers = users.filter(user => user.role === 'admin').length
-    const customerUsers = users.filter(user => user.role === 'customer').length
+    const usersArray = Array.isArray(users) ? users : []
     
-    return { totalUsers, activeUsers, adminUsers, customerUsers }
+    // For stats based on current page data (since we don't have full dataset)
+    // In a real app, you'd want separate API calls for these stats
+    const activeUsers = usersArray.filter(user => user.is_active).length
+    const adminUsers = usersArray.filter(user => user.role === 'admin').length
+    const customerUsers = usersArray.filter(user => user.role === 'customer').length
+    
+    return { 
+      totalUsers, 
+      activeUsers, 
+      adminUsers, 
+      customerUsers 
+    }
   }
 
   const stats = getTotalStats()
@@ -325,13 +335,13 @@ export default function AdminUsersPage() {
             </div>
           ))}
         </div>
-      ) : users.length > 0 ? (
+      ) : Array.isArray(users) && users.length > 0 ? (
         <div className={cn(
           viewMode === 'grid'
             ? 'grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6'
             : 'space-y-4'
         )}>
-          {users.map((user) => (
+          {Array.isArray(users) && users.map((user) => (
             <div
               key={user.id}
               className={cn(

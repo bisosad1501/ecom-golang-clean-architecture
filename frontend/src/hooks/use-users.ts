@@ -57,14 +57,29 @@ export function useUsers(params: {
         console.log('useUsers - Response data field:', response.data.data)
         console.log('useUsers - Response pagination field:', response.data.pagination)
         
-        // Fix: API response structure is already correct
+        // Fix: API response structure - backend returns {message, data: {users, total, pagination}}
+        const responseData = response.data.data || response.data
+        
+        // Transform backend user data to match frontend User interface
+        const transformUser = (backendUser: any): User => ({
+          ...backendUser,
+          is_active: backendUser.status === 'active', // Convert status to is_active
+          status: backendUser.status === 'active' ? 'active' : 'inactive' as any, // Keep status for compatibility
+        })
+        
+        const users = Array.isArray(responseData.users) 
+          ? responseData.users.map(transformUser)
+          : Array.isArray(responseData) 
+            ? responseData.map(transformUser) 
+            : []
+        
         const finalData: PaginatedResponse<User> = {
-          data: response.data.data || response.data || [],
-          pagination: response.data.pagination || {
+          data: users,
+          pagination: responseData.pagination || {
             page: 1,
             limit: 20,
-            total: Array.isArray(response.data) ? response.data.length : 0,
-            total_pages: 1,
+            total: responseData.total || users.length,
+            total_pages: Math.ceil((responseData.total || users.length) / 20),
             has_next: false,
             has_prev: false,
           }
