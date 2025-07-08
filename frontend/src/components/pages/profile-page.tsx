@@ -1,12 +1,11 @@
 'use client'
 
-import { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import Image from 'next/image'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { Badge } from '@/components/ui/badge'
-import { Skeleton } from '@/components/ui/skeleton'
+import { Textarea } from '@/components/ui/textarea'
+import { Label } from '@/components/ui/label'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import {
   Select,
@@ -16,10 +15,16 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from '@/components/ui/dialog'
+import {
   User,
   Mail,
   Phone,
-  MapPin,
   Calendar,
   Edit,
   Save,
@@ -27,34 +32,49 @@ import {
   Camera,
   Shield,
   ShoppingBag,
-  Heart,
-  Settings,
-  CreditCard,
-  Truck,
-  Bell,
   Lock,
+  Package,
+  Clock,
+  CheckCircle,
+  Upload,
+  Globe,
+  Award,
+  Activity,
+  DollarSign,
+  Truck,
 } from 'lucide-react'
 import { useProfile, useUpdateProfile, useChangePassword } from '@/hooks/use-users'
 import { useOrders } from '@/hooks/use-orders'
-import { formatDate, formatPrice } from '@/lib/utils'
+import { formatDate, formatPrice, cn } from '@/lib/utils'
 import { toast } from 'sonner'
+
+// BiHub Components
+import {
+  BiHubAdminCard,
+  BiHubStatusBadge,
+  BiHubStatCard,
+} from '@/components/admin/bihub-admin-components'
+import { BIHUB_ADMIN_THEME } from '@/constants/admin-theme'
 
 export default function ProfilePage() {
   const [isEditing, setIsEditing] = useState(false)
   const [showPasswordForm, setShowPasswordForm] = useState(false)
+  const [showAvatarUpload, setShowAvatarUpload] = useState(false)
+  const [activeTab, setActiveTab] = useState('overview')
+
   const [profileData, setProfileData] = useState({
     first_name: '',
     last_name: '',
-    phone: '',
     profile: {
+      phone: '',
       date_of_birth: '',
       gender: '',
-      address: '',
-      city: '',
-      country: '',
-      postal_code: '',
+      bio: '',
+      website: '',
+      avatar_url: '',
     }
   })
+
   const [passwordData, setPasswordData] = useState({
     current_password: '',
     new_password: '',
@@ -62,26 +82,33 @@ export default function ProfilePage() {
   })
 
   const { data: user, isLoading: userLoading } = useProfile()
-  const { data: ordersData, isLoading: ordersLoading } = useOrders({ limit: 5 })
+  const { data: ordersData, isLoading: ordersLoading } = useOrders({ limit: 10 })
   const updateProfile = useUpdateProfile()
   const changePassword = useChangePassword()
 
   const orders = ordersData?.data || []
 
+  // Calculate user stats
+  const userStats = {
+    totalOrders: orders.length,
+    completedOrders: orders.filter(order => order.status === 'delivered').length,
+    totalSpent: orders.reduce((sum, order) => sum + order.total_amount, 0),
+    memberSince: user?.created_at ? new Date(user.created_at).getFullYear() : new Date().getFullYear(),
+  }
+
   // Initialize form data when user data loads
-  React.useEffect(() => {
+  useEffect(() => {
     if (user) {
       setProfileData({
         first_name: user.first_name || '',
         last_name: user.last_name || '',
-        phone: user.phone || '',
         profile: {
+          phone: user.profile?.phone || '',
           date_of_birth: user.profile?.date_of_birth || '',
           gender: user.profile?.gender || '',
-          address: user.profile?.address || '',
-          city: user.profile?.city || '',
-          country: user.profile?.country || '',
-          postal_code: user.profile?.postal_code || '',
+          bio: user.profile?.bio || '',
+          website: user.profile?.website || '',
+          avatar_url: user.profile?.avatar_url || '',
         }
       })
     }
@@ -89,10 +116,19 @@ export default function ProfilePage() {
 
   const handleProfileUpdate = async () => {
     try {
-      await updateProfile.mutateAsync(profileData)
+      // Only send data that backend supports
+      const updateData = {
+        first_name: profileData.first_name,
+        last_name: profileData.last_name,
+        phone: profileData.profile.phone,
+      }
+
+      await updateProfile.mutateAsync(updateData)
       setIsEditing(false)
+      toast.success('Profile updated successfully!')
     } catch (error) {
       console.error('Failed to update profile:', error)
+      toast.error('Failed to update profile')
     }
   }
 
@@ -110,59 +146,75 @@ export default function ProfilePage() {
         confirm_password: '',
       })
       setShowPasswordForm(false)
+      toast.success('Password changed successfully!')
     } catch (error) {
       console.error('Failed to change password:', error)
+      toast.error('Failed to change password')
     }
   }
 
-  const getOrderStatusVariant = (status: string) => {
+  const getOrderStatusColor = (status: string) => {
     switch (status.toLowerCase()) {
       case 'delivered':
-        return 'default'
+        return 'success'
       case 'shipped':
-        return 'default'
+        return 'info'
       case 'processing':
-        return 'secondary'
+        return 'warning'
       case 'pending':
-        return 'secondary'
+        return 'error'
       case 'cancelled':
-        return 'destructive'
+        return 'error'
       default:
-        return 'outline'
+        return 'default'
+    }
+  }
+
+  const getOrderStatusIcon = (status: string) => {
+    switch (status.toLowerCase()) {
+      case 'delivered':
+        return <CheckCircle className="h-4 w-4" />
+      case 'shipped':
+        return <Truck className="h-4 w-4" />
+      case 'processing':
+        return <Package className="h-4 w-4" />
+      case 'pending':
+        return <Clock className="h-4 w-4" />
+      case 'cancelled':
+        return <X className="h-4 w-4" />
+      default:
+        return <ShoppingBag className="h-4 w-4" />
     }
   }
 
   if (userLoading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-background via-muted/20 to-background py-12">
+      <div className="min-h-screen bg-gray-950 py-8">
         <div className="container mx-auto px-4">
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+          <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
+            {/* Profile Card Skeleton */}
             <div className="lg:col-span-1">
-              <Card variant="elevated" className="border-0 shadow-large">
-                <CardContent className="p-8">
-                  <div className="animate-pulse">
-                    <div className="w-32 h-32 bg-muted rounded-full mx-auto mb-6"></div>
-                    <div className="space-y-3">
-                      <div className="h-6 bg-muted rounded w-3/4 mx-auto"></div>
-                      <div className="h-4 bg-muted rounded w-1/2 mx-auto"></div>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
+              <div className={cn(BIHUB_ADMIN_THEME.components.card.base, 'p-6 animate-pulse')}>
+                <div className="w-24 h-24 bg-gray-700 rounded-full mx-auto mb-4"></div>
+                <div className="space-y-2">
+                  <div className="h-6 bg-gray-700 rounded w-3/4 mx-auto"></div>
+                  <div className="h-4 bg-gray-700 rounded w-1/2 mx-auto"></div>
+                </div>
+              </div>
             </div>
-            <div className="lg:col-span-2">
-              <Card variant="elevated" className="border-0 shadow-large">
-                <CardContent className="p-8">
-                  <div className="animate-pulse space-y-6">
-                    {[...Array(4)].map((_, i) => (
-                      <div key={i} className="space-y-3">
-                        <div className="h-4 bg-muted rounded w-1/4"></div>
-                        <div className="h-10 bg-muted rounded"></div>
-                      </div>
-                    ))}
-                  </div>
-                </CardContent>
-              </Card>
+
+            {/* Content Skeleton */}
+            <div className="lg:col-span-3">
+              <div className={cn(BIHUB_ADMIN_THEME.components.card.base, 'p-6 animate-pulse')}>
+                <div className="space-y-4">
+                  {[...Array(4)].map((_, i) => (
+                    <div key={i} className="space-y-2">
+                      <div className="h-4 bg-gray-700 rounded w-1/4"></div>
+                      <div className="h-10 bg-gray-700 rounded"></div>
+                    </div>
+                  ))}
+                </div>
+              </div>
             </div>
           </div>
         </div>
@@ -172,14 +224,17 @@ export default function ProfilePage() {
 
   if (!user) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-background via-muted/20 to-background py-12">
-        <div className="container mx-auto px-4 text-center">
-          <h1 className="text-3xl font-bold text-destructive mb-4">Access Denied</h1>
-          <p className="text-muted-foreground mb-8">
+      <div className="min-h-screen bg-gray-950 flex items-center justify-center">
+        <div className="text-center">
+          <div className="w-16 h-16 bg-gradient-to-br from-red-500 to-red-600 rounded-full flex items-center justify-center mx-auto mb-6">
+            <Lock className="h-8 w-8 text-white" />
+          </div>
+          <h1 className="text-3xl font-bold text-white mb-4">Access Denied</h1>
+          <p className="text-gray-400 mb-8">
             You need to be logged in to view your profile.
           </p>
-          <Button asChild>
-            <a href="/auth/login">Login</a>
+          <Button className="bg-[#FF9000] hover:bg-[#e67e00] text-white">
+            <a href="/auth/login">Login to BiHub</a>
           </Button>
         </div>
       </div>
@@ -187,210 +242,371 @@ export default function ProfilePage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-background via-muted/20 to-background py-12">
+    <div className="min-h-screen bg-gray-950 py-8">
       <div className="container mx-auto px-4">
-        {/* Header */}
-        <div className="mb-12">
-          <div className="flex items-center gap-3 mb-6">
-            <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-primary-500 to-violet-600 flex items-center justify-center shadow-large">
-              <User className="h-6 w-6 text-white" />
+        {/* BiHub Profile Header */}
+        <div className="relative overflow-hidden bg-gradient-to-br from-[#FF9000] via-[#e67e00] to-[#cc6600] rounded-2xl shadow-2xl mb-8">
+          <div className="absolute inset-0 bg-black/10"></div>
+          <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full -translate-y-32 translate-x-32"></div>
+          <div className="absolute bottom-0 left-0 w-48 h-48 bg-white/5 rounded-full translate-y-24 -translate-x-24"></div>
+
+          <div className="relative p-8">
+            <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-6">
+              <div className="text-white">
+                <div className="flex items-center gap-3 mb-4">
+                  <div className="w-12 h-12 rounded-2xl bg-white/20 backdrop-blur-sm flex items-center justify-center">
+                    <User className="h-6 w-6 text-white" />
+                  </div>
+                  <span className="text-white/90 font-semibold">BIHUB PROFILE</span>
+                </div>
+
+                <h1 className="text-4xl lg:text-5xl font-bold mb-4">
+                  Welcome back, <span className="text-white/90">{user.first_name}!</span>
+                </h1>
+                <p className="text-xl text-white/80 leading-relaxed">
+                  Manage your BiHub account settings and view your order history
+                </p>
+              </div>
+
+              <div className="flex flex-col sm:flex-row gap-4">
+                <div className="bg-white/10 backdrop-blur-sm rounded-2xl p-6 text-center">
+                  <p className="text-white/70 text-sm font-medium">Member Since</p>
+                  <p className="text-white font-semibold text-lg">
+                    {userStats.memberSince}
+                  </p>
+                </div>
+
+                <div className="bg-white/10 backdrop-blur-sm rounded-2xl p-6 text-center">
+                  <p className="text-white/70 text-sm font-medium">Total Orders</p>
+                  <p className="text-white font-semibold text-lg">
+                    {userStats.totalOrders}
+                  </p>
+                </div>
+              </div>
             </div>
-            <span className="text-primary font-semibold">MY PROFILE</span>
           </div>
-          
-          <h1 className="text-4xl lg:text-5xl font-bold text-foreground mb-4">
-            Welcome back, <span className="text-gradient">{user.first_name}</span>
-          </h1>
-          <p className="text-xl text-muted-foreground">
-            Manage your account settings and view your order history
-          </p>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        {/* Stats Cards */}
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+          <BiHubStatCard
+            title="Total Orders"
+            value={userStats.totalOrders}
+            icon={<ShoppingBag className="h-8 w-8 text-white" />}
+            color="primary"
+          />
+          <BiHubStatCard
+            title="Completed Orders"
+            value={userStats.completedOrders}
+            icon={<CheckCircle className="h-8 w-8 text-white" />}
+            color="success"
+          />
+          <BiHubStatCard
+            title="Total Spent"
+            value={formatPrice(userStats.totalSpent)}
+            icon={<DollarSign className="h-8 w-8 text-white" />}
+            color="info"
+          />
+          <BiHubStatCard
+            title="Member Since"
+            value={userStats.memberSince}
+            icon={<Award className="h-8 w-8 text-white" />}
+            color="warning"
+          />
+        </div>
+
+        <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
           {/* Profile Sidebar */}
           <div className="lg:col-span-1">
-            <Card variant="elevated" className="border-0 shadow-large">
-              <CardContent className="p-8 text-center">
+            <BiHubAdminCard
+              title="Profile"
+              subtitle="Your BiHub account information"
+              icon={<User className="h-5 w-5 text-white" />}
+            >
+              <div className="text-center">
                 {/* Avatar */}
                 <div className="relative mb-6">
-                  <div className="w-32 h-32 rounded-full overflow-hidden mx-auto bg-muted flex items-center justify-center">
-                    {user.avatar ? (
+                  <div className="w-24 h-24 rounded-full overflow-hidden mx-auto bg-gray-700 flex items-center justify-center">
+                    {user.profile?.avatar_url ? (
                       <Image
-                        src={user.avatar}
+                        src={user.profile.avatar_url}
                         alt={`${user.first_name} ${user.last_name}`}
-                        width={128}
-                        height={128}
+                        width={96}
+                        height={96}
                         className="object-cover"
                       />
                     ) : (
-                      <User className="w-16 h-16 text-muted-foreground" />
+                      <User className="w-12 h-12 text-gray-400" />
                     )}
                   </div>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    className="absolute bottom-0 right-0 rounded-full w-10 h-10 p-0"
-                  >
-                    <Camera className="h-4 w-4" />
-                  </Button>
+
+                  <Dialog open={showAvatarUpload} onOpenChange={setShowAvatarUpload}>
+                    <DialogTrigger asChild>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="absolute bottom-0 right-0 rounded-full w-8 h-8 p-0 bg-[#FF9000] hover:bg-[#e67e00] border-[#FF9000] text-white"
+                      >
+                        <Camera className="h-4 w-4" />
+                      </Button>
+                    </DialogTrigger>
+                    <DialogContent className="bg-gray-900 border-gray-700">
+                      <DialogHeader>
+                        <DialogTitle className="text-white">Update Profile Picture</DialogTitle>
+                      </DialogHeader>
+                      <div className="space-y-4">
+                        <div className="flex items-center justify-center w-full">
+                          <label className="flex flex-col items-center justify-center w-full h-32 border-2 border-gray-600 border-dashed rounded-lg cursor-pointer bg-gray-800 hover:bg-gray-700">
+                            <div className="flex flex-col items-center justify-center pt-5 pb-6">
+                              <Upload className="w-8 h-8 mb-4 text-gray-400" />
+                              <p className="mb-2 text-sm text-gray-400">
+                                <span className="font-semibold">Click to upload</span> or drag and drop
+                              </p>
+                              <p className="text-xs text-gray-400">PNG, JPG or GIF (MAX. 800x400px)</p>
+                            </div>
+                            <input type="file" className="hidden" accept="image/*" />
+                          </label>
+                        </div>
+                      </div>
+                    </DialogContent>
+                  </Dialog>
                 </div>
 
                 {/* User Info */}
-                <h2 className="text-2xl font-bold text-foreground mb-2">
+                <h2 className="text-xl font-bold text-white mb-2">
                   {user.first_name} {user.last_name}
                 </h2>
-                <p className="text-muted-foreground mb-4">{user.email}</p>
-                
-                <div className="flex items-center justify-center gap-2 mb-6">
-                  <Badge variant="default" className="font-semibold">
+                <p className="text-gray-400 mb-4">{user.email}</p>
+
+                <div className="flex flex-col gap-2 mb-6">
+                  <BiHubStatusBadge status="info">
                     <Shield className="h-3 w-3 mr-1" />
                     {user.role.charAt(0).toUpperCase() + user.role.slice(1)}
-                  </Badge>
-                  <Badge variant={user.is_active ? "default" : "secondary"}>
-                    {user.is_active ? 'Active' : 'Inactive'}
-                  </Badge>
+                  </BiHubStatusBadge>
+                  <BiHubStatusBadge status={user.is_active ? "success" : "error"}>
+                    {user.is_active ? 'Active Account' : 'Inactive Account'}
+                  </BiHubStatusBadge>
                 </div>
 
-                {/* Quick Stats */}
-                <div className="grid grid-cols-2 gap-4 text-center">
-                  <div>
-                    <div className="text-2xl font-bold text-primary">{orders.length}</div>
-                    <div className="text-sm text-muted-foreground">Orders</div>
-                  </div>
-                  <div>
-                    <div className="text-2xl font-bold text-emerald-600">
-                      {formatDate(user.created_at, { month: 'short', year: 'numeric' })}
-                    </div>
-                    <div className="text-sm text-muted-foreground">Member Since</div>
-                  </div>
+                {/* Quick Actions */}
+                <div className="space-y-2">
+                  <Button
+                    onClick={() => setIsEditing(true)}
+                    className="w-full bg-[#FF9000] hover:bg-[#e67e00] text-white"
+                  >
+                    <Edit className="h-4 w-4 mr-2" />
+                    Edit Profile
+                  </Button>
+                  <Button
+                    onClick={() => setShowPasswordForm(true)}
+                    variant="outline"
+                    className="w-full border-gray-600 text-gray-300 hover:text-white hover:bg-gray-800"
+                  >
+                    <Lock className="h-4 w-4 mr-2" />
+                    Change Password
+                  </Button>
                 </div>
-              </CardContent>
-            </Card>
+              </div>
+            </BiHubAdminCard>
           </div>
 
           {/* Main Content */}
-          <div className="lg:col-span-2">
-            <Tabs defaultValue="profile" className="space-y-8">
-              <TabsList className="grid w-full grid-cols-4">
-                <TabsTrigger value="profile" className="flex items-center gap-2">
+          <div className="lg:col-span-3">
+            <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
+              <TabsList className="grid w-full grid-cols-4 bg-gray-800 border-gray-700">
+                <TabsTrigger
+                  value="overview"
+                  className="flex items-center gap-2 data-[state=active]:bg-[#FF9000] data-[state=active]:text-white"
+                >
                   <User className="h-4 w-4" />
-                  Profile
+                  Overview
                 </TabsTrigger>
-                <TabsTrigger value="orders" className="flex items-center gap-2">
+                <TabsTrigger
+                  value="orders"
+                  className="flex items-center gap-2 data-[state=active]:bg-[#FF9000] data-[state=active]:text-white"
+                >
                   <ShoppingBag className="h-4 w-4" />
                   Orders
                 </TabsTrigger>
-                <TabsTrigger value="security" className="flex items-center gap-2">
+                <TabsTrigger
+                  value="profile"
+                  className="flex items-center gap-2 data-[state=active]:bg-[#FF9000] data-[state=active]:text-white"
+                >
+                  <Edit className="h-4 w-4" />
+                  Edit Profile
+                </TabsTrigger>
+                <TabsTrigger
+                  value="security"
+                  className="flex items-center gap-2 data-[state=active]:bg-[#FF9000] data-[state=active]:text-white"
+                >
                   <Lock className="h-4 w-4" />
                   Security
                 </TabsTrigger>
-                <TabsTrigger value="settings" className="flex items-center gap-2">
-                  <Settings className="h-4 w-4" />
-                  Settings
-                </TabsTrigger>
               </TabsList>
 
-              {/* Profile Tab */}
-              <TabsContent value="profile">
-                <Card variant="elevated" className="border-0 shadow-large">
-                  <CardHeader>
-                    <div className="flex items-center justify-between">
-                      <CardTitle className="text-2xl">Personal Information</CardTitle>
-                      <Button
-                        variant={isEditing ? "outline" : "default"}
-                        onClick={() => {
-                          if (isEditing) {
-                            setIsEditing(false)
-                            // Reset form data
-                            setProfileData({
-                              first_name: user.first_name || '',
-                              last_name: user.last_name || '',
-                              phone: user.phone || '',
-                              profile: {
-                                date_of_birth: user.profile?.date_of_birth || '',
-                                gender: user.profile?.gender || '',
-                                address: user.profile?.address || '',
-                                city: user.profile?.city || '',
-                                country: user.profile?.country || '',
-                                postal_code: user.profile?.postal_code || '',
-                              }
-                            })
-                          } else {
-                            setIsEditing(true)
-                          }
-                        }}
-                      >
-                        {isEditing ? (
-                          <>
-                            <X className="h-4 w-4 mr-2" />
-                            Cancel
-                          </>
-                        ) : (
-                          <>
-                            <Edit className="h-4 w-4 mr-2" />
-                            Edit
-                          </>
-                        )}
-                      </Button>
+              {/* Overview Tab */}
+              <TabsContent value="overview">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <BiHubAdminCard
+                    title="Account Information"
+                    subtitle="Your basic account details"
+                    icon={<User className="h-5 w-5 text-white" />}
+                  >
+                    <div className="space-y-4">
+                      <div className="flex items-center gap-3">
+                        <Mail className="h-5 w-5 text-gray-400" />
+                        <div>
+                          <p className="text-sm text-gray-400">Email</p>
+                          <p className="text-white font-medium">{user.email}</p>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-3">
+                        <Phone className="h-5 w-5 text-gray-400" />
+                        <div>
+                          <p className="text-sm text-gray-400">Phone</p>
+                          <p className="text-white font-medium">{user.profile?.phone || 'Not provided'}</p>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-3">
+                        <Calendar className="h-5 w-5 text-gray-400" />
+                        <div>
+                          <p className="text-sm text-gray-400">Member Since</p>
+                          <p className="text-white font-medium">{formatDate(user.created_at)}</p>
+                        </div>
+                      </div>
                     </div>
-                  </CardHeader>
-                  <CardContent className="p-8 space-y-6">
+                  </BiHubAdminCard>
+
+                  <BiHubAdminCard
+                    title="Recent Activity"
+                    subtitle="Your latest BiHub activities"
+                    icon={<Activity className="h-5 w-5 text-white" />}
+                  >
+                    <div className="space-y-3">
+                      {orders.slice(0, 3).map((order, index) => (
+                        <div key={index} className="flex items-center gap-3 p-3 bg-gray-800 rounded-lg">
+                          <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center">
+                            {getOrderStatusIcon(order.status)}
+                          </div>
+                          <div className="flex-1">
+                            <p className="text-white text-sm font-medium">
+                              Order #{order.order_number || `ORD-${index + 1}`}
+                            </p>
+                            <p className="text-gray-400 text-xs">
+                              {formatDate(new Date())} • {formatPrice(order.total_amount || 0)}
+                            </p>
+                          </div>
+                          <BiHubStatusBadge status={getOrderStatusColor(order.status)}>
+                            {order.status}
+                          </BiHubStatusBadge>
+                        </div>
+                      ))}
+
+                      {orders.length === 0 && (
+                        <div className="text-center py-6">
+                          <ShoppingBag className="h-8 w-8 text-gray-600 mx-auto mb-2" />
+                          <p className="text-gray-400 text-sm">No recent activity</p>
+                        </div>
+                      )}
+                    </div>
+                  </BiHubAdminCard>
+                </div>
+              </TabsContent>
+
+              {/* Edit Profile Tab */}
+              <TabsContent value="profile">
+                <BiHubAdminCard
+                  title="Edit Profile"
+                  subtitle="Update your personal information"
+                  icon={<Edit className="h-5 w-5 text-white" />}
+                  headerAction={
+                    <Button
+                      onClick={() => setIsEditing(!isEditing)}
+                      variant="outline"
+                      className={cn(
+                        BIHUB_ADMIN_THEME.components.button.ghost,
+                        isEditing && 'bg-red-600 hover:bg-red-700 text-white'
+                      )}
+                    >
+                      {isEditing ? (
+                        <>
+                          <X className="h-4 w-4 mr-2" />
+                          Cancel
+                        </>
+                      ) : (
+                        <>
+                          <Edit className="h-4 w-4 mr-2" />
+                          Edit
+                        </>
+                      )}
+                    </Button>
+                  }
+                >
+                  <div className="space-y-6">
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                      <div>
-                        <label className="block text-sm font-semibold text-foreground mb-2">
-                          First Name
-                        </label>
+                      <div className="space-y-2">
+                        <Label htmlFor="firstName" className="text-gray-300">First Name</Label>
                         <Input
+                          id="firstName"
                           value={profileData.first_name}
                           onChange={(e) => setProfileData(prev => ({ ...prev, first_name: e.target.value }))}
                           disabled={!isEditing}
+                          className={BIHUB_ADMIN_THEME.components.input.base}
                         />
                       </div>
-                      
-                      <div>
-                        <label className="block text-sm font-semibold text-foreground mb-2">
-                          Last Name
-                        </label>
+
+                      <div className="space-y-2">
+                        <Label htmlFor="lastName" className="text-gray-300">Last Name</Label>
                         <Input
+                          id="lastName"
                           value={profileData.last_name}
                           onChange={(e) => setProfileData(prev => ({ ...prev, last_name: e.target.value }))}
                           disabled={!isEditing}
+                          className={BIHUB_ADMIN_THEME.components.input.base}
                         />
                       </div>
                     </div>
 
-                    <div>
-                      <label className="block text-sm font-semibold text-foreground mb-2">
-                        Email Address
-                      </label>
-                      <Input
-                        value={user.email}
-                        disabled
-                        leftIcon={<Mail className="h-4 w-4" />}
-                      />
-                      <p className="text-xs text-muted-foreground mt-1">
-                        Email cannot be changed. Contact support if needed.
+                    <div className="space-y-2">
+                      <Label htmlFor="email" className="text-gray-300">Email Address</Label>
+                      <div className="relative">
+                        <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+                        <Input
+                          id="email"
+                          value={user.email}
+                          disabled
+                          className={cn(BIHUB_ADMIN_THEME.components.input.base, 'pl-10 opacity-60')}
+                        />
+                      </div>
+                      <p className="text-xs text-gray-500">
+                        Email cannot be changed. Contact BiHub support if needed.
                       </p>
                     </div>
 
-                    <div>
-                      <label className="block text-sm font-semibold text-foreground mb-2">
-                        Phone Number
-                      </label>
-                      <Input
-                        value={profileData.phone}
-                        onChange={(e) => setProfileData(prev => ({ ...prev, phone: e.target.value }))}
-                        disabled={!isEditing}
-                        leftIcon={<Phone className="h-4 w-4" />}
-                      />
+                    <div className="space-y-2">
+                      <Label htmlFor="phone" className="text-gray-300">Phone Number</Label>
+                      <div className="relative">
+                        <Phone className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+                        <Input
+                          id="phone"
+                          value={profileData.profile.phone}
+                          onChange={(e) => setProfileData(prev => ({
+                            ...prev,
+                            profile: { ...prev.profile, phone: e.target.value }
+                          }))}
+                          disabled={!isEditing}
+                          className={cn(BIHUB_ADMIN_THEME.components.input.base, 'pl-10')}
+                        />
+                      </div>
                     </div>
 
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                      <div>
-                        <label className="block text-sm font-semibold text-foreground mb-2">
-                          Date of Birth
-                        </label>
+                      <div className="space-y-2">
+                        <Label htmlFor="dateOfBirth" className="text-gray-300">Date of Birth</Label>
                         <Input
+                          id="dateOfBirth"
                           type="date"
                           value={profileData.profile.date_of_birth}
                           onChange={(e) => setProfileData(prev => ({
@@ -398,13 +614,12 @@ export default function ProfilePage() {
                             profile: { ...prev.profile, date_of_birth: e.target.value }
                           }))}
                           disabled={!isEditing}
+                          className={BIHUB_ADMIN_THEME.components.input.base}
                         />
                       </div>
-                      
-                      <div>
-                        <label className="block text-sm font-semibold text-foreground mb-2">
-                          Gender
-                        </label>
+
+                      <div className="space-y-2">
+                        <Label htmlFor="gender" className="text-gray-300">Gender</Label>
                         <Select
                           value={profileData.profile.gender}
                           onValueChange={(value) => setProfileData(prev => ({
@@ -413,10 +628,10 @@ export default function ProfilePage() {
                           }))}
                           disabled={!isEditing}
                         >
-                          <SelectTrigger>
+                          <SelectTrigger className={BIHUB_ADMIN_THEME.components.input.base}>
                             <SelectValue placeholder="Select gender" />
                           </SelectTrigger>
-                          <SelectContent>
+                          <SelectContent className="bg-gray-900 border-gray-700">
                             <SelectItem value="male">Male</SelectItem>
                             <SelectItem value="female">Female</SelectItem>
                             <SelectItem value="other">Other</SelectItem>
@@ -426,71 +641,46 @@ export default function ProfilePage() {
                       </div>
                     </div>
 
-                    <div>
-                      <label className="block text-sm font-semibold text-foreground mb-2">
-                        Address
-                      </label>
-                      <Input
-                        value={profileData.profile.address}
+                    <div className="space-y-2">
+                      <Label htmlFor="bio" className="text-gray-300">Bio</Label>
+                      <Textarea
+                        id="bio"
+                        value={profileData.profile.bio}
                         onChange={(e) => setProfileData(prev => ({
                           ...prev,
-                          profile: { ...prev.profile, address: e.target.value }
+                          profile: { ...prev.profile, bio: e.target.value }
                         }))}
                         disabled={!isEditing}
-                        leftIcon={<MapPin className="h-4 w-4" />}
+                        className={BIHUB_ADMIN_THEME.components.input.base}
+                        rows={3}
+                        placeholder="Tell us about yourself..."
                       />
                     </div>
 
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                      <div>
-                        <label className="block text-sm font-semibold text-foreground mb-2">
-                          City
-                        </label>
+                    <div className="space-y-2">
+                      <Label htmlFor="website" className="text-gray-300">Website</Label>
+                      <div className="relative">
+                        <Globe className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
                         <Input
-                          value={profileData.profile.city}
+                          id="website"
+                          value={profileData.profile.website}
                           onChange={(e) => setProfileData(prev => ({
                             ...prev,
-                            profile: { ...prev.profile, city: e.target.value }
+                            profile: { ...prev.profile, website: e.target.value }
                           }))}
                           disabled={!isEditing}
-                        />
-                      </div>
-                      
-                      <div>
-                        <label className="block text-sm font-semibold text-foreground mb-2">
-                          Country
-                        </label>
-                        <Input
-                          value={profileData.profile.country}
-                          onChange={(e) => setProfileData(prev => ({
-                            ...prev,
-                            profile: { ...prev.profile, country: e.target.value }
-                          }))}
-                          disabled={!isEditing}
-                        />
-                      </div>
-                      
-                      <div>
-                        <label className="block text-sm font-semibold text-foreground mb-2">
-                          Postal Code
-                        </label>
-                        <Input
-                          value={profileData.profile.postal_code}
-                          onChange={(e) => setProfileData(prev => ({
-                            ...prev,
-                            profile: { ...prev.profile, postal_code: e.target.value }
-                          }))}
-                          disabled={!isEditing}
+                          className={cn(BIHUB_ADMIN_THEME.components.input.base, 'pl-10')}
+                          placeholder="https://your-website.com"
                         />
                       </div>
                     </div>
 
                     {isEditing && (
-                      <div className="flex items-center gap-4 pt-6 border-t">
+                      <div className="flex items-center gap-4 pt-6 border-t border-gray-700">
                         <Button
                           onClick={handleProfileUpdate}
                           disabled={updateProfile.isPending}
-                          variant="gradient"
+                          className="bg-[#FF9000] hover:bg-[#e67e00] text-white"
                         >
                           {updateProfile.isPending ? (
                             <>
@@ -507,159 +697,174 @@ export default function ProfilePage() {
                         <Button
                           variant="outline"
                           onClick={() => setIsEditing(false)}
+                          className="border-gray-600 text-gray-300 hover:text-white hover:bg-gray-800"
                         >
                           Cancel
                         </Button>
                       </div>
                     )}
-                  </CardContent>
-                </Card>
+                  </div>
+                </BiHubAdminCard>
               </TabsContent>
 
               {/* Orders Tab */}
               <TabsContent value="orders">
-                <Card variant="elevated" className="border-0 shadow-large">
-                  <CardHeader>
-                    <CardTitle className="text-2xl">Recent Orders</CardTitle>
-                  </CardHeader>
-                  <CardContent className="p-8">
-                    {ordersLoading ? (
-                      <div className="space-y-4">
-                        {[...Array(3)].map((_, i) => (
-                          <div key={i} className="animate-pulse">
-                            <div className="h-20 bg-muted rounded-xl"></div>
-                          </div>
-                        ))}
-                      </div>
-                    ) : orders.length > 0 ? (
-                      <div className="space-y-6">
-                        {orders.map((order) => (
-                          <div key={order.id} className="border border-border rounded-xl p-6 hover:shadow-medium transition-shadow">
-                            <div className="flex items-center justify-between mb-4">
+                <BiHubAdminCard
+                  title="Order History"
+                  subtitle="Your BiHub order history and tracking"
+                  icon={<ShoppingBag className="h-5 w-5 text-white" />}
+                  headerAction={
+                    <Button
+                      variant="outline"
+                      className={BIHUB_ADMIN_THEME.components.button.ghost}
+                    >
+                      View All Orders
+                    </Button>
+                  }
+                >
+                  {ordersLoading ? (
+                    <div className="space-y-4">
+                      {[...Array(3)].map((_, i) => (
+                        <div key={i} className="animate-pulse">
+                          <div className="h-20 bg-gray-700 rounded-xl"></div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : orders.length > 0 ? (
+                    <div className="space-y-4">
+                      {orders.map((order, index) => (
+                        <div key={index} className="p-4 bg-gray-800 rounded-lg hover:bg-gray-750 transition-colors">
+                          <div className="flex items-center justify-between mb-3">
+                            <div className="flex items-center gap-3">
+                              <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center">
+                                {getOrderStatusIcon(order.status)}
+                              </div>
                               <div>
-                                <h3 className="font-semibold text-foreground">
-                                  Order #{order.order_number || order.id.slice(0, 8)}
+                                <h3 className="font-semibold text-white">
+                                  Order #{order.order_number || `ORD-${index + 1}`}
                                 </h3>
-                                <p className="text-sm text-muted-foreground">
-                                  {formatDate(order.created_at)}
+                                <p className="text-sm text-gray-400">
+                                  {formatDate(new Date())}
                                 </p>
                               </div>
-                              <Badge variant={getOrderStatusVariant(order.status)}>
-                                {order.status.charAt(0).toUpperCase() + order.status.slice(1)}
-                              </Badge>
                             </div>
-                            
-                            <div className="flex items-center justify-between">
-                              <div className="flex items-center gap-4">
-                                <div className="flex items-center gap-2">
-                                  <ShoppingBag className="h-4 w-4 text-muted-foreground" />
-                                  <span className="text-sm">{order.items?.length || 0} items</span>
-                                </div>
-                                <div className="flex items-center gap-2">
-                                  <span className="text-lg font-bold text-primary">
-                                    {formatPrice(order.total_amount)}
-                                  </span>
-                                </div>
-                              </div>
-                              
-                              <Button variant="outline" size="sm">
-                                View Details
-                              </Button>
-                            </div>
+                            <BiHubStatusBadge status={getOrderStatusColor(order.status)}>
+                              {order.status.charAt(0).toUpperCase() + order.status.slice(1)}
+                            </BiHubStatusBadge>
                           </div>
-                        ))}
-                        
-                        <div className="text-center pt-6">
-                          <Button variant="outline">
-                            View All Orders
-                          </Button>
+
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-4">
+                              <div className="flex items-center gap-2">
+                                <Package className="h-4 w-4 text-gray-400" />
+                                <span className="text-sm text-gray-300">{order.items?.length || 1} items</span>
+                              </div>
+                              <div className="flex items-center gap-2">
+                                <span className="text-lg font-bold text-[#FF9000]">
+                                  {formatPrice(order.total_amount)}
+                                </span>
+                              </div>
+                            </div>
+
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className={BIHUB_ADMIN_THEME.components.button.ghost}
+                            >
+                              View Details
+                            </Button>
+                          </div>
                         </div>
-                      </div>
-                    ) : (
-                      <div className="text-center py-12">
-                        <ShoppingBag className="h-16 w-16 text-muted-foreground mx-auto mb-4" />
-                        <h3 className="text-lg font-semibold text-foreground mb-2">No orders yet</h3>
-                        <p className="text-muted-foreground mb-6">
-                          Start shopping to see your orders here.
-                        </p>
-                        <Button asChild>
-                          <a href="/products">Browse Products</a>
-                        </Button>
-                      </div>
-                    )}
-                  </CardContent>
-                </Card>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="text-center py-12">
+                      <ShoppingBag className="h-16 w-16 text-gray-600 mx-auto mb-4" />
+                      <h3 className="text-lg font-semibold text-white mb-2">No orders yet</h3>
+                      <p className="text-gray-400 mb-6">
+                        Start shopping on BiHub to see your orders here.
+                      </p>
+                      <Button className="bg-[#FF9000] hover:bg-[#e67e00] text-white">
+                        <a href="/products">Browse Products</a>
+                      </Button>
+                    </div>
+                  )}
+                </BiHubAdminCard>
               </TabsContent>
 
               {/* Security Tab */}
               <TabsContent value="security">
-                <Card variant="elevated" className="border-0 shadow-large">
-                  <CardHeader>
-                    <CardTitle className="text-2xl">Security Settings</CardTitle>
-                  </CardHeader>
-                  <CardContent className="p-8 space-y-6">
-                    <div className="border border-border rounded-xl p-6">
+                <BiHubAdminCard
+                  title="Security Settings"
+                  subtitle="Manage your BiHub account security"
+                  icon={<Lock className="h-5 w-5 text-white" />}
+                >
+                  <div className="space-y-6">
+                    <div className="p-6 bg-gray-800 rounded-lg">
                       <div className="flex items-center justify-between mb-4">
                         <div>
-                          <h3 className="font-semibold text-foreground">Password</h3>
-                          <p className="text-sm text-muted-foreground">
+                          <h3 className="font-semibold text-white">Password</h3>
+                          <p className="text-sm text-gray-400">
                             Last changed {formatDate(user.updated_at)}
                           </p>
                         </div>
                         <Button
                           variant="outline"
                           onClick={() => setShowPasswordForm(!showPasswordForm)}
+                          className={BIHUB_ADMIN_THEME.components.button.ghost}
                         >
+                          <Lock className="h-4 w-4 mr-2" />
                           Change Password
                         </Button>
                       </div>
-                      
+
                       {showPasswordForm && (
-                        <div className="space-y-4 pt-4 border-t">
-                          <div>
-                            <label className="block text-sm font-semibold text-foreground mb-2">
-                              Current Password
-                            </label>
+                        <div className="space-y-4 pt-4 border-t border-gray-700">
+                          <div className="space-y-2">
+                            <Label htmlFor="currentPassword" className="text-gray-300">Current Password</Label>
                             <Input
+                              id="currentPassword"
                               type="password"
                               value={passwordData.current_password}
                               onChange={(e) => setPasswordData(prev => ({ ...prev, current_password: e.target.value }))}
+                              className={BIHUB_ADMIN_THEME.components.input.base}
                             />
                           </div>
-                          
-                          <div>
-                            <label className="block text-sm font-semibold text-foreground mb-2">
-                              New Password
-                            </label>
+
+                          <div className="space-y-2">
+                            <Label htmlFor="newPassword" className="text-gray-300">New Password</Label>
                             <Input
+                              id="newPassword"
                               type="password"
                               value={passwordData.new_password}
                               onChange={(e) => setPasswordData(prev => ({ ...prev, new_password: e.target.value }))}
+                              className={BIHUB_ADMIN_THEME.components.input.base}
                             />
                           </div>
-                          
-                          <div>
-                            <label className="block text-sm font-semibold text-foreground mb-2">
-                              Confirm New Password
-                            </label>
+
+                          <div className="space-y-2">
+                            <Label htmlFor="confirmPassword" className="text-gray-300">Confirm New Password</Label>
                             <Input
+                              id="confirmPassword"
                               type="password"
                               value={passwordData.confirm_password}
                               onChange={(e) => setPasswordData(prev => ({ ...prev, confirm_password: e.target.value }))}
+                              className={BIHUB_ADMIN_THEME.components.input.base}
                             />
                           </div>
-                          
+
                           <div className="flex items-center gap-4">
                             <Button
                               onClick={handlePasswordChange}
                               disabled={changePassword.isPending}
-                              variant="gradient"
+                              className="bg-[#FF9000] hover:bg-[#e67e00] text-white"
                             >
                               {changePassword.isPending ? 'Changing...' : 'Change Password'}
                             </Button>
                             <Button
                               variant="outline"
                               onClick={() => setShowPasswordForm(false)}
+                              className="border-gray-600 text-gray-300 hover:text-white hover:bg-gray-800"
                             >
                               Cancel
                             </Button>
@@ -668,76 +873,43 @@ export default function ProfilePage() {
                       )}
                     </div>
 
-                    <div className="border border-border rounded-xl p-6">
+                    <div className="p-6 bg-gray-800 rounded-lg">
                       <div className="flex items-center justify-between">
                         <div>
-                          <h3 className="font-semibold text-foreground">Two-Factor Authentication</h3>
-                          <p className="text-sm text-muted-foreground">
-                            Add an extra layer of security to your account
+                          <h3 className="font-semibold text-white">Two-Factor Authentication</h3>
+                          <p className="text-sm text-gray-400">
+                            Add an extra layer of security to your BiHub account
                           </p>
                         </div>
-                        <Button variant="outline">
+                        <Button
+                          variant="outline"
+                          className={BIHUB_ADMIN_THEME.components.button.ghost}
+                        >
+                          <Shield className="h-4 w-4 mr-2" />
                           Enable 2FA
                         </Button>
                       </div>
                     </div>
-                  </CardContent>
-                </Card>
-              </TabsContent>
 
-              {/* Settings Tab */}
-              <TabsContent value="settings">
-                <Card variant="elevated" className="border-0 shadow-large">
-                  <CardHeader>
-                    <CardTitle className="text-2xl">Account Settings</CardTitle>
-                  </CardHeader>
-                  <CardContent className="p-8 space-y-6">
-                    <div className="border border-border rounded-xl p-6">
+                    <div className="p-6 bg-gray-800 rounded-lg">
                       <div className="flex items-center justify-between">
                         <div>
-                          <h3 className="font-semibold text-foreground">Email Notifications</h3>
-                          <p className="text-sm text-muted-foreground">
-                            Receive updates about your orders and account
+                          <h3 className="font-semibold text-white">Login Sessions</h3>
+                          <p className="text-sm text-gray-400">
+                            Manage your active login sessions
                           </p>
                         </div>
-                        <Button variant="outline">
-                          <Bell className="h-4 w-4 mr-2" />
-                          Manage
+                        <Button
+                          variant="outline"
+                          className={BIHUB_ADMIN_THEME.components.button.ghost}
+                        >
+                          <Activity className="h-4 w-4 mr-2" />
+                          View Sessions
                         </Button>
                       </div>
                     </div>
-
-                    <div className="border border-border rounded-xl p-6">
-                      <div className="flex items-center justify-between">
-                        <div>
-                          <h3 className="font-semibold text-foreground">Payment Methods</h3>
-                          <p className="text-sm text-muted-foreground">
-                            Manage your saved payment methods
-                          </p>
-                        </div>
-                        <Button variant="outline">
-                          <CreditCard className="h-4 w-4 mr-2" />
-                          Manage
-                        </Button>
-                      </div>
-                    </div>
-
-                    <div className="border border-border rounded-xl p-6">
-                      <div className="flex items-center justify-between">
-                        <div>
-                          <h3 className="font-semibold text-foreground">Shipping Addresses</h3>
-                          <p className="text-sm text-muted-foreground">
-                            Manage your delivery addresses
-                          </p>
-                        </div>
-                        <Button variant="outline">
-                          <Truck className="h-4 w-4 mr-2" />
-                          Manage
-                        </Button>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
+                  </div>
+                </BiHubAdminCard>
               </TabsContent>
             </Tabs>
           </div>

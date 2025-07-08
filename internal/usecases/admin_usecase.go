@@ -7,6 +7,7 @@ import (
 
 	"ecom-golang-clean-architecture/internal/domain/entities"
 	"ecom-golang-clean-architecture/internal/domain/repositories"
+
 	"github.com/google/uuid"
 )
 
@@ -15,33 +16,33 @@ type AdminUseCase interface {
 	// Dashboard
 	GetDashboard(ctx context.Context, req AdminDashboardRequest) (*AdminDashboardResponse, error)
 	GetSystemStats(ctx context.Context) (*SystemStatsResponse, error)
-	
+
 	// User management
 	GetUsers(ctx context.Context, req AdminUsersRequest) (*AdminUsersResponse, error)
 	UpdateUserStatus(ctx context.Context, userID uuid.UUID, status entities.UserStatus) error
 	UpdateUserRole(ctx context.Context, userID uuid.UUID, role entities.UserRole) error
 	GetUserActivity(ctx context.Context, userID uuid.UUID, req ActivityRequest) (*ActivityResponse, error)
-	
+
 	// Order management
 	GetOrders(ctx context.Context, req AdminOrdersRequest) (*AdminOrdersResponse, error)
 	UpdateOrderStatus(ctx context.Context, orderID uuid.UUID, status entities.OrderStatus) error
 	GetOrderDetails(ctx context.Context, orderID uuid.UUID) (*AdminOrderDetailsResponse, error)
 	ProcessRefund(ctx context.Context, orderID uuid.UUID, amount float64, reason string) error
-	
+
 	// Product management
 	GetProducts(ctx context.Context, req AdminProductsRequest) (*AdminProductsResponse, error)
 	BulkUpdateProducts(ctx context.Context, req BulkUpdateProductsRequest) error
 	GetProductAnalytics(ctx context.Context, productID uuid.UUID, period string) (*ProductAnalyticsResponse, error)
-	
+
 	// Content management
 	ManageReviews(ctx context.Context, req ManageReviewsRequest) (*ManageReviewsResponse, error)
 	UpdateReviewStatus(ctx context.Context, reviewID uuid.UUID, status entities.ReviewStatus) error
-	
+
 	// System management
 	GetSystemLogs(ctx context.Context, req SystemLogsRequest) (*SystemLogsResponse, error)
 	GetAuditLogs(ctx context.Context, req AuditLogsRequest) (*AuditLogsResponse, error)
 	BackupDatabase(ctx context.Context) (*BackupResponse, error)
-	
+
 	// Reports
 	GenerateReport(ctx context.Context, req GenerateReportRequest) (*ReportResponse, error)
 	GetReports(ctx context.Context, req GetReportsRequest) (*ReportsListResponse, error)
@@ -49,14 +50,14 @@ type AdminUseCase interface {
 }
 
 type adminUseCase struct {
-	userRepo         repositories.UserRepository
-	orderRepo        repositories.OrderRepository
-	productRepo      repositories.ProductRepository
-	reviewRepo       repositories.ReviewRepository
-	analyticsRepo    repositories.AnalyticsRepository
-	inventoryRepo    repositories.InventoryRepository
-	paymentRepo      repositories.PaymentRepository
-	auditRepo        repositories.AuditRepository
+	userRepo      repositories.UserRepository
+	orderRepo     repositories.OrderRepository
+	productRepo   repositories.ProductRepository
+	reviewRepo    repositories.ReviewRepository
+	analyticsRepo repositories.AnalyticsRepository
+	inventoryRepo repositories.InventoryRepository
+	paymentRepo   repositories.PaymentRepository
+	auditRepo     repositories.AuditRepository
 }
 
 // NewAdminUseCase creates a new admin use case
@@ -147,31 +148,31 @@ type ManageReviewsRequest struct {
 }
 
 type ActivityRequest struct {
-	Type      string     `json:"type,omitempty"`
-	DateFrom  *time.Time `json:"date_from,omitempty"`
-	DateTo    *time.Time `json:"date_to,omitempty"`
-	Limit     int        `json:"limit" validate:"min=1,max=100"`
-	Offset    int        `json:"offset" validate:"min=0"`
+	Type     string     `json:"type,omitempty"`
+	DateFrom *time.Time `json:"date_from,omitempty"`
+	DateTo   *time.Time `json:"date_to,omitempty"`
+	Limit    int        `json:"limit" validate:"min=1,max=100"`
+	Offset   int        `json:"offset" validate:"min=0"`
 }
 
 type SystemLogsRequest struct {
-	Level     string     `json:"level,omitempty" validate:"omitempty,oneof=debug info warn error"`
-	Service   string     `json:"service,omitempty"`
-	DateFrom  *time.Time `json:"date_from,omitempty"`
-	DateTo    *time.Time `json:"date_to,omitempty"`
-	Search    string     `json:"search,omitempty"`
-	Limit     int        `json:"limit" validate:"min=1,max=1000"`
-	Offset    int        `json:"offset" validate:"min=0"`
+	Level    string     `json:"level,omitempty" validate:"omitempty,oneof=debug info warn error"`
+	Service  string     `json:"service,omitempty"`
+	DateFrom *time.Time `json:"date_from,omitempty"`
+	DateTo   *time.Time `json:"date_to,omitempty"`
+	Search   string     `json:"search,omitempty"`
+	Limit    int        `json:"limit" validate:"min=1,max=1000"`
+	Offset   int        `json:"offset" validate:"min=0"`
 }
 
 type AuditLogsRequest struct {
-	UserID    *uuid.UUID `json:"user_id,omitempty"`
-	Action    string     `json:"action,omitempty"`
-	Resource  string     `json:"resource,omitempty"`
-	DateFrom  *time.Time `json:"date_from,omitempty"`
-	DateTo    *time.Time `json:"date_to,omitempty"`
-	Limit     int        `json:"limit" validate:"min=1,max=1000"`
-	Offset    int        `json:"offset" validate:"min=0"`
+	UserID   *uuid.UUID `json:"user_id,omitempty"`
+	Action   string     `json:"action,omitempty"`
+	Resource string     `json:"resource,omitempty"`
+	DateFrom *time.Time `json:"date_from,omitempty"`
+	DateTo   *time.Time `json:"date_to,omitempty"`
+	Limit    int        `json:"limit" validate:"min=1,max=1000"`
+	Offset   int        `json:"offset" validate:"min=0"`
 }
 
 type GenerateReportRequest struct {
@@ -197,35 +198,35 @@ type GetReportsRequest struct {
 // Response types
 type AdminDashboardResponse struct {
 	Overview struct {
-		TotalRevenue     float64 `json:"total_revenue"`
-		TotalOrders      int64   `json:"total_orders"`
-		TotalCustomers   int64   `json:"total_customers"`
-		TotalProducts    int64   `json:"total_products"`
-		PendingOrders    int64   `json:"pending_orders"`
-		LowStockItems    int64   `json:"low_stock_items"`
-		PendingReviews   int64   `json:"pending_reviews"`
-		ActiveUsers      int64   `json:"active_users"`
+		TotalRevenue   float64 `json:"total_revenue"`
+		TotalOrders    int64   `json:"total_orders"`
+		TotalCustomers int64   `json:"total_customers"`
+		TotalProducts  int64   `json:"total_products"`
+		PendingOrders  int64   `json:"pending_orders"`
+		LowStockItems  int64   `json:"low_stock_items"`
+		PendingReviews int64   `json:"pending_reviews"`
+		ActiveUsers    int64   `json:"active_users"`
 	} `json:"overview"`
-	
+
 	Charts struct {
 		RevenueChart []struct {
 			Date    string  `json:"date"`
 			Revenue float64 `json:"revenue"`
 			Orders  int64   `json:"orders"`
 		} `json:"revenue_chart"`
-		
+
 		OrdersChart []struct {
 			Date   string `json:"date"`
 			Orders int64  `json:"orders"`
 		} `json:"orders_chart"`
-		
+
 		TopProducts []struct {
 			ProductID   uuid.UUID `json:"product_id"`
 			ProductName string    `json:"product_name"`
 			Revenue     float64   `json:"revenue"`
 			Quantity    int64     `json:"quantity"`
 		} `json:"top_products"`
-		
+
 		TopCategories []struct {
 			CategoryID   uuid.UUID `json:"category_id"`
 			CategoryName string    `json:"category_name"`
@@ -233,7 +234,7 @@ type AdminDashboardResponse struct {
 			Orders       int64     `json:"orders"`
 		} `json:"top_categories"`
 	} `json:"charts"`
-	
+
 	RecentActivity []struct {
 		Type        string    `json:"type"`
 		Description string    `json:"description"`
@@ -245,21 +246,21 @@ type AdminDashboardResponse struct {
 
 type SystemStatsResponse struct {
 	Database struct {
-		TotalSize     string `json:"total_size"`
-		TableCount    int    `json:"table_count"`
-		ConnectionCount int  `json:"connection_count"`
-		QueryCount    int64  `json:"query_count"`
+		TotalSize       string `json:"total_size"`
+		TableCount      int    `json:"table_count"`
+		ConnectionCount int    `json:"connection_count"`
+		QueryCount      int64  `json:"query_count"`
 	} `json:"database"`
-	
+
 	Server struct {
-		Uptime        string  `json:"uptime"`
-		CPUUsage      float64 `json:"cpu_usage"`
-		MemoryUsage   float64 `json:"memory_usage"`
-		DiskUsage     float64 `json:"disk_usage"`
-		RequestCount  int64   `json:"request_count"`
-		ErrorRate     float64 `json:"error_rate"`
+		Uptime       string  `json:"uptime"`
+		CPUUsage     float64 `json:"cpu_usage"`
+		MemoryUsage  float64 `json:"memory_usage"`
+		DiskUsage    float64 `json:"disk_usage"`
+		RequestCount int64   `json:"request_count"`
+		ErrorRate    float64 `json:"error_rate"`
 	} `json:"server"`
-	
+
 	Cache struct {
 		HitRate     float64 `json:"hit_rate"`
 		MissRate    float64 `json:"miss_rate"`
@@ -270,16 +271,16 @@ type SystemStatsResponse struct {
 
 type AdminUsersResponse struct {
 	Users []struct {
-		ID          uuid.UUID           `json:"id"`
-		Email       string              `json:"email"`
-		FirstName   string              `json:"first_name"`
-		LastName    string              `json:"last_name"`
-		Role        entities.UserRole   `json:"role"`
-		Status      entities.UserStatus `json:"status"`
-		LastLogin   *time.Time          `json:"last_login"`
-		OrderCount  int64               `json:"order_count"`
-		TotalSpent  float64             `json:"total_spent"`
-		CreatedAt   time.Time           `json:"created_at"`
+		ID         uuid.UUID           `json:"id"`
+		Email      string              `json:"email"`
+		FirstName  string              `json:"first_name"`
+		LastName   string              `json:"last_name"`
+		Role       entities.UserRole   `json:"role"`
+		Status     entities.UserStatus `json:"status"`
+		LastLogin  *time.Time          `json:"last_login"`
+		OrderCount int64               `json:"order_count"`
+		TotalSpent float64             `json:"total_spent"`
+		CreatedAt  time.Time           `json:"created_at"`
 	} `json:"users"`
 	Total      int64           `json:"total"`
 	Pagination *PaginationInfo `json:"pagination"`
@@ -287,17 +288,17 @@ type AdminUsersResponse struct {
 
 type AdminOrdersResponse struct {
 	Orders []struct {
-		ID            uuid.UUID             `json:"id"`
-		OrderNumber   string                `json:"order_number"`
-		UserID        uuid.UUID             `json:"user_id"`
-		UserName      string                `json:"user_name"`
-		UserEmail     string                `json:"user_email"`
-		Status        entities.OrderStatus `json:"status"`
+		ID            uuid.UUID              `json:"id"`
+		OrderNumber   string                 `json:"order_number"`
+		UserID        uuid.UUID              `json:"user_id"`
+		UserName      string                 `json:"user_name"`
+		UserEmail     string                 `json:"user_email"`
+		Status        entities.OrderStatus   `json:"status"`
 		PaymentStatus entities.PaymentStatus `json:"payment_status"`
-		Total         float64               `json:"total"`
-		ItemCount     int                   `json:"item_count"`
-		CreatedAt     time.Time             `json:"created_at"`
-		UpdatedAt     time.Time             `json:"updated_at"`
+		Total         float64                `json:"total"`
+		ItemCount     int                    `json:"item_count"`
+		CreatedAt     time.Time              `json:"created_at"`
+		UpdatedAt     time.Time              `json:"updated_at"`
 	} `json:"orders"`
 	Total      int64           `json:"total"`
 	Pagination *PaginationInfo `json:"pagination"`
@@ -305,19 +306,19 @@ type AdminOrdersResponse struct {
 
 type AdminOrderDetailsResponse struct {
 	Order struct {
-		ID              uuid.UUID             `json:"id"`
-		OrderNumber     string                `json:"order_number"`
-		Status          entities.OrderStatus `json:"status"`
-		PaymentStatus   entities.PaymentStatus `json:"payment_status"`
-		Subtotal        float64               `json:"subtotal"`
-		TaxAmount       float64               `json:"tax_amount"`
-		ShippingAmount  float64               `json:"shipping_amount"`
-		DiscountAmount  float64               `json:"discount_amount"`
-		Total           float64               `json:"total"`
-		CreatedAt       time.Time             `json:"created_at"`
-		UpdatedAt       time.Time             `json:"updated_at"`
+		ID             uuid.UUID              `json:"id"`
+		OrderNumber    string                 `json:"order_number"`
+		Status         entities.OrderStatus   `json:"status"`
+		PaymentStatus  entities.PaymentStatus `json:"payment_status"`
+		Subtotal       float64                `json:"subtotal"`
+		TaxAmount      float64                `json:"tax_amount"`
+		ShippingAmount float64                `json:"shipping_amount"`
+		DiscountAmount float64                `json:"discount_amount"`
+		Total          float64                `json:"total"`
+		CreatedAt      time.Time              `json:"created_at"`
+		UpdatedAt      time.Time              `json:"updated_at"`
 	} `json:"order"`
-	
+
 	Customer struct {
 		ID        uuid.UUID `json:"id"`
 		Email     string    `json:"email"`
@@ -325,7 +326,7 @@ type AdminOrderDetailsResponse struct {
 		LastName  string    `json:"last_name"`
 		Phone     string    `json:"phone"`
 	} `json:"customer"`
-	
+
 	Items []struct {
 		ID          uuid.UUID `json:"id"`
 		ProductID   uuid.UUID `json:"product_id"`
@@ -335,41 +336,41 @@ type AdminOrderDetailsResponse struct {
 		Price       float64   `json:"price"`
 		Total       float64   `json:"total"`
 	} `json:"items"`
-	
+
 	Payments []struct {
-		ID            uuid.UUID             `json:"id"`
-		Amount        float64               `json:"amount"`
+		ID            uuid.UUID              `json:"id"`
+		Amount        float64                `json:"amount"`
 		Method        entities.PaymentMethod `json:"method"`
 		Status        entities.PaymentStatus `json:"status"`
-		TransactionID string                `json:"transaction_id"`
-		ProcessedAt   *time.Time            `json:"processed_at"`
+		TransactionID string                 `json:"transaction_id"`
+		ProcessedAt   *time.Time             `json:"processed_at"`
 	} `json:"payments"`
-	
+
 	Timeline []struct {
-		Event       string    `json:"event"`
-		Description string    `json:"description"`
-		Timestamp   time.Time `json:"timestamp"`
+		Event       string     `json:"event"`
+		Description string     `json:"description"`
+		Timestamp   time.Time  `json:"timestamp"`
 		UserID      *uuid.UUID `json:"user_id,omitempty"`
-		UserName    string    `json:"user_name,omitempty"`
+		UserName    string     `json:"user_name,omitempty"`
 	} `json:"timeline"`
 }
 
 type AdminProductsResponse struct {
 	Products []struct {
-		ID            uuid.UUID             `json:"id"`
-		Name          string                `json:"name"`
-		SKU           string                `json:"sku"`
-		Price         float64               `json:"price"`
-		ComparePrice  float64               `json:"compare_price"`
+		ID            uuid.UUID              `json:"id"`
+		Name          string                 `json:"name"`
+		SKU           string                 `json:"sku"`
+		Price         float64                `json:"price"`
+		ComparePrice  float64                `json:"compare_price"`
 		Status        entities.ProductStatus `json:"status"`
-		StockQuantity int                   `json:"stock_quantity"`
-		CategoryID    uuid.UUID             `json:"category_id"`
-		CategoryName  string                `json:"category_name"`
-		ViewCount     int64                 `json:"view_count"`
-		SalesCount    int64                 `json:"sales_count"`
-		Revenue       float64               `json:"revenue"`
-		CreatedAt     time.Time             `json:"created_at"`
-		UpdatedAt     time.Time             `json:"updated_at"`
+		StockQuantity int                    `json:"stock_quantity"`
+		CategoryID    uuid.UUID              `json:"category_id"`
+		CategoryName  string                 `json:"category_name"`
+		ViewCount     int64                  `json:"view_count"`
+		SalesCount    int64                  `json:"sales_count"`
+		Revenue       float64                `json:"revenue"`
+		CreatedAt     time.Time              `json:"created_at"`
+		UpdatedAt     time.Time              `json:"updated_at"`
 	} `json:"products"`
 	Total      int64           `json:"total"`
 	Pagination *PaginationInfo `json:"pagination"`
@@ -378,27 +379,27 @@ type AdminProductsResponse struct {
 type ProductAnalyticsResponse struct {
 	ProductID uuid.UUID `json:"product_id"`
 	Period    string    `json:"period"`
-	
+
 	Metrics struct {
-		Views         int64   `json:"views"`
-		Sales         int64   `json:"sales"`
-		Revenue       float64 `json:"revenue"`
+		Views          int64   `json:"views"`
+		Sales          int64   `json:"sales"`
+		Revenue        float64 `json:"revenue"`
 		ConversionRate float64 `json:"conversion_rate"`
-		AverageRating float64 `json:"average_rating"`
-		ReviewCount   int64   `json:"review_count"`
+		AverageRating  float64 `json:"average_rating"`
+		ReviewCount    int64   `json:"review_count"`
 	} `json:"metrics"`
-	
+
 	Charts struct {
 		ViewsChart []struct {
 			Date  string `json:"date"`
 			Views int64  `json:"views"`
 		} `json:"views_chart"`
-		
+
 		SalesChart []struct {
 			Date  string `json:"date"`
 			Sales int64  `json:"sales"`
 		} `json:"sales_chart"`
-		
+
 		RevenueChart []struct {
 			Date    string  `json:"date"`
 			Revenue float64 `json:"revenue"`
@@ -481,14 +482,14 @@ type BackupResponse struct {
 }
 
 type ReportResponse struct {
-	ReportID    uuid.UUID `json:"report_id"`
-	Type        string    `json:"type"`
-	Format      string    `json:"format"`
-	Status      string    `json:"status"`
-	Progress    int       `json:"progress"`
-	DownloadURL string    `json:"download_url,omitempty"`
-	CreatedBy   uuid.UUID `json:"created_by"`
-	CreatedAt   time.Time `json:"created_at"`
+	ReportID    uuid.UUID  `json:"report_id"`
+	Type        string     `json:"type"`
+	Format      string     `json:"format"`
+	Status      string     `json:"status"`
+	Progress    int        `json:"progress"`
+	DownloadURL string     `json:"download_url,omitempty"`
+	CreatedBy   uuid.UUID  `json:"created_by"`
+	CreatedAt   time.Time  `json:"created_at"`
 	CompletedAt *time.Time `json:"completed_at"`
 }
 
@@ -506,13 +507,13 @@ type DownloadResponse struct {
 }
 
 type AuditLogFilters struct {
-	UserID    *uuid.UUID `json:"user_id,omitempty"`
-	Action    string     `json:"action,omitempty"`
-	Resource  string     `json:"resource,omitempty"`
-	DateFrom  *time.Time `json:"date_from,omitempty"`
-	DateTo    *time.Time `json:"date_to,omitempty"`
-	Limit     int        `json:"limit"`
-	Offset    int        `json:"offset"`
+	UserID   *uuid.UUID `json:"user_id,omitempty"`
+	Action   string     `json:"action,omitempty"`
+	Resource string     `json:"resource,omitempty"`
+	DateFrom *time.Time `json:"date_from,omitempty"`
+	DateTo   *time.Time `json:"date_to,omitempty"`
+	Limit    int        `json:"limit"`
+	Offset   int        `json:"offset"`
 }
 
 type AuditLogSummary struct {
@@ -532,14 +533,14 @@ type ProductAnalyticsRequest struct {
 }
 
 type OrderDetailsResponse struct {
-	OrderID      uuid.UUID `json:"order_id"`
-	OrderNumber  string    `json:"order_number"`
-	CustomerID   uuid.UUID `json:"customer_id"`
-	CustomerName string    `json:"customer_name"`
-	Status       string    `json:"status"`
-	Total        float64   `json:"total"`
+	OrderID      uuid.UUID     `json:"order_id"`
+	OrderNumber  string        `json:"order_number"`
+	CustomerID   uuid.UUID     `json:"customer_id"`
+	CustomerName string        `json:"customer_name"`
+	Status       string        `json:"status"`
+	Total        float64       `json:"total"`
 	Items        []interface{} `json:"items"`
-	CreatedAt    time.Time `json:"created_at"`
+	CreatedAt    time.Time     `json:"created_at"`
 }
 
 type GetReportsResponse struct {
@@ -597,14 +598,14 @@ func (uc *adminUseCase) GetDashboard(ctx context.Context, req AdminDashboardRequ
 
 	response := &AdminDashboardResponse{
 		Overview: struct {
-			TotalRevenue     float64 `json:"total_revenue"`
-			TotalOrders      int64   `json:"total_orders"`
-			TotalCustomers   int64   `json:"total_customers"`
-			TotalProducts    int64   `json:"total_products"`
-			PendingOrders    int64   `json:"pending_orders"`
-			LowStockItems    int64   `json:"low_stock_items"`
-			PendingReviews   int64   `json:"pending_reviews"`
-			ActiveUsers      int64   `json:"active_users"`
+			TotalRevenue   float64 `json:"total_revenue"`
+			TotalOrders    int64   `json:"total_orders"`
+			TotalCustomers int64   `json:"total_customers"`
+			TotalProducts  int64   `json:"total_products"`
+			PendingOrders  int64   `json:"pending_orders"`
+			LowStockItems  int64   `json:"low_stock_items"`
+			PendingReviews int64   `json:"pending_reviews"`
+			ActiveUsers    int64   `json:"active_users"`
 		}{
 			TotalRevenue:   totalRevenue,
 			TotalOrders:    totalOrders,
@@ -734,29 +735,29 @@ func (uc *adminUseCase) GetOrderDetails(ctx context.Context, orderID uuid.UUID) 
 	// Mock implementation for order details
 	response := &AdminOrderDetailsResponse{
 		Order: struct {
-			ID              uuid.UUID             `json:"id"`
-			OrderNumber     string                `json:"order_number"`
-			Status          entities.OrderStatus `json:"status"`
-			PaymentStatus   entities.PaymentStatus `json:"payment_status"`
-			Subtotal        float64               `json:"subtotal"`
-			TaxAmount       float64               `json:"tax_amount"`
-			ShippingAmount  float64               `json:"shipping_amount"`
-			DiscountAmount  float64               `json:"discount_amount"`
-			Total           float64               `json:"total"`
-			CreatedAt       time.Time             `json:"created_at"`
-			UpdatedAt       time.Time             `json:"updated_at"`
+			ID             uuid.UUID              `json:"id"`
+			OrderNumber    string                 `json:"order_number"`
+			Status         entities.OrderStatus   `json:"status"`
+			PaymentStatus  entities.PaymentStatus `json:"payment_status"`
+			Subtotal       float64                `json:"subtotal"`
+			TaxAmount      float64                `json:"tax_amount"`
+			ShippingAmount float64                `json:"shipping_amount"`
+			DiscountAmount float64                `json:"discount_amount"`
+			Total          float64                `json:"total"`
+			CreatedAt      time.Time              `json:"created_at"`
+			UpdatedAt      time.Time              `json:"updated_at"`
 		}{
-			ID:              orderID,
-			OrderNumber:     "ORD-" + orderID.String()[:8],
-			Status:          entities.OrderStatusDelivered,
-			PaymentStatus:   entities.PaymentStatusPaid,
-			Subtotal:        999.00,
-			TaxAmount:       99.90,
-			ShippingAmount:  10.00,
-			DiscountAmount:  0.00,
-			Total:           1108.90,
-			CreatedAt:       time.Now().Add(-24 * time.Hour),
-			UpdatedAt:       time.Now().Add(-12 * time.Hour),
+			ID:             orderID,
+			OrderNumber:    "ORD-" + orderID.String()[:8],
+			Status:         entities.OrderStatusDelivered,
+			PaymentStatus:  entities.PaymentStatusPaid,
+			Subtotal:       999.00,
+			TaxAmount:      99.90,
+			ShippingAmount: 10.00,
+			DiscountAmount: 0.00,
+			Total:          1108.90,
+			CreatedAt:      time.Now().Add(-24 * time.Hour),
+			UpdatedAt:      time.Now().Add(-12 * time.Hour),
 		},
 		Customer: struct {
 			ID        uuid.UUID `json:"id"`
@@ -800,24 +801,24 @@ func (uc *adminUseCase) GetOrders(ctx context.Context, req AdminOrdersRequest) (
 	// Mock implementation for get orders
 	response := &AdminOrdersResponse{
 		Orders: []struct {
-			ID            uuid.UUID             `json:"id"`
-			OrderNumber   string                `json:"order_number"`
-			UserID        uuid.UUID             `json:"user_id"`
-			UserName      string                `json:"user_name"`
-			UserEmail     string                `json:"user_email"`
-			Status        entities.OrderStatus `json:"status"`
+			ID            uuid.UUID              `json:"id"`
+			OrderNumber   string                 `json:"order_number"`
+			UserID        uuid.UUID              `json:"user_id"`
+			UserName      string                 `json:"user_name"`
+			UserEmail     string                 `json:"user_email"`
+			Status        entities.OrderStatus   `json:"status"`
 			PaymentStatus entities.PaymentStatus `json:"payment_status"`
-			Total         float64               `json:"total"`
-			ItemCount     int                   `json:"item_count"`
-			CreatedAt     time.Time             `json:"created_at"`
-			UpdatedAt     time.Time             `json:"updated_at"`
+			Total         float64                `json:"total"`
+			ItemCount     int                    `json:"item_count"`
+			CreatedAt     time.Time              `json:"created_at"`
+			UpdatedAt     time.Time              `json:"updated_at"`
 		}{
 			{
 				ID:            uuid.New(),
 				OrderNumber:   "ORD-001",
-				UserID:       uuid.New(),
-				UserName:     "John Doe",
-				UserEmail:    "john.doe@example.com",
+				UserID:        uuid.New(),
+				UserName:      "John Doe",
+				UserEmail:     "john.doe@example.com",
 				Status:        entities.OrderStatusDelivered,
 				PaymentStatus: entities.PaymentStatusPaid,
 				Total:         1108.90,
@@ -1010,19 +1011,19 @@ func (uc *adminUseCase) GetProductAnalytics(ctx context.Context, productID uuid.
 		ProductID: productID,
 		Period:    period,
 		Metrics: struct {
-			Views         int64   `json:"views"`
-			Sales         int64   `json:"sales"`
-			Revenue       float64 `json:"revenue"`
+			Views          int64   `json:"views"`
+			Sales          int64   `json:"sales"`
+			Revenue        float64 `json:"revenue"`
 			ConversionRate float64 `json:"conversion_rate"`
-			AverageRating float64 `json:"average_rating"`
-			ReviewCount   int64   `json:"review_count"`
+			AverageRating  float64 `json:"average_rating"`
+			ReviewCount    int64   `json:"review_count"`
 		}{
-			Views:         15000,
-			Sales:         500,
-			Revenue:       250000,
+			Views:          15000,
+			Sales:          500,
+			Revenue:        250000,
 			ConversionRate: 3.3,
-			AverageRating: 4.5,
-			ReviewCount:   125,
+			AverageRating:  4.5,
+			ReviewCount:    125,
 		},
 		Charts: struct {
 			ViewsChart []struct {
@@ -1081,16 +1082,16 @@ func (uc *adminUseCase) GetUsers(ctx context.Context, req AdminUsersRequest) (*A
 
 	// Transform entities to response format
 	users := make([]struct {
-		ID          uuid.UUID           `json:"id"`
-		Email       string              `json:"email"`
-		FirstName   string              `json:"first_name"`
-		LastName    string              `json:"last_name"`
-		Role        entities.UserRole   `json:"role"`
-		Status      entities.UserStatus `json:"status"`
-		LastLogin   *time.Time          `json:"last_login"`
-		OrderCount  int64               `json:"order_count"`
-		TotalSpent  float64             `json:"total_spent"`
-		CreatedAt   time.Time           `json:"created_at"`
+		ID         uuid.UUID           `json:"id"`
+		Email      string              `json:"email"`
+		FirstName  string              `json:"first_name"`
+		LastName   string              `json:"last_name"`
+		Role       entities.UserRole   `json:"role"`
+		Status     entities.UserStatus `json:"status"`
+		LastLogin  *time.Time          `json:"last_login"`
+		OrderCount int64               `json:"order_count"`
+		TotalSpent float64             `json:"total_spent"`
+		CreatedAt  time.Time           `json:"created_at"`
 	}, len(userEntities))
 
 	for i, user := range userEntities {
@@ -1103,16 +1104,16 @@ func (uc *adminUseCase) GetUsers(ctx context.Context, req AdminUsersRequest) (*A
 		}
 
 		users[i] = struct {
-			ID          uuid.UUID           `json:"id"`
-			Email       string              `json:"email"`
-			FirstName   string              `json:"first_name"`
-			LastName    string              `json:"last_name"`
-			Role        entities.UserRole   `json:"role"`
-			Status      entities.UserStatus `json:"status"`
-			LastLogin   *time.Time          `json:"last_login"`
-			OrderCount  int64               `json:"order_count"`
-			TotalSpent  float64             `json:"total_spent"`
-			CreatedAt   time.Time           `json:"created_at"`
+			ID         uuid.UUID           `json:"id"`
+			Email      string              `json:"email"`
+			FirstName  string              `json:"first_name"`
+			LastName   string              `json:"last_name"`
+			Role       entities.UserRole   `json:"role"`
+			Status     entities.UserStatus `json:"status"`
+			LastLogin  *time.Time          `json:"last_login"`
+			OrderCount int64               `json:"order_count"`
+			TotalSpent float64             `json:"total_spent"`
+			CreatedAt  time.Time           `json:"created_at"`
 		}{
 			ID:         user.ID,
 			Email:      user.Email,
@@ -1121,8 +1122,8 @@ func (uc *adminUseCase) GetUsers(ctx context.Context, req AdminUsersRequest) (*A
 			Role:       user.Role,
 			Status:     status,
 			LastLogin:  nil, // TODO: Implement last login tracking
-			OrderCount: 0, // TODO: Get actual order count from order repository
-			TotalSpent: 0, // TODO: Get actual total spent from order repository  
+			OrderCount: 0,   // TODO: Get actual order count from order repository
+			TotalSpent: 0,   // TODO: Get actual total spent from order repository
 			CreatedAt:  user.CreatedAt,
 		}
 	}
@@ -1207,20 +1208,20 @@ func (uc *adminUseCase) UpdateOrderStatus(ctx context.Context, orderID uuid.UUID
 func (uc *adminUseCase) GetProducts(ctx context.Context, req AdminProductsRequest) (*AdminProductsResponse, error) {
 	// Mock implementation for admin products
 	products := []struct {
-		ID            uuid.UUID             `json:"id"`
-		Name          string                `json:"name"`
-		SKU           string                `json:"sku"`
-		Price         float64               `json:"price"`
-		ComparePrice  float64               `json:"compare_price"`
+		ID            uuid.UUID              `json:"id"`
+		Name          string                 `json:"name"`
+		SKU           string                 `json:"sku"`
+		Price         float64                `json:"price"`
+		ComparePrice  float64                `json:"compare_price"`
 		Status        entities.ProductStatus `json:"status"`
-		StockQuantity int                   `json:"stock_quantity"`
-		CategoryID    uuid.UUID             `json:"category_id"`
-		CategoryName  string                `json:"category_name"`
-		ViewCount     int64                 `json:"view_count"`
-		SalesCount    int64                 `json:"sales_count"`
-		Revenue       float64               `json:"revenue"`
-		CreatedAt     time.Time             `json:"created_at"`
-		UpdatedAt     time.Time             `json:"updated_at"`
+		StockQuantity int                    `json:"stock_quantity"`
+		CategoryID    uuid.UUID              `json:"category_id"`
+		CategoryName  string                 `json:"category_name"`
+		ViewCount     int64                  `json:"view_count"`
+		SalesCount    int64                  `json:"sales_count"`
+		Revenue       float64                `json:"revenue"`
+		CreatedAt     time.Time              `json:"created_at"`
+		UpdatedAt     time.Time              `json:"updated_at"`
 	}{
 		{
 			ID:            uuid.New(),

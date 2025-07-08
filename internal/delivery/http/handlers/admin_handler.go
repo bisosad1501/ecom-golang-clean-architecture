@@ -6,6 +6,7 @@ import (
 
 	"ecom-golang-clean-architecture/internal/domain/entities"
 	"ecom-golang-clean-architecture/internal/usecases"
+
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 )
@@ -27,7 +28,7 @@ func (h *AdminHandler) GetDashboard(c *gin.Context) {
 	var req usecases.AdminDashboardRequest
 	if err := c.ShouldBindQuery(&req); err != nil {
 		c.JSON(http.StatusBadRequest, ErrorResponse{
-			Error: "Invalid query parameters",
+			Error:   "Invalid query parameters",
 			Details: err.Error(),
 		})
 		return
@@ -36,7 +37,7 @@ func (h *AdminHandler) GetDashboard(c *gin.Context) {
 	dashboard, err := h.adminUseCase.GetDashboard(c.Request.Context(), req)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, ErrorResponse{
-			Error: "Failed to get dashboard",
+			Error:   "Failed to get dashboard",
 			Details: err.Error(),
 		})
 		return
@@ -44,7 +45,7 @@ func (h *AdminHandler) GetDashboard(c *gin.Context) {
 
 	c.JSON(http.StatusOK, SuccessResponse{
 		Message: "Dashboard retrieved successfully",
-		Data: dashboard,
+		Data:    dashboard,
 	})
 }
 
@@ -53,7 +54,7 @@ func (h *AdminHandler) GetSystemStats(c *gin.Context) {
 	stats, err := h.adminUseCase.GetSystemStats(c.Request.Context())
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, ErrorResponse{
-			Error: "Failed to get system stats",
+			Error:   "Failed to get system stats",
 			Details: err.Error(),
 		})
 		return
@@ -61,7 +62,7 @@ func (h *AdminHandler) GetSystemStats(c *gin.Context) {
 
 	c.JSON(http.StatusOK, SuccessResponse{
 		Message: "System stats retrieved successfully",
-		Data: stats,
+		Data:    stats,
 	})
 }
 
@@ -70,7 +71,7 @@ func (h *AdminHandler) GetUsers(c *gin.Context) {
 	var req usecases.AdminUsersRequest
 	if err := c.ShouldBindQuery(&req); err != nil {
 		c.JSON(http.StatusBadRequest, ErrorResponse{
-			Error: "Invalid query parameters",
+			Error:   "Invalid query parameters",
 			Details: err.Error(),
 		})
 		return
@@ -85,13 +86,13 @@ func (h *AdminHandler) GetUsers(c *gin.Context) {
 	}
 
 	// Debug logging
-	fmt.Printf("DEBUG GetUsers - Limit: %d, Offset: %d, Status: %v, Role: %v, Search: %s\n", 
+	fmt.Printf("DEBUG GetUsers - Limit: %d, Offset: %d, Status: %v, Role: %v, Search: %s\n",
 		req.Limit, req.Offset, req.Status, req.Role, req.Search)
 
 	users, err := h.adminUseCase.GetUsers(c.Request.Context(), req)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, ErrorResponse{
-			Error: "Failed to get users",
+			Error:   "Failed to get users",
 			Details: err.Error(),
 		})
 		return
@@ -99,7 +100,7 @@ func (h *AdminHandler) GetUsers(c *gin.Context) {
 
 	c.JSON(http.StatusOK, SuccessResponse{
 		Message: "Users retrieved successfully",
-		Data: users,
+		Data:    users,
 	})
 }
 
@@ -109,7 +110,7 @@ func (h *AdminHandler) UpdateUserStatus(c *gin.Context) {
 	userID, err := uuid.Parse(userIDStr)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, ErrorResponse{
-			Error: "Invalid user ID",
+			Error:   "Invalid user ID",
 			Details: err.Error(),
 		})
 		return
@@ -120,7 +121,7 @@ func (h *AdminHandler) UpdateUserStatus(c *gin.Context) {
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, ErrorResponse{
-			Error: "Invalid request body",
+			Error:   "Invalid request body",
 			Details: err.Error(),
 		})
 		return
@@ -128,7 +129,7 @@ func (h *AdminHandler) UpdateUserStatus(c *gin.Context) {
 
 	if err := h.adminUseCase.UpdateUserStatus(c.Request.Context(), userID, req.Status); err != nil {
 		c.JSON(http.StatusInternalServerError, ErrorResponse{
-			Error: "Failed to update user status",
+			Error:   "Failed to update user status",
 			Details: err.Error(),
 		})
 		return
@@ -145,7 +146,7 @@ func (h *AdminHandler) UpdateUserRole(c *gin.Context) {
 	userID, err := uuid.Parse(userIDStr)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, ErrorResponse{
-			Error: "Invalid user ID",
+			Error:   "Invalid user ID",
 			Details: err.Error(),
 		})
 		return
@@ -156,7 +157,7 @@ func (h *AdminHandler) UpdateUserRole(c *gin.Context) {
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, ErrorResponse{
-			Error: "Invalid request body",
+			Error:   "Invalid request body",
 			Details: err.Error(),
 		})
 		return
@@ -164,7 +165,7 @@ func (h *AdminHandler) UpdateUserRole(c *gin.Context) {
 
 	if err := h.adminUseCase.UpdateUserRole(c.Request.Context(), userID, req.Role); err != nil {
 		c.JSON(http.StatusInternalServerError, ErrorResponse{
-			Error: "Failed to update user role",
+			Error:   "Failed to update user role",
 			Details: err.Error(),
 		})
 		return
@@ -181,7 +182,7 @@ func (h *AdminHandler) GetUserActivity(c *gin.Context) {
 	userID, err := uuid.Parse(userIDStr)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, ErrorResponse{
-			Error: "Invalid user ID",
+			Error:   "Invalid user ID",
 			Details: err.Error(),
 		})
 		return
@@ -190,7 +191,7 @@ func (h *AdminHandler) GetUserActivity(c *gin.Context) {
 	var req usecases.ActivityRequest
 	if err := c.ShouldBindQuery(&req); err != nil {
 		c.JSON(http.StatusBadRequest, ErrorResponse{
-			Error: "Invalid query parameters",
+			Error:   "Invalid query parameters",
 			Details: err.Error(),
 		})
 		return
@@ -199,7 +200,7 @@ func (h *AdminHandler) GetUserActivity(c *gin.Context) {
 	activity, err := h.adminUseCase.GetUserActivity(c.Request.Context(), userID, req)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, ErrorResponse{
-			Error: "Failed to get user activity",
+			Error:   "Failed to get user activity",
 			Details: err.Error(),
 		})
 		return
@@ -207,7 +208,7 @@ func (h *AdminHandler) GetUserActivity(c *gin.Context) {
 
 	c.JSON(http.StatusOK, SuccessResponse{
 		Message: "User activity retrieved successfully",
-		Data: activity,
+		Data:    activity,
 	})
 }
 
@@ -216,7 +217,7 @@ func (h *AdminHandler) GetOrders(c *gin.Context) {
 	var req usecases.AdminOrdersRequest
 	if err := c.ShouldBindQuery(&req); err != nil {
 		c.JSON(http.StatusBadRequest, ErrorResponse{
-			Error: "Invalid query parameters",
+			Error:   "Invalid query parameters",
 			Details: err.Error(),
 		})
 		return
@@ -225,7 +226,7 @@ func (h *AdminHandler) GetOrders(c *gin.Context) {
 	orders, err := h.adminUseCase.GetOrders(c.Request.Context(), req)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, ErrorResponse{
-			Error: "Failed to get orders",
+			Error:   "Failed to get orders",
 			Details: err.Error(),
 		})
 		return
@@ -233,7 +234,7 @@ func (h *AdminHandler) GetOrders(c *gin.Context) {
 
 	c.JSON(http.StatusOK, SuccessResponse{
 		Message: "Orders retrieved successfully",
-		Data: orders,
+		Data:    orders,
 	})
 }
 
@@ -243,7 +244,7 @@ func (h *AdminHandler) UpdateOrderStatus(c *gin.Context) {
 	orderID, err := uuid.Parse(orderIDStr)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, ErrorResponse{
-			Error: "Invalid order ID",
+			Error:   "Invalid order ID",
 			Details: err.Error(),
 		})
 		return
@@ -254,7 +255,7 @@ func (h *AdminHandler) UpdateOrderStatus(c *gin.Context) {
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, ErrorResponse{
-			Error: "Invalid request body",
+			Error:   "Invalid request body",
 			Details: err.Error(),
 		})
 		return
@@ -262,7 +263,7 @@ func (h *AdminHandler) UpdateOrderStatus(c *gin.Context) {
 
 	if err := h.adminUseCase.UpdateOrderStatus(c.Request.Context(), orderID, req.Status); err != nil {
 		c.JSON(http.StatusInternalServerError, ErrorResponse{
-			Error: "Failed to update order status",
+			Error:   "Failed to update order status",
 			Details: err.Error(),
 		})
 		return
@@ -279,7 +280,7 @@ func (h *AdminHandler) GetOrderDetails(c *gin.Context) {
 	orderID, err := uuid.Parse(orderIDStr)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, ErrorResponse{
-			Error: "Invalid order ID",
+			Error:   "Invalid order ID",
 			Details: err.Error(),
 		})
 		return
@@ -288,7 +289,7 @@ func (h *AdminHandler) GetOrderDetails(c *gin.Context) {
 	details, err := h.adminUseCase.GetOrderDetails(c.Request.Context(), orderID)
 	if err != nil {
 		c.JSON(http.StatusNotFound, ErrorResponse{
-			Error: "Order not found",
+			Error:   "Order not found",
 			Details: err.Error(),
 		})
 		return
@@ -296,7 +297,7 @@ func (h *AdminHandler) GetOrderDetails(c *gin.Context) {
 
 	c.JSON(http.StatusOK, SuccessResponse{
 		Message: "Order details retrieved successfully",
-		Data: details,
+		Data:    details,
 	})
 }
 
@@ -306,7 +307,7 @@ func (h *AdminHandler) ProcessRefund(c *gin.Context) {
 	orderID, err := uuid.Parse(orderIDStr)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, ErrorResponse{
-			Error: "Invalid order ID",
+			Error:   "Invalid order ID",
 			Details: err.Error(),
 		})
 		return
@@ -318,7 +319,7 @@ func (h *AdminHandler) ProcessRefund(c *gin.Context) {
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, ErrorResponse{
-			Error: "Invalid request body",
+			Error:   "Invalid request body",
 			Details: err.Error(),
 		})
 		return
@@ -326,7 +327,7 @@ func (h *AdminHandler) ProcessRefund(c *gin.Context) {
 
 	if err := h.adminUseCase.ProcessRefund(c.Request.Context(), orderID, req.Amount, req.Reason); err != nil {
 		c.JSON(http.StatusInternalServerError, ErrorResponse{
-			Error: "Failed to process refund",
+			Error:   "Failed to process refund",
 			Details: err.Error(),
 		})
 		return
@@ -342,7 +343,7 @@ func (h *AdminHandler) GetProducts(c *gin.Context) {
 	var req usecases.AdminProductsRequest
 	if err := c.ShouldBindQuery(&req); err != nil {
 		c.JSON(http.StatusBadRequest, ErrorResponse{
-			Error: "Invalid query parameters",
+			Error:   "Invalid query parameters",
 			Details: err.Error(),
 		})
 		return
@@ -351,7 +352,7 @@ func (h *AdminHandler) GetProducts(c *gin.Context) {
 	products, err := h.adminUseCase.GetProducts(c.Request.Context(), req)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, ErrorResponse{
-			Error: "Failed to get products",
+			Error:   "Failed to get products",
 			Details: err.Error(),
 		})
 		return
@@ -359,7 +360,7 @@ func (h *AdminHandler) GetProducts(c *gin.Context) {
 
 	c.JSON(http.StatusOK, SuccessResponse{
 		Message: "Products retrieved successfully",
-		Data: products,
+		Data:    products,
 	})
 }
 
@@ -368,7 +369,7 @@ func (h *AdminHandler) BulkUpdateProducts(c *gin.Context) {
 	var req usecases.BulkUpdateProductsRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, ErrorResponse{
-			Error: "Invalid request body",
+			Error:   "Invalid request body",
 			Details: err.Error(),
 		})
 		return
@@ -376,7 +377,7 @@ func (h *AdminHandler) BulkUpdateProducts(c *gin.Context) {
 
 	if err := h.adminUseCase.BulkUpdateProducts(c.Request.Context(), req); err != nil {
 		c.JSON(http.StatusInternalServerError, ErrorResponse{
-			Error: "Failed to bulk update products",
+			Error:   "Failed to bulk update products",
 			Details: err.Error(),
 		})
 		return
@@ -392,7 +393,7 @@ func (h *AdminHandler) GetAuditLogs(c *gin.Context) {
 	var req usecases.AuditLogsRequest
 	if err := c.ShouldBindQuery(&req); err != nil {
 		c.JSON(http.StatusBadRequest, ErrorResponse{
-			Error: "Invalid query parameters",
+			Error:   "Invalid query parameters",
 			Details: err.Error(),
 		})
 		return
@@ -401,7 +402,7 @@ func (h *AdminHandler) GetAuditLogs(c *gin.Context) {
 	logs, err := h.adminUseCase.GetAuditLogs(c.Request.Context(), req)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, ErrorResponse{
-			Error: "Failed to get audit logs",
+			Error:   "Failed to get audit logs",
 			Details: err.Error(),
 		})
 		return
@@ -409,7 +410,7 @@ func (h *AdminHandler) GetAuditLogs(c *gin.Context) {
 
 	c.JSON(http.StatusOK, SuccessResponse{
 		Message: "Audit logs retrieved successfully",
-		Data: logs,
+		Data:    logs,
 	})
 }
 
@@ -418,7 +419,7 @@ func (h *AdminHandler) ManageReviews(c *gin.Context) {
 	var req usecases.ManageReviewsRequest
 	if err := c.ShouldBindQuery(&req); err != nil {
 		c.JSON(http.StatusBadRequest, ErrorResponse{
-			Error: "Invalid query parameters",
+			Error:   "Invalid query parameters",
 			Details: err.Error(),
 		})
 		return
@@ -427,7 +428,7 @@ func (h *AdminHandler) ManageReviews(c *gin.Context) {
 	reviews, err := h.adminUseCase.ManageReviews(c.Request.Context(), req)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, ErrorResponse{
-			Error: "Failed to get reviews",
+			Error:   "Failed to get reviews",
 			Details: err.Error(),
 		})
 		return
@@ -435,7 +436,7 @@ func (h *AdminHandler) ManageReviews(c *gin.Context) {
 
 	c.JSON(http.StatusOK, SuccessResponse{
 		Message: "Reviews retrieved successfully",
-		Data: reviews,
+		Data:    reviews,
 	})
 }
 
@@ -445,7 +446,7 @@ func (h *AdminHandler) UpdateReviewStatus(c *gin.Context) {
 	reviewID, err := uuid.Parse(reviewIDStr)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, ErrorResponse{
-			Error: "Invalid review ID",
+			Error:   "Invalid review ID",
 			Details: err.Error(),
 		})
 		return
@@ -456,7 +457,7 @@ func (h *AdminHandler) UpdateReviewStatus(c *gin.Context) {
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, ErrorResponse{
-			Error: "Invalid request body",
+			Error:   "Invalid request body",
 			Details: err.Error(),
 		})
 		return
@@ -465,7 +466,7 @@ func (h *AdminHandler) UpdateReviewStatus(c *gin.Context) {
 	err = h.adminUseCase.UpdateReviewStatus(c.Request.Context(), reviewID, req.Status)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, ErrorResponse{
-			Error: "Failed to update review status",
+			Error:   "Failed to update review status",
 			Details: err.Error(),
 		})
 		return
@@ -481,7 +482,7 @@ func (h *AdminHandler) GenerateReport(c *gin.Context) {
 	var req usecases.GenerateReportRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, ErrorResponse{
-			Error: "Invalid request body",
+			Error:   "Invalid request body",
 			Details: err.Error(),
 		})
 		return
@@ -490,7 +491,7 @@ func (h *AdminHandler) GenerateReport(c *gin.Context) {
 	report, err := h.adminUseCase.GenerateReport(c.Request.Context(), req)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, ErrorResponse{
-			Error: "Failed to generate report",
+			Error:   "Failed to generate report",
 			Details: err.Error(),
 		})
 		return
@@ -498,7 +499,7 @@ func (h *AdminHandler) GenerateReport(c *gin.Context) {
 
 	c.JSON(http.StatusCreated, SuccessResponse{
 		Message: "Report generated successfully",
-		Data: report,
+		Data:    report,
 	})
 }
 
@@ -507,7 +508,7 @@ func (h *AdminHandler) GetReports(c *gin.Context) {
 	var req usecases.GetReportsRequest
 	if err := c.ShouldBindQuery(&req); err != nil {
 		c.JSON(http.StatusBadRequest, ErrorResponse{
-			Error: "Invalid query parameters",
+			Error:   "Invalid query parameters",
 			Details: err.Error(),
 		})
 		return
@@ -516,7 +517,7 @@ func (h *AdminHandler) GetReports(c *gin.Context) {
 	reports, err := h.adminUseCase.GetReports(c.Request.Context(), req)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, ErrorResponse{
-			Error: "Failed to get reports",
+			Error:   "Failed to get reports",
 			Details: err.Error(),
 		})
 		return
@@ -524,7 +525,7 @@ func (h *AdminHandler) GetReports(c *gin.Context) {
 
 	c.JSON(http.StatusOK, SuccessResponse{
 		Message: "Reports retrieved successfully",
-		Data: reports,
+		Data:    reports,
 	})
 }
 
@@ -534,7 +535,7 @@ func (h *AdminHandler) DownloadReport(c *gin.Context) {
 	reportID, err := uuid.Parse(reportIDStr)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, ErrorResponse{
-			Error: "Invalid report ID",
+			Error:   "Invalid report ID",
 			Details: err.Error(),
 		})
 		return
@@ -543,7 +544,7 @@ func (h *AdminHandler) DownloadReport(c *gin.Context) {
 	download, err := h.adminUseCase.DownloadReport(c.Request.Context(), reportID)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, ErrorResponse{
-			Error: "Failed to download report",
+			Error:   "Failed to download report",
 			Details: err.Error(),
 		})
 		return
@@ -551,7 +552,7 @@ func (h *AdminHandler) DownloadReport(c *gin.Context) {
 
 	c.JSON(http.StatusOK, SuccessResponse{
 		Message: "Report download prepared successfully",
-		Data: download,
+		Data:    download,
 	})
 }
 
@@ -560,7 +561,7 @@ func (h *AdminHandler) GetSystemLogs(c *gin.Context) {
 	var req usecases.SystemLogsRequest
 	if err := c.ShouldBindQuery(&req); err != nil {
 		c.JSON(http.StatusBadRequest, ErrorResponse{
-			Error: "Invalid query parameters",
+			Error:   "Invalid query parameters",
 			Details: err.Error(),
 		})
 		return
@@ -569,7 +570,7 @@ func (h *AdminHandler) GetSystemLogs(c *gin.Context) {
 	logs, err := h.adminUseCase.GetSystemLogs(c.Request.Context(), req)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, ErrorResponse{
-			Error: "Failed to get system logs",
+			Error:   "Failed to get system logs",
 			Details: err.Error(),
 		})
 		return
@@ -577,7 +578,7 @@ func (h *AdminHandler) GetSystemLogs(c *gin.Context) {
 
 	c.JSON(http.StatusOK, SuccessResponse{
 		Message: "System logs retrieved successfully",
-		Data: logs,
+		Data:    logs,
 	})
 }
 
@@ -586,7 +587,7 @@ func (h *AdminHandler) BackupDatabase(c *gin.Context) {
 	backup, err := h.adminUseCase.BackupDatabase(c.Request.Context())
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, ErrorResponse{
-			Error: "Failed to backup database",
+			Error:   "Failed to backup database",
 			Details: err.Error(),
 		})
 		return
@@ -594,6 +595,6 @@ func (h *AdminHandler) BackupDatabase(c *gin.Context) {
 
 	c.JSON(http.StatusOK, SuccessResponse{
 		Message: "Database backup created successfully",
-		Data: backup,
+		Data:    backup,
 	})
 }
