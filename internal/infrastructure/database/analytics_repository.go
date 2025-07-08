@@ -6,6 +6,7 @@ import (
 
 	"ecom-golang-clean-architecture/internal/domain/entities"
 	"ecom-golang-clean-architecture/internal/domain/repositories"
+
 	"github.com/google/uuid"
 	"gorm.io/gorm"
 )
@@ -30,8 +31,8 @@ func (r *analyticsRepository) GetSalesMetrics(ctx context.Context, filters repos
 
 	query := r.db.WithContext(ctx).
 		Model(&entities.Order{}).
-		Select("COALESCE(SUM(total_amount), 0) as total_sales, COUNT(*) as total_orders").
-		Where("status = ?", entities.OrderStatusDelivered)
+		Select("COALESCE(SUM(total), 0) as total_sales, COUNT(*) as total_orders").
+		Where("status = ? AND payment_status = ?", entities.OrderStatusDelivered, entities.PaymentStatusPaid)
 
 	if filters.DateFrom != nil {
 		query = query.Where("created_at >= ?", *filters.DateFrom)
@@ -267,7 +268,7 @@ func (r *analyticsRepository) GetTopCategories(ctx context.Context, period strin
 // GetRevenueByPeriod gets revenue data grouped by period
 func (r *analyticsRepository) GetRevenueByPeriod(ctx context.Context, from, to time.Time, period string) ([]*entities.RevenueData, error) {
 	var revenueData []*entities.RevenueData
-	
+
 	var dateFormat string
 	switch period {
 	case "day":
@@ -279,22 +280,22 @@ func (r *analyticsRepository) GetRevenueByPeriod(ctx context.Context, from, to t
 	default:
 		dateFormat = "DATE(created_at)"
 	}
-	
+
 	err := r.db.WithContext(ctx).
 		Table("orders").
-		Select(dateFormat+" as period, SUM(total_amount) as revenue, COUNT(*) as order_count").
-		Where("created_at BETWEEN ? AND ? AND status = ?", from, to, entities.OrderStatusDelivered).
+		Select(dateFormat+" as period, SUM(total) as revenue, COUNT(*) as order_count").
+		Where("created_at BETWEEN ? AND ? AND status = ? AND payment_status = ?", from, to, entities.OrderStatusDelivered, entities.PaymentStatusPaid).
 		Group("period").
 		Order("period ASC").
 		Scan(&revenueData).Error
-	
+
 	return revenueData, err
 }
 
 // GetConversionMetrics gets conversion rate metrics
 func (r *analyticsRepository) GetConversionMetrics(ctx context.Context, from, to time.Time) (*entities.ConversionMetrics, error) {
 	var metrics entities.ConversionMetrics
-	
+
 	// Get total sessions
 	err := r.db.WithContext(ctx).
 		Model(&entities.AnalyticsEvent{}).
@@ -310,7 +311,7 @@ func (r *analyticsRepository) GetConversionMetrics(ctx context.Context, from, to
 		Table("analytics_events").
 		Select("COUNT(DISTINCT analytics_events.session_id)").
 		Joins("JOIN orders ON analytics_events.user_id = orders.user_id").
-		Where("analytics_events.created_at BETWEEN ? AND ? AND orders.created_at BETWEEN ? AND ?", 
+		Where("analytics_events.created_at BETWEEN ? AND ? AND orders.created_at BETWEEN ? AND ?",
 			from, to, from, to).
 		Scan(&metrics.ConvertedSessions).Error
 	if err != nil {
@@ -330,7 +331,7 @@ func (r *analyticsRepository) GetRealTimeMetrics(ctx context.Context) (*entities
 	var metrics entities.RealTimeMetrics
 	now := time.Now()
 	oneHourAgo := now.Add(-1 * time.Hour)
-	
+
 	// Get active users in last hour
 	err := r.db.WithContext(ctx).
 		Model(&entities.AnalyticsEvent{}).
@@ -362,8 +363,8 @@ func (r *analyticsRepository) GetRealTimeMetrics(ctx context.Context) (*entities
 	// Get revenue in last hour
 	err = r.db.WithContext(ctx).
 		Model(&entities.Order{}).
-		Select("COALESCE(SUM(total_amount), 0)").
-		Where("created_at >= ? AND status = ?", oneHourAgo, entities.OrderStatusDelivered).
+		Select("COALESCE(SUM(total), 0)").
+		Where("created_at >= ? AND status = ? AND payment_status = ?", oneHourAgo, entities.OrderStatusDelivered, entities.PaymentStatusPaid).
 		Scan(&metrics.Revenue).Error
 	if err != nil {
 		return nil, err
@@ -379,8 +380,8 @@ func (r *analyticsRepository) GetCustomerLifetimeValue(ctx context.Context, user
 	// Get total spent by customer
 	err := r.db.WithContext(ctx).
 		Model(&entities.Order{}).
-		Select("COALESCE(SUM(total_amount), 0) as total_spent, COUNT(*) as order_count").
-		Where("user_id = ? AND status = ?", userID, entities.OrderStatusDelivered).
+		Select("COALESCE(SUM(total), 0) as total_spent, COUNT(*) as order_count").
+		Where("user_id = ? AND status = ? AND payment_status = ?", userID, entities.OrderStatusDelivered, entities.PaymentStatusPaid).
 		Scan(&clv).Error
 	if err != nil {
 		return nil, err
@@ -638,9 +639,9 @@ func (r *analyticsRepository) GetDashboardMetrics(ctx context.Context, dateFrom,
 	// This is a placeholder implementation
 	// In a real system, you would aggregate various metrics
 	return &repositories.DashboardMetrics{
-		TotalUsers:    0,
-		TotalOrders:   0,
-		TotalRevenue:  0,
+		TotalUsers:     0,
+		TotalOrders:    0,
+		TotalRevenue:   0,
 		ConversionRate: 0,
 	}, nil
 }
@@ -649,8 +650,8 @@ func (r *analyticsRepository) GetDashboardMetrics(ctx context.Context, dateFrom,
 func (r *analyticsRepository) GetFunnelAnalysis(ctx context.Context, steps []string, from, to time.Time) (*repositories.FunnelAnalysis, error) {
 	// Placeholder implementation
 	return &repositories.FunnelAnalysis{
-		Steps: steps,
-		TotalUsers: 0,
+		Steps:          steps,
+		TotalUsers:     0,
 		ConversionRate: 0,
 	}, nil
 }
@@ -695,8 +696,8 @@ func (r *analyticsRepository) GetTodayRevenue(ctx context.Context) (float64, err
 	var revenue float64
 	err := r.db.WithContext(ctx).
 		Model(&entities.Order{}).
-		Select("COALESCE(SUM(total_amount), 0)").
-		Where("created_at >= ? AND created_at < ? AND status = ?", today, tomorrow, entities.OrderStatusDelivered).
+		Select("COALESCE(SUM(total), 0)").
+		Where("created_at >= ? AND created_at < ? AND status = ? AND payment_status = ?", today, tomorrow, entities.OrderStatusDelivered, entities.PaymentStatusPaid).
 		Scan(&revenue).Error
 	return revenue, err
 }
@@ -739,8 +740,8 @@ func (r *analyticsRepository) GetTopPages(ctx context.Context, period string, li
 func (r *analyticsRepository) GetUserCohorts(ctx context.Context, period string) (*repositories.CohortAnalysis, error) {
 	// Placeholder implementation
 	return &repositories.CohortAnalysis{
-		Period: period,
-		TotalUsers: 0,
+		Period:        period,
+		TotalUsers:    0,
 		RetentionRate: 0,
 	}, nil
 }

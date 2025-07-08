@@ -1,6 +1,6 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
-import { apiClient } from '@/lib/api'
+import { apiClient, authApi } from '@/lib/api-client'
 import { User, AuthResponse, LoginRequest, RegisterRequest } from '@/types'
 import { AUTH_TOKEN_KEY } from '@/constants'
 
@@ -44,7 +44,7 @@ export const useAuthStore = create<AuthStore>()(
         try {
           set({ isLoading: true, error: null })
 
-          const authResponse = await apiClient.login(credentials)
+          const authResponse = await authApi.login(credentials)
           const { user, token } = authResponse
 
           // Store token in API client
@@ -81,7 +81,7 @@ export const useAuthStore = create<AuthStore>()(
         try {
           set({ isLoading: true, error: null })
 
-          const authResponse = await apiClient.register(data)
+          const authResponse = await authApi.register(data)
           const { user, token } = authResponse
 
           // Store token in API client
@@ -123,7 +123,7 @@ export const useAuthStore = create<AuthStore>()(
 
       logout: () => {
         // Clear token from API client
-        apiClient.clearToken()
+        apiClient.setToken(null)
         
         // Clear token from localStorage
         if (typeof window !== 'undefined') {
@@ -150,7 +150,7 @@ export const useAuthStore = create<AuthStore>()(
           apiClient.setToken(token)
           
           // Fetch fresh user data
-          const user = await apiClient.getUserProfile()
+          const user = await authApi.getProfile()
           console.log('refreshUser response:', user)
 
           set({
@@ -203,7 +203,7 @@ export const useAuthStore = create<AuthStore>()(
           }
           
           // Verify token by fetching user profile
-          const user = await apiClient.getUserProfile()
+          const user = await authApi.getProfile()
           console.log('checkAuth extracted user:', user)
 
           set({

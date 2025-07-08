@@ -1,9 +1,11 @@
 package handlers
 
 import (
+	"fmt"
 	"net/http"
 
 	"ecom-golang-clean-architecture/internal/usecases"
+
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 )
@@ -25,7 +27,7 @@ func (h *PaymentHandler) ProcessPayment(c *gin.Context) {
 	var req usecases.ProcessPaymentRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, ErrorResponse{
-			Error: "Invalid request body",
+			Error:   "Invalid request body",
 			Details: err.Error(),
 		})
 		return
@@ -34,7 +36,7 @@ func (h *PaymentHandler) ProcessPayment(c *gin.Context) {
 	payment, err := h.paymentUseCase.ProcessPayment(c.Request.Context(), req)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, ErrorResponse{
-			Error: "Failed to process payment",
+			Error:   "Failed to process payment",
 			Details: err.Error(),
 		})
 		return
@@ -42,7 +44,7 @@ func (h *PaymentHandler) ProcessPayment(c *gin.Context) {
 
 	c.JSON(http.StatusOK, SuccessResponse{
 		Message: "Payment processed successfully",
-		Data: payment,
+		Data:    payment,
 	})
 }
 
@@ -52,7 +54,7 @@ func (h *PaymentHandler) GetPayment(c *gin.Context) {
 	id, err := uuid.Parse(idStr)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, ErrorResponse{
-			Error: "Invalid payment ID",
+			Error:   "Invalid payment ID",
 			Details: err.Error(),
 		})
 		return
@@ -61,7 +63,7 @@ func (h *PaymentHandler) GetPayment(c *gin.Context) {
 	payment, err := h.paymentUseCase.GetPayment(c.Request.Context(), id)
 	if err != nil {
 		c.JSON(http.StatusNotFound, ErrorResponse{
-			Error: "Payment not found",
+			Error:   "Payment not found",
 			Details: err.Error(),
 		})
 		return
@@ -69,7 +71,7 @@ func (h *PaymentHandler) GetPayment(c *gin.Context) {
 
 	c.JSON(http.StatusOK, SuccessResponse{
 		Message: "Payment retrieved successfully",
-		Data: payment,
+		Data:    payment,
 	})
 }
 
@@ -79,7 +81,7 @@ func (h *PaymentHandler) GetOrderPayments(c *gin.Context) {
 	orderID, err := uuid.Parse(orderIDStr)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, ErrorResponse{
-			Error: "Invalid order ID",
+			Error:   "Invalid order ID",
 			Details: err.Error(),
 		})
 		return
@@ -88,7 +90,7 @@ func (h *PaymentHandler) GetOrderPayments(c *gin.Context) {
 	payments, err := h.paymentUseCase.GetOrderPayments(c.Request.Context(), orderID)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, ErrorResponse{
-			Error: "Failed to get order payments",
+			Error:   "Failed to get order payments",
 			Details: err.Error(),
 		})
 		return
@@ -96,7 +98,7 @@ func (h *PaymentHandler) GetOrderPayments(c *gin.Context) {
 
 	c.JSON(http.StatusOK, SuccessResponse{
 		Message: "Order payments retrieved successfully",
-		Data: payments,
+		Data:    payments,
 	})
 }
 
@@ -105,7 +107,7 @@ func (h *PaymentHandler) ProcessRefund(c *gin.Context) {
 	var req usecases.ProcessRefundRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, ErrorResponse{
-			Error: "Invalid request body",
+			Error:   "Invalid request body",
 			Details: err.Error(),
 		})
 		return
@@ -114,7 +116,7 @@ func (h *PaymentHandler) ProcessRefund(c *gin.Context) {
 	refund, err := h.paymentUseCase.ProcessRefund(c.Request.Context(), req)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, ErrorResponse{
-			Error: "Failed to process refund",
+			Error:   "Failed to process refund",
 			Details: err.Error(),
 		})
 		return
@@ -122,7 +124,7 @@ func (h *PaymentHandler) ProcessRefund(c *gin.Context) {
 
 	c.JSON(http.StatusOK, SuccessResponse{
 		Message: "Refund processed successfully",
-		Data: refund,
+		Data:    refund,
 	})
 }
 
@@ -132,7 +134,7 @@ func (h *PaymentHandler) GetRefunds(c *gin.Context) {
 	paymentID, err := uuid.Parse(paymentIDStr)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, ErrorResponse{
-			Error: "Invalid payment ID",
+			Error:   "Invalid payment ID",
 			Details: err.Error(),
 		})
 		return
@@ -141,7 +143,7 @@ func (h *PaymentHandler) GetRefunds(c *gin.Context) {
 	refunds, err := h.paymentUseCase.GetRefunds(c.Request.Context(), paymentID)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, ErrorResponse{
-			Error: "Failed to get refunds",
+			Error:   "Failed to get refunds",
 			Details: err.Error(),
 		})
 		return
@@ -149,7 +151,7 @@ func (h *PaymentHandler) GetRefunds(c *gin.Context) {
 
 	c.JSON(http.StatusOK, SuccessResponse{
 		Message: "Refunds retrieved successfully",
-		Data: refunds,
+		Data:    refunds,
 	})
 }
 
@@ -158,7 +160,7 @@ func (h *PaymentHandler) SavePaymentMethod(c *gin.Context) {
 	var req usecases.SavePaymentMethodRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, ErrorResponse{
-			Error: "Invalid request body",
+			Error:   "Invalid request body",
 			Details: err.Error(),
 		})
 		return
@@ -167,7 +169,7 @@ func (h *PaymentHandler) SavePaymentMethod(c *gin.Context) {
 	method, err := h.paymentUseCase.SavePaymentMethod(c.Request.Context(), req)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, ErrorResponse{
-			Error: "Failed to save payment method",
+			Error:   "Failed to save payment method",
 			Details: err.Error(),
 		})
 		return
@@ -175,7 +177,7 @@ func (h *PaymentHandler) SavePaymentMethod(c *gin.Context) {
 
 	c.JSON(http.StatusOK, SuccessResponse{
 		Message: "Payment method saved successfully",
-		Data: method,
+		Data:    method,
 	})
 }
 
@@ -185,7 +187,7 @@ func (h *PaymentHandler) GetUserPaymentMethods(c *gin.Context) {
 	userID, err := uuid.Parse(userIDStr)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, ErrorResponse{
-			Error: "Invalid user ID",
+			Error:   "Invalid user ID",
 			Details: err.Error(),
 		})
 		return
@@ -194,7 +196,7 @@ func (h *PaymentHandler) GetUserPaymentMethods(c *gin.Context) {
 	methods, err := h.paymentUseCase.GetUserPaymentMethods(c.Request.Context(), userID)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, ErrorResponse{
-			Error: "Failed to get payment methods",
+			Error:   "Failed to get payment methods",
 			Details: err.Error(),
 		})
 		return
@@ -202,7 +204,7 @@ func (h *PaymentHandler) GetUserPaymentMethods(c *gin.Context) {
 
 	c.JSON(http.StatusOK, SuccessResponse{
 		Message: "Payment methods retrieved successfully",
-		Data: methods,
+		Data:    methods,
 	})
 }
 
@@ -212,7 +214,7 @@ func (h *PaymentHandler) DeletePaymentMethod(c *gin.Context) {
 	id, err := uuid.Parse(idStr)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, ErrorResponse{
-			Error: "Invalid payment method ID",
+			Error:   "Invalid payment method ID",
 			Details: err.Error(),
 		})
 		return
@@ -220,7 +222,7 @@ func (h *PaymentHandler) DeletePaymentMethod(c *gin.Context) {
 
 	if err := h.paymentUseCase.DeletePaymentMethod(c.Request.Context(), id); err != nil {
 		c.JSON(http.StatusInternalServerError, ErrorResponse{
-			Error: "Failed to delete payment method",
+			Error:   "Failed to delete payment method",
 			Details: err.Error(),
 		})
 		return
@@ -237,7 +239,7 @@ func (h *PaymentHandler) SetDefaultPaymentMethod(c *gin.Context) {
 	userID, err := uuid.Parse(userIDStr)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, ErrorResponse{
-			Error: "Invalid user ID",
+			Error:   "Invalid user ID",
 			Details: err.Error(),
 		})
 		return
@@ -247,7 +249,7 @@ func (h *PaymentHandler) SetDefaultPaymentMethod(c *gin.Context) {
 	methodID, err := uuid.Parse(methodIDStr)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, ErrorResponse{
-			Error: "Invalid method ID",
+			Error:   "Invalid method ID",
 			Details: err.Error(),
 		})
 		return
@@ -255,7 +257,7 @@ func (h *PaymentHandler) SetDefaultPaymentMethod(c *gin.Context) {
 
 	if err := h.paymentUseCase.SetDefaultPaymentMethod(c.Request.Context(), userID, methodID); err != nil {
 		c.JSON(http.StatusInternalServerError, ErrorResponse{
-			Error: "Failed to set default payment method",
+			Error:   "Failed to set default payment method",
 			Details: err.Error(),
 		})
 		return
@@ -269,25 +271,47 @@ func (h *PaymentHandler) SetDefaultPaymentMethod(c *gin.Context) {
 // HandleWebhook handles payment webhooks
 func (h *PaymentHandler) HandleWebhook(c *gin.Context) {
 	provider := c.Param("provider")
-	signature := c.GetHeader("X-Signature") // or whatever header contains the signature
-	
+	fmt.Printf("🔔 Received webhook from provider: %s\n", provider)
+
+	// Get signature header based on provider
+	var signature string
+	switch provider {
+	case "stripe":
+		signature = c.GetHeader("Stripe-Signature")
+	case "paypal":
+		signature = c.GetHeader("PAYPAL-TRANSMISSION-SIG")
+	default:
+		signature = c.GetHeader("X-Signature")
+	}
+
+	if len(signature) > 50 {
+		fmt.Printf("🔐 Signature header: %s...\n", signature[:50])
+	} else {
+		fmt.Printf("🔐 Signature header: %s\n", signature)
+	}
+
 	payload, err := c.GetRawData()
 	if err != nil {
+		fmt.Printf("❌ Failed to read webhook payload: %v\n", err)
 		c.JSON(http.StatusBadRequest, ErrorResponse{
-			Error: "Failed to read webhook payload",
+			Error:   "Failed to read webhook payload",
 			Details: err.Error(),
 		})
 		return
 	}
+
+	fmt.Printf("📦 Payload size: %d bytes\n", len(payload))
 
 	if err := h.paymentUseCase.HandleWebhook(c.Request.Context(), provider, payload, signature); err != nil {
-		c.JSON(http.StatusInternalServerError, ErrorResponse{
-			Error: "Failed to process webhook",
-			Details: err.Error(),
+		// Log error but return 200 to prevent webhook retries for invalid events
+		fmt.Printf("❌ Webhook processing error: %v\n", err)
+		c.JSON(http.StatusOK, SuccessResponse{
+			Message: "Webhook received",
 		})
 		return
 	}
 
+	fmt.Printf("✅ Webhook processed successfully\n")
 	c.JSON(http.StatusOK, SuccessResponse{
 		Message: "Webhook processed successfully",
 	})
@@ -311,7 +335,7 @@ func (h *PaymentHandler) GetPaymentReports(c *gin.Context) {
 	report, err := h.paymentUseCase.GetPaymentReport(c.Request.Context(), req)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, ErrorResponse{
-			Error: "Failed to get payment reports",
+			Error:   "Failed to get payment reports",
 			Details: err.Error(),
 		})
 		return
@@ -319,7 +343,7 @@ func (h *PaymentHandler) GetPaymentReports(c *gin.Context) {
 
 	c.JSON(http.StatusOK, SuccessResponse{
 		Message: "Payment reports retrieved successfully",
-		Data: report,
+		Data:    report,
 	})
 }
 
@@ -328,7 +352,7 @@ func (h *PaymentHandler) CreateCheckoutSession(c *gin.Context) {
 	var req usecases.CreateCheckoutSessionRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, ErrorResponse{
-			Error: "Invalid request body",
+			Error:   "Invalid request body",
 			Details: err.Error(),
 		})
 		return
@@ -338,7 +362,7 @@ func (h *PaymentHandler) CreateCheckoutSession(c *gin.Context) {
 	response, err := h.paymentUseCase.CreateCheckoutSession(c.Request.Context(), req)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, ErrorResponse{
-			Error: "Failed to create checkout session",
+			Error:   "Failed to create checkout session",
 			Details: err.Error(),
 		})
 		return
@@ -353,6 +377,53 @@ func (h *PaymentHandler) CreateCheckoutSession(c *gin.Context) {
 
 	c.JSON(http.StatusOK, SuccessResponse{
 		Message: "Checkout session created successfully",
-		Data: response,
+		Data:    response,
+	})
+}
+
+// ConfirmPaymentSuccess confirms payment success for an order (fallback method)
+func (h *PaymentHandler) ConfirmPaymentSuccess(c *gin.Context) {
+	var req struct {
+		SessionID string `json:"session_id" binding:"required"`
+		OrderID   string `json:"order_id" binding:"required"`
+	}
+
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, ErrorResponse{
+			Error:   "Invalid request body",
+			Details: err.Error(),
+		})
+		return
+	}
+
+	// Parse order ID
+	orderID, err := uuid.Parse(req.OrderID)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, ErrorResponse{
+			Error: "Invalid order ID format",
+		})
+		return
+	}
+
+	// Get user ID from token (optional for public access)
+	var userID uuid.UUID
+	if userIDStr, exists := c.Get("user_id"); exists {
+		if parsedUserID, parseErr := uuid.Parse(userIDStr.(string)); parseErr == nil {
+			userID = parsedUserID
+		}
+	}
+
+	// Confirm payment success
+	err = h.paymentUseCase.ConfirmPaymentSuccess(c.Request.Context(), orderID, userID, req.SessionID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, ErrorResponse{
+			Error:   "Failed to confirm payment success",
+			Details: err.Error(),
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, SuccessResponse{
+		Message: "Payment confirmation processed successfully",
 	})
 }

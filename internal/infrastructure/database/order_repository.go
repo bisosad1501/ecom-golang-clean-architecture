@@ -8,6 +8,7 @@ import (
 
 	"ecom-golang-clean-architecture/internal/domain/entities"
 	"ecom-golang-clean-architecture/internal/domain/repositories"
+
 	"github.com/google/uuid"
 	"gorm.io/gorm"
 )
@@ -193,7 +194,7 @@ func (r *orderRepository) UpdateStatus(ctx context.Context, orderID uuid.UUID, s
 		Model(&entities.Order{}).
 		Where("id = ?", orderID).
 		Update("status", status)
-	
+
 	if result.Error != nil {
 		return result.Error
 	}
@@ -209,7 +210,7 @@ func (r *orderRepository) UpdatePaymentStatus(ctx context.Context, orderID uuid.
 		Model(&entities.Order{}).
 		Where("id = ?", orderID).
 		Update("payment_status", status)
-	
+
 	if result.Error != nil {
 		return result.Error
 	}
@@ -261,8 +262,10 @@ func (r *orderRepository) GetTotalRevenue(ctx context.Context) (float64, error) 
 	var total float64
 	err := r.db.WithContext(ctx).
 		Model(&entities.Order{}).
-		Where("status IN ?", []entities.OrderStatus{entities.OrderStatusDelivered}).
-		Select("COALESCE(SUM(total_amount), 0)").
+		Where("payment_status = ? AND status NOT IN ?",
+			entities.PaymentStatusPaid,
+			[]entities.OrderStatus{entities.OrderStatusCancelled, entities.OrderStatusRefunded}).
+		Select("COALESCE(SUM(total), 0)").
 		Scan(&total).Error
 	return total, err
 }
@@ -284,6 +287,71 @@ func (r *orderRepository) CountOrdersByStatus(ctx context.Context, status entiti
 		Where("status = ?", status).
 		Count(&count).Error
 	return count, err
+}
+
+// GetGrossRevenue gets gross revenue (before discounts)
+func (r *orderRepository) GetGrossRevenue(ctx context.Context) (float64, error) {
+	var total float64
+	err := r.db.WithContext(ctx).
+		Model(&entities.Order{}).
+		Where("status IN ? AND payment_status = ?",
+			[]entities.OrderStatus{entities.OrderStatusDelivered, entities.OrderStatusShipped},
+			entities.PaymentStatusPaid).
+		Select("COALESCE(SUM(subtotal + tax_amount + shipping_amount), 0)").
+		Scan(&total).Error
+	return total, err
+}
+
+// GetProductRevenue gets product revenue (only subtotal)
+func (r *orderRepository) GetProductRevenue(ctx context.Context) (float64, error) {
+	var total float64
+	err := r.db.WithContext(ctx).
+		Model(&entities.Order{}).
+		Where("status IN ? AND payment_status = ?",
+			[]entities.OrderStatus{entities.OrderStatusDelivered, entities.OrderStatusShipped},
+			entities.PaymentStatusPaid).
+		Select("COALESCE(SUM(subtotal), 0)").
+		Scan(&total).Error
+	return total, err
+}
+
+// GetTaxCollected gets total tax collected
+func (r *orderRepository) GetTaxCollected(ctx context.Context) (float64, error) {
+	var total float64
+	err := r.db.WithContext(ctx).
+		Model(&entities.Order{}).
+		Where("status IN ? AND payment_status = ?",
+			[]entities.OrderStatus{entities.OrderStatusDelivered, entities.OrderStatusShipped},
+			entities.PaymentStatusPaid).
+		Select("COALESCE(SUM(tax_amount), 0)").
+		Scan(&total).Error
+	return total, err
+}
+
+// GetShippingRevenue gets total shipping revenue
+func (r *orderRepository) GetShippingRevenue(ctx context.Context) (float64, error) {
+	var total float64
+	err := r.db.WithContext(ctx).
+		Model(&entities.Order{}).
+		Where("status IN ? AND payment_status = ?",
+			[]entities.OrderStatus{entities.OrderStatusDelivered, entities.OrderStatusShipped},
+			entities.PaymentStatusPaid).
+		Select("COALESCE(SUM(shipping_amount), 0)").
+		Scan(&total).Error
+	return total, err
+}
+
+// GetDiscountsGiven gets total discounts given
+func (r *orderRepository) GetDiscountsGiven(ctx context.Context) (float64, error) {
+	var total float64
+	err := r.db.WithContext(ctx).
+		Model(&entities.Order{}).
+		Where("status IN ? AND payment_status = ?",
+			[]entities.OrderStatus{entities.OrderStatusDelivered, entities.OrderStatusShipped},
+			entities.PaymentStatusPaid).
+		Select("COALESCE(SUM(discount_amount), 0)").
+		Scan(&total).Error
+	return total, err
 }
 
 type paymentRepository struct {
@@ -330,6 +398,19 @@ func (r *paymentRepository) GetByOrderID(ctx context.Context, orderID uuid.UUID)
 func (r *paymentRepository) GetByTransactionID(ctx context.Context, transactionID string) (*entities.Payment, error) {
 	var payment entities.Payment
 	err := r.db.WithContext(ctx).Where("transaction_id = ?", transactionID).First(&payment).Error
+	if err != nil {
+		if err == gorm.ErrRecordNotFound {
+			return nil, entities.ErrPaymentNotFound
+		}
+		return nil, err
+	}
+	return &payment, nil
+}
+
+// GetByExternalID retrieves a payment by external ID (e.g., Stripe session ID)
+func (r *paymentRepository) GetByExternalID(ctx context.Context, externalID string) (*entities.Payment, error) {
+	var payment entities.Payment
+	err := r.db.WithContext(ctx).Where("external_id = ?", externalID).First(&payment).Error
 	if err != nil {
 		if err == gorm.ErrRecordNotFound {
 			return nil, entities.ErrPaymentNotFound

@@ -6,6 +6,7 @@ import (
 
 	"ecom-golang-clean-architecture/internal/domain/entities"
 	"ecom-golang-clean-architecture/internal/domain/repositories"
+
 	"github.com/google/uuid"
 	"gorm.io/gorm"
 )
@@ -265,7 +266,7 @@ func (r *warehouseRepository) UpdateStatus(ctx context.Context, id uuid.UUID, st
 // GetWarehouseStats gets warehouse statistics
 func (r *warehouseRepository) GetWarehouseStats(ctx context.Context, warehouseID uuid.UUID) (*entities.WarehouseStats, error) {
 	var stats entities.WarehouseStats
-	
+
 	// Get total products
 	err := r.db.WithContext(ctx).
 		Model(&entities.Inventory{}).
@@ -441,8 +442,8 @@ func (r *warehouseRepository) GetPerformanceReport(ctx context.Context, warehous
 	}
 
 	// Get total revenue
-	err = query.Select("COALESCE(SUM(total_amount), 0)").
-		Where("status = ?", entities.OrderStatusDelivered).
+	err = query.Select("COALESCE(SUM(total), 0)").
+		Where("status = ? AND payment_status = ?", entities.OrderStatusDelivered, entities.PaymentStatusPaid).
 		Scan(&report.TotalRevenue).Error
 	if err != nil {
 		return nil, err
@@ -675,5 +676,3 @@ func (r *warehouseRepository) UpdateZone(ctx context.Context, zone *entities.War
 	zone.UpdatedAt = time.Now()
 	return r.db.WithContext(ctx).Save(zone).Error
 }
-
-

@@ -99,17 +99,19 @@ export const usePaymentStore = create<PaymentStore>()(
       createCheckoutSession: async (data: CreateCheckoutSessionRequest): Promise<CheckoutSession> => {
         set({ isLoading: true, error: null })
         try {
-          const response = await apiClient.createCheckoutSession(data)
+          const response = await apiClient.post<CheckoutSession>('/payments/checkout-session', data)
           set({ isLoading: false })
-          
-          if (response.data.success) {
+
+          const checkoutData = response.data?.data || response.data
+
+          if (checkoutData.success) {
             toast.success('Redirecting to payment...')
-            return response.data
+            return checkoutData
           } else {
-            throw new Error(response.data.message || 'Failed to create checkout session')
+            throw new Error(checkoutData.message || 'Failed to create checkout session')
           }
         } catch (error: any) {
-          const errorMessage = error.response?.data?.message || 'Failed to create checkout session'
+          const errorMessage = error.response?.data?.message || error.message || 'Failed to create checkout session'
           set({ error: errorMessage, isLoading: false })
           toast.error(errorMessage)
           throw error

@@ -4,6 +4,7 @@ import (
 	"ecom-golang-clean-architecture/internal/delivery/http/handlers"
 	"ecom-golang-clean-architecture/internal/delivery/http/middleware"
 	"ecom-golang-clean-architecture/internal/infrastructure/config"
+
 	"github.com/gin-gonic/gin"
 )
 
@@ -130,6 +131,18 @@ func SetupRoutes(
 			coupons.POST("/validate", couponHandler.ValidateCoupon)
 		}
 
+		// Public order access for success page
+		publicOrders := v1.Group("/orders")
+		{
+			publicOrders.GET("/:id/public", orderHandler.GetOrderPublic)
+		}
+
+		// Public payment confirmation for success page
+		publicPayments := v1.Group("/payments")
+		{
+			publicPayments.POST("/confirm-success", paymentHandler.ConfirmPaymentSuccess)
+		}
+
 		// Protected routes (authentication required)
 		protected := v1.Group("")
 		protected.Use(middleware.AuthMiddleware(cfg.JWT.Secret))
@@ -177,6 +190,7 @@ func SetupRoutes(
 			{
 				orders.POST("", orderHandler.CreateOrder)
 				orders.GET("", orderHandler.GetUserOrders)
+				orders.GET("/by-session", orderHandler.GetOrderBySessionID)
 				orders.GET("/:id", orderHandler.GetOrder)
 				orders.POST("/:id/cancel", orderHandler.CancelOrder)
 				// orders.GET("/:id/invoice", orderHandler.GetOrderInvoice) // TODO: Implement GetOrderInvoice method
@@ -229,6 +243,12 @@ func SetupRoutes(
 				payments.PUT("/methods/:id/default", paymentHandler.SetDefaultPaymentMethod)
 			}
 
+			// Webhook routes (public - no auth required)
+			webhooks := v1.Group("/webhooks")
+			{
+				webhooks.POST("/payment/:provider", paymentHandler.HandleWebhook)
+			}
+
 			// Notification routes
 			notifications := protected.Group("/notifications")
 			{
@@ -252,6 +272,7 @@ func SetupRoutes(
 				dashboard.GET("", adminHandler.GetDashboard)
 				dashboard.GET("/stats", adminHandler.GetSystemStats)
 				dashboard.GET("/real-time", analyticsHandler.GetRealTimeMetrics)
+				dashboard.GET("/activity", adminHandler.GetRecentActivity)
 			}
 
 			// Admin user management
@@ -267,8 +288,8 @@ func SetupRoutes(
 			adminProducts := admin.Group("/products")
 			{
 				adminProducts.POST("", productHandler.CreateProduct)
-				adminProducts.PUT("/:id", productHandler.UpdateProduct)        // Complete replacement
-				adminProducts.PATCH("/:id", productHandler.PatchProduct)       // Partial update
+				adminProducts.PUT("/:id", productHandler.UpdateProduct)  // Complete replacement
+				adminProducts.PATCH("/:id", productHandler.PatchProduct) // Partial update
 				adminProducts.DELETE("/:id", productHandler.DeleteProduct)
 				adminProducts.PUT("/:id/stock", productHandler.UpdateStock)
 			}
@@ -302,6 +323,7 @@ func SetupRoutes(
 				adminOrders.GET("", adminHandler.GetOrders)
 				adminOrders.GET("/:id", adminHandler.GetOrderDetails)
 				adminOrders.PUT("/:id/status", adminHandler.UpdateOrderStatus)
+				adminOrders.PATCH("/:id/status", adminHandler.UpdateOrderStatus) // Add PATCH route
 				adminOrders.POST("/:id/refund", adminHandler.ProcessRefund)
 			}
 
@@ -376,8 +398,8 @@ func SetupRoutes(
 			modProducts := moderator.Group("/products")
 			{
 				modProducts.POST("", productHandler.CreateProduct)
-				modProducts.PUT("/:id", productHandler.UpdateProduct)          // Complete replacement
-				modProducts.PATCH("/:id", productHandler.PatchProduct)         // Partial update  
+				modProducts.PUT("/:id", productHandler.UpdateProduct)  // Complete replacement
+				modProducts.PATCH("/:id", productHandler.PatchProduct) // Partial update
 				modProducts.PUT("/:id/stock", productHandler.UpdateStock)
 			}
 

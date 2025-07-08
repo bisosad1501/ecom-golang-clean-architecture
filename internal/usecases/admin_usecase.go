@@ -3,6 +3,7 @@ package usecases
 import (
 	"context"
 	"fmt"
+	"strings"
 	"time"
 
 	"ecom-golang-clean-architecture/internal/domain/entities"
@@ -198,14 +199,19 @@ type GetReportsRequest struct {
 // Response types
 type AdminDashboardResponse struct {
 	Overview struct {
-		TotalRevenue   float64 `json:"total_revenue"`
-		TotalOrders    int64   `json:"total_orders"`
-		TotalCustomers int64   `json:"total_customers"`
-		TotalProducts  int64   `json:"total_products"`
-		PendingOrders  int64   `json:"pending_orders"`
-		LowStockItems  int64   `json:"low_stock_items"`
-		PendingReviews int64   `json:"pending_reviews"`
-		ActiveUsers    int64   `json:"active_users"`
+		TotalRevenue    float64 `json:"total_revenue"`    // Net revenue (current)
+		GrossRevenue    float64 `json:"gross_revenue"`    // Before discounts
+		ProductRevenue  float64 `json:"product_revenue"`  // Only product sales
+		TaxCollected    float64 `json:"tax_collected"`    // Total tax amount
+		ShippingRevenue float64 `json:"shipping_revenue"` // Shipping fees
+		DiscountsGiven  float64 `json:"discounts_given"`  // Total discounts
+		TotalOrders     int64   `json:"total_orders"`
+		TotalCustomers  int64   `json:"total_customers"`
+		TotalProducts   int64   `json:"total_products"`
+		PendingOrders   int64   `json:"pending_orders"`
+		LowStockItems   int64   `json:"low_stock_items"`
+		PendingReviews  int64   `json:"pending_reviews"`
+		ActiveUsers     int64   `json:"active_users"`
 	} `json:"overview"`
 
 	Charts struct {
@@ -242,6 +248,21 @@ type AdminDashboardResponse struct {
 		UserName    string    `json:"user_name"`
 		Timestamp   time.Time `json:"timestamp"`
 	} `json:"recent_activity"`
+
+	RecentOrders []struct {
+		ID           uuid.UUID `json:"id"`
+		OrderNumber  string    `json:"order_number"`
+		Status       string    `json:"status"`
+		Total        float64   `json:"total"`
+		TotalAmount  float64   `json:"total_amount"`
+		CustomerName string    `json:"customer_name"`
+		CreatedAt    time.Time `json:"created_at"`
+		User         *struct {
+			ID        uuid.UUID `json:"id"`
+			FirstName string    `json:"first_name"`
+			LastName  string    `json:"last_name"`
+		} `json:"user,omitempty"`
+	} `json:"recent_orders"`
 }
 
 type SystemStatsResponse struct {
@@ -336,6 +357,32 @@ type AdminOrderDetailsResponse struct {
 		Price       float64   `json:"price"`
 		Total       float64   `json:"total"`
 	} `json:"items"`
+
+	ShippingAddress *struct {
+		FirstName    string `json:"first_name"`
+		LastName     string `json:"last_name"`
+		Company      string `json:"company"`
+		AddressLine1 string `json:"address_line_1"`
+		AddressLine2 string `json:"address_line_2"`
+		City         string `json:"city"`
+		State        string `json:"state"`
+		PostalCode   string `json:"postal_code"`
+		Country      string `json:"country"`
+		Phone        string `json:"phone"`
+	} `json:"shipping_address,omitempty"`
+
+	BillingAddress *struct {
+		FirstName    string `json:"first_name"`
+		LastName     string `json:"last_name"`
+		Company      string `json:"company"`
+		AddressLine1 string `json:"address_line_1"`
+		AddressLine2 string `json:"address_line_2"`
+		City         string `json:"city"`
+		State        string `json:"state"`
+		PostalCode   string `json:"postal_code"`
+		Country      string `json:"country"`
+		Phone        string `json:"phone"`
+	} `json:"billing_address,omitempty"`
 
 	Payments []struct {
 		ID            uuid.UUID              `json:"id"`
@@ -587,7 +634,12 @@ func (uc *adminUseCase) GetDashboard(ctx context.Context, req AdminDashboardRequ
 	_ = dateTo
 
 	// Get overview metrics
-	totalRevenue, _ := uc.orderRepo.GetTotalRevenue(ctx)
+	totalRevenue, _ := uc.orderRepo.GetTotalRevenue(ctx)       // Net revenue (current)
+	grossRevenue, _ := uc.orderRepo.GetGrossRevenue(ctx)       // Before discounts
+	productRevenue, _ := uc.orderRepo.GetProductRevenue(ctx)   // Only products
+	taxCollected, _ := uc.orderRepo.GetTaxCollected(ctx)       // Tax amount
+	shippingRevenue, _ := uc.orderRepo.GetShippingRevenue(ctx) // Shipping fees
+	discountsGiven, _ := uc.orderRepo.GetDiscountsGiven(ctx)   // Discounts
 	totalOrders, _ := uc.orderRepo.CountOrders(ctx)
 	totalCustomers, _ := uc.userRepo.CountUsers(ctx)
 	totalProducts, _ := uc.productRepo.CountProducts(ctx)
@@ -598,24 +650,89 @@ func (uc *adminUseCase) GetDashboard(ctx context.Context, req AdminDashboardRequ
 
 	response := &AdminDashboardResponse{
 		Overview: struct {
-			TotalRevenue   float64 `json:"total_revenue"`
-			TotalOrders    int64   `json:"total_orders"`
-			TotalCustomers int64   `json:"total_customers"`
-			TotalProducts  int64   `json:"total_products"`
-			PendingOrders  int64   `json:"pending_orders"`
-			LowStockItems  int64   `json:"low_stock_items"`
-			PendingReviews int64   `json:"pending_reviews"`
-			ActiveUsers    int64   `json:"active_users"`
+			TotalRevenue    float64 `json:"total_revenue"`    // Net revenue (current)
+			GrossRevenue    float64 `json:"gross_revenue"`    // Before discounts
+			ProductRevenue  float64 `json:"product_revenue"`  // Only product sales
+			TaxCollected    float64 `json:"tax_collected"`    // Total tax amount
+			ShippingRevenue float64 `json:"shipping_revenue"` // Shipping fees
+			DiscountsGiven  float64 `json:"discounts_given"`  // Total discounts
+			TotalOrders     int64   `json:"total_orders"`
+			TotalCustomers  int64   `json:"total_customers"`
+			TotalProducts   int64   `json:"total_products"`
+			PendingOrders   int64   `json:"pending_orders"`
+			LowStockItems   int64   `json:"low_stock_items"`
+			PendingReviews  int64   `json:"pending_reviews"`
+			ActiveUsers     int64   `json:"active_users"`
 		}{
-			TotalRevenue:   totalRevenue,
-			TotalOrders:    totalOrders,
-			TotalCustomers: totalCustomers,
-			TotalProducts:  totalProducts,
-			PendingOrders:  pendingOrders,
-			LowStockItems:  lowStockItems,
-			PendingReviews: pendingReviews,
-			ActiveUsers:    activeUsers,
+			TotalRevenue:    totalRevenue,
+			GrossRevenue:    grossRevenue,
+			ProductRevenue:  productRevenue,
+			TaxCollected:    taxCollected,
+			ShippingRevenue: shippingRevenue,
+			DiscountsGiven:  discountsGiven,
+			TotalOrders:     totalOrders,
+			TotalCustomers:  totalCustomers,
+			TotalProducts:   totalProducts,
+			PendingOrders:   pendingOrders,
+			LowStockItems:   lowStockItems,
+			PendingReviews:  pendingReviews,
+			ActiveUsers:     activeUsers,
 		},
+	}
+	// Get recent orders (limit to 5 for dashboard)
+	recentOrdersReq := AdminOrdersRequest{
+		Limit:     5,
+		SortBy:    "created_at",
+		SortOrder: "desc",
+	}
+	recentOrdersResp, err := uc.GetOrders(ctx, recentOrdersReq)
+	if err == nil && recentOrdersResp != nil {
+		for _, order := range recentOrdersResp.Orders {
+			recentOrder := struct {
+				ID           uuid.UUID `json:"id"`
+				OrderNumber  string    `json:"order_number"`
+				Status       string    `json:"status"`
+				Total        float64   `json:"total"`
+				TotalAmount  float64   `json:"total_amount"`
+				CustomerName string    `json:"customer_name"`
+				CreatedAt    time.Time `json:"created_at"`
+				User         *struct {
+					ID        uuid.UUID `json:"id"`
+					FirstName string    `json:"first_name"`
+					LastName  string    `json:"last_name"`
+				} `json:"user,omitempty"`
+			}{
+				ID:           order.ID,
+				OrderNumber:  order.OrderNumber,
+				Status:       string(order.Status),
+				Total:        order.Total,
+				TotalAmount:  order.Total,
+				CustomerName: order.UserName,
+				CreatedAt:    order.CreatedAt,
+			}
+
+			// Add user info if available (use UserName for now)
+			if order.UserName != "" {
+				names := strings.Split(order.UserName, " ")
+				firstName := names[0]
+				lastName := ""
+				if len(names) > 1 {
+					lastName = strings.Join(names[1:], " ")
+				}
+
+				recentOrder.User = &struct {
+					ID        uuid.UUID `json:"id"`
+					FirstName string    `json:"first_name"`
+					LastName  string    `json:"last_name"`
+				}{
+					ID:        order.UserID,
+					FirstName: firstName,
+					LastName:  lastName,
+				}
+			}
+
+			response.RecentOrders = append(response.RecentOrders, recentOrder)
+		}
 	}
 
 	// Get chart data (simplified implementation)
@@ -732,7 +849,50 @@ func (uc *adminUseCase) GetAuditLogs(ctx context.Context, req AuditLogsRequest) 
 
 // GetOrderDetails gets order details
 func (uc *adminUseCase) GetOrderDetails(ctx context.Context, orderID uuid.UUID) (*AdminOrderDetailsResponse, error) {
-	// Mock implementation for order details
+	// Get order from repository with preloaded relationships
+	order, err := uc.orderRepo.GetByID(ctx, orderID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get order: %w", err)
+	}
+
+	// Get user information
+	user, err := uc.userRepo.GetByID(ctx, order.UserID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get user: %w", err)
+	}
+
+	// Convert order items
+	items := make([]struct {
+		ID          uuid.UUID `json:"id"`
+		ProductID   uuid.UUID `json:"product_id"`
+		ProductName string    `json:"product_name"`
+		ProductSKU  string    `json:"product_sku"`
+		Quantity    int       `json:"quantity"`
+		Price       float64   `json:"price"`
+		Total       float64   `json:"total"`
+	}, len(order.Items))
+
+	for i, item := range order.Items {
+		items[i] = struct {
+			ID          uuid.UUID `json:"id"`
+			ProductID   uuid.UUID `json:"product_id"`
+			ProductName string    `json:"product_name"`
+			ProductSKU  string    `json:"product_sku"`
+			Quantity    int       `json:"quantity"`
+			Price       float64   `json:"price"`
+			Total       float64   `json:"total"`
+		}{
+			ID:          item.ID,
+			ProductID:   item.ProductID,
+			ProductName: item.ProductName,
+			ProductSKU:  item.ProductSKU,
+			Quantity:    item.Quantity,
+			Price:       item.Price,
+			Total:       item.Total,
+		}
+	}
+
+	// Build response
 	response := &AdminOrderDetailsResponse{
 		Order: struct {
 			ID             uuid.UUID              `json:"id"`
@@ -747,17 +907,17 @@ func (uc *adminUseCase) GetOrderDetails(ctx context.Context, orderID uuid.UUID) 
 			CreatedAt      time.Time              `json:"created_at"`
 			UpdatedAt      time.Time              `json:"updated_at"`
 		}{
-			ID:             orderID,
-			OrderNumber:    "ORD-" + orderID.String()[:8],
-			Status:         entities.OrderStatusDelivered,
-			PaymentStatus:  entities.PaymentStatusPaid,
-			Subtotal:       999.00,
-			TaxAmount:      99.90,
-			ShippingAmount: 10.00,
-			DiscountAmount: 0.00,
-			Total:          1108.90,
-			CreatedAt:      time.Now().Add(-24 * time.Hour),
-			UpdatedAt:      time.Now().Add(-12 * time.Hour),
+			ID:             order.ID,
+			OrderNumber:    order.OrderNumber,
+			Status:         order.Status,
+			PaymentStatus:  order.PaymentStatus,
+			Subtotal:       order.Subtotal,
+			TaxAmount:      order.TaxAmount,
+			ShippingAmount: order.ShippingAmount,
+			DiscountAmount: order.DiscountAmount,
+			Total:          order.Total,
+			CreatedAt:      order.CreatedAt,
+			UpdatedAt:      order.UpdatedAt,
 		},
 		Customer: struct {
 			ID        uuid.UUID `json:"id"`
@@ -766,31 +926,67 @@ func (uc *adminUseCase) GetOrderDetails(ctx context.Context, orderID uuid.UUID) 
 			LastName  string    `json:"last_name"`
 			Phone     string    `json:"phone"`
 		}{
-			ID:        uuid.New(),
-			Email:     "john.doe@example.com",
-			FirstName: "John",
-			LastName:  "Doe",
-			Phone:     "+1234567890",
+			ID:        user.ID,
+			Email:     user.Email,
+			FirstName: user.FirstName,
+			LastName:  user.LastName,
+			Phone:     user.Phone,
 		},
-		Items: []struct {
-			ID          uuid.UUID `json:"id"`
-			ProductID   uuid.UUID `json:"product_id"`
-			ProductName string    `json:"product_name"`
-			ProductSKU  string    `json:"product_sku"`
-			Quantity    int       `json:"quantity"`
-			Price       float64   `json:"price"`
-			Total       float64   `json:"total"`
+		Items: items,
+	}
+
+	// Add shipping address if exists
+	if order.ShippingAddress != nil {
+		response.ShippingAddress = &struct {
+			FirstName    string `json:"first_name"`
+			LastName     string `json:"last_name"`
+			Company      string `json:"company"`
+			AddressLine1 string `json:"address_line_1"`
+			AddressLine2 string `json:"address_line_2"`
+			City         string `json:"city"`
+			State        string `json:"state"`
+			PostalCode   string `json:"postal_code"`
+			Country      string `json:"country"`
+			Phone        string `json:"phone"`
 		}{
-			{
-				ID:          uuid.New(),
-				ProductID:   uuid.New(),
-				ProductName: "iPhone 15",
-				ProductSKU:  "IPH15-128-BLK",
-				Quantity:    1,
-				Price:       999.00,
-				Total:       999.00,
-			},
-		},
+			FirstName:    order.ShippingAddress.FirstName,
+			LastName:     order.ShippingAddress.LastName,
+			Company:      order.ShippingAddress.Company,
+			AddressLine1: order.ShippingAddress.Address1,
+			AddressLine2: order.ShippingAddress.Address2,
+			City:         order.ShippingAddress.City,
+			State:        order.ShippingAddress.State,
+			PostalCode:   order.ShippingAddress.ZipCode,
+			Country:      order.ShippingAddress.Country,
+			Phone:        order.ShippingAddress.Phone,
+		}
+	}
+
+	// Add billing address if exists
+	if order.BillingAddress != nil {
+		response.BillingAddress = &struct {
+			FirstName    string `json:"first_name"`
+			LastName     string `json:"last_name"`
+			Company      string `json:"company"`
+			AddressLine1 string `json:"address_line_1"`
+			AddressLine2 string `json:"address_line_2"`
+			City         string `json:"city"`
+			State        string `json:"state"`
+			PostalCode   string `json:"postal_code"`
+			Country      string `json:"country"`
+			Phone        string `json:"phone"`
+		}{
+			FirstName:    order.BillingAddress.FirstName,
+			LastName:     order.BillingAddress.LastName,
+			Company:      order.BillingAddress.Company,
+			AddressLine1: order.BillingAddress.Address1,
+			AddressLine2: order.BillingAddress.Address2,
+			City:         order.BillingAddress.City,
+			State:        order.BillingAddress.State,
+			PostalCode:   order.BillingAddress.ZipCode,
+			Country:      order.BillingAddress.Country,
+			Phone:        order.BillingAddress.Phone,
+		}
 	}
 
 	return response, nil
@@ -798,9 +994,84 @@ func (uc *adminUseCase) GetOrderDetails(ctx context.Context, orderID uuid.UUID) 
 
 // GetOrders gets orders
 func (uc *adminUseCase) GetOrders(ctx context.Context, req AdminOrdersRequest) (*AdminOrdersResponse, error) {
-	// Mock implementation for get orders
-	response := &AdminOrdersResponse{
-		Orders: []struct {
+	// Build search parameters for order repository
+	searchParams := repositories.OrderSearchParams{
+		SortBy:    "created_at",
+		SortOrder: "desc",
+		Limit:     req.Limit,
+		Offset:    req.Offset,
+	}
+
+	// Add filters if provided
+	if req.Status != nil {
+		searchParams.Status = req.Status
+	}
+
+	if req.PaymentStatus != nil {
+		searchParams.PaymentStatus = req.PaymentStatus
+	}
+
+	if req.UserID != nil {
+		searchParams.UserID = req.UserID
+	}
+
+	if req.DateFrom != nil {
+		searchParams.StartDate = req.DateFrom
+	}
+
+	if req.DateTo != nil {
+		searchParams.EndDate = req.DateTo
+	}
+
+	// Get orders from repository
+	orders, err := uc.orderRepo.Search(ctx, searchParams)
+	if err != nil {
+		return nil, fmt.Errorf("failed to search orders: %w", err)
+	}
+
+	// Preload items for each order to get accurate item count
+	for i, order := range orders {
+		// Load order items if not already loaded
+		if len(order.Items) == 0 {
+			fullOrder, err := uc.orderRepo.GetByID(ctx, order.ID)
+			if err == nil && fullOrder != nil {
+				orders[i].Items = fullOrder.Items
+			}
+		}
+	}
+
+	// Get total count for pagination
+	totalCount, err := uc.orderRepo.Count(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to count orders: %w", err)
+	}
+
+	// Convert to response format
+	orderResponses := make([]struct {
+		ID            uuid.UUID              `json:"id"`
+		OrderNumber   string                 `json:"order_number"`
+		UserID        uuid.UUID              `json:"user_id"`
+		UserName      string                 `json:"user_name"`
+		UserEmail     string                 `json:"user_email"`
+		Status        entities.OrderStatus   `json:"status"`
+		PaymentStatus entities.PaymentStatus `json:"payment_status"`
+		Total         float64                `json:"total"`
+		ItemCount     int                    `json:"item_count"`
+		CreatedAt     time.Time              `json:"created_at"`
+		UpdatedAt     time.Time              `json:"updated_at"`
+	}, len(orders))
+
+	for i, order := range orders {
+		// Get user information
+		user, err := uc.userRepo.GetByID(ctx, order.UserID)
+		userName := "Unknown User"
+		userEmail := "unknown@example.com"
+		if err == nil && user != nil {
+			userName = user.GetFullName()
+			userEmail = user.Email
+		}
+
+		orderResponses[i] = struct {
 			ID            uuid.UUID              `json:"id"`
 			OrderNumber   string                 `json:"order_number"`
 			UserID        uuid.UUID              `json:"user_id"`
@@ -813,22 +1084,24 @@ func (uc *adminUseCase) GetOrders(ctx context.Context, req AdminOrdersRequest) (
 			CreatedAt     time.Time              `json:"created_at"`
 			UpdatedAt     time.Time              `json:"updated_at"`
 		}{
-			{
-				ID:            uuid.New(),
-				OrderNumber:   "ORD-001",
-				UserID:        uuid.New(),
-				UserName:      "John Doe",
-				UserEmail:     "john.doe@example.com",
-				Status:        entities.OrderStatusDelivered,
-				PaymentStatus: entities.PaymentStatusPaid,
-				Total:         1108.90,
-				ItemCount:     1,
-				CreatedAt:     time.Now().Add(-24 * time.Hour),
-				UpdatedAt:     time.Now().Add(-12 * time.Hour),
-			},
-		},
-		Total:      100,
-		Pagination: NewPaginationInfo(req.Offset, req.Limit, 100),
+			ID:            order.ID,
+			OrderNumber:   order.OrderNumber,
+			UserID:        order.UserID,
+			UserName:      userName,
+			UserEmail:     userEmail,
+			Status:        order.Status,
+			PaymentStatus: order.PaymentStatus,
+			Total:         order.Total,
+			ItemCount:     len(order.Items),
+			CreatedAt:     order.CreatedAt,
+			UpdatedAt:     order.UpdatedAt,
+		}
+	}
+
+	response := &AdminOrdersResponse{
+		Orders:     orderResponses,
+		Total:      int64(totalCount),
+		Pagination: NewPaginationInfo(req.Offset, req.Limit, int64(totalCount)),
 	}
 
 	return response, nil
@@ -1199,9 +1472,14 @@ func (uc *adminUseCase) GetUserActivity(ctx context.Context, userID uuid.UUID, r
 
 // UpdateOrderStatus updates order status
 func (uc *adminUseCase) UpdateOrderStatus(ctx context.Context, orderID uuid.UUID, status entities.OrderStatus) error {
-	// Mock implementation for update order status
-	// In real implementation, this would update the order status in database
-	return nil
+	// Check if order exists
+	_, err := uc.orderRepo.GetByID(ctx, orderID)
+	if err != nil {
+		return err
+	}
+
+	// Update order status in database
+	return uc.orderRepo.UpdateStatus(ctx, orderID, status)
 }
 
 // GetProducts gets products for admin

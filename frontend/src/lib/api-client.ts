@@ -159,13 +159,25 @@ export const apiClient = new ApiClient(API_BASE_URL)
 // Authentication API functions
 export const authApi = {
   login: async (credentials: LoginRequest): Promise<AuthResponse> => {
-    const { data } = await apiClient.post<AuthResponse>('/auth/login', credentials)
-    return data
+    const response = await apiClient.post<any>('/auth/login', credentials)
+    console.log('authApi.login - Raw response:', response)
+
+    // Handle SuccessResponse wrapper
+    const authData = response.data.data || response.data
+    console.log('authApi.login - Auth data:', authData)
+
+    return authData
   },
 
   register: async (userData: RegisterRequest): Promise<AuthResponse> => {
-    const { data } = await apiClient.post<AuthResponse>('/auth/register', userData)
-    return data
+    const response = await apiClient.post<any>('/auth/register', userData)
+    console.log('authApi.register - Raw response:', response)
+
+    // Handle SuccessResponse wrapper
+    const authData = response.data.data || response.data
+    console.log('authApi.register - Auth data:', authData)
+
+    return authData
   },
 
   logout: async (): Promise<void> => {
@@ -185,8 +197,14 @@ export const authApi = {
   },
 
   getProfile: async (): Promise<any> => {
-    const { data } = await apiClient.get('/users/profile')
-    return data
+    const response = await apiClient.get<any>('/users/profile')
+    console.log('authApi.getProfile - Raw response:', response)
+
+    // Handle SuccessResponse wrapper
+    const userData = response.data.data || response.data
+    console.log('authApi.getProfile - User data:', userData)
+
+    return userData
   },
 }
 

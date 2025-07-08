@@ -2,17 +2,20 @@ package payment
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 
 	"github.com/stripe/stripe-go/v76"
 	"github.com/stripe/stripe-go/v76/checkout/session"
 	"github.com/stripe/stripe-go/v76/paymentintent"
 	"github.com/stripe/stripe-go/v76/refund"
+	"github.com/stripe/stripe-go/v76/webhook"
 )
 
 // StripeService implements payment processing with Stripe
 type StripeService struct {
-	apiKey string
+	apiKey        string
+	webhookSecret string
 }
 
 // NewStripeService creates a new Stripe service
@@ -23,58 +26,13 @@ func NewStripeService(apiKey string) *StripeService {
 	}
 }
 
-// PaymentGatewayRequest represents a payment request
-type PaymentGatewayRequest struct {
-	Amount          float64           `json:"amount"`
-	Currency        string            `json:"currency"`
-	PaymentToken    string            `json:"payment_token"`
-	PaymentMethodID string            `json:"payment_method_id"`
-	Description     string            `json:"description"`
-	Metadata        map[string]string `json:"metadata"`
-}
-
-// PaymentGatewayResponse represents a payment response
-type PaymentGatewayResponse struct {
-	Success       bool   `json:"success"`
-	TransactionID string `json:"transaction_id"`
-	ExternalID    string `json:"external_id"`
-	Message       string `json:"message"`
-	Status        string `json:"status"`
-}
-
-// RefundGatewayRequest represents a refund request
-type RefundGatewayRequest struct {
-	TransactionID string  `json:"transaction_id"`
-	Amount        float64 `json:"amount"`
-	Reason        string  `json:"reason"`
-}
-
-// RefundGatewayResponse represents a refund response
-type RefundGatewayResponse struct {
-	Success  bool   `json:"success"`
-	RefundID string `json:"refund_id"`
-	Message  string `json:"message"`
-	Status   string `json:"status"`
-}
-
-// CheckoutSessionRequest represents a checkout session request
-type CheckoutSessionRequest struct {
-	Amount      float64           `json:"amount"`
-	Currency    string            `json:"currency"`
-	Description string            `json:"description"`
-	OrderID     string            `json:"order_id"`
-	CustomerID  string            `json:"customer_id,omitempty"`
-	SuccessURL  string            `json:"success_url"`
-	CancelURL   string            `json:"cancel_url"`
-	Metadata    map[string]string `json:"metadata"`
-}
-
-// CheckoutSessionResponse represents a checkout session response
-type CheckoutSessionResponse struct {
-	Success     bool   `json:"success"`
-	SessionID   string `json:"session_id"`
-	SessionURL  string `json:"session_url"`
-	Message     string `json:"message"`
+// NewStripeServiceWithWebhook creates a new Stripe service with webhook support
+func NewStripeServiceWithWebhook(apiKey, webhookSecret string) *StripeService {
+	stripe.Key = apiKey
+	return &StripeService{
+		apiKey:        apiKey,
+		webhookSecret: webhookSecret,
+	}
 }
 
 // ProcessPayment processes a payment through Stripe
@@ -116,7 +74,7 @@ func (s *StripeService) ProcessPayment(ctx context.Context, req PaymentGatewayRe
 
 	// Check payment status
 	success := pi.Status == stripe.PaymentIntentStatusSucceeded
-	
+
 	return &PaymentGatewayResponse{
 		Success:       success,
 		TransactionID: pi.ID,
@@ -230,4 +188,90 @@ func (s *StripeService) CreateCheckoutSession(ctx context.Context, req CheckoutS
 		SessionURL: sess.URL,
 		Message:    "Checkout session created successfully",
 	}, nil
+}
+
+// HandleWebhook processes Stripe webhooks
+func (s *StripeService) HandleWebhook(ctx context.Context, payload []byte, signature string) (*WebhookEvent, error) {
+	// Verify webhook signature if webhook secret is configured
+	var event stripe.Event
+	var err error
+
+	if s.webhookSecret != "" {
+		event, err = webhook.ConstructEvent(payload, signature, s.webhookSecret)
+		if err != nil {
+			return nil, fmt.Errorf("webhook signature verification failed: %v", err)
+		}
+	} else {
+		// For development/testing - parse without verification
+		err = json.Unmarshal(payload, &event)
+		if err != nil {
+			return nil, fmt.Errorf("failed to parse webhook payload: %v", err)
+		}
+	}
+
+	// Create webhook event response
+	webhookEvent := &WebhookEvent{
+		ID:   event.ID,
+		Type: string(event.Type),
+	}
+
+	// Process different event types
+	switch event.Type {
+	case "checkout.session.completed":
+		// Handle successful checkout session
+		var session stripe.CheckoutSession
+		err := json.Unmarshal(event.Data.Raw, &session)
+		if err != nil {
+			return nil, fmt.Errorf("failed to parse checkout session: %v", err)
+		}
+
+		webhookEvent.Data = map[string]interface{}{
+			"session_id":     session.ID,
+			"payment_status": session.PaymentStatus,
+			"amount_total":   session.AmountTotal,
+			"currency":       session.Currency,
+			"metadata":       session.Metadata,
+		}
+
+	case "payment_intent.succeeded":
+		// Handle successful payment intent
+		var paymentIntent stripe.PaymentIntent
+		err := json.Unmarshal(event.Data.Raw, &paymentIntent)
+		if err != nil {
+			return nil, fmt.Errorf("failed to parse payment intent: %v", err)
+		}
+
+		webhookEvent.Data = map[string]interface{}{
+			"payment_intent_id": paymentIntent.ID,
+			"amount":            paymentIntent.Amount,
+			"currency":          paymentIntent.Currency,
+			"status":            paymentIntent.Status,
+			"metadata":          paymentIntent.Metadata,
+		}
+
+	case "payment_intent.payment_failed":
+		// Handle failed payment intent
+		var paymentIntent stripe.PaymentIntent
+		err := json.Unmarshal(event.Data.Raw, &paymentIntent)
+		if err != nil {
+			return nil, fmt.Errorf("failed to parse payment intent: %v", err)
+		}
+
+		webhookEvent.Data = map[string]interface{}{
+			"payment_intent_id":  paymentIntent.ID,
+			"amount":             paymentIntent.Amount,
+			"currency":           paymentIntent.Currency,
+			"status":             paymentIntent.Status,
+			"last_payment_error": paymentIntent.LastPaymentError,
+			"metadata":           paymentIntent.Metadata,
+		}
+
+	default:
+		// For other event types, just store the raw data
+		webhookEvent.Data = map[string]interface{}{
+			"raw": event.Data.Raw,
+		}
+	}
+
+	return webhookEvent, nil
 }

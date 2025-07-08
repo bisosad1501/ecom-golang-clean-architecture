@@ -8,6 +8,7 @@ import (
 	"ecom-golang-clean-architecture/internal/domain/entities"
 	"ecom-golang-clean-architecture/internal/domain/repositories"
 	"ecom-golang-clean-architecture/internal/infrastructure/payment"
+
 	"github.com/google/uuid"
 )
 
@@ -33,20 +34,23 @@ type PaymentUseCase interface {
 	GetPayment(ctx context.Context, id uuid.UUID) (*PaymentResponse, error)
 	GetOrderPayments(ctx context.Context, orderID uuid.UUID) ([]*PaymentResponse, error)
 	UpdatePaymentStatus(ctx context.Context, id uuid.UUID, status entities.PaymentStatus, transactionID string) (*PaymentResponse, error)
-	
+
 	// Refunds
 	ProcessRefund(ctx context.Context, req ProcessRefundRequest) (*RefundResponse, error)
 	GetRefunds(ctx context.Context, paymentID uuid.UUID) ([]*RefundResponse, error)
-	
+
 	// Payment methods
 	SavePaymentMethod(ctx context.Context, req SavePaymentMethodRequest) (*PaymentMethodResponse, error)
 	GetUserPaymentMethods(ctx context.Context, userID uuid.UUID) ([]*PaymentMethodResponse, error)
 	DeletePaymentMethod(ctx context.Context, id uuid.UUID) error
 	SetDefaultPaymentMethod(ctx context.Context, userID, methodID uuid.UUID) error
-	
+
 	// Webhooks
 	HandleWebhook(ctx context.Context, provider string, payload []byte, signature string) error
-	
+
+	// Payment confirmation (fallback method)
+	ConfirmPaymentSuccess(ctx context.Context, orderID, userID uuid.UUID, sessionID string) error
+
 	// Reports
 	GetPaymentReport(ctx context.Context, req PaymentReportRequest) (*PaymentReportResponse, error)
 
@@ -55,11 +59,11 @@ type PaymentUseCase interface {
 }
 
 type paymentUseCase struct {
-	paymentRepo       repositories.PaymentRepository
-	orderRepo         repositories.OrderRepository
-	userRepo          repositories.UserRepository
-	stripeService     PaymentGatewayService
-	paypalService     PaymentGatewayService
+	paymentRepo         repositories.PaymentRepository
+	orderRepo           repositories.OrderRepository
+	userRepo            repositories.UserRepository
+	stripeService       PaymentGatewayService
+	paypalService       PaymentGatewayService
 	notificationUseCase NotificationUseCase
 }
 
@@ -82,32 +86,30 @@ func NewPaymentUseCase(
 	}
 }
 
-
-
 // Request/Response types
 type ProcessPaymentRequest struct {
-	OrderID         uuid.UUID                 `json:"order_id" validate:"required"`
-	Amount          float64                   `json:"amount" validate:"required,gt=0"`
-	Currency        string                    `json:"currency" validate:"required"`
-	Method          entities.PaymentMethod    `json:"method" validate:"required"`
-	PaymentToken    string                    `json:"payment_token,omitempty"`
-	PaymentMethodID *uuid.UUID                `json:"payment_method_id,omitempty"`
-	BillingAddress  *BillingAddressRequest    `json:"billing_address,omitempty"`
-	Metadata        map[string]interface{}    `json:"metadata,omitempty"`
+	OrderID         uuid.UUID              `json:"order_id" validate:"required"`
+	Amount          float64                `json:"amount" validate:"required,gt=0"`
+	Currency        string                 `json:"currency" validate:"required"`
+	Method          entities.PaymentMethod `json:"method" validate:"required"`
+	PaymentToken    string                 `json:"payment_token,omitempty"`
+	PaymentMethodID *uuid.UUID             `json:"payment_method_id,omitempty"`
+	BillingAddress  *BillingAddressRequest `json:"billing_address,omitempty"`
+	Metadata        map[string]interface{} `json:"metadata,omitempty"`
 }
 
 type ProcessRefundRequest struct {
-	PaymentID uuid.UUID `json:"payment_id" validate:"required"`
-	Amount    float64   `json:"amount" validate:"required,gt=0"`
-	Reason    string    `json:"reason" validate:"required"`
+	PaymentID uuid.UUID              `json:"payment_id" validate:"required"`
+	Amount    float64                `json:"amount" validate:"required,gt=0"`
+	Reason    string                 `json:"reason" validate:"required"`
 	Metadata  map[string]interface{} `json:"metadata,omitempty"`
 }
 
 type SavePaymentMethodRequest struct {
-	UserID      uuid.UUID                 `json:"user_id" validate:"required"`
-	Type        entities.PaymentMethod    `json:"type" validate:"required"`
-	Token       string                    `json:"token" validate:"required"`
-	IsDefault   bool                      `json:"is_default"`
+	UserID         uuid.UUID              `json:"user_id" validate:"required"`
+	Type           entities.PaymentMethod `json:"type" validate:"required"`
+	Token          string                 `json:"token" validate:"required"`
+	IsDefault      bool                   `json:"is_default"`
 	BillingAddress *BillingAddressRequest `json:"billing_address,omitempty"`
 }
 
@@ -123,23 +125,23 @@ type BillingAddressRequest struct {
 }
 
 type PaymentReportRequest struct {
-	ReportType string                    `json:"report_type"`
-	DateFrom   *time.Time                `json:"date_from,omitempty"`
-	DateTo     *time.Time                `json:"date_to,omitempty"`
-	Status     *entities.PaymentStatus   `json:"status,omitempty"`
-	Method     *entities.PaymentMethod   `json:"method,omitempty"`
-	GroupBy    string                    `json:"group_by,omitempty" validate:"omitempty,oneof=day week month method status"`
-	Format     string                    `json:"format,omitempty" validate:"omitempty,oneof=json csv excel"`
+	ReportType string                  `json:"report_type"`
+	DateFrom   *time.Time              `json:"date_from,omitempty"`
+	DateTo     *time.Time              `json:"date_to,omitempty"`
+	Status     *entities.PaymentStatus `json:"status,omitempty"`
+	Method     *entities.PaymentMethod `json:"method,omitempty"`
+	GroupBy    string                  `json:"group_by,omitempty" validate:"omitempty,oneof=day week month method status"`
+	Format     string                  `json:"format,omitempty" validate:"omitempty,oneof=json csv excel"`
 }
 
 // CreateCheckoutSessionRequest represents a request to create a checkout session
 type CreateCheckoutSessionRequest struct {
-	OrderID     uuid.UUID             `json:"order_id" validate:"required"`
-	Amount      float64               `json:"amount" validate:"required,gt=0"`
-	Currency    string                `json:"currency" validate:"required,len=3"`
-	Description string                `json:"description,omitempty"`
-	SuccessURL  string                `json:"success_url" validate:"required,url"`
-	CancelURL   string                `json:"cancel_url" validate:"required,url"`
+	OrderID     uuid.UUID              `json:"order_id" validate:"required"`
+	Amount      float64                `json:"amount" validate:"required,gt=0"`
+	Currency    string                 `json:"currency" validate:"required,len=3"`
+	Description string                 `json:"description,omitempty"`
+	SuccessURL  string                 `json:"success_url" validate:"required,url"`
+	CancelURL   string                 `json:"cancel_url" validate:"required,url"`
 	Metadata    map[string]interface{} `json:"metadata,omitempty"`
 }
 
@@ -151,50 +153,48 @@ type CreateCheckoutSessionResponse struct {
 	Message    string `json:"message"`
 }
 
-
-
 // Response types
 type PaymentResponse struct {
-	ID              uuid.UUID                 `json:"id"`
-	OrderID         uuid.UUID                 `json:"order_id"`
-	Amount          float64                   `json:"amount"`
-	Currency        string                    `json:"currency"`
-	Method          entities.PaymentMethod    `json:"method"`
-	Status          entities.PaymentStatus    `json:"status"`
-	TransactionID   string                    `json:"transaction_id"`
-	ExternalID      string                    `json:"external_id"`
-	FailureReason   string                    `json:"failure_reason,omitempty"`
-	ProcessedAt     *time.Time                `json:"processed_at"`
-	RefundedAt      *time.Time                `json:"refunded_at"`
-	RefundAmount    float64                   `json:"refund_amount"`
-	CanBeRefunded   bool                      `json:"can_be_refunded"`
-	RemainingRefund float64                   `json:"remaining_refund"`
-	CreatedAt       time.Time                 `json:"created_at"`
-	UpdatedAt       time.Time                 `json:"updated_at"`
+	ID              uuid.UUID              `json:"id"`
+	OrderID         uuid.UUID              `json:"order_id"`
+	Amount          float64                `json:"amount"`
+	Currency        string                 `json:"currency"`
+	Method          entities.PaymentMethod `json:"method"`
+	Status          entities.PaymentStatus `json:"status"`
+	TransactionID   string                 `json:"transaction_id"`
+	ExternalID      string                 `json:"external_id"`
+	FailureReason   string                 `json:"failure_reason,omitempty"`
+	ProcessedAt     *time.Time             `json:"processed_at"`
+	RefundedAt      *time.Time             `json:"refunded_at"`
+	RefundAmount    float64                `json:"refund_amount"`
+	CanBeRefunded   bool                   `json:"can_be_refunded"`
+	RemainingRefund float64                `json:"remaining_refund"`
+	CreatedAt       time.Time              `json:"created_at"`
+	UpdatedAt       time.Time              `json:"updated_at"`
 }
 
 type RefundResponse struct {
-	ID            uuid.UUID `json:"id"`
-	PaymentID     uuid.UUID `json:"payment_id"`
-	Amount        float64   `json:"amount"`
-	Reason        string    `json:"reason"`
-	Status        string    `json:"status"`
-	TransactionID string    `json:"transaction_id"`
+	ID            uuid.UUID  `json:"id"`
+	PaymentID     uuid.UUID  `json:"payment_id"`
+	Amount        float64    `json:"amount"`
+	Reason        string     `json:"reason"`
+	Status        string     `json:"status"`
+	TransactionID string     `json:"transaction_id"`
 	ProcessedAt   *time.Time `json:"processed_at"`
-	CreatedAt     time.Time `json:"created_at"`
+	CreatedAt     time.Time  `json:"created_at"`
 }
 
 type PaymentMethodResponse struct {
-	ID             uuid.UUID                 `json:"id"`
-	UserID         uuid.UUID                 `json:"user_id"`
-	Type           entities.PaymentMethod    `json:"type"`
-	Last4          string                    `json:"last4,omitempty"`
-	Brand          string                    `json:"brand,omitempty"`
-	ExpiryMonth    int                       `json:"expiry_month,omitempty"`
-	ExpiryYear     int                       `json:"expiry_year,omitempty"`
-	IsDefault      bool                      `json:"is_default"`
-	BillingAddress *BillingAddressResponse   `json:"billing_address,omitempty"`
-	CreatedAt      time.Time                 `json:"created_at"`
+	ID             uuid.UUID               `json:"id"`
+	UserID         uuid.UUID               `json:"user_id"`
+	Type           entities.PaymentMethod  `json:"type"`
+	Last4          string                  `json:"last4,omitempty"`
+	Brand          string                  `json:"brand,omitempty"`
+	ExpiryMonth    int                     `json:"expiry_month,omitempty"`
+	ExpiryYear     int                     `json:"expiry_year,omitempty"`
+	IsDefault      bool                    `json:"is_default"`
+	BillingAddress *BillingAddressResponse `json:"billing_address,omitempty"`
+	CreatedAt      time.Time               `json:"created_at"`
 }
 
 type BillingAddressResponse struct {
@@ -208,24 +208,22 @@ type BillingAddressResponse struct {
 	Country   string `json:"country"`
 }
 
-
-
 type WebhookEvent struct {
-	Type          string                    `json:"type"`
-	PaymentID     string                    `json:"payment_id"`
-	TransactionID string                    `json:"transaction_id"`
-	Status        entities.PaymentStatus    `json:"status"`
-	Amount        float64                   `json:"amount"`
-	Metadata      map[string]interface{}    `json:"metadata,omitempty"`
+	Type          string                 `json:"type"`
+	PaymentID     string                 `json:"payment_id"`
+	TransactionID string                 `json:"transaction_id"`
+	Status        entities.PaymentStatus `json:"status"`
+	Amount        float64                `json:"amount"`
+	Metadata      map[string]interface{} `json:"metadata,omitempty"`
 }
 
 type PaymentReportResponse struct {
-	ReportType  string                  `json:"report_type"`
-	ReportID    uuid.UUID               `json:"report_id"`
-	GeneratedAt time.Time               `json:"generated_at"`
-	Format      string                  `json:"format"`
-	DownloadURL string                  `json:"download_url,omitempty"`
-	Summary     *PaymentReportSummary   `json:"summary"`
+	ReportType  string                   `json:"report_type"`
+	ReportID    uuid.UUID                `json:"report_id"`
+	GeneratedAt time.Time                `json:"generated_at"`
+	Format      string                   `json:"format"`
+	DownloadURL string                   `json:"download_url,omitempty"`
+	Summary     *PaymentReportSummary    `json:"summary"`
 	Data        []map[string]interface{} `json:"data,omitempty"`
 }
 
@@ -280,11 +278,11 @@ func (uc *paymentUseCase) ProcessPayment(ctx context.Context, req ProcessPayment
 	}
 
 	gatewayReq := PaymentGatewayRequest{
-		Amount:          req.Amount,
-		Currency:        req.Currency,
-		PaymentToken:    req.PaymentToken,
-		Description:     fmt.Sprintf("Payment for order %s", order.OrderNumber),
-		Metadata:        metadata,
+		Amount:       req.Amount,
+		Currency:     req.Currency,
+		PaymentToken: req.PaymentToken,
+		Description:  fmt.Sprintf("Payment for order %s", order.OrderNumber),
+		Metadata:     metadata,
 	}
 
 	if req.PaymentMethodID != nil {
@@ -317,11 +315,11 @@ func (uc *paymentUseCase) ProcessPayment(ctx context.Context, req ProcessPayment
 	if gatewayResp.Success {
 		payment.MarkAsProcessed(gatewayResp.TransactionID)
 		payment.ExternalID = gatewayResp.ExternalID
-		
+
 		// Update order payment status
 		order.PaymentStatus = entities.PaymentStatusPaid
 		uc.orderRepo.Update(ctx, order)
-		
+
 		// Send payment confirmation notification
 		if uc.notificationUseCase != nil {
 			uc.notificationUseCase.NotifyPaymentReceived(ctx, payment.ID)
@@ -354,11 +352,11 @@ func (uc *paymentUseCase) GetOrderPayments(ctx context.Context, orderID uuid.UUI
 	if err != nil {
 		return nil, err
 	}
-	
+
 	if payment == nil {
 		return []*PaymentResponse{}, nil
 	}
-	
+
 	return []*PaymentResponse{uc.toPaymentResponse(payment)}, nil
 }
 
@@ -368,23 +366,23 @@ func (uc *paymentUseCase) UpdatePaymentStatus(ctx context.Context, id uuid.UUID,
 	if err != nil {
 		return nil, err
 	}
-	
+
 	payment.Status = status
 	if transactionID != "" {
 		payment.TransactionID = transactionID
 	}
-	
+
 	if status == entities.PaymentStatusPaid {
 		now := time.Now()
 		payment.ProcessedAt = &now
 	}
-	
+
 	payment.UpdatedAt = time.Now()
-	
+
 	if err := uc.paymentRepo.Update(ctx, payment); err != nil {
 		return nil, err
 	}
-	
+
 	return uc.toPaymentResponse(payment), nil
 }
 
@@ -471,34 +469,201 @@ func (uc *paymentUseCase) ProcessRefund(ctx context.Context, req ProcessRefundRe
 
 // HandleWebhook handles payment gateway webhooks
 func (uc *paymentUseCase) HandleWebhook(ctx context.Context, provider string, payload []byte, signature string) error {
-	// Choose the appropriate service based on provider
-	var service PaymentGatewayService
 	switch provider {
 	case "stripe":
-		service = uc.stripeService
+		return uc.handleStripeWebhook(ctx, payload, signature)
 	case "paypal":
-		service = uc.paypalService
+		return uc.handlePayPalWebhook(ctx, payload, signature)
 	default:
 		return fmt.Errorf("unsupported payment provider: %s", provider)
 	}
-	
-	// TODO: Implement webhook verification and parsing
-	// For now, we'll skip webhook verification
-	_ = service
-	_ = signature
+}
 
-	// Simple webhook processing - in production you'd parse the actual webhook payload
-	// For now, we'll just log that we received a webhook
-	_ = payload
+// handleStripeWebhook processes Stripe webhook events
+func (uc *paymentUseCase) handleStripeWebhook(ctx context.Context, payload []byte, signature string) error {
+	// Cast to StripeService to access HandleWebhook method
+	stripeService, ok := uc.stripeService.(*payment.StripeService)
+	if !ok {
+		return fmt.Errorf("stripe service not properly configured")
+	}
 
-	// TODO: Implement proper webhook event parsing and processing
-	// This would involve:
-	// 1. Parsing the webhook payload to extract event data
-	// 2. Validating the webhook signature
-	// 3. Processing different event types (payment.succeeded, payment.failed, etc.)
-	// 4. Updating payment status accordingly
+	// Parse webhook event
+	webhookEvent, err := stripeService.HandleWebhook(ctx, payload, signature)
+	if err != nil {
+		return fmt.Errorf("failed to parse stripe webhook: %v", err)
+	}
+
+	// Process different event types
+	switch webhookEvent.Type {
+	case "checkout.session.completed":
+		return uc.handleCheckoutSessionCompleted(ctx, webhookEvent)
+	case "payment_intent.succeeded":
+		return uc.handlePaymentIntentSucceeded(ctx, webhookEvent)
+	case "payment_intent.payment_failed":
+		return uc.handlePaymentIntentFailed(ctx, webhookEvent)
+	default:
+		// Log unknown event types but don't fail
+		fmt.Printf("Received unknown Stripe webhook event: %s\n", webhookEvent.Type)
+		return nil
+	}
+}
+
+// handleCheckoutSessionCompleted processes successful checkout sessions
+func (uc *paymentUseCase) handleCheckoutSessionCompleted(ctx context.Context, event *payment.WebhookEvent) error {
+	fmt.Printf("🔔 Processing checkout.session.completed webhook\n")
+
+	sessionID, ok := event.Data["session_id"].(string)
+	if !ok {
+		fmt.Printf("❌ Missing session_id in webhook data: %+v\n", event.Data)
+		return fmt.Errorf("missing session_id in webhook data")
+	}
+
+	fmt.Printf("🔍 Looking for payment with session ID: %s\n", sessionID)
+
+	// Find payment by session ID (stored in external_id)
+	payment, err := uc.paymentRepo.GetByExternalID(ctx, sessionID)
+	if err != nil {
+		fmt.Printf("❌ Payment not found for session %s: %v\n", sessionID, err)
+		return fmt.Errorf("payment not found for session %s: %v", sessionID, err)
+	}
+
+	fmt.Printf("✅ Found payment: ID=%s, OrderID=%s, Status=%s\n", payment.ID, payment.OrderID, payment.Status)
+
+	// Update payment status to paid
+	payment.MarkAsProcessed(sessionID)
+	if err := uc.paymentRepo.Update(ctx, payment); err != nil {
+		fmt.Printf("❌ Failed to update payment status: %v\n", err)
+		return fmt.Errorf("failed to update payment status: %v", err)
+	}
+
+	fmt.Printf("✅ Payment status updated to: %s\n", payment.Status)
+
+	// Update order status and payment status
+	order, err := uc.orderRepo.GetByID(ctx, payment.OrderID)
+	if err != nil {
+		fmt.Printf("❌ Order not found: %v\n", err)
+		return fmt.Errorf("order not found: %v", err)
+	}
+
+	fmt.Printf("✅ Found order: ID=%s, Number=%s, Status=%s, PaymentStatus=%s\n",
+		order.ID, order.OrderNumber, order.Status, order.PaymentStatus)
+
+	// Update order payment status
+	oldStatus := order.Status
+	oldPaymentStatus := order.PaymentStatus
+
+	order.PaymentStatus = entities.PaymentStatusPaid
+	// Update order status to confirmed if it was pending
+	if order.Status == entities.OrderStatusPending {
+		order.Status = entities.OrderStatusConfirmed
+	}
+	order.UpdatedAt = time.Now()
+
+	if err := uc.orderRepo.Update(ctx, order); err != nil {
+		fmt.Printf("❌ Failed to update order status: %v\n", err)
+		return fmt.Errorf("failed to update order status: %v", err)
+	}
+
+	fmt.Printf("✅ Order updated: Status %s→%s, PaymentStatus %s→%s\n",
+		oldStatus, order.Status, oldPaymentStatus, order.PaymentStatus)
+
+	// Send payment confirmation notification
+	if uc.notificationUseCase != nil {
+		uc.notificationUseCase.NotifyPaymentReceived(ctx, payment.ID)
+		fmt.Printf("✅ Payment notification sent\n")
+	}
+
+	fmt.Printf("🎉 Webhook processing completed successfully\n")
+	return nil
+}
+
+// handlePaymentIntentSucceeded processes successful payment intents
+func (uc *paymentUseCase) handlePaymentIntentSucceeded(ctx context.Context, event *payment.WebhookEvent) error {
+	paymentIntentID, ok := event.Data["payment_intent_id"].(string)
+	if !ok {
+		return fmt.Errorf("missing payment_intent_id in webhook data")
+	}
+
+	// Find payment by payment intent ID
+	payment, err := uc.paymentRepo.GetByTransactionID(ctx, paymentIntentID)
+	if err != nil {
+		return fmt.Errorf("payment not found for payment intent %s: %v", paymentIntentID, err)
+	}
+
+	// Update payment status
+	payment.MarkAsProcessed(paymentIntentID)
+	if err := uc.paymentRepo.Update(ctx, payment); err != nil {
+		return fmt.Errorf("failed to update payment status: %v", err)
+	}
+
+	// Update order status
+	order, err := uc.orderRepo.GetByID(ctx, payment.OrderID)
+	if err != nil {
+		return fmt.Errorf("order not found: %v", err)
+	}
+
+	order.PaymentStatus = entities.PaymentStatusPaid
+	if order.Status == entities.OrderStatusPending {
+		order.Status = entities.OrderStatusConfirmed
+	}
+	order.UpdatedAt = time.Now()
+
+	if err := uc.orderRepo.Update(ctx, order); err != nil {
+		return fmt.Errorf("failed to update order status: %v", err)
+	}
 
 	return nil
+}
+
+// handlePaymentIntentFailed processes failed payment intents
+func (uc *paymentUseCase) handlePaymentIntentFailed(ctx context.Context, event *payment.WebhookEvent) error {
+	paymentIntentID, ok := event.Data["payment_intent_id"].(string)
+	if !ok {
+		return fmt.Errorf("missing payment_intent_id in webhook data")
+	}
+
+	// Find payment by payment intent ID
+	payment, err := uc.paymentRepo.GetByTransactionID(ctx, paymentIntentID)
+	if err != nil {
+		return fmt.Errorf("payment not found for payment intent %s: %v", paymentIntentID, err)
+	}
+
+	// Get failure reason
+	failureReason := "Payment failed"
+	if lastError, ok := event.Data["last_payment_error"]; ok {
+		if errorMap, ok := lastError.(map[string]interface{}); ok {
+			if message, ok := errorMap["message"].(string); ok {
+				failureReason = message
+			}
+		}
+	}
+
+	// Update payment status to failed
+	payment.MarkAsFailed(failureReason)
+	if err := uc.paymentRepo.Update(ctx, payment); err != nil {
+		return fmt.Errorf("failed to update payment status: %v", err)
+	}
+
+	// Update order payment status
+	order, err := uc.orderRepo.GetByID(ctx, payment.OrderID)
+	if err != nil {
+		return fmt.Errorf("order not found: %v", err)
+	}
+
+	order.PaymentStatus = entities.PaymentStatusFailed
+	order.UpdatedAt = time.Now()
+
+	if err := uc.orderRepo.Update(ctx, order); err != nil {
+		return fmt.Errorf("failed to update order status: %v", err)
+	}
+
+	return nil
+}
+
+// handlePayPalWebhook processes PayPal webhook events
+func (uc *paymentUseCase) handlePayPalWebhook(ctx context.Context, payload []byte, signature string) error {
+	// TODO: Implement PayPal webhook handling
+	return fmt.Errorf("paypal webhook handling not implemented yet")
 }
 
 // CreateCheckoutSession creates a Stripe checkout session for hosted payment page
@@ -568,27 +733,43 @@ func (uc *paymentUseCase) CreateCheckoutSession(ctx context.Context, req CreateC
 		}, fmt.Errorf("checkout session creation failed")
 	}
 
-	// Create payment record in pending status
-	paymentEntity := &entities.Payment{
-		ID:            uuid.New(),
-		OrderID:       req.OrderID,
-		UserID:        order.UserID,
-		Amount:        req.Amount,
-		Currency:      req.Currency,
-		Method:        entities.PaymentMethodStripe,
-		Status:        entities.PaymentStatusPending,
-		TransactionID: checkoutResp.SessionID,
-		ExternalID:    checkoutResp.SessionID,
-		CreatedAt:     time.Now(),
-		UpdatedAt:     time.Now(),
-	}
+	// Check if payment record already exists for this order
+	existingPayment, err := uc.paymentRepo.GetByOrderID(ctx, req.OrderID)
+	if err == nil && existingPayment != nil {
+		// Update existing payment record with session ID
+		existingPayment.TransactionID = checkoutResp.SessionID
+		existingPayment.ExternalID = checkoutResp.SessionID
+		existingPayment.UpdatedAt = time.Now()
 
-	// Save payment record
-	if err := uc.paymentRepo.Create(ctx, paymentEntity); err != nil {
-		return &CreateCheckoutSessionResponse{
-			Success: false,
-			Message: "Failed to create payment record",
-		}, err
+		if err := uc.paymentRepo.Update(ctx, existingPayment); err != nil {
+			return &CreateCheckoutSessionResponse{
+				Success: false,
+				Message: "Failed to update payment record",
+			}, err
+		}
+	} else {
+		// Create new payment record
+		paymentEntity := &entities.Payment{
+			ID:            uuid.New(),
+			OrderID:       req.OrderID,
+			UserID:        order.UserID,
+			Amount:        req.Amount,
+			Currency:      req.Currency,
+			Method:        entities.PaymentMethodStripe,
+			Status:        entities.PaymentStatusPending,
+			TransactionID: checkoutResp.SessionID,
+			ExternalID:    checkoutResp.SessionID,
+			CreatedAt:     time.Now(),
+			UpdatedAt:     time.Now(),
+		}
+
+		// Save payment record
+		if err := uc.paymentRepo.Create(ctx, paymentEntity); err != nil {
+			return &CreateCheckoutSessionResponse{
+				Success: false,
+				Message: "Failed to create payment record",
+			}, err
+		}
 	}
 
 	return &CreateCheckoutSessionResponse{
@@ -662,12 +843,12 @@ func (uc *paymentUseCase) GetRefunds(ctx context.Context, paymentID uuid.UUID) (
 	if err != nil {
 		return nil, err
 	}
-	
+
 	responses := make([]*RefundResponse, len(refunds))
 	for i, refund := range refunds {
 		responses[i] = uc.toRefundResponse(refund)
 	}
-	
+
 	return responses, nil
 }
 
@@ -676,15 +857,15 @@ func (uc *paymentUseCase) SavePaymentMethod(ctx context.Context, req SavePayment
 	// This is a placeholder implementation since we don't have a payment method entity
 	// In a real implementation, you would save the payment method to the database
 	response := &PaymentMethodResponse{
-		ID:       uuid.New(),
-		UserID:   req.UserID,
-		Type:     req.Type,
-		Last4:    "****", // Placeholder since not in request
-		Brand:    "unknown", // Placeholder since not in request
+		ID:        uuid.New(),
+		UserID:    req.UserID,
+		Type:      req.Type,
+		Last4:     "****",    // Placeholder since not in request
+		Brand:     "unknown", // Placeholder since not in request
 		IsDefault: req.IsDefault,
 		CreatedAt: time.Now(),
 	}
-	
+
 	return response, nil
 }
 
@@ -706,5 +887,82 @@ func (uc *paymentUseCase) DeletePaymentMethod(ctx context.Context, id uuid.UUID)
 func (uc *paymentUseCase) SetDefaultPaymentMethod(ctx context.Context, userID, methodID uuid.UUID) error {
 	// This is a placeholder implementation since we don't have a payment method entity
 	// In a real implementation, you would update the database
+	return nil
+}
+
+// ConfirmPaymentSuccess confirms payment success for an order (fallback method)
+func (uc *paymentUseCase) ConfirmPaymentSuccess(ctx context.Context, orderID, userID uuid.UUID, sessionID string) error {
+	fmt.Printf("🔄 Fallback payment confirmation: OrderID=%s, UserID=%s, SessionID=%s\n", orderID, userID, sessionID)
+
+	// Get the order
+	order, err := uc.orderRepo.GetByID(ctx, orderID)
+	if err != nil {
+		fmt.Printf("❌ Order not found: %v\n", err)
+		return fmt.Errorf("order not found: %v", err)
+	}
+
+	// Verify the order belongs to the user (only if userID is provided)
+	if userID != uuid.Nil && order.UserID != userID {
+		fmt.Printf("❌ Order does not belong to user: OrderUserID=%s, RequestUserID=%s\n", order.UserID, userID)
+		return fmt.Errorf("order does not belong to user")
+	}
+
+	fmt.Printf("✅ Order verified: %s (Status: %s, PaymentStatus: %s)\n", order.OrderNumber, order.Status, order.PaymentStatus)
+
+	// Find payment by session ID (stored in external_id)
+	payment, err := uc.paymentRepo.GetByExternalID(ctx, sessionID)
+	if err != nil {
+		fmt.Printf("❌ Payment not found for session %s: %v\n", sessionID, err)
+		return fmt.Errorf("payment not found for session %s: %v", sessionID, err)
+	}
+
+	// Verify the payment belongs to the order
+	if payment.OrderID != orderID {
+		fmt.Printf("❌ Payment does not belong to order: PaymentOrderID=%s, RequestOrderID=%s\n", payment.OrderID, orderID)
+		return fmt.Errorf("payment does not belong to order")
+	}
+
+	fmt.Printf("✅ Payment verified: ID=%s (Status: %s)\n", payment.ID, payment.Status)
+
+	// If payment is already processed, skip
+	if payment.Status == entities.PaymentStatusPaid {
+		fmt.Printf("ℹ️ Payment already processed, skipping\n")
+		return nil
+	}
+
+	// Update payment status to paid
+	payment.MarkAsProcessed(sessionID)
+	if err := uc.paymentRepo.Update(ctx, payment); err != nil {
+		fmt.Printf("❌ Failed to update payment status: %v\n", err)
+		return fmt.Errorf("failed to update payment status: %v", err)
+	}
+
+	fmt.Printf("✅ Payment status updated to: %s\n", payment.Status)
+
+	// Update order status
+	oldStatus := order.Status
+	oldPaymentStatus := order.PaymentStatus
+
+	order.PaymentStatus = entities.PaymentStatusPaid
+	if order.Status == entities.OrderStatusPending {
+		order.Status = entities.OrderStatusConfirmed
+	}
+	order.UpdatedAt = time.Now()
+
+	if err := uc.orderRepo.Update(ctx, order); err != nil {
+		fmt.Printf("❌ Failed to update order status: %v\n", err)
+		return fmt.Errorf("failed to update order status: %v", err)
+	}
+
+	fmt.Printf("✅ Order updated via fallback: Status %s→%s, PaymentStatus %s→%s\n",
+		oldStatus, order.Status, oldPaymentStatus, order.PaymentStatus)
+
+	// Send payment confirmation notification if available
+	if uc.notificationUseCase != nil {
+		uc.notificationUseCase.NotifyPaymentReceived(ctx, payment.ID)
+		fmt.Printf("✅ Payment notification sent\n")
+	}
+
+	fmt.Printf("🎉 Fallback payment confirmation completed\n")
 	return nil
 }

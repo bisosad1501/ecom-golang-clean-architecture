@@ -7,6 +7,7 @@ import (
 	"ecom-golang-clean-architecture/internal/domain/entities"
 	"ecom-golang-clean-architecture/internal/domain/repositories"
 	"ecom-golang-clean-architecture/internal/domain/services"
+
 	"github.com/google/uuid"
 )
 
@@ -14,6 +15,7 @@ import (
 type OrderUseCase interface {
 	CreateOrder(ctx context.Context, userID uuid.UUID, req CreateOrderRequest) (*OrderResponse, error)
 	GetOrder(ctx context.Context, orderID uuid.UUID) (*OrderResponse, error)
+	GetOrderBySessionID(ctx context.Context, sessionID string, userID uuid.UUID) (*OrderResponse, error)
 	GetUserOrders(ctx context.Context, userID uuid.UUID, limit, offset int) ([]*OrderResponse, error)
 	UpdateOrderStatus(ctx context.Context, orderID uuid.UUID, status entities.OrderStatus) (*OrderResponse, error)
 	CancelOrder(ctx context.Context, orderID uuid.UUID) (*OrderResponse, error)
@@ -50,25 +52,25 @@ func NewOrderUseCase(
 
 // CreateOrderRequest represents create order request
 type CreateOrderRequest struct {
-	ShippingAddress AddressRequest            `json:"shipping_address" validate:"required"`
-	BillingAddress  *AddressRequest           `json:"billing_address"`
-	PaymentMethod   entities.PaymentMethod    `json:"payment_method" validate:"required"`
-	Notes           string                    `json:"notes"`
-	TaxRate         float64                   `json:"tax_rate" validate:"min=0,max=1"`
-	ShippingCost    float64                   `json:"shipping_cost" validate:"min=0"`
-	DiscountAmount  float64                   `json:"discount_amount" validate:"min=0"`
+	ShippingAddress AddressRequest         `json:"shipping_address" validate:"required"`
+	BillingAddress  *AddressRequest        `json:"billing_address"`
+	PaymentMethod   entities.PaymentMethod `json:"payment_method" validate:"required"`
+	Notes           string                 `json:"notes"`
+	TaxRate         float64                `json:"tax_rate" validate:"min=0,max=1"`
+	ShippingCost    float64                `json:"shipping_cost" validate:"min=0"`
+	DiscountAmount  float64                `json:"discount_amount" validate:"min=0"`
 }
 
 // GetOrdersRequest represents get orders request
 type GetOrdersRequest struct {
-	Status        *entities.OrderStatus     `json:"status"`
-	PaymentStatus *entities.PaymentStatus   `json:"payment_status"`
-	StartDate     *time.Time                `json:"start_date"`
-	EndDate       *time.Time                `json:"end_date"`
-	SortBy        string                    `json:"sort_by"`
-	SortOrder     string                    `json:"sort_order"`
-	Limit         int                       `json:"limit" validate:"min=1,max=100"`
-	Offset        int                       `json:"offset" validate:"min=0"`
+	Status        *entities.OrderStatus   `json:"status"`
+	PaymentStatus *entities.PaymentStatus `json:"payment_status"`
+	StartDate     *time.Time              `json:"start_date"`
+	EndDate       *time.Time              `json:"end_date"`
+	SortBy        string                  `json:"sort_by"`
+	SortOrder     string                  `json:"sort_order"`
+	Limit         int                     `json:"limit" validate:"min=1,max=100"`
+	Offset        int                     `json:"offset" validate:"min=0"`
 }
 
 // AddressRequest represents address request
@@ -87,27 +89,27 @@ type AddressRequest struct {
 
 // OrderResponse represents order response
 type OrderResponse struct {
-	ID              uuid.UUID               `json:"id"`
-	OrderNumber     string                  `json:"order_number"`
-	User            *UserResponse           `json:"user"`
-	Items           []OrderItemResponse     `json:"items"`
-	Status          entities.OrderStatus    `json:"status"`
-	PaymentStatus   entities.PaymentStatus  `json:"payment_status"`
-	Subtotal        float64                 `json:"subtotal"`
-	TaxAmount       float64                 `json:"tax_amount"`
-	ShippingAmount  float64                 `json:"shipping_amount"`
-	DiscountAmount  float64                 `json:"discount_amount"`
-	Total           float64                 `json:"total"`
-	Currency        string                  `json:"currency"`
-	ShippingAddress *OrderAddressResponse   `json:"shipping_address"`
-	BillingAddress  *OrderAddressResponse   `json:"billing_address"`
-	Notes           string                  `json:"notes"`
-	Payment         *PaymentResponse        `json:"payment"`
-	ItemCount       int                     `json:"item_count"`
-	CanBeCancelled  bool                    `json:"can_be_cancelled"`
-	CanBeRefunded   bool                    `json:"can_be_refunded"`
-	CreatedAt       time.Time               `json:"created_at"`
-	UpdatedAt       time.Time               `json:"updated_at"`
+	ID              uuid.UUID              `json:"id"`
+	OrderNumber     string                 `json:"order_number"`
+	User            *UserResponse          `json:"user"`
+	Items           []OrderItemResponse    `json:"items"`
+	Status          entities.OrderStatus   `json:"status"`
+	PaymentStatus   entities.PaymentStatus `json:"payment_status"`
+	Subtotal        float64                `json:"subtotal"`
+	TaxAmount       float64                `json:"tax_amount"`
+	ShippingAmount  float64                `json:"shipping_amount"`
+	DiscountAmount  float64                `json:"discount_amount"`
+	Total           float64                `json:"total"`
+	Currency        string                 `json:"currency"`
+	ShippingAddress *OrderAddressResponse  `json:"shipping_address"`
+	BillingAddress  *OrderAddressResponse  `json:"billing_address"`
+	Notes           string                 `json:"notes"`
+	Payment         *PaymentResponse       `json:"payment"`
+	ItemCount       int                    `json:"item_count"`
+	CanBeCancelled  bool                   `json:"can_be_cancelled"`
+	CanBeRefunded   bool                   `json:"can_be_refunded"`
+	CreatedAt       time.Time              `json:"created_at"`
+	UpdatedAt       time.Time              `json:"updated_at"`
 }
 
 // OrderItemResponse represents order item response
@@ -134,8 +136,6 @@ type OrderAddressResponse struct {
 	Country   string `json:"country"`
 	Phone     string `json:"phone"`
 }
-
-
 
 // CreateOrder creates a new order
 func (uc *orderUseCase) CreateOrder(ctx context.Context, userID uuid.UUID, req CreateOrderRequest) (*OrderResponse, error) {
@@ -227,7 +227,7 @@ func (uc *orderUseCase) CreateOrder(ctx context.Context, userID uuid.UUID, req C
 	// Create order items
 	for _, cartItem := range cart.Items {
 		product, _ := uc.productRepo.GetByID(ctx, cartItem.ProductID)
-		
+
 		orderItem := entities.OrderItem{
 			ID:          uuid.New(),
 			OrderID:     order.ID,
@@ -239,7 +239,7 @@ func (uc *orderUseCase) CreateOrder(ctx context.Context, userID uuid.UUID, req C
 			Total:       cartItem.GetSubtotal(),
 			CreatedAt:   time.Now(),
 		}
-		
+
 		order.Items = append(order.Items, orderItem)
 	}
 
@@ -248,21 +248,8 @@ func (uc *orderUseCase) CreateOrder(ctx context.Context, userID uuid.UUID, req C
 		return nil, err
 	}
 
-	// Create payment record
-	payment := &entities.Payment{
-		ID:        uuid.New(),
-		OrderID:   order.ID,
-		Amount:    order.Total,
-		Currency:  order.Currency,
-		Method:    req.PaymentMethod,
-		Status:    entities.PaymentStatusPending,
-		CreatedAt: time.Now(),
-		UpdatedAt: time.Now(),
-	}
-
-	if err := uc.paymentRepo.Create(ctx, payment); err != nil {
-		return nil, err
-	}
+	// Note: Payment record will be created during checkout session creation
+	// This allows the payment to have the proper transaction ID from Stripe
 
 	// Reduce product stock
 	for _, item := range cart.Items {
@@ -287,6 +274,28 @@ func (uc *orderUseCase) CreateOrder(ctx context.Context, userID uuid.UUID, req C
 func (uc *orderUseCase) GetOrder(ctx context.Context, orderID uuid.UUID) (*OrderResponse, error) {
 	order, err := uc.orderRepo.GetByID(ctx, orderID)
 	if err != nil {
+		return nil, entities.ErrOrderNotFound
+	}
+
+	return uc.toOrderResponse(order), nil
+}
+
+// GetOrderBySessionID gets an order by checkout session ID
+func (uc *orderUseCase) GetOrderBySessionID(ctx context.Context, sessionID string, userID uuid.UUID) (*OrderResponse, error) {
+	// First find the payment by session ID
+	payment, err := uc.paymentRepo.GetByTransactionID(ctx, sessionID)
+	if err != nil {
+		return nil, entities.ErrOrderNotFound
+	}
+
+	// Get the order from the payment
+	order, err := uc.orderRepo.GetByID(ctx, payment.OrderID)
+	if err != nil {
+		return nil, entities.ErrOrderNotFound
+	}
+
+	// Check if user owns this order
+	if order.UserID != userID {
 		return nil, entities.ErrOrderNotFound
 	}
 
@@ -377,22 +386,22 @@ func (uc *orderUseCase) GetOrders(ctx context.Context, req GetOrdersRequest) ([]
 // toOrderResponse converts order entity to response
 func (uc *orderUseCase) toOrderResponse(order *entities.Order) *OrderResponse {
 	response := &OrderResponse{
-		ID:              order.ID,
-		OrderNumber:     order.OrderNumber,
-		Status:          order.Status,
-		PaymentStatus:   order.PaymentStatus,
-		Subtotal:        order.Subtotal,
-		TaxAmount:       order.TaxAmount,
-		ShippingAmount:  order.ShippingAmount,
-		DiscountAmount:  order.DiscountAmount,
-		Total:           order.Total,
-		Currency:        order.Currency,
-		Notes:           order.Notes,
-		ItemCount:       order.GetItemCount(),
-		CanBeCancelled:  order.CanBeCancelled(),
-		CanBeRefunded:   order.CanBeRefunded(),
-		CreatedAt:       order.CreatedAt,
-		UpdatedAt:       order.UpdatedAt,
+		ID:             order.ID,
+		OrderNumber:    order.OrderNumber,
+		Status:         order.Status,
+		PaymentStatus:  order.PaymentStatus,
+		Subtotal:       order.Subtotal,
+		TaxAmount:      order.TaxAmount,
+		ShippingAmount: order.ShippingAmount,
+		DiscountAmount: order.DiscountAmount,
+		Total:          order.Total,
+		Currency:       order.Currency,
+		Notes:          order.Notes,
+		ItemCount:      order.GetItemCount(),
+		CanBeCancelled: order.CanBeCancelled(),
+		CanBeRefunded:  order.CanBeRefunded(),
+		CreatedAt:      order.CreatedAt,
+		UpdatedAt:      order.UpdatedAt,
 	}
 
 	// Convert user

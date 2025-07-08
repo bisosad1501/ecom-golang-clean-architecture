@@ -14,6 +14,7 @@ import (
 	infraServices "ecom-golang-clean-architecture/internal/infrastructure/services"
 	localStorage "ecom-golang-clean-architecture/internal/infrastructure/storage"
 	"ecom-golang-clean-architecture/internal/usecases"
+
 	"github.com/gin-gonic/gin"
 )
 
@@ -102,7 +103,7 @@ func main() {
 	fileStorageConfig := config.LoadFileStorageConfig()
 	var storageProvider storage.StorageProvider
 	var err2 error
-	
+
 	// For now, use local storage. In production, this would be configurable
 	storageProvider, err2 = localStorage.NewLocalStorage(&fileStorageConfig.LocalConfig)
 	if err2 != nil {
@@ -166,7 +167,7 @@ func main() {
 	)
 
 	// Initialize payment gateway services
-	stripeService := payment.NewStripeService(cfg.Payment.StripeSecretKey)
+	stripeService := payment.NewStripeServiceWithWebhook(cfg.Payment.StripeSecretKey, cfg.Payment.StripeWebhookSecret)
 	paypalService := payment.NewPayPalService(cfg.Payment.PayPalClientID, cfg.Payment.PayPalClientSecret, cfg.Payment.PayPalSandbox)
 
 	// Initialize payment use case

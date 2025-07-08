@@ -6,6 +6,7 @@ import (
 
 	"ecom-golang-clean-architecture/internal/domain/entities"
 	"ecom-golang-clean-architecture/internal/usecases"
+
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 )
@@ -105,6 +106,50 @@ func (h *OrderHandler) GetOrder(c *gin.Context) {
 
 	c.JSON(http.StatusOK, SuccessResponse{
 		Data: order,
+	})
+}
+
+// GetOrderPublic godoc
+// @Summary Get order details (public access for success page)
+// @Description Get order details without authentication for success page
+// @Tags orders
+// @Accept json
+// @Produce json
+// @Param id path string true "Order ID"
+// @Success 200 {object} usecases.OrderResponse
+// @Failure 404 {object} ErrorResponse
+// @Router /orders/{id}/public [get]
+func (h *OrderHandler) GetOrderPublic(c *gin.Context) {
+	orderID, err := uuid.Parse(c.Param("id"))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, ErrorResponse{
+			Error: "Invalid order ID",
+		})
+		return
+	}
+
+	order, err := h.orderUseCase.GetOrder(c.Request.Context(), orderID)
+	if err != nil {
+		c.JSON(http.StatusNotFound, ErrorResponse{
+			Error: "Order not found",
+		})
+		return
+	}
+
+	// Return basic order info for success page (no sensitive data)
+	publicOrder := map[string]interface{}{
+		"id":             order.ID,
+		"order_number":   order.OrderNumber,
+		"status":         order.Status,
+		"payment_status": order.PaymentStatus,
+		"total":          order.Total,
+		"created_at":     order.CreatedAt,
+		"items":          order.Items,
+	}
+
+	c.JSON(http.StatusOK, SuccessResponse{
+		Message: "Order retrieved successfully",
+		Data:    publicOrder,
 	})
 }
 
@@ -294,5 +339,57 @@ func (h *OrderHandler) UpdateOrderStatus(c *gin.Context) {
 	c.JSON(http.StatusOK, SuccessResponse{
 		Message: "Order status updated successfully",
 		Data:    order,
+	})
+}
+
+// GetOrderBySessionID handles getting an order by session ID
+// @Summary Get order by session ID
+// @Description Get a single order by its checkout session ID
+// @Tags orders
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Param session_id query string true "Session ID"
+// @Success 200 {object} usecases.OrderResponse
+// @Failure 400 {object} ErrorResponse
+// @Failure 401 {object} ErrorResponse
+// @Failure 404 {object} ErrorResponse
+// @Router /orders/by-session [get]
+func (h *OrderHandler) GetOrderBySessionID(c *gin.Context) {
+	sessionID := c.Query("session_id")
+	if sessionID == "" {
+		c.JSON(http.StatusBadRequest, ErrorResponse{
+			Error: "Session ID is required",
+		})
+		return
+	}
+
+	// Get user ID from token for authorization
+	userIDStr, exists := c.Get("user_id")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, ErrorResponse{
+			Error: "User ID not found in token",
+		})
+		return
+	}
+
+	userID, err := uuid.Parse(userIDStr.(string))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, ErrorResponse{
+			Error: "Invalid user ID",
+		})
+		return
+	}
+
+	order, err := h.orderUseCase.GetOrderBySessionID(c.Request.Context(), sessionID, userID)
+	if err != nil {
+		c.JSON(getErrorStatusCode(err), ErrorResponse{
+			Error: err.Error(),
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, SuccessResponse{
+		Data: order,
 	})
 }

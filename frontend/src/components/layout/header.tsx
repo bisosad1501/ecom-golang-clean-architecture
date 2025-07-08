@@ -232,7 +232,7 @@ export function Header() {
                   variant="ghost"
                   size="icon"
                   className="relative h-10 w-10 rounded-xl hover:bg-orange-500/10 hover:scale-105 transition-all duration-200 text-white"
-                  onClick={openCart}
+                  onClick={() => router.push('/cart')}
                 >
                   <ShoppingCart className="h-4 w-4 group-hover:text-orange-500 transition-colors text-white" />
                   {cartItemCount > 0 && (
@@ -258,7 +258,23 @@ export function Header() {
                         <div className="space-y-3 max-h-64 overflow-y-auto">
                           {cart.items.slice(0, 3).map((item) => (
                             <div key={item.id} className="flex items-center gap-3 p-2 hover:bg-muted rounded-lg transition-colors">
-                              <div className="w-12 h-12 bg-muted rounded-lg"></div>
+                              <div className="w-12 h-12 bg-muted rounded-lg overflow-hidden">
+                                {item.product.images && item.product.images.length > 0 ? (
+                                  <img 
+                                    src={item.product.images[0].url || item.product.images[0].image_url || '/placeholder-product.svg'} 
+                                    alt={item.product.name}
+                                    className="w-full h-full object-cover"
+                                    onError={(e) => {
+                                      const target = e.target as HTMLImageElement;
+                                      target.src = '/placeholder-product.svg';
+                                    }}
+                                  />
+                                ) : (
+                                  <div className="w-full h-full bg-gray-200 flex items-center justify-center">
+                                    <Package className="h-6 w-6 text-gray-400" />
+                                  </div>
+                                )}
+                              </div>
                               <div className="flex-1 min-w-0">
                                 <div className="font-medium text-sm truncate">{item.product.name}</div>
                                 <div className="text-xs text-muted-foreground">Qty: {item.quantity}</div>
@@ -281,7 +297,7 @@ export function Header() {
                               ${cart.items.reduce((sum, item) => sum + (item.product.price * item.quantity), 0).toFixed(2)}
                             </span>
                           </div>
-                          <Button className="w-full" variant="gradient" onClick={openCart}>
+                          <Button className="w-full" variant="gradient" onClick={() => router.push('/cart')}>
                             View Cart
                           </Button>
                         </div>

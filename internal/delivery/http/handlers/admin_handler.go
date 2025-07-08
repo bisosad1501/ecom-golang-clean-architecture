@@ -3,6 +3,8 @@ package handlers
 import (
 	"fmt"
 	"net/http"
+	"strconv"
+	"time"
 
 	"ecom-golang-clean-architecture/internal/domain/entities"
 	"ecom-golang-clean-architecture/internal/usecases"
@@ -42,6 +44,9 @@ func (h *AdminHandler) GetDashboard(c *gin.Context) {
 		})
 		return
 	}
+
+	// Debug log
+	fmt.Printf("Dashboard response - Total Revenue: %f\n", dashboard.Overview.TotalRevenue)
 
 	c.JSON(http.StatusOK, SuccessResponse{
 		Message: "Dashboard retrieved successfully",
@@ -240,7 +245,7 @@ func (h *AdminHandler) GetOrders(c *gin.Context) {
 
 // UpdateOrderStatus updates an order's status
 func (h *AdminHandler) UpdateOrderStatus(c *gin.Context) {
-	orderIDStr := c.Param("order_id")
+	orderIDStr := c.Param("id")
 	orderID, err := uuid.Parse(orderIDStr)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, ErrorResponse{
@@ -276,7 +281,7 @@ func (h *AdminHandler) UpdateOrderStatus(c *gin.Context) {
 
 // GetOrderDetails returns detailed order information
 func (h *AdminHandler) GetOrderDetails(c *gin.Context) {
-	orderIDStr := c.Param("order_id")
+	orderIDStr := c.Param("id")
 	orderID, err := uuid.Parse(orderIDStr)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, ErrorResponse{
@@ -303,7 +308,7 @@ func (h *AdminHandler) GetOrderDetails(c *gin.Context) {
 
 // ProcessRefund processes a refund for an order
 func (h *AdminHandler) ProcessRefund(c *gin.Context) {
-	orderIDStr := c.Param("order_id")
+	orderIDStr := c.Param("id")
 	orderID, err := uuid.Parse(orderIDStr)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, ErrorResponse{
@@ -596,5 +601,71 @@ func (h *AdminHandler) BackupDatabase(c *gin.Context) {
 	c.JSON(http.StatusOK, SuccessResponse{
 		Message: "Database backup created successfully",
 		Data:    backup,
+	})
+}
+
+// GetRecentActivity returns recent admin activity
+func (h *AdminHandler) GetRecentActivity(c *gin.Context) {
+	// Parse query parameters
+	limit := 5
+	if limitStr := c.Query("limit"); limitStr != "" {
+		if l, err := strconv.Atoi(limitStr); err == nil && l > 0 && l <= 100 {
+			limit = l
+		}
+	}
+
+	// Create mock recent activity data
+	// In a real implementation, this would come from audit logs or activity tracking
+	activities := []map[string]interface{}{
+		{
+			"id":          uuid.New().String(),
+			"type":        "order_created",
+			"description": "New order #ORD-001 placed by John Doe",
+			"timestamp":   time.Now().Add(-5 * time.Minute),
+			"user_id":     uuid.New().String(),
+			"user_name":   "John Doe",
+		},
+		{
+			"id":          uuid.New().String(),
+			"type":        "product_updated",
+			"description": "Product 'iPhone 15' stock updated",
+			"timestamp":   time.Now().Add(-15 * time.Minute),
+			"user_id":     uuid.New().String(),
+			"user_name":   "Admin User",
+		},
+		{
+			"id":          uuid.New().String(),
+			"type":        "user_registered",
+			"description": "New user Jane Smith registered",
+			"timestamp":   time.Now().Add(-30 * time.Minute),
+			"user_id":     uuid.New().String(),
+			"user_name":   "Jane Smith",
+		},
+		{
+			"id":          uuid.New().String(),
+			"type":        "payment_processed",
+			"description": "Payment processed for order #ORD-002",
+			"timestamp":   time.Now().Add(-45 * time.Minute),
+			"user_id":     uuid.New().String(),
+			"user_name":   "Mike Johnson",
+		},
+		{
+			"id":          uuid.New().String(),
+			"type":        "review_submitted",
+			"description": "New review submitted for MacBook Pro",
+			"timestamp":   time.Now().Add(-1 * time.Hour),
+			"user_id":     uuid.New().String(),
+			"user_name":   "Sarah Wilson",
+		},
+	}
+
+	// Limit results
+	if len(activities) > limit {
+		activities = activities[:limit]
+	}
+
+	c.JSON(http.StatusOK, SuccessResponse{
+		Message: "Recent activity retrieved successfully",
+		Data:    activities,
 	})
 }

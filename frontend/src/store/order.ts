@@ -2,7 +2,7 @@
 
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
-import { api } from '@/lib/api'
+import { apiClient } from '@/lib/api'
 import type { Order, Address } from '@/types'
 
 interface OrderState {
@@ -52,34 +52,18 @@ export const useOrderStore = create<OrderState>()(
       createOrder: async (orderData) => {
         set({ isLoading: true, error: null })
         try {
-          // This would be replaced with actual API call
-          const order: Order = {
-            id: Math.random().toString(36).substr(2, 9),
-            order_number: `ORD-${Date.now()}`,
-            user_id: 'user-1',
-            status: 'pending',
-            payment_status: 'pending',
-            items: orderData.items || [],
-            shipping_address: orderData.shippingAddress,
-            billing_address: orderData.billingAddress,
-            subtotal: orderData.subtotal || 0,
-            tax_amount: orderData.taxAmount || 0,
-            shipping_amount: orderData.shippingAmount || 0,
-            discount_amount: orderData.discountAmount || 0,
-            total_amount: orderData.totalAmount || 0,
-            created_at: new Date().toISOString(),
-            updated_at: new Date().toISOString(),
-          }
-          
-          set({ 
+          const response = await apiClient.post<Order>('/orders', orderData)
+          const order = response.data?.data || response.data
+
+          set({
             currentOrder: order,
             orders: [...get().orders, order],
-            isLoading: false 
+            isLoading: false
           })
-          
-          return order
-        } catch (error) {
-          const errorMessage = error instanceof Error ? error.message : 'Failed to create order'
+
+          return { data: order }
+        } catch (error: any) {
+          const errorMessage = error.message || 'Failed to create order'
           set({ error: errorMessage, isLoading: false })
           throw error
         }
