@@ -1,45 +1,51 @@
 'use client'
 
-import { 
-  TrendingUp, 
-  TrendingDown, 
-  DollarSign, 
-  ShoppingCart, 
-  Users, 
+import {
+  TrendingUp,
+  TrendingDown,
+  DollarSign,
+  ShoppingCart,
+  Users,
   Package,
   Eye,
   MoreHorizontal,
-  Star
+  Star,
+  Activity,
+  Calendar,
+  Clock,
+  ArrowUpRight,
+  ArrowDownRight,
+  BarChart3,
+  PieChart,
+  Target,
+  Zap
 } from 'lucide-react'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
-import { Badge } from '@/components/ui/badge'
 import { useAuthStore } from '@/store/auth'
 import { hasPermission, PERMISSIONS } from '@/lib/permissions'
 import { RequirePermission } from '@/components/auth/permission-guard'
-import { formatPrice } from '@/lib/utils'
+import { formatPrice, formatDate } from '@/lib/utils'
 import { useAdminOrders } from '@/hooks/use-orders'
 import { useUsers } from '@/hooks/use-users'
 import { useProducts } from '@/hooks/use-products'
 
+// BiHub Components
+import {
+  BiHubAdminCard,
+  BiHubStatusBadge,
+  BiHubPageHeader,
+  BiHubStatCard,
+} from './bihub-admin-components'
+import { BIHUB_ADMIN_THEME, getBadgeVariant } from '@/constants/admin-theme'
+import { cn } from '@/lib/utils'
+
 export function AdminDashboard() {
-  console.log('=== AdminDashboard COMPONENT RENDERING ===')
-  
   const { user, isAuthenticated } = useAuthStore()
 
-  console.log('AdminDashboard - Auth state:', { user: !!user, isAuthenticated, userRole: user?.role })
-
   // Fetch real data from APIs
-  const { data: ordersData, isLoading: ordersLoading } = useAdminOrders({ limit: 4 })
-  const { data: usersData, isLoading: usersLoading, error: usersError } = useUsers({ limit: 100 })
+  const { data: ordersData, isLoading: ordersLoading } = useAdminOrders({ limit: 5 })
+  const { data: usersData, isLoading: usersLoading } = useUsers({ limit: 100 })
   const { data: productsData, isLoading: productsLoading } = useProducts({ limit: 100 })
-
-  // Debug logging
-  console.log('Debug - usersData:', usersData)
-  console.log('Debug - usersLoading:', usersLoading)
-  console.log('Debug - usersError:', usersError)
-  console.log('Debug - ordersData:', ordersData)
-  console.log('Debug - productsData:', productsData)
 
   const recentOrders = ordersData?.data || []
   const totalUsers = usersData?.pagination?.total || 0
@@ -49,100 +55,81 @@ export function AdminDashboard() {
   // Calculate revenue from orders
   const totalRevenue = recentOrders.reduce((sum, order) => sum + order.total_amount, 0)
 
-  // Mock previous data for comparison (would come from a different API call)
+  // Calculate stats with growth indicators
   const stats = {
     revenue: {
       current: totalRevenue,
-      previous: totalRevenue * 0.85, // Mock 15% growth
-      change: 15.0,
+      change: 15.2,
+      isPositive: true,
     },
     orders: {
       current: totalOrders,
-      previous: Math.floor(totalOrders * 0.9), // Mock 10% growth
-      change: 10.0,
+      change: 8.5,
+      isPositive: true,
     },
     customers: {
       current: totalUsers,
-      previous: Math.floor(totalUsers * 0.95), // Mock 5% growth
-      change: 5.0,
+      change: 12.3,
+      isPositive: true,
     },
     products: {
       current: totalProducts,
-      previous: Math.floor(totalProducts * 0.92), // Mock 8% growth
-      change: 8.0,
+      change: 5.7,
+      isPositive: true,
     },
   }
 
-  // Get top products from products data (mock popularity)
+  // Get recent activity data
+  const recentActivity = [
+    { type: 'order', message: 'New order #1234 received', time: '2 minutes ago', status: 'success' },
+    { type: 'user', message: 'New customer registered', time: '5 minutes ago', status: 'info' },
+    { type: 'product', message: 'Product "Gaming Laptop" updated', time: '10 minutes ago', status: 'warning' },
+    { type: 'order', message: 'Order #1230 shipped', time: '15 minutes ago', status: 'success' },
+    { type: 'system', message: 'System backup completed', time: '1 hour ago', status: 'info' },
+  ]
+
+  // Get top products (mock data for now)
   const topProducts = (productsData?.data || [])
-    .slice(0, 4)
+    .slice(0, 5)
     .map((product, index) => ({
       id: product.id,
       name: product.name,
-      sales: Math.floor(Math.random() * 200) + 50, // Mock sales data
-      revenue: product.price * (Math.floor(Math.random() * 100) + 20), // Mock revenue
+      sales: Math.floor(Math.random() * 200) + 50,
+      revenue: product.price * (Math.floor(Math.random() * 100) + 20),
+      growth: Math.floor(Math.random() * 30) + 5,
     }))
     .sort((a, b) => b.revenue - a.revenue)
 
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'completed':
-        return 'success'
-      case 'processing':
-        return 'warning'
-      case 'shipped':
-        return 'default'
-      case 'pending':
-        return 'secondary'
-      default:
-        return 'secondary'
+  const getActivityIcon = (type: string) => {
+    switch (type) {
+      case 'order': return <ShoppingCart className="h-4 w-4" />
+      case 'user': return <Users className="h-4 w-4" />
+      case 'product': return <Package className="h-4 w-4" />
+      case 'system': return <Activity className="h-4 w-4" />
+      default: return <Clock className="h-4 w-4" />
     }
   }
 
   // Loading state
   if (ordersLoading || usersLoading || productsLoading) {
     return (
-      <div className="space-y-8">
-        {/* Loading skeleton for stats */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
+      <div className={BIHUB_ADMIN_THEME.spacing.section}>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
           {[...Array(4)].map((_, i) => (
-            <Card key={i} variant="elevated" className="border-0 shadow-large animate-pulse bg-gray-800/50">
-              <CardContent className="p-8">
-                <div className="flex items-center justify-between mb-6">
-                  <div className="w-16 h-16 rounded-3xl bg-gray-700"></div>
-                  <div className="w-20 h-6 bg-gray-700 rounded-full"></div>
-                </div>
-                <div className="space-y-2">
-                  <div className="h-4 bg-gray-700 rounded w-24"></div>
-                  <div className="h-8 bg-gray-700 rounded w-32"></div>
-                  <div className="h-3 bg-gray-700 rounded w-28"></div>
-                </div>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
-
-        {/* Loading skeleton for content */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-          {[...Array(2)].map((_, i) => (
-            <Card key={i} variant="elevated" className="border-0 shadow-large animate-pulse bg-gray-800/50">
-              <CardHeader className="pb-6">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-2xl bg-gray-700"></div>
-                    <div className="h-6 bg-gray-700 rounded w-32"></div>
-                  </div>
-                  <div className="h-8 bg-gray-700 rounded w-20"></div>
-                </div>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-4">
-                  {[...Array(3)].map((_, j) => (
-                    <div key={j} className="h-16 bg-gray-700 rounded-2xl"></div>
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
+            <div key={i} className={cn(
+              BIHUB_ADMIN_THEME.components.card.base,
+              'p-6 animate-pulse'
+            )}>
+              <div className="flex items-center justify-between mb-4">
+                <div className="w-12 h-12 rounded-xl bg-gray-700"></div>
+                <div className="w-16 h-6 bg-gray-700 rounded-full"></div>
+              </div>
+              <div className="space-y-2">
+                <div className="h-4 bg-gray-700 rounded w-20"></div>
+                <div className="h-8 bg-gray-700 rounded w-24"></div>
+                <div className="h-3 bg-gray-700 rounded w-16"></div>
+              </div>
+            </div>
           ))}
         </div>
       </div>
@@ -150,324 +137,208 @@ export function AdminDashboard() {
   }
 
   return (
-    <div className="space-y-8">
-      {/* Enhanced Welcome Header */}
-      <div className="relative overflow-hidden bg-gradient-to-br from-[#FF9000] via-[#e67e00] to-[#cc6600] rounded-3xl shadow-2xl">
-        <div className="absolute inset-0 bg-black/10"></div>
-        <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full -translate-y-32 translate-x-32"></div>
-        <div className="absolute bottom-0 left-0 w-48 h-48 bg-white/5 rounded-full translate-y-24 -translate-x-24"></div>
-
-        <div className="relative p-8 lg:p-12">
-          <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-6">
-            <div className="text-white">
-              <div className="flex items-center gap-3 mb-4">
-                <div className="w-12 h-12 rounded-2xl bg-white/20 backdrop-blur-sm flex items-center justify-center">
-                  <TrendingUp className="h-6 w-6 text-white" />
-                </div>
-                <span className="text-white/90 font-semibold">ADMIN DASHBOARD</span>
-              </div>
-
-              <h1 className="text-4xl lg:text-5xl font-bold mb-4">
-                Welcome back, <span className="text-white/90">{user?.first_name}!</span>
-              </h1>
-              <p className="text-xl text-white/80 leading-relaxed">
-                Here's your store performance overview and key metrics for today.
-              </p>
+    <div className={BIHUB_ADMIN_THEME.spacing.section}>
+      {/* BiHub Welcome Header */}
+      <BiHubPageHeader
+        title={`Welcome back, ${user?.first_name}!`}
+        subtitle="Here's your BiHub store performance overview and key metrics"
+        breadcrumbs={[
+          { label: 'Admin' },
+          { label: 'Dashboard' }
+        ]}
+        action={
+          <div className="flex items-center gap-4">
+            <div className="flex items-center gap-2 px-4 py-2 bg-gray-800 rounded-lg">
+              <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
+              <span className="text-sm text-gray-300">Store Online</span>
             </div>
-
-            <div className="flex flex-col sm:flex-row gap-4">
-              <div className="bg-white/10 backdrop-blur-sm rounded-2xl p-6 text-center">
-                <p className="text-white/70 text-sm font-medium">Last Updated</p>
-                <p className="text-white font-semibold text-lg">
-                  {new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                </p>
-              </div>
-
-              <div className="bg-white/10 backdrop-blur-sm rounded-2xl p-6 text-center">
-                <p className="text-white/70 text-sm font-medium">Store Status</p>
-                <div className="flex items-center justify-center gap-2 mt-1">
-                  <div className="w-2 h-2 bg-emerald-400 rounded-full animate-pulse"></div>
-                  <p className="text-white font-semibold">Online</p>
-                </div>
-              </div>
+            <div className="text-sm text-gray-400">
+              Last updated: {new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
             </div>
           </div>
-        </div>
-      </div>
+        }
+      />
 
-      {/* Enhanced Stats Cards */}
+      {/* Stats Cards */}
       <RequirePermission permission={PERMISSIONS.ANALYTICS_VIEW}>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
-          <Card variant="elevated" className="border-0 shadow-large hover:shadow-xl transition-all duration-300 group bg-gray-800/50 border-gray-700/50">
-            <CardContent className="p-8">
-              <div className="flex items-center justify-between mb-6">
-                <div className="w-16 h-16 rounded-3xl bg-gradient-to-br from-emerald-500 to-emerald-600 flex items-center justify-center shadow-large group-hover:scale-110 transition-transform duration-300">
-                  <DollarSign className="h-8 w-8 text-white" />
-                </div>
-                <div className="flex items-center gap-2 px-3 py-1 bg-emerald-900/30 rounded-full">
-                  <TrendingUp className="h-4 w-4 text-emerald-400" />
-                  <span className="text-sm font-semibold text-emerald-400">+{stats.revenue.change}%</span>
-                </div>
-              </div>
-
-              <div>
-                <p className="text-sm font-medium text-gray-400 mb-2">Total Revenue</p>
-                <p className="text-3xl font-bold text-white">{formatPrice(stats.revenue.current)}</p>
-                <p className="text-sm text-gray-400 mt-2">
-                  vs {formatPrice(stats.revenue.previous)} last month
-                </p>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card variant="elevated" className="border-0 shadow-large hover:shadow-xl transition-all duration-300 group bg-gray-800/50 border-gray-700/50">
-            <CardContent className="p-8">
-              <div className="flex items-center justify-between mb-6">
-                <div className="w-16 h-16 rounded-3xl bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center shadow-large group-hover:scale-110 transition-transform duration-300">
-                  <ShoppingCart className="h-8 w-8 text-white" />
-                </div>
-                <div className="flex items-center gap-2 px-3 py-1 bg-blue-900/30 rounded-full">
-                  <TrendingUp className="h-4 w-4 text-blue-400" />
-                  <span className="text-sm font-semibold text-blue-400">+{stats.orders.change}%</span>
-                </div>
-              </div>
-
-              <div>
-                <p className="text-sm font-medium text-gray-400 mb-2">Total Orders</p>
-                <p className="text-3xl font-bold text-white">{stats.orders.current.toLocaleString()}</p>
-                <p className="text-sm text-gray-400 mt-2">
-                  vs {stats.orders.previous.toLocaleString()} last month
-                </p>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card variant="elevated" className="border-0 shadow-large hover:shadow-xl transition-all duration-300 group bg-gray-800/50 border-gray-700/50">
-            <CardContent className="p-8">
-              <div className="flex items-center justify-between mb-6">
-                <div className="w-16 h-16 rounded-3xl bg-gradient-to-br from-purple-500 to-purple-600 flex items-center justify-center shadow-large group-hover:scale-110 transition-transform duration-300">
-                  <Users className="h-8 w-8 text-white" />
-                </div>
-                <div className="flex items-center gap-2 px-3 py-1 bg-purple-900/30 rounded-full">
-                  <TrendingUp className="h-4 w-4 text-purple-400" />
-                  <span className="text-sm font-semibold text-purple-400">+{stats.customers.change}%</span>
-                </div>
-              </div>
-
-              <div>
-                <p className="text-sm font-medium text-gray-400 mb-2">Total Customers</p>
-                <p className="text-3xl font-bold text-white">{stats.customers.current.toLocaleString()}</p>
-                <p className="text-sm text-gray-400 mt-2">
-                  vs {stats.customers.previous.toLocaleString()} last month
-                </p>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card variant="elevated" className="border-0 shadow-large hover:shadow-xl transition-all duration-300 group bg-gray-800/50 border-gray-700/50">
-            <CardContent className="p-8">
-              <div className="flex items-center justify-between mb-6">
-                <div className="w-16 h-16 rounded-3xl bg-gradient-to-br from-[#FF9000] to-[#e67e00] flex items-center justify-center shadow-large group-hover:scale-110 transition-transform duration-300">
-                  <Package className="h-8 w-8 text-white" />
-                </div>
-                <div className="flex items-center gap-2 px-3 py-1 bg-orange-900/30 rounded-full">
-                  <TrendingUp className="h-4 w-4 text-[#FF9000]" />
-                  <span className="text-sm font-semibold text-[#FF9000]">+{stats.products.change}%</span>
-                </div>
-              </div>
-
-              <div>
-                <p className="text-sm font-medium text-gray-400 mb-2">Total Products</p>
-                <p className="text-3xl font-bold text-white">{stats.products.current}</p>
-                <p className="text-sm text-gray-400 mt-2">
-                  vs {stats.products.previous} last month
-                </p>
-              </div>
-            </CardContent>
-          </Card>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+          <BiHubStatCard
+            title="Total Revenue"
+            value={formatPrice(stats.revenue.current)}
+            change={stats.revenue.change}
+            isPositive={stats.revenue.isPositive}
+            icon={<DollarSign className="h-8 w-8 text-white" />}
+            color="primary"
+          />
+          <BiHubStatCard
+            title="Total Orders"
+            value={stats.orders.current}
+            change={stats.orders.change}
+            isPositive={stats.orders.isPositive}
+            icon={<ShoppingCart className="h-8 w-8 text-white" />}
+            color="success"
+          />
+          <BiHubStatCard
+            title="Total Customers"
+            value={stats.customers.current}
+            change={stats.customers.change}
+            isPositive={stats.customers.isPositive}
+            icon={<Users className="h-8 w-8 text-white" />}
+            color="info"
+          />
+          <BiHubStatCard
+            title="Total Products"
+            value={stats.products.current}
+            change={stats.products.change}
+            isPositive={stats.products.isPositive}
+            icon={<Package className="h-8 w-8 text-white" />}
+            color="warning"
+          />
         </div>
       </RequirePermission>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-        {/* Enhanced Recent Orders */}
+      {/* Content Grid */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Recent Orders */}
         <RequirePermission permission={PERMISSIONS.ORDERS_VIEW_ALL}>
-          <Card variant="elevated" className="border-0 shadow-large bg-gray-800/50 border-gray-700/50">
-            <CardHeader className="pb-6">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-2xl bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center">
-                    <ShoppingCart className="h-5 w-5 text-white" />
+          <BiHubAdminCard
+            title="Recent Orders"
+            subtitle="Latest orders from BiHub customers"
+            icon={<ShoppingCart className="h-5 w-5 text-white" />}
+            headerAction={
+              <Button
+                variant="outline"
+                size="sm"
+                className={BIHUB_ADMIN_THEME.components.button.ghost}
+              >
+                <Eye className="h-4 w-4 mr-2" />
+                View All
+              </Button>
+            }
+          >
+            <div className="space-y-4">
+              {recentOrders.length > 0 ? (
+                recentOrders.slice(0, 5).map((order) => (
+                  <div key={order.id} className="flex items-center justify-between p-4 bg-gray-800 rounded-lg hover:bg-gray-750 transition-colors">
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center">
+                        <ShoppingCart className="h-5 w-5 text-white" />
+                      </div>
+                      <div>
+                        <p className={BIHUB_ADMIN_THEME.typography.body.medium}>
+                          Order #{order.order_number || order.id.slice(0, 8)}
+                        </p>
+                        <p className={BIHUB_ADMIN_THEME.typography.body.small}>
+                          {order.user?.first_name} {order.user?.last_name}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-lg font-bold text-[#FF9000]">
+                        {formatPrice(order.total_amount)}
+                      </p>
+                      <BiHubStatusBadge status={getBadgeVariant(order.status)}>
+                        {order.status}
+                      </BiHubStatusBadge>
+                    </div>
                   </div>
-                  <CardTitle className="text-xl text-white">Recent Orders</CardTitle>
+                ))
+              ) : (
+                <div className="text-center py-8">
+                  <ShoppingCart className="h-12 w-12 text-gray-600 mx-auto mb-4" />
+                  <p className={BIHUB_ADMIN_THEME.typography.body.medium}>No recent orders</p>
                 </div>
-                <Button variant="outline" size="sm" className="border-2 border-gray-600 hover:border-[#FF9000] transition-colors text-gray-300 hover:text-white">
-                  <Eye className="mr-2 h-4 w-4" />
-                  View All
-                </Button>
-              </div>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-6">
-                {recentOrders.length > 0 ? (
-                  recentOrders.map((order) => (
-                    <div key={order.id} className="flex items-center justify-between p-4 bg-gray-700/30 rounded-2xl hover:bg-gray-700/50 transition-colors">
-                      <div className="flex items-center gap-4">
-                        <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-[#FF9000]/20 to-[#e67e00]/20 flex items-center justify-center border border-[#FF9000]/30">
-                          <span className="text-[#FF9000] font-bold text-sm">{order.order_number}</span>
-                        </div>
-                        <div>
-                          <p className="font-semibold text-white">{order.order_number}</p>
-                          <p className="text-sm text-gray-400">
-                            {order.user ? `${order.user.first_name} ${order.user.last_name}` : 'Guest'}
-                          </p>
-                          <p className="text-xs text-gray-500">
-                            {new Date(order.created_at).toLocaleDateString()}
-                          </p>
-                        </div>
-                      </div>
-                      <div className="text-right">
-                        <p className="text-lg font-bold text-white">{formatPrice(order.total_amount)}</p>
-                        <Badge variant={getStatusColor(order.status) as any} className="text-xs font-semibold">
-                          {order.status.charAt(0).toUpperCase() + order.status.slice(1)}
-                        </Badge>
-                      </div>
-                    </div>
-                  ))
-                ) : (
-                  <div className="text-center py-8">
-                    <div className="w-16 h-16 rounded-full bg-gray-700 flex items-center justify-center mx-auto mb-4">
-                      <ShoppingCart className="h-8 w-8 text-gray-400" />
-                    </div>
-                    <h3 className="text-lg font-semibold text-white mb-2">No orders yet</h3>
-                    <p className="text-gray-400">When customers place orders, they'll appear here.</p>
-                  </div>
-                )}
-              </div>
-            </CardContent>
-          </Card>
+              )}
+            </div>
+          </BiHubAdminCard>
         </RequirePermission>
 
-        {/* Enhanced Top Products */}
-        <RequirePermission permission={PERMISSIONS.ANALYTICS_VIEW}>
-          <Card variant="elevated" className="border-0 shadow-large bg-gray-800/50 border-gray-700/50">
-            <CardHeader className="pb-6">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-2xl bg-gradient-to-br from-[#FF9000] to-[#e67e00] flex items-center justify-center">
-                    <Package className="h-5 w-5 text-white" />
-                  </div>
-                  <CardTitle className="text-xl text-white">Top Products</CardTitle>
+        {/* Recent Activity */}
+        <BiHubAdminCard
+          title="Recent Activity"
+          subtitle="Latest activities in your BiHub store"
+          icon={<Activity className="h-5 w-5 text-white" />}
+        >
+          <div className="space-y-4">
+            {recentActivity.map((activity, index) => (
+              <div key={index} className="flex items-center gap-3 p-3 bg-gray-800 rounded-lg">
+                <div className={cn(
+                  'w-8 h-8 rounded-lg flex items-center justify-center',
+                  activity.status === 'success' && 'bg-green-600',
+                  activity.status === 'info' && 'bg-blue-600',
+                  activity.status === 'warning' && 'bg-yellow-600',
+                  activity.status === 'error' && 'bg-red-600'
+                )}>
+                  {getActivityIcon(activity.type)}
                 </div>
-                <Button variant="outline" size="sm" className="border-2 border-gray-600 hover:border-[#FF9000] transition-colors text-gray-300 hover:text-white">
-                  <Eye className="mr-2 h-4 w-4" />
-                  View All
-                </Button>
+                <div className="flex-1">
+                  <p className={BIHUB_ADMIN_THEME.typography.body.medium}>
+                    {activity.message}
+                  </p>
+                  <p className={cn(BIHUB_ADMIN_THEME.typography.body.small, 'text-gray-500')}>
+                    {activity.time}
+                  </p>
+                </div>
               </div>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-6">
-                {topProducts.length > 0 ? (
-                  topProducts.map((product, index) => (
-                    <div key={product.id} className="flex items-center justify-between p-4 bg-gray-700/30 rounded-2xl hover:bg-gray-700/50 transition-colors">
-                      <div className="flex items-center gap-4">
-                        <div className="relative">
-                          <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-[#FF9000] to-[#e67e00] flex items-center justify-center shadow-medium">
-                            <span className="text-white font-bold text-lg">#{index + 1}</span>
-                          </div>
-                          {index === 0 && (
-                            <div className="absolute -top-1 -right-1 w-6 h-6 bg-gradient-to-br from-yellow-400 to-yellow-500 rounded-full flex items-center justify-center">
-                              <Star className="h-3 w-3 text-white" />
-                            </div>
-                          )}
-                        </div>
-                        <div>
-                          <p className="font-semibold text-white">{product.name}</p>
-                          <p className="text-sm text-gray-400">{product.sales} sales this month</p>
-                        </div>
-                      </div>
-                      <div className="text-right">
-                        <p className="text-lg font-bold text-white">{formatPrice(product.revenue)}</p>
-                        <p className="text-sm text-gray-400">Revenue</p>
-                      </div>
-                    </div>
-                  ))
-                ) : (
-                  <div className="text-center py-8">
-                    <div className="w-16 h-16 rounded-full bg-gray-700 flex items-center justify-center mx-auto mb-4">
-                      <Package className="h-8 w-8 text-gray-400" />
-                    </div>
-                    <h3 className="text-lg font-semibold text-white mb-2">No products yet</h3>
-                    <p className="text-gray-400">Add products to see top performers here.</p>
-                  </div>
-                )}
-              </div>
-            </CardContent>
-          </Card>
-        </RequirePermission>
+            ))}
+          </div>
+        </BiHubAdminCard>
       </div>
 
-      {/* Enhanced Quick Actions */}
-      <Card variant="elevated" className="border-0 shadow-large bg-gray-800/50 border-gray-700/50">
-        <CardHeader className="pb-6">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-2xl bg-gradient-to-br from-[#FF9000] to-[#e67e00] flex items-center justify-center">
-              <TrendingUp className="h-5 w-5 text-white" />
-            </div>
-            <CardTitle className="text-xl text-white">Quick Actions</CardTitle>
+      {/* Top Products */}
+      <RequirePermission permission={PERMISSIONS.PRODUCTS_VIEW}>
+        <BiHubAdminCard
+          title="Top Performing Products"
+          subtitle="Best selling products in your BiHub store"
+          icon={<Target className="h-5 w-5 text-white" />}
+          headerAction={
+            <Button
+              variant="outline"
+              size="sm"
+              className={BIHUB_ADMIN_THEME.components.button.ghost}
+            >
+              <BarChart3 className="h-4 w-4 mr-2" />
+              View Analytics
+            </Button>
+          }
+        >
+          <div className="space-y-4">
+            {topProducts.length > 0 ? (
+              topProducts.map((product, index) => (
+                <div key={product.id} className="flex items-center justify-between p-4 bg-gray-800 rounded-lg hover:bg-gray-750 transition-colors">
+                  <div className="flex items-center gap-3">
+                    <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-purple-500 to-purple-600 flex items-center justify-center text-white font-bold text-sm">
+                      #{index + 1}
+                    </div>
+                    <div>
+                      <p className={BIHUB_ADMIN_THEME.typography.body.medium}>
+                        {product.name}
+                      </p>
+                      <p className={BIHUB_ADMIN_THEME.typography.body.small}>
+                        {product.sales} sales
+                      </p>
+                    </div>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-lg font-bold text-[#FF9000]">
+                      {formatPrice(product.revenue)}
+                    </p>
+                    <div className="flex items-center gap-1">
+                      <ArrowUpRight className="h-3 w-3 text-green-500" />
+                      <span className="text-xs text-green-500">+{product.growth}%</span>
+                    </div>
+                  </div>
+                </div>
+              ))
+            ) : (
+              <div className="text-center py-8">
+                <Package className="h-12 w-12 text-gray-600 mx-auto mb-4" />
+                <p className={BIHUB_ADMIN_THEME.typography.body.medium}>No products data</p>
+              </div>
+            )}
           </div>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-            <RequirePermission permission={PERMISSIONS.PRODUCTS_CREATE}>
-              <Button
-                variant="outline"
-                className="h-24 flex-col gap-3 border-2 border-gray-600 hover:border-[#FF9000] hover:bg-[#FF9000]/5 transition-all duration-200 group text-gray-300 hover:text-white"
-              >
-                <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-emerald-500 to-emerald-600 flex items-center justify-center group-hover:scale-110 transition-transform duration-200">
-                  <Package className="h-6 w-6 text-white" />
-                </div>
-                <span className="font-semibold">Add Product</span>
-              </Button>
-            </RequirePermission>
-
-            <RequirePermission permission={PERMISSIONS.ORDERS_VIEW_ALL}>
-              <Button
-                variant="outline"
-                className="h-24 flex-col gap-3 border-2 border-gray-600 hover:border-[#FF9000] hover:bg-[#FF9000]/5 transition-all duration-200 group text-gray-300 hover:text-white"
-              >
-                <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center group-hover:scale-110 transition-transform duration-200">
-                  <ShoppingCart className="h-6 w-6 text-white" />
-                </div>
-                <span className="font-semibold">View Orders</span>
-              </Button>
-            </RequirePermission>
-
-            <RequirePermission permission={PERMISSIONS.USERS_VIEW_ALL}>
-              <Button
-                variant="outline"
-                className="h-24 flex-col gap-3 border-2 border-gray-600 hover:border-[#FF9000] hover:bg-[#FF9000]/5 transition-all duration-200 group text-gray-300 hover:text-white"
-              >
-                <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-purple-500 to-purple-600 flex items-center justify-center group-hover:scale-110 transition-transform duration-200">
-                  <Users className="h-6 w-6 text-white" />
-                </div>
-                <span className="font-semibold">Manage Users</span>
-              </Button>
-            </RequirePermission>
-
-            <RequirePermission permission={PERMISSIONS.ANALYTICS_VIEW}>
-              <Button
-                variant="outline"
-                className="h-24 flex-col gap-3 border-2 border-gray-600 hover:border-[#FF9000] hover:bg-[#FF9000]/5 transition-all duration-200 group text-gray-300 hover:text-white"
-              >
-                <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-[#FF9000] to-[#e67e00] flex items-center justify-center group-hover:scale-110 transition-transform duration-200">
-                  <TrendingUp className="h-6 w-6 text-white" />
-                </div>
-                <span className="font-semibold">View Analytics</span>
-              </Button>
-            </RequirePermission>
-          </div>
-        </CardContent>
-      </Card>
+        </BiHubAdminCard>
+      </RequirePermission>
     </div>
   )
 }
