@@ -38,6 +38,7 @@ type AdminUseCase interface {
 	// Content management
 	ManageReviews(ctx context.Context, req ManageReviewsRequest) (*ManageReviewsResponse, error)
 	UpdateReviewStatus(ctx context.Context, reviewID uuid.UUID, status entities.ReviewStatus) error
+	AdminReplyToReview(ctx context.Context, reviewID uuid.UUID, reply string) error
 
 	// System management
 	GetSystemLogs(ctx context.Context, req SystemLogsRequest) (*SystemLogsResponse, error)
@@ -1196,9 +1197,55 @@ func (uc *adminUseCase) ManageReviews(ctx context.Context, req ManageReviewsRequ
 
 // UpdateReviewStatus updates review status
 func (uc *adminUseCase) UpdateReviewStatus(ctx context.Context, reviewID uuid.UUID, status entities.ReviewStatus) error {
-	// Mock implementation for update review status
-	// In real implementation, this would update the review status in database
+	// Get the review first
+	review, err := uc.reviewRepo.GetByID(ctx, reviewID)
+	if err != nil {
+		return entities.ErrReviewNotFound
+	}
+
+	// Update status based on the requested action
+	switch status {
+	case entities.ReviewStatusApproved:
+		// Approve review (make it visible)
+		review.Status = entities.ReviewStatusApproved
+	case entities.ReviewStatusHidden:
+		// Hide review (keep in database but not visible to public)
+		review.Status = entities.ReviewStatusHidden
+	case entities.ReviewStatusRejected:
+		// Reject review (completely remove from consideration)
+		review.Status = entities.ReviewStatusRejected
+	default:
+		return fmt.Errorf("invalid review status: %s", status)
+	}
+
+	review.UpdatedAt = time.Now()
+
+	// Update in database
+	if err := uc.reviewRepo.Update(ctx, review); err != nil {
+		return err
+	}
+
+	// Recalculate product rating (only approved reviews count)
+	// This will be handled by the repository layer
 	return nil
+}
+
+// AdminReplyToReview adds admin reply to a review
+func (uc *adminUseCase) AdminReplyToReview(ctx context.Context, reviewID uuid.UUID, reply string) error {
+	// Get the review first
+	review, err := uc.reviewRepo.GetByID(ctx, reviewID)
+	if err != nil {
+		return entities.ErrReviewNotFound
+	}
+
+	// Add admin reply
+	review.AdminReply = reply
+	now := time.Now()
+	review.AdminReplyAt = &now
+	review.UpdatedAt = time.Now()
+
+	// Update in database
+	return uc.reviewRepo.Update(ctx, review)
 }
 
 // ProcessRefund processes a refund

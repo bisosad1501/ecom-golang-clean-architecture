@@ -6,6 +6,7 @@ import (
 
 	"ecom-golang-clean-architecture/internal/domain/entities"
 	"ecom-golang-clean-architecture/internal/domain/repositories"
+
 	"github.com/google/uuid"
 )
 
@@ -20,7 +21,7 @@ type ReviewUseCase interface {
 	VoteReview(ctx context.Context, userID, reviewID uuid.UUID, voteType entities.ReviewVoteType) error
 	RemoveVote(ctx context.Context, userID, reviewID uuid.UUID) error
 	GetProductRatingSummary(ctx context.Context, productID uuid.UUID) (*ProductRatingSummaryResponse, error)
-	
+
 	// Admin operations
 	ApproveReview(ctx context.Context, reviewID uuid.UUID) error
 	RejectReview(ctx context.Context, reviewID uuid.UUID) error
@@ -54,12 +55,12 @@ func NewReviewUseCase(
 
 // CreateReviewRequest represents create review request
 type CreateReviewRequest struct {
-	ProductID uuid.UUID `json:"product_id" validate:"required"`
+	ProductID uuid.UUID  `json:"product_id" validate:"required"`
 	OrderID   *uuid.UUID `json:"order_id"`
-	Rating    int       `json:"rating" validate:"required,min=1,max=5"`
-	Title     string    `json:"title" validate:"required,max=200"`
-	Comment   string    `json:"comment" validate:"max=2000"`
-	Images    []string  `json:"images"`
+	Rating    int        `json:"rating" validate:"required,min=1,max=5"`
+	Title     string     `json:"title" validate:"max=200"`    // Optional title
+	Comment   string     `json:"comment" validate:"max=2000"` // Optional comment
+	Images    []string   `json:"images"`
 }
 
 // UpdateReviewRequest represents update review request
@@ -72,30 +73,33 @@ type UpdateReviewRequest struct {
 
 // GetReviewsRequest represents get reviews request
 type GetReviewsRequest struct {
-	Rating    *int    `json:"rating"`
-	SortBy    string  `json:"sort_by"`    // created_at, rating, helpful_count
-	SortOrder string  `json:"sort_order"` // asc, desc
-	Limit     int     `json:"limit" validate:"min=1,max=100"`
-	Offset    int     `json:"offset" validate:"min=0"`
+	Rating     *int   `json:"rating"`
+	IsVerified *bool  `json:"is_verified"`
+	SortBy     string `json:"sort_by"`    // created_at, rating, helpful_count
+	SortOrder  string `json:"sort_order"` // asc, desc
+	Limit      int    `json:"limit" validate:"min=1,max=100"`
+	Offset     int    `json:"offset" validate:"min=0"`
 }
 
 // ReviewResponse represents review response
 type ReviewResponse struct {
-	ID              uuid.UUID            `json:"id"`
-	User            ReviewUserResponse   `json:"user"`
-	Product         ReviewProductResponse `json:"product"`
-	Rating          int                  `json:"rating"`
-	Title           string               `json:"title"`
-	Comment         string               `json:"comment"`
-	Status          entities.ReviewStatus `json:"status"`
-	IsVerified      bool                 `json:"is_verified"`
-	HelpfulCount    int                  `json:"helpful_count"`
-	NotHelpfulCount int                  `json:"not_helpful_count"`
-	HelpfulPercentage float64            `json:"helpful_percentage"`
-	Images          []ReviewImageResponse `json:"images"`
-	UserVote        *entities.ReviewVoteType `json:"user_vote,omitempty"`
-	CreatedAt       time.Time            `json:"created_at"`
-	UpdatedAt       time.Time            `json:"updated_at"`
+	ID                uuid.UUID                `json:"id"`
+	User              ReviewUserResponse       `json:"user"`
+	Product           ReviewProductResponse    `json:"product"`
+	Rating            int                      `json:"rating"`
+	Title             string                   `json:"title"`
+	Comment           string                   `json:"comment"`
+	Status            entities.ReviewStatus    `json:"status"`
+	IsVerified        bool                     `json:"is_verified"`
+	AdminReply        string                   `json:"admin_reply,omitempty"`
+	AdminReplyAt      *time.Time               `json:"admin_reply_at,omitempty"`
+	HelpfulCount      int                      `json:"helpful_count"`
+	NotHelpfulCount   int                      `json:"not_helpful_count"`
+	HelpfulPercentage float64                  `json:"helpful_percentage"`
+	Images            []ReviewImageResponse    `json:"images"`
+	UserVote          *entities.ReviewVoteType `json:"user_vote,omitempty"`
+	CreatedAt         time.Time                `json:"created_at"`
+	UpdatedAt         time.Time                `json:"updated_at"`
 }
 
 // ReviewUserResponse represents user info in review response
@@ -115,10 +119,10 @@ type ReviewProductResponse struct {
 
 // ReviewImageResponse represents review image response
 type ReviewImageResponse struct {
-	ID       uuid.UUID `json:"id"`
-	URL      string    `json:"url"`
-	AltText  string    `json:"alt_text"`
-	SortOrder int      `json:"sort_order"`
+	ID        uuid.UUID `json:"id"`
+	URL       string    `json:"url"`
+	AltText   string    `json:"alt_text"`
+	SortOrder int       `json:"sort_order"`
 }
 
 // ReviewsResponse represents reviews list response
@@ -146,14 +150,8 @@ func (uc *reviewUseCase) CreateReview(ctx context.Context, userID uuid.UUID, req
 		return nil, entities.ErrProductNotFound
 	}
 
-	// Check if user has already reviewed this product
-	hasReviewed, err := uc.reviewRepo.HasUserReviewedProduct(ctx, userID, req.ProductID)
-	if err != nil {
-		return nil, err
-	}
-	if hasReviewed {
-		return nil, entities.ErrConflict // User has already reviewed this product
-	}
+	// Allow multiple reviews per user per product
+	// Users can review a product multiple times (e.g., after updates, different experiences)
 
 	// Verify order if provided
 	var isVerified bool
@@ -170,6 +168,25 @@ func (uc *reviewUseCase) CreateReview(ctx context.Context, userID uuid.UUID, req
 		}
 	}
 
+	// Generate default title if not provided
+	title := req.Title
+	if title == "" {
+		switch req.Rating {
+		case 5:
+			title = "Excellent!"
+		case 4:
+			title = "Very Good"
+		case 3:
+			title = "Good"
+		case 2:
+			title = "Fair"
+		case 1:
+			title = "Poor"
+		default:
+			title = "Review"
+		}
+	}
+
 	// Create review
 	review := &entities.Review{
 		ID:         uuid.New(),
@@ -177,9 +194,9 @@ func (uc *reviewUseCase) CreateReview(ctx context.Context, userID uuid.UUID, req
 		ProductID:  req.ProductID,
 		OrderID:    req.OrderID,
 		Rating:     req.Rating,
-		Title:      req.Title,
-		Comment:    req.Comment,
-		Status:     entities.ReviewStatusPending,
+		Title:      title,
+		Comment:    req.Comment,                   // Can be empty
+		Status:     entities.ReviewStatusApproved, // Auto-approve, admin can hide later if needed
 		IsVerified: isVerified,
 		CreatedAt:  time.Now(),
 		UpdatedAt:  time.Now(),
@@ -231,13 +248,14 @@ func (uc *reviewUseCase) GetProductReviews(ctx context.Context, productID uuid.U
 
 	approvedStatus := entities.ReviewStatusApproved
 	filter := entities.ReviewFilter{
-		ProductID: &productID,
-		Rating:    req.Rating,
-		Status:    &approvedStatus,
-		SortBy:    req.SortBy,
-		SortOrder: req.SortOrder,
-		Limit:     req.Limit,
-		Offset:    req.Offset,
+		ProductID:  &productID,
+		Rating:     req.Rating,
+		IsVerified: req.IsVerified,
+		Status:     &approvedStatus,
+		SortBy:     req.SortBy,
+		SortOrder:  req.SortOrder,
+		Limit:      req.Limit,
+		Offset:     req.Offset,
 	}
 
 	reviews, err := uc.reviewRepo.Search(ctx, filter)
@@ -312,6 +330,8 @@ func (uc *reviewUseCase) toReviewResponse(review *entities.Review, userVote *ent
 		Comment:           review.Comment,
 		Status:            review.Status,
 		IsVerified:        review.IsVerified,
+		AdminReply:        review.AdminReply,
+		AdminReplyAt:      review.AdminReplyAt,
 		HelpfulCount:      review.HelpfulCount,
 		NotHelpfulCount:   review.NotHelpfulCount,
 		HelpfulPercentage: review.GetHelpfulPercentage(),
@@ -362,42 +382,248 @@ func (uc *reviewUseCase) toReviewResponse(review *entities.Review, userVote *ent
 
 // UpdateReview updates an existing review
 func (uc *reviewUseCase) UpdateReview(ctx context.Context, userID, reviewID uuid.UUID, req UpdateReviewRequest) (*ReviewResponse, error) {
-	// Implementation would go here
-	return nil, entities.ErrNotImplemented
+	// Get existing review
+	review, err := uc.reviewRepo.GetByID(ctx, reviewID)
+	if err != nil {
+		return nil, entities.ErrReviewNotFound
+	}
+
+	// Check if user owns the review
+	if review.UserID != userID {
+		return nil, entities.ErrUnauthorized
+	}
+
+	// Update review fields
+	if req.Rating != nil {
+		review.Rating = *req.Rating
+	}
+	if req.Title != nil {
+		review.Title = *req.Title
+	}
+	if req.Comment != nil {
+		review.Comment = *req.Comment
+	}
+	review.Status = entities.ReviewStatusPending // Reset to pending after update
+	review.UpdatedAt = time.Now()
+
+	if err := uc.reviewRepo.Update(ctx, review); err != nil {
+		return nil, err
+	}
+
+	// Update product rating
+	if err := uc.productRatingRepo.RecalculateRating(ctx, review.ProductID); err != nil {
+		// Log error but don't fail the request
+		// TODO: Add proper logging
+	}
+
+	return uc.toReviewResponse(review, nil), nil
 }
 
 // DeleteReview deletes a review
 func (uc *reviewUseCase) DeleteReview(ctx context.Context, userID, reviewID uuid.UUID) error {
-	// Implementation would go here
-	return entities.ErrNotImplemented
+	// Get existing review
+	review, err := uc.reviewRepo.GetByID(ctx, reviewID)
+	if err != nil {
+		return entities.ErrReviewNotFound
+	}
+
+	// Check if user owns the review
+	if review.UserID != userID {
+		return entities.ErrUnauthorized
+	}
+
+	// Delete review
+	if err := uc.reviewRepo.Delete(ctx, reviewID); err != nil {
+		return err
+	}
+
+	// Update product rating
+	if err := uc.productRatingRepo.RecalculateRating(ctx, review.ProductID); err != nil {
+		// Log error but don't fail the request
+		// TODO: Add proper logging
+	}
+
+	return nil
 }
 
 // GetUserReviews gets reviews by user
 func (uc *reviewUseCase) GetUserReviews(ctx context.Context, userID uuid.UUID, req GetReviewsRequest) (*ReviewsResponse, error) {
-	// Implementation would go here
-	return nil, entities.ErrNotImplemented
+	// Set defaults
+	if req.Limit <= 0 {
+		req.Limit = 10
+	}
+	if req.Limit > 100 {
+		req.Limit = 100
+	}
+	if req.SortBy == "" {
+		req.SortBy = "created_at"
+	}
+	if req.SortOrder == "" {
+		req.SortOrder = "desc"
+	}
+
+	filter := entities.ReviewFilter{
+		UserID:    &userID,
+		Rating:    req.Rating,
+		SortBy:    req.SortBy,
+		SortOrder: req.SortOrder,
+		Limit:     req.Limit,
+		Offset:    req.Offset,
+	}
+
+	reviews, err := uc.reviewRepo.Search(ctx, filter)
+	if err != nil {
+		return nil, err
+	}
+
+	totalCount, err := uc.reviewRepo.Count(ctx, filter)
+	if err != nil {
+		return nil, err
+	}
+
+	responses := make([]*ReviewResponse, len(reviews))
+	for i, review := range reviews {
+		responses[i] = uc.toReviewResponse(review, nil)
+	}
+
+	return &ReviewsResponse{
+		Reviews:    responses,
+		TotalCount: totalCount,
+		Limit:      req.Limit,
+		Offset:     req.Offset,
+	}, nil
 }
 
 // RemoveVote removes a vote from review
 func (uc *reviewUseCase) RemoveVote(ctx context.Context, userID, reviewID uuid.UUID) error {
-	// Implementation would go here
-	return entities.ErrNotImplemented
+	// Check if review exists
+	_, err := uc.reviewRepo.GetByID(ctx, reviewID)
+	if err != nil {
+		return entities.ErrReviewNotFound
+	}
+
+	// Remove vote
+	if err := uc.reviewVoteRepo.RemoveVote(ctx, reviewID, userID); err != nil {
+		return err
+	}
+
+	// Update review vote counts
+	return uc.reviewVoteRepo.UpdateReviewVoteCounts(ctx, reviewID)
 }
 
 // ApproveReview approves a review (admin)
 func (uc *reviewUseCase) ApproveReview(ctx context.Context, reviewID uuid.UUID) error {
-	// Implementation would go here
-	return entities.ErrNotImplemented
+	review, err := uc.reviewRepo.GetByID(ctx, reviewID)
+	if err != nil {
+		return entities.ErrReviewNotFound
+	}
+
+	review.Status = entities.ReviewStatusApproved
+	review.UpdatedAt = time.Now()
+
+	if err := uc.reviewRepo.Update(ctx, review); err != nil {
+		return err
+	}
+
+	// Update product rating
+	if err := uc.productRatingRepo.RecalculateRating(ctx, review.ProductID); err != nil {
+		// Log error but don't fail the request
+		// TODO: Add proper logging
+	}
+
+	return nil
 }
 
-// RejectReview rejects a review (admin)
+// HideReview hides a review (admin) - keeps it in database but not visible to public
+func (uc *reviewUseCase) HideReview(ctx context.Context, reviewID uuid.UUID) error {
+	review, err := uc.reviewRepo.GetByID(ctx, reviewID)
+	if err != nil {
+		return entities.ErrReviewNotFound
+	}
+
+	review.Status = entities.ReviewStatusHidden
+	review.UpdatedAt = time.Now()
+
+	if err := uc.reviewRepo.Update(ctx, review); err != nil {
+		return err
+	}
+
+	// Update product rating (hidden reviews don't count)
+	if err := uc.productRatingRepo.RecalculateRating(ctx, review.ProductID); err != nil {
+		// Log error but don't fail the request
+		// TODO: Add proper logging
+	}
+
+	return nil
+}
+
+// RejectReview rejects a review (admin) - completely removes from consideration
 func (uc *reviewUseCase) RejectReview(ctx context.Context, reviewID uuid.UUID) error {
-	// Implementation would go here
-	return entities.ErrNotImplemented
+	review, err := uc.reviewRepo.GetByID(ctx, reviewID)
+	if err != nil {
+		return entities.ErrReviewNotFound
+	}
+
+	review.Status = entities.ReviewStatusRejected
+	review.UpdatedAt = time.Now()
+
+	if err := uc.reviewRepo.Update(ctx, review); err != nil {
+		return err
+	}
+
+	// Update product rating
+	if err := uc.productRatingRepo.RecalculateRating(ctx, review.ProductID); err != nil {
+		// Log error but don't fail the request
+		// TODO: Add proper logging
+	}
+
+	return nil
 }
 
 // GetPendingReviews gets pending reviews (admin)
 func (uc *reviewUseCase) GetPendingReviews(ctx context.Context, req GetReviewsRequest) (*ReviewsResponse, error) {
-	// Implementation would go here
-	return nil, entities.ErrNotImplemented
+	// Set defaults
+	if req.Limit <= 0 {
+		req.Limit = 10
+	}
+	if req.Limit > 100 {
+		req.Limit = 100
+	}
+	if req.SortBy == "" {
+		req.SortBy = "created_at"
+	}
+	if req.SortOrder == "" {
+		req.SortOrder = "desc"
+	}
+
+	pendingStatus := entities.ReviewStatusPending
+	filter := entities.ReviewFilter{
+		Status:    &pendingStatus,
+		SortBy:    req.SortBy,
+		SortOrder: req.SortOrder,
+		Limit:     req.Limit,
+		Offset:    req.Offset,
+	}
+
+	reviews, err := uc.reviewRepo.Search(ctx, filter)
+	if err != nil {
+		return nil, err
+	}
+
+	totalCount, err := uc.reviewRepo.Count(ctx, filter)
+	if err != nil {
+		return nil, err
+	}
+
+	responses := make([]*ReviewResponse, len(reviews))
+	for i, review := range reviews {
+		responses[i] = uc.toReviewResponse(review, nil)
+	}
+
+	return &ReviewsResponse{
+		Reviews:    responses,
+		TotalCount: totalCount,
+		Limit:      req.Limit,
+		Offset:     req.Offset,
+	}, nil
 }

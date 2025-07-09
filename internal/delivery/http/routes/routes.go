@@ -143,6 +143,16 @@ func SetupRoutes(
 			publicPayments.POST("/confirm-success", paymentHandler.ConfirmPaymentSuccess)
 		}
 
+		// Public review routes (no authentication required)
+		if reviewHandler != nil {
+			publicReviews := v1.Group("/public/reviews")
+			{
+				publicReviews.GET("/product/:product_id", reviewHandler.GetProductReviews)
+				publicReviews.GET("/product/:product_id/summary", reviewHandler.GetProductRating)
+				publicReviews.GET("/:id", reviewHandler.GetReview)
+			}
+		}
+
 		// Protected routes (authentication required)
 		protected := v1.Group("")
 		protected.Use(middleware.AuthMiddleware(cfg.JWT.Secret))
@@ -333,6 +343,7 @@ func SetupRoutes(
 			{
 				adminReviews.GET("", adminHandler.ManageReviews)
 				adminReviews.PUT("/:id/status", adminHandler.UpdateReviewStatus)
+				adminReviews.POST("/:id/reply", adminHandler.ReplyToReview)
 			}
 
 			// Inventory management routes

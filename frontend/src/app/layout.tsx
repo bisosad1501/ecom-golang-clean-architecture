@@ -2,7 +2,6 @@ import type { Metadata } from "next";
 import "./globals.css";
 import { Providers } from '@/components/providers'
 import { ConditionalLayout } from '@/components/layout/conditional-layout'
-import { CartSidebar } from '@/components/cart/cart-sidebar'
 import { Toaster } from 'sonner'
 import { DEFAULT_SEO } from '@/constants'
 
@@ -44,7 +43,6 @@ export default function RootLayout({
           <ConditionalLayout>
             {children}
           </ConditionalLayout>
-          <CartSidebar />
           <Toaster position="top-right" richColors />
         </Providers>
       </body>

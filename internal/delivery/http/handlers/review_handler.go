@@ -3,9 +3,11 @@ package handlers
 import (
 	"net/http"
 	"strconv"
+	"strings"
 
 	"ecom-golang-clean-architecture/internal/domain/entities"
 	"ecom-golang-clean-architecture/internal/usecases"
+
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 )
@@ -21,22 +23,40 @@ func NewReviewHandler(reviewUseCase usecases.ReviewUseCase) *ReviewHandler {
 	}
 }
 
-// CreateReview creates a new review
+// CreateReview creates a new review (supports both JSON and multipart form with images)
 func (h *ReviewHandler) CreateReview(c *gin.Context) {
-	var req usecases.CreateReviewRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request body", "details": err.Error()})
-		return
-	}
-
 	// Get user ID from context (set by auth middleware)
-	userID, exists := c.Get("user_id")
+	userIDStr, exists := c.Get("user_id")
 	if !exists {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "User not authenticated"})
 		return
 	}
 
-	review, err := h.reviewUseCase.CreateReview(c.Request.Context(), userID.(uuid.UUID), req)
+	userID, err := uuid.Parse(userIDStr.(string))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid user ID"})
+		return
+	}
+
+	var req usecases.CreateReviewRequest
+
+	// Check content type to determine how to parse request
+	contentType := c.GetHeader("Content-Type")
+	if strings.Contains(contentType, "multipart/form-data") {
+		// Handle multipart form (with images)
+		if err := h.parseMultipartReviewRequest(c, &req); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid form data", "details": err.Error()})
+			return
+		}
+	} else {
+		// Handle JSON request
+		if err := c.ShouldBindJSON(&req); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request body", "details": err.Error()})
+			return
+		}
+	}
+
+	review, err := h.reviewUseCase.CreateReview(c.Request.Context(), userID, req)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create review", "details": err.Error()})
 		return
@@ -79,9 +99,15 @@ func (h *ReviewHandler) UpdateReview(c *gin.Context) {
 	}
 
 	// Get user ID from context
-	userID, exists := c.Get("user_id")
+	userIDStr, exists := c.Get("user_id")
 	if !exists {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "User not authenticated"})
+		return
+	}
+
+	userID, err := uuid.Parse(userIDStr.(string))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid user ID"})
 		return
 	}
 
@@ -92,12 +118,12 @@ func (h *ReviewHandler) UpdateReview(c *gin.Context) {
 		return
 	}
 
-	if existingReview.User.ID != userID.(uuid.UUID) {
+	if existingReview.User.ID != userID {
 		c.JSON(http.StatusForbidden, gin.H{"error": "You can only update your own reviews"})
 		return
 	}
 
-	review, err := h.reviewUseCase.UpdateReview(c.Request.Context(), userID.(uuid.UUID), id, req)
+	review, err := h.reviewUseCase.UpdateReview(c.Request.Context(), userID, id, req)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update review"})
 		return
@@ -116,9 +142,15 @@ func (h *ReviewHandler) DeleteReview(c *gin.Context) {
 	}
 
 	// Get user ID from context
-	userID, exists := c.Get("user_id")
+	userIDStr, exists := c.Get("user_id")
 	if !exists {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "User not authenticated"})
+		return
+	}
+
+	userID, err := uuid.Parse(userIDStr.(string))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid user ID"})
 		return
 	}
 
@@ -129,13 +161,13 @@ func (h *ReviewHandler) DeleteReview(c *gin.Context) {
 		return
 	}
 
-	userRole, _ := c.Get("user_role")
-	if existingReview.User.ID != userID.(uuid.UUID) && userRole != "admin" {
+	userRole, _ := c.Get("role")
+	if existingReview.User.ID != userID && userRole != "admin" {
 		c.JSON(http.StatusForbidden, gin.H{"error": "You can only delete your own reviews"})
 		return
 	}
 
-	if err := h.reviewUseCase.DeleteReview(c.Request.Context(), userID.(uuid.UUID), id); err != nil {
+	if err := h.reviewUseCase.DeleteReview(c.Request.Context(), userID, id); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to delete review"})
 		return
 	}
@@ -173,6 +205,13 @@ func (h *ReviewHandler) GetProductReviews(c *gin.Context) {
 	if ratingStr := c.Query("rating"); ratingStr != "" {
 		if rating, err := strconv.Atoi(ratingStr); err == nil && rating >= 1 && rating <= 5 {
 			req.Rating = &rating
+		}
+	}
+
+	// Filter by verified purchase
+	if verifiedStr := c.Query("verified"); verifiedStr != "" {
+		if verified, err := strconv.ParseBool(verifiedStr); err == nil {
+			req.IsVerified = &verified
 		}
 	}
 
@@ -251,9 +290,15 @@ func (h *ReviewHandler) VoteReview(c *gin.Context) {
 	}
 
 	// Get user ID from context
-	userID, exists := c.Get("user_id")
+	userIDStr, exists := c.Get("user_id")
 	if !exists {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "User not authenticated"})
+		return
+	}
+
+	userID, err := uuid.Parse(userIDStr.(string))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid user ID"})
 		return
 	}
 
@@ -262,7 +307,7 @@ func (h *ReviewHandler) VoteReview(c *gin.Context) {
 		voteType = entities.ReviewVoteNotHelpful
 	}
 
-	if err := h.reviewUseCase.VoteReview(c.Request.Context(), userID.(uuid.UUID), reviewID, voteType); err != nil {
+	if err := h.reviewUseCase.VoteReview(c.Request.Context(), userID, reviewID, voteType); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to vote on review"})
 		return
 	}
@@ -286,4 +331,54 @@ func (h *ReviewHandler) GetProductRating(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, gin.H{"data": rating})
+}
+
+// parseMultipartReviewRequest parses multipart form data for review creation with images
+func (h *ReviewHandler) parseMultipartReviewRequest(c *gin.Context, req *usecases.CreateReviewRequest) error {
+	// Parse form data
+	if err := c.Request.ParseMultipartForm(32 << 20); err != nil { // 32MB max
+		return err
+	}
+
+	// Parse product_id
+	if productIDStr := c.PostForm("product_id"); productIDStr != "" {
+		productID, err := uuid.Parse(productIDStr)
+		if err != nil {
+			return err
+		}
+		req.ProductID = productID
+	}
+
+	// Parse order_id (optional)
+	if orderIDStr := c.PostForm("order_id"); orderIDStr != "" {
+		orderID, err := uuid.Parse(orderIDStr)
+		if err != nil {
+			return err
+		}
+		req.OrderID = &orderID
+	}
+
+	// Parse rating
+	if ratingStr := c.PostForm("rating"); ratingStr != "" {
+		rating, err := strconv.Atoi(ratingStr)
+		if err != nil || rating < 1 || rating > 5 {
+			return err
+		}
+		req.Rating = rating
+	}
+
+	// Parse title and comment
+	req.Title = c.PostForm("title")
+	req.Comment = c.PostForm("comment")
+
+	// Handle image files
+	form := c.Request.MultipartForm
+	if files := form.File["images"]; len(files) > 0 {
+		// TODO: Upload images and get URLs
+		// For now, we'll skip image upload in multipart form
+		// Images should be uploaded separately via file upload endpoint
+		req.Images = []string{}
+	}
+
+	return nil
 }

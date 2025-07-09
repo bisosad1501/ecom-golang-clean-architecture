@@ -113,15 +113,30 @@ const config: Config = {
         'float': 'float 6s ease-in-out infinite',
         'pulse-slow': 'pulse 4s cubic-bezier(0.4, 0, 0.6, 1) infinite',
         'bounce-slow': 'bounce 3s infinite',
+        'bounce-soft': 'bounce-soft 2s ease-in-out infinite',
         'fade-in': 'fadeIn 0.6s ease-out forwards',
         'slide-up': 'slideUp 0.8s ease-out forwards',
         'scale-in': 'scaleIn 0.5s ease-out forwards',
         'gradient': 'gradient 8s ease infinite',
+        'shimmer': 'shimmer 2s infinite',
+        'twinkle': 'twinkle 1.5s ease-in-out infinite',
       },
       keyframes: {
         float: {
           '0%, 100%': { transform: 'translateY(0px)' },
           '50%': { transform: 'translateY(-20px)' },
+        },
+        'bounce-soft': {
+          '0%, 100%': { transform: 'translateY(0) scale(1)' },
+          '50%': { transform: 'translateY(-4px) scale(1.05)' },
+        },
+        shimmer: {
+          '0%': { transform: 'translateX(-100%)' },
+          '100%': { transform: 'translateX(100%)' },
+        },
+        twinkle: {
+          '0%, 100%': { opacity: '1', transform: 'scale(1)' },
+          '50%': { opacity: '0.7', transform: 'scale(1.2)' },
         },
         fadeIn: {
           from: { opacity: '0', transform: 'translateY(30px)' },

@@ -669,3 +669,40 @@ func (h *AdminHandler) GetRecentActivity(c *gin.Context) {
 		Data:    activities,
 	})
 }
+
+// ReplyToReview allows admin to reply to a review
+func (h *AdminHandler) ReplyToReview(c *gin.Context) {
+	reviewIDStr := c.Param("id")
+	reviewID, err := uuid.Parse(reviewIDStr)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, ErrorResponse{
+			Error:   "Invalid review ID",
+			Details: err.Error(),
+		})
+		return
+	}
+
+	var req struct {
+		Reply string `json:"reply" validate:"required,max=1000"`
+	}
+
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, ErrorResponse{
+			Error:   "Invalid request body",
+			Details: err.Error(),
+		})
+		return
+	}
+
+	if err := h.adminUseCase.AdminReplyToReview(c.Request.Context(), reviewID, req.Reply); err != nil {
+		c.JSON(http.StatusInternalServerError, ErrorResponse{
+			Error:   "Failed to reply to review",
+			Details: err.Error(),
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, SuccessResponse{
+		Message: "Reply added successfully",
+	})
+}

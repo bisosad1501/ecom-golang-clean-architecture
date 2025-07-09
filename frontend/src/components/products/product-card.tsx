@@ -10,6 +10,8 @@ import { Card } from '@/components/ui/card'
 import { useCartStore } from '@/store/cart'
 import { useAuthStore } from '@/store/auth'
 import { useAddToWishlist, useRemoveFromWishlist } from '@/hooks/use-products'
+import { useProductRatingSummary } from '@/hooks/use-reviews'
+import { CompactReviewSummary } from '@/components/reviews'
 import { Product } from '@/types'
 import { formatPrice, cn } from '@/lib/utils'
 import { toast } from 'sonner'
@@ -36,17 +38,24 @@ export function ProductCard({
   const { isAuthenticated } = useAuthStore()
   const addToWishlistMutation = useAddToWishlist()
   const removeFromWishlistMutation = useRemoveFromWishlist()
+  const { data: ratingSummary } = useProductRatingSummary(product.id)
 
   const primaryImage = product.images?.[0]?.url || '/placeholder-product.jpg'
   const secondaryImage = product.images?.[1]?.url
   
-  const hasDiscount = product.compare_price && product.compare_price < product.price
-  const discountPercentage = hasDiscount 
-    ? Math.round(((product.price - product.compare_price!) / product.price) * 100)
+  // Enhanced price logic with compare_price for discount calculation
+  // Support both frontend Product type and backend response format
+  const currentPrice = (product as any).pricing?.price || (product as any).price || 0
+  const originalPrice = (product as any).pricing?.compare_price || (product as any).compare_price
+  const hasDiscount = originalPrice && currentPrice < originalPrice
+  const discountPercentage = hasDiscount
+    ? Math.round(((originalPrice - currentPrice) / originalPrice) * 100)
     : 0
 
-  const displayPrice = product.compare_price || product.price
-  const isOutOfStock = product.stock <= 0
+  const displayPrice = currentPrice
+  const comparePrice = originalPrice
+  const stockQuantity = (product as any).inventory?.stock_quantity || (product as any).stock || 0
+  const isOutOfStock = stockQuantity <= 0
 
   const handleAddToCart = async (e: React.MouseEvent) => {
     e.preventDefault()
@@ -93,184 +102,241 @@ export function ProductCard({
   }
 
   return (
-    <Card
-      variant="elevated"
-      padding="none"
-      className={cn(
-        'group relative overflow-hidden card-hover border border-gray-600 bg-gray-900 hover:border-gray-500 text-white transition-all duration-300',
-        className
-      )}
-      onMouseEnter={() => setIsHovered(true)}
-      onMouseLeave={() => setIsHovered(false)}
-    >
-      <Link href={`/products/${product.id}`}>
-        {/* Image container */}
-        <div className={`relative aspect-square overflow-hidden bg-gradient-to-br from-gray-800 to-gray-900 ${DESIGN_TOKENS.RADIUS.LARGE}`}>
-          {/* Discount badge */}
+    <div className="relative group h-full">
+      {/* Refined outer glow - subtle and elegant */}
+      <div className={cn(
+        'absolute -inset-0.5 rounded-3xl opacity-0 group-hover:opacity-40 transition-all duration-700 ease-out',
+        'bg-gradient-to-br from-[#ff9000]/15 via-orange-500/8 to-amber-400/10 blur-lg'
+      )} />
+      
+      <Card
+        variant="elevated"
+        padding="none"
+        className={cn(
+          'relative h-full overflow-hidden backdrop-blur-sm border text-white transition-all duration-500 ease-out',
+          'bg-gradient-to-br from-slate-900/70 via-gray-900/75 to-slate-800/80',
+          'hover:shadow-xl hover:shadow-[#ff9000]/12 hover:-translate-y-2 hover:scale-[1.01]',
+          'rounded-3xl backdrop-saturate-150 border-gray-700/40 hover:border-[#ff9000]/25',
+          'before:absolute before:inset-0 before:bg-gradient-to-br before:from-white/2 before:via-transparent before:to-white/1 before:pointer-events-none before:rounded-3xl',
+          className
+        )}
+        onMouseEnter={() => setIsHovered(true)}
+        onMouseLeave={() => setIsHovered(false)}
+      >
+        <Link href={`/products/${product.id}`} className="block h-full">
+        {/* Optimized image container with perfect proportions */}
+        <div className="relative aspect-[4/3] overflow-hidden bg-gradient-to-br from-gray-100 to-gray-200 rounded-t-3xl">
+          {/* Subtle shimmer effect */}
+          <div className={cn(
+            'absolute inset-0 -translate-x-full bg-gradient-to-r from-transparent via-white/6 to-transparent',
+            'transition-transform duration-1500 ease-out',
+            isHovered && 'translate-x-full'
+          )} />
+          
+          {/* Discount badge dễ nhìn trên background sáng */}
           {hasDiscount && (
-            <Badge
-              className="absolute top-2 left-2 z-10 shadow-lg font-bold text-white text-xs px-2 py-1"
-              style={{backgroundColor: '#FF9000'}}
-            >
-              -{discountPercentage}%
-            </Badge>
+            <div className="absolute top-3 left-3 z-20">
+              <span className="text-xs font-medium text-white bg-[#ff9000] px-2 py-1 rounded-md shadow-md">
+                -{discountPercentage}%
+              </span>
+            </div>
           )}
 
-          {/* Out of stock badge */}
+          {/* Minimal out of stock badge */}
           {isOutOfStock && (
-            <Badge
-              className="absolute top-2 right-2 z-10 shadow-lg bg-gray-800 text-gray-200 border border-gray-600 text-xs px-2 py-1"
-            >
-              Out of Stock
-            </Badge>
+            <div className="absolute top-3 right-3 z-20">
+              <Badge
+                className="shadow-md bg-red-500/90 text-white border border-red-400/20 text-xs px-2 py-1 rounded-md backdrop-blur-sm"
+                style={{
+                  boxShadow: '0 2px 12px rgba(239, 68, 68, 0.2)'
+                }}
+              >
+                Sold Out
+              </Badge>
+            </div>
           )}
 
-          {/* Product image */}
+          {/* Enhanced product image */}
           <div className="relative w-full h-full">
+            {/* Loading state */}
+            {imageLoading && (
+              <div className="absolute inset-0 bg-gradient-to-br from-gray-200 to-gray-300">
+                <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/8 to-transparent animate-shimmer" />
+              </div>
+            )}
+            
             <Image
               src={isHovered && secondaryImage ? secondaryImage : primaryImage}
               alt={product.name}
               fill
               className={cn(
-                'object-cover transition-all duration-500',
-                imageLoading && 'scale-110 blur-sm',
-                isHovered && 'scale-105'
+                'object-cover transition-all duration-700 ease-out',
+                imageLoading && 'scale-105 blur-sm opacity-0',
+                isHovered ? 'scale-108 brightness-105' : 'scale-100 brightness-100',
+                !imageLoading && 'opacity-100'
               )}
               onLoad={() => setImageLoading(false)}
               sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
             />
+            
+            {/* Gentle overlay - very subtle */}
+            <div className={cn(
+              'absolute inset-0 transition-all duration-500',
+              'bg-gradient-to-t from-black/5 via-transparent to-transparent',
+              isHovered && 'from-black/10 via-transparent to-transparent'
+            )} />
           </div>
 
-          {/* Overlay actions */}
+          {/* Clean and balanced action buttons */}
           <div className={cn(
-            'absolute inset-0 bg-gradient-to-t from-black/20 via-transparent to-transparent transition-all duration-300 flex items-center justify-center',
-            isHovered && 'from-black/40'
+            'absolute inset-0 flex items-center justify-center transition-all duration-400 ease-out',
+            isHovered ? 'bg-black/8 backdrop-blur-[1px]' : 'bg-transparent'
           )}>
             <div className={cn(
-              `flex ${DESIGN_TOKENS.SPACING.GAP_SMALL} transform transition-all duration-300`,
-              isHovered ? 'translate-y-0 opacity-100 scale-100' : 'translate-y-4 opacity-0 scale-95'
+              'flex gap-2 transform transition-all duration-400 ease-out',
+              isHovered ? 'translate-y-0 opacity-100 scale-100' : 'translate-y-3 opacity-0 scale-95'
             )}>
-              {/* Quick view */}
+              {/* Minimalist quick view button */}
               {showQuickView && (
                 <Button
                   variant="ghost"
                   size="icon"
-                  className={`${DESIGN_TOKENS.BUTTONS.ICON_DEFAULT} ${DESIGN_TOKENS.RADIUS.FULL} glass-effect hover:bg-white/90 shadow-medium`}
+                  className={cn(
+                    'h-9 w-9 rounded-lg backdrop-blur-sm border border-white/15 shadow-md transition-all duration-250',
+                    'bg-white/85 hover:bg-white text-slate-700 hover:text-blue-600',
+                    'hover:scale-105',
+                    'transform-gpu'
+                  )}
                   onClick={handleQuickView}
+                  style={{
+                    boxShadow: '0 2px 12px rgba(0, 0, 0, 0.12)'
+                  }}
                 >
-                  <Eye className={DESIGN_TOKENS.ICONS.DEFAULT} />
+                  <Eye className="h-3.5 w-3.5" />
                 </Button>
               )}
 
-              {/* Wishlist */}
+              {/* Minimalist wishlist button */}
               {showWishlist && isAuthenticated && (
                 <Button
                   variant="ghost"
                   size="icon"
-                  className={`${DESIGN_TOKENS.BUTTONS.ICON_DEFAULT} ${DESIGN_TOKENS.RADIUS.FULL} glass-effect hover:bg-white/90 shadow-medium`}
+                  className={cn(
+                    'h-9 w-9 rounded-lg backdrop-blur-sm border border-white/15 shadow-md transition-all duration-250',
+                    'bg-white/85 hover:bg-white text-slate-700 hover:text-red-500',
+                    'hover:scale-105',
+                    'transform-gpu'
+                  )}
                   onClick={handleWishlistToggle}
                   disabled={addToWishlistMutation.isPending || removeFromWishlistMutation.isPending}
+                  style={{
+                    boxShadow: '0 2px 12px rgba(0, 0, 0, 0.12)'
+                  }}
                 >
-                  <Heart className={DESIGN_TOKENS.ICONS.DEFAULT} />
+                  <Heart className="h-3.5 w-3.5" />
                 </Button>
               )}
 
-              {/* Add to cart */}
+              {/* Clean add to cart button */}
               {!isOutOfStock && (
                 <Button
-                  variant="gradient"
                   size="icon"
-                  className={`${DESIGN_TOKENS.BUTTONS.ICON_DEFAULT} ${DESIGN_TOKENS.RADIUS.FULL} shadow-large`}
+                  className={cn(
+                    'h-9 w-9 rounded-lg border border-[#ff9000]/25 backdrop-blur-sm shadow-md transition-all duration-250',
+                    'text-white hover:scale-105',
+                    'transform-gpu'
+                  )}
+                  style={{
+                    background: 'linear-gradient(135deg, rgba(255, 144, 0, 0.9) 0%, rgba(230, 126, 0, 0.85) 100%)',
+                    boxShadow: '0 2px 12px rgba(255, 144, 0, 0.25)'
+                  }}
                   onClick={handleAddToCart}
                   disabled={cartLoading}
                 >
-                  <ShoppingCart className={DESIGN_TOKENS.ICONS.DEFAULT} />
+                  <ShoppingCart className="h-3.5 w-3.5" />
                 </Button>
               )}
             </div>
           </div>
         </div>
 
-        {/* Product info */}
-        <div className="p-3">
-          {/* Category */}
-          {product.category && (
-            <p className="text-xs uppercase tracking-wider text-gray-400 mb-1">
-              {product.category.name}
-            </p>
-          )}
-
-          {/* Product name */}
-          <h3 className="text-sm font-semibold text-white mb-2 line-clamp-2 transition-colors duration-200 leading-tight"
-            style={{
-              color: 'white'
-            }}
-            onMouseEnter={(e) => e.currentTarget.style.color = '#FF9000'}
-            onMouseLeave={(e) => e.currentTarget.style.color = 'white'}
-          >
-            {product.name}
-          </h3>
-
-          {/* Rating */}
-          {product.rating && (
-            <div className="flex items-center gap-1 mb-2">
-              <div className="flex">
-                {[...Array(5)].map((_, i) => (
-                  <Star
-                    key={i}
-                    className={cn(
-                      'h-3 w-3',
-                      i < Math.floor(product.rating!.average)
-                        ? 'text-amber-400 fill-current'
-                        : 'text-gray-500'
-                    )}
-                  />
-                ))}
+        {/* Optimized product info section with perfect balance */}
+        <div className="p-4 space-y-3 relative">
+          {/* Category and Rating in one line for better space utilization */}
+          <div className="flex items-center justify-between">
+            {/* Minimal category badge */}
+            {product.category && (
+              <span className="text-xs font-medium text-[#ff9000] bg-[#ff9000]/10 px-2 py-1 rounded-md border border-[#ff9000]/20">
+                {product.category.name}
+              </span>
+            )}
+            
+            {/* Compact rating display */}
+            {product.rating_average > 0 && (
+              <div className="flex items-center gap-1">
+                <div className="flex items-center gap-0.5">
+                  {[...Array(5)].map((_, i) => (
+                    <Star
+                      key={i}
+                      className={cn(
+                        'h-3 w-3 transition-all duration-200',
+                        i < Math.floor(product.rating_average)
+                          ? 'text-amber-400 fill-amber-400'
+                          : 'text-gray-600'
+                      )}
+                    />
+                  ))}
+                </div>
+                <span className="text-xs text-gray-400 ml-1">
+                  {product.rating_average.toFixed(1)}
+                </span>
               </div>
-              <span className="text-xs font-medium text-gray-400">
-                ({product.rating.count})
-              </span>
-            </div>
-          )}
-
-          {/* Price */}
-          <div className="flex items-baseline gap-2 mb-1">
-            <span className="text-base font-bold text-white">
-              {formatPrice(displayPrice)}
-            </span>
-            {hasDiscount && (
-              <span className="text-xs line-through text-gray-500">
-                {formatPrice(product.price)}
-              </span>
             )}
           </div>
 
-          {/* Stock status */}
-          {product.stock <= 5 && product.stock > 0 && (
-            <p className="text-xs font-medium" style={{color: '#FF9000'}}>
-              Only {product.stock} left in stock
-            </p>
+          {/* Clean product name with optimal height */}
+          <div>
+            <h3 className="text-base font-semibold leading-tight line-clamp-2 text-white transition-colors duration-300 group-hover:text-[#ff9000]/90">
+              {product.name}
+            </h3>
+          </div>
+
+          {/* Streamlined price section */}
+          <div className="flex items-center justify-between">
+            <div className="flex items-baseline gap-2">
+              <span className="text-lg font-bold text-white">
+                {formatPrice(displayPrice)}
+              </span>
+              {hasDiscount && comparePrice && (
+                <span className="text-sm line-through text-gray-500">
+                  {formatPrice(comparePrice)}
+                </span>
+              )}
+            </div>
+            
+            {/* Stock status indicator */}
+            {stockQuantity <= 5 && stockQuantity > 0 && (
+              <div className="flex items-center gap-1">
+                <div className="w-1.5 h-1.5 rounded-full bg-amber-400" />
+                <span className="text-xs text-amber-400 font-medium">
+                  {stockQuantity} left
+                </span>
+              </div>
+            )}
+          </div>
+
+          {/* Reviews summary - minimal and clean */}
+          {ratingSummary && (
+            <div className="pt-2 border-t border-gray-700/30">
+              <CompactReviewSummary
+                summary={ratingSummary}
+                className="text-xs opacity-70"
+              />
+            </div>
           )}
         </div>
       </Link>
-
-      {/* Quick add to cart button (bottom) */}
-      {!isOutOfStock && (
-        <div className={cn(
-          'absolute bottom-0 left-0 right-0 p-3 bg-gradient-to-t from-gray-900 via-gray-900 to-transparent transform transition-all duration-300',
-          isHovered ? 'translate-y-0 opacity-100' : 'translate-y-full opacity-0'
-        )}>
-          <Button
-            variant="gradient"
-            className="w-full shadow-lg text-white"
-            onClick={handleAddToCart}
-            disabled={cartLoading}
-            size="sm"
-          >
-            {cartLoading ? 'Adding...' : 'Add to Cart'}
-          </Button>
-        </div>
-      )}
     </Card>
+    </div>
   )
 }

@@ -20,6 +20,7 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { ProductCard } from '@/components/products/product-card'
+import { ProductReviewsSection } from '@/components/reviews/product-reviews-section'
 import { useProduct, useRelatedProducts, useAddToWishlist } from '@/hooks/use-products'
 import { useCartStore } from '@/store/cart'
 import { useAuthStore } from '@/store/auth'
@@ -44,16 +45,27 @@ export function ProductDetailPage({ productId }: ProductDetailPageProps) {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-black py-8">
-        <div className="container mx-auto px-4">
+      <div className="min-h-screen bg-gradient-to-br from-slate-950 via-gray-900 to-black">
+        <div className="container mx-auto px-4 py-12">
           <div className="animate-pulse">
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-12">
-              <div className="aspect-square bg-gray-800 rounded-lg"></div>
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 mb-16">
               <div className="space-y-4">
-                <div className="h-8 bg-gray-800 rounded w-3/4"></div>
-                <div className="h-6 bg-gray-800 rounded w-1/2"></div>
-                <div className="h-12 bg-gray-800 rounded w-full"></div>
-                <div className="h-10 bg-gray-800 rounded w-1/3"></div>
+                <div className="aspect-square bg-gradient-to-br from-gray-800/50 to-gray-900/50 rounded-2xl backdrop-blur-sm border border-white/10"></div>
+                <div className="grid grid-cols-4 gap-3">
+                  {[...Array(4)].map((_, i) => (
+                    <div key={i} className="aspect-square bg-gradient-to-br from-gray-800/30 to-gray-900/30 rounded-xl"></div>
+                  ))}
+                </div>
+              </div>
+              <div className="space-y-6">
+                <div className="h-10 bg-gradient-to-r from-gray-800/50 to-gray-700/50 rounded-xl w-3/4"></div>
+                <div className="h-6 bg-gradient-to-r from-orange-500/30 to-orange-600/30 rounded-lg w-1/2"></div>
+                <div className="h-16 bg-gradient-to-r from-gray-800/50 to-gray-700/50 rounded-xl w-full"></div>
+                <div className="h-12 bg-gradient-to-r from-orange-500/30 to-orange-600/30 rounded-xl w-1/3"></div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="h-12 bg-gradient-to-r from-gray-800/50 to-gray-700/50 rounded-xl"></div>
+                  <div className="h-12 bg-gradient-to-r from-orange-500/30 to-orange-600/30 rounded-xl"></div>
+                </div>
               </div>
             </div>
           </div>
@@ -64,16 +76,19 @@ export function ProductDetailPage({ productId }: ProductDetailPageProps) {
 
   if (error || !product) {
     return (
-      <div className="min-h-screen bg-black py-8">
+      <div className="min-h-screen bg-gradient-to-br from-slate-950 via-gray-900 to-black flex items-center justify-center">
         <div className="container mx-auto px-4">
-          <Card className="p-8 text-center max-w-md mx-auto bg-gray-900 border-gray-700">
-            <h2 className="text-2xl font-bold text-white mb-4">
+          <Card className="p-12 text-center max-w-lg mx-auto bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl shadow-2xl">
+            <div className="w-20 h-20 bg-gradient-to-br from-red-500/20 to-red-600/20 rounded-full flex items-center justify-center mx-auto mb-6 border border-red-500/30">
+              <span className="text-4xl">😞</span>
+            </div>
+            <h2 className="text-3xl font-bold bg-gradient-to-r from-white to-gray-300 bg-clip-text text-transparent mb-4">
               Product Not Found
             </h2>
-            <p className="text-gray-300 mb-6">
+            <p className="text-gray-300 mb-8 text-lg leading-relaxed">
               The product you're looking for doesn't exist or has been removed.
             </p>
-            <Button asChild className="bg-orange-500 hover:bg-orange-600 text-white">
+            <Button asChild className="bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 text-white px-8 py-3 rounded-xl font-semibold shadow-lg shadow-orange-500/25 transition-all duration-300 hover:scale-105">
               <Link href="/products">Browse Products</Link>
             </Button>
           </Card>
@@ -133,8 +148,8 @@ export function ProductDetailPage({ productId }: ProductDetailPageProps) {
   }
 
   return (
-    <div className="min-h-screen bg-black py-8">
-      <div className="container mx-auto px-4">
+    <div className="min-h-screen bg-black">
+      <div className="container mx-auto px-4 py-8">
         {/* Breadcrumb */}
         <nav className="flex items-center space-x-2 text-sm text-gray-400 mb-8">
           <Link href="/" className="hover:text-orange-400 transition-colors">Home</Link>
@@ -159,12 +174,12 @@ export function ProductDetailPage({ productId }: ProductDetailPageProps) {
             {/* Main Image */}
             <div className="relative aspect-square overflow-hidden rounded-lg bg-gray-800">
               {hasDiscount && (
-                <Badge className="absolute top-4 left-4 z-10 bg-red-500 text-white">
-                  -{discountPercentage}%
+                <Badge className="absolute top-6 left-6 z-10 bg-gradient-to-r from-red-500 to-red-600 text-white px-4 py-2 text-lg font-bold shadow-lg">
+                  -{discountPercentage}% OFF
                 </Badge>
               )}
               {isOutOfStock && (
-                <Badge className="absolute top-4 right-4 z-10 bg-gray-700 text-gray-200">
+                <Badge className="absolute top-6 right-6 z-10 bg-gradient-to-r from-gray-700 to-gray-800 text-white px-4 py-2 text-lg font-bold shadow-lg">
                   Out of Stock
                 </Badge>
               )}
@@ -172,49 +187,67 @@ export function ProductDetailPage({ productId }: ProductDetailPageProps) {
                 src={images[selectedImageIndex]?.url || '/placeholder-product.jpg'}
                 alt={product.name}
                 fill
-                className="object-cover"
+                className="object-cover transition-all duration-500 hover:scale-105"
                 priority
               />
 
-              {/* Image Navigation */}
+              {/* Enhanced Image Navigation */}
               {images.length > 1 && (
                 <>
                   <Button
                     variant="secondary"
                     size="icon"
-                    className="absolute left-4 top-1/2 transform -translate-y-1/2 bg-black/50 hover:bg-black/70 text-white border-gray-600"
+                    className="absolute left-6 top-1/2 transform -translate-y-1/2 bg-white/10 backdrop-blur-md hover:bg-white/20 text-white border border-white/20 rounded-full w-12 h-12 shadow-xl transition-all duration-300 hover:scale-110"
                     onClick={() => setSelectedImageIndex(prev =>
                       prev === 0 ? images.length - 1 : prev - 1
                     )}
                   >
-                    <ChevronLeft className="h-4 w-4" />
+                    <ChevronLeft className="h-5 w-5" />
                   </Button>
                   <Button
                     variant="secondary"
                     size="icon"
-                    className="absolute right-4 top-1/2 transform -translate-y-1/2 bg-black/50 hover:bg-black/70 text-white border-gray-600"
+                    className="absolute right-6 top-1/2 transform -translate-y-1/2 bg-white/10 backdrop-blur-md hover:bg-white/20 text-white border border-white/20 rounded-full w-12 h-12 shadow-xl transition-all duration-300 hover:scale-110"
                     onClick={() => setSelectedImageIndex(prev =>
                       prev === images.length - 1 ? 0 : prev + 1
                     )}
                   >
-                    <ChevronRight className="h-4 w-4" />
+                    <ChevronRight className="h-5 w-5" />
                   </Button>
                 </>
               )}
+
+              {/* Image Indicators */}
+              {images.length > 1 && (
+                <div className="absolute bottom-6 left-1/2 transform -translate-x-1/2 flex space-x-2">
+                  {images.map((_, index) => (
+                    <button
+                      key={index}
+                      onClick={() => setSelectedImageIndex(index)}
+                      className={cn(
+                        'w-3 h-3 rounded-full transition-all duration-300',
+                        selectedImageIndex === index
+                          ? 'bg-orange-500 scale-125'
+                          : 'bg-white/30 hover:bg-white/50'
+                      )}
+                    />
+                  ))}
+                </div>
+              )}
             </div>
 
-            {/* Thumbnail Images */}
+            {/* Enhanced Thumbnail Images */}
             {images.length > 1 && (
-              <div className="flex space-x-2 overflow-x-auto">
+              <div className="flex space-x-4 overflow-x-auto pb-2">
                 {images.map((image, index) => (
                   <button
                     key={image.id}
                     onClick={() => setSelectedImageIndex(index)}
                     className={cn(
-                      'relative w-20 h-20 flex-shrink-0 overflow-hidden rounded-md border-2 transition-colors',
+                      'relative w-24 h-24 flex-shrink-0 overflow-hidden rounded-xl border-2 transition-all duration-300 hover:scale-105',
                       selectedImageIndex === index
-                        ? 'border-orange-500'
-                        : 'border-gray-600 hover:border-gray-500'
+                        ? 'border-orange-500 shadow-lg shadow-orange-500/25 scale-105'
+                        : 'border-white/20 hover:border-orange-400/50 bg-white/5 backdrop-blur-sm'
                     )}
                   >
                     <Image
@@ -229,231 +262,319 @@ export function ProductDetailPage({ productId }: ProductDetailPageProps) {
             )}
           </div>
 
-          {/* Product Info */}
-          <div className="space-y-6">
-            {/* Category */}
+          {/* Enhanced Product Info */}
+          <div className="space-y-8">
+            {/* Category Badge */}
             {product.category && (
               <Link
                 href={`/products?category=${product.category.id}`}
-                className="text-sm text-orange-400 hover:text-orange-300 font-medium transition-colors"
+                className="inline-block"
               >
-                {product.category.name}
+                <Badge className="bg-gradient-to-r from-orange-500/20 to-orange-600/20 text-orange-300 border border-orange-500/30 px-4 py-2 text-sm font-medium hover:from-orange-500/30 hover:to-orange-600/30 transition-all duration-300 backdrop-blur-sm">
+                  📁 {product.category.name}
+                </Badge>
               </Link>
             )}
 
-            {/* Title - More compact */}
-            <h1 className="text-2xl lg:text-3xl font-bold text-white">{product.name}</h1>
+            {/* Enhanced Title */}
+            <div className="space-y-4">
+              <h1 className="text-3xl lg:text-5xl font-bold bg-gradient-to-r from-white via-gray-100 to-orange-200 bg-clip-text text-transparent leading-tight">
+                {product.name}
+              </h1>
 
-            {/* Rating */}
-            {product.rating && (
-              <div className="flex items-center space-x-2">
-                <div className="flex">
-                  {[...Array(5)].map((_, i) => (
-                    <Star
-                      key={i}
-                      className={cn(
-                        'h-5 w-5',
-                        i < Math.floor(product.rating!.average)
-                          ? 'text-yellow-400 fill-current'
-                          : 'text-gray-500'
-                      )}
-                    />
-                  ))}
+              {/* Enhanced Rating */}
+              {product.rating && (
+                <div className="flex items-center space-x-4">
+                  <div className="flex items-center space-x-2">
+                    <div className="flex">
+                      {[...Array(5)].map((_, i) => (
+                        <Star
+                          key={i}
+                          className={cn(
+                            'h-6 w-6 transition-all duration-200',
+                            i < Math.floor(product.rating!.average)
+                              ? 'text-yellow-400 fill-current drop-shadow-sm'
+                              : 'text-gray-500'
+                          )}
+                        />
+                      ))}
+                    </div>
+                    <span className="text-lg font-semibold text-yellow-400">
+                      {product.rating.average.toFixed(1)}
+                    </span>
+                  </div>
+                  <Badge className="bg-white/10 text-gray-300 border border-white/20 px-3 py-1">
+                    {product.rating.count} reviews
+                  </Badge>
                 </div>
-                <span className="text-sm text-gray-300">
-                  {product.rating.average.toFixed(1)} ({product.rating.count} reviews)
-                </span>
-              </div>
-            )}
+              )}
+            </div>
 
-            {/* Price - More compact */}
-            <div className="space-y-1.5">
-              <div className="flex items-center space-x-3">
-                <span className="text-2xl lg:text-3xl font-bold text-white">
+            {/* Enhanced Price Section */}
+            <div className="bg-white/5 backdrop-blur-xl rounded-2xl border border-white/10 p-6 space-y-4">
+              <div className="flex items-center space-x-4">
+                <span className="text-3xl lg:text-4xl font-bold bg-gradient-to-r from-orange-400 to-orange-500 bg-clip-text text-transparent">
                   {formatPrice(displayPrice)}
                 </span>
                 {hasDiscount && (
-                  <span className="text-lg lg:text-xl text-gray-500 line-through">
-                    {formatPrice(product.price)}
-                  </span>
+                  <div className="flex items-center space-x-3">
+                    <span className="text-xl lg:text-2xl text-gray-400 line-through">
+                      {formatPrice(product.price)}
+                    </span>
+                    <Badge className="bg-gradient-to-r from-red-500 to-red-600 text-white px-3 py-1 text-sm font-bold">
+                      -{discountPercentage}% OFF
+                    </Badge>
+                  </div>
                 )}
               </div>
               {hasDiscount && (
-                <p className="text-green-400 font-medium">
-                  You save {formatPrice(product.price - product.sale_price!)} ({discountPercentage}% off)
-                </p>
+                <div className="bg-green-500/10 border border-green-500/20 rounded-xl p-4">
+                  <p className="text-green-400 font-semibold text-lg">
+                    💰 You save {formatPrice(product.price - product.sale_price!)} ({discountPercentage}% off)
+                  </p>
+                </div>
               )}
             </div>
 
-            {/* Short Description - More compact */}
+            {/* Enhanced Short Description */}
             {product.short_description && (
-              <p className="text-gray-300 text-base leading-relaxed">
-                {product.short_description}
-              </p>
+              <div className="bg-white/5 backdrop-blur-xl rounded-2xl border border-white/10 p-6">
+                <p className="text-gray-200 text-lg leading-relaxed">
+                  {product.short_description}
+                </p>
+              </div>
             )}
 
-            {/* Stock Status */}
-            <div className="flex items-center space-x-2">
+            {/* Enhanced Stock Status */}
+            <div className="flex items-center space-x-3">
               {isOutOfStock ? (
-                <Badge className="bg-red-500 text-white">Out of Stock</Badge>
+                <Badge className="bg-gradient-to-r from-red-500 to-red-600 text-white px-4 py-2 text-lg font-semibold shadow-lg">
+                  ❌ Out of Stock
+                </Badge>
               ) : product.stock <= 5 ? (
-                <Badge className="bg-yellow-500 text-black">Only {product.stock} left in stock</Badge>
+                <Badge className="bg-gradient-to-r from-yellow-500 to-yellow-600 text-black px-4 py-2 text-lg font-semibold shadow-lg animate-pulse">
+                  ⚠️ Only {product.stock} left in stock
+                </Badge>
               ) : (
-                <Badge className="bg-green-500 text-white">In Stock</Badge>
+                <Badge className="bg-gradient-to-r from-green-500 to-green-600 text-white px-4 py-2 text-lg font-semibold shadow-lg">
+                  ✅ In Stock
+                </Badge>
               )}
             </div>
 
-            {/* Quantity and Add to Cart */}
+            {/* Enhanced Quantity and Add to Cart */}
             {!isOutOfStock && (
-              <div className="space-y-4">
-                <div className="flex items-center space-x-4">
-                  <span className="text-sm font-medium text-white">Quantity:</span>
-                  <div className="flex items-center border border-gray-600 rounded-md bg-gray-800">
+              <div className="space-y-6">
+                <div className="bg-white/5 backdrop-blur-xl rounded-2xl border border-white/10 p-6">
+                  <div className="flex items-center justify-between mb-4">
+                    <span className="text-lg font-semibold text-white">Quantity:</span>
+                    <div className="flex items-center bg-white/10 backdrop-blur-md border border-white/20 rounded-xl overflow-hidden">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => setQuantity(Math.max(1, quantity - 1))}
+                        disabled={quantity <= 1}
+                        className="text-white hover:bg-white/20 px-4 py-3 rounded-none border-r border-white/20"
+                      >
+                        <Minus className="h-5 w-5" />
+                      </Button>
+                      <span className="px-6 py-3 text-center min-w-[80px] text-white font-bold text-lg bg-white/5">
+                        {quantity}
+                      </span>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => setQuantity(Math.min(product.stock, quantity + 1))}
+                        disabled={quantity >= product.stock}
+                        className="text-white hover:bg-white/20 px-4 py-3 rounded-none border-l border-white/20"
+                      >
+                        <Plus className="h-5 w-5" />
+                      </Button>
+                    </div>
+                  </div>
+
+                  {/* Enhanced Action Buttons */}
+                  <div className="grid grid-cols-1 gap-4">
                     <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => setQuantity(Math.max(1, quantity - 1))}
-                      disabled={quantity <= 1}
-                      className="text-white hover:bg-gray-700"
+                      size="lg"
+                      className="w-full bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 text-white font-bold py-4 text-lg shadow-xl shadow-orange-500/25 transition-all duration-300 hover:scale-105 hover:shadow-2xl hover:shadow-orange-500/40"
+                      onClick={handleAddToCart}
+                      disabled={cartLoading}
                     >
-                      <Minus className="h-4 w-4" />
+                      <ShoppingCart className="mr-3 h-6 w-6" />
+                      {cartLoading ? 'Adding to Cart...' : 'Add to Cart'}
                     </Button>
-                    <span className="px-4 py-2 text-center min-w-[60px] text-white">{quantity}</span>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => setQuantity(Math.min(product.stock, quantity + 1))}
-                      disabled={quantity >= product.stock}
-                      className="text-white hover:bg-gray-700"
-                    >
-                      <Plus className="h-4 w-4" />
-                    </Button>
+
+                    <div className="grid grid-cols-2 gap-3">
+                      {isAuthenticated && (
+                        <Button
+                          variant="outline"
+                          size="lg"
+                          onClick={handleAddToWishlist}
+                          disabled={addToWishlistMutation.isPending}
+                          className="border-white/20 text-white hover:bg-white/10 backdrop-blur-sm py-3 transition-all duration-300 hover:scale-105"
+                        >
+                          <Heart className="h-5 w-5 mr-2" />
+                          Wishlist
+                        </Button>
+                      )}
+
+                      <Button
+                        variant="outline"
+                        size="lg"
+                        onClick={handleShare}
+                        className="border-white/20 text-white hover:bg-white/10 backdrop-blur-sm py-3 transition-all duration-300 hover:scale-105"
+                      >
+                        <Share2 className="h-5 w-5 mr-2" />
+                        Share
+                      </Button>
+                    </div>
                   </div>
                 </div>
-
-                <div className="flex space-x-3">
-                  <Button
-                    size="default"
-                    className="flex-1 bg-orange-500 hover:bg-orange-600 text-white"
-                    onClick={handleAddToCart}
-                    disabled={cartLoading}
-                  >
-                    <ShoppingCart className="mr-2 h-4 w-4" />
-                    {cartLoading ? 'Adding...' : 'Add to Cart'}
-                  </Button>
-
-                  {isAuthenticated && (
-                    <Button
-                      variant="outline"
-                      size="default"
-                      onClick={handleAddToWishlist}
-                      disabled={addToWishlistMutation.isPending}
-                      className="border-gray-600 text-white hover:bg-gray-800"
-                    >
-                      <Heart className="h-5 w-5" />
-                    </Button>
-                  )}
-
-                  <Button
-                    variant="outline"
-                    size="lg"
-                    onClick={handleShare}
-                    className="border-gray-600 text-white hover:bg-gray-800"
-                  >
-                    <Share2 className="h-5 w-5" />
-                  </Button>
-                </div>
               </div>
             )}
 
-            {/* Product Features */}
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 pt-6 border-t border-gray-700">
-              <div className="flex items-center space-x-2 text-sm text-gray-300">
-                <Truck className="h-5 w-5 text-orange-400" />
-                <span>Free shipping over $50</span>
-              </div>
-              <div className="flex items-center space-x-2 text-sm text-gray-300">
-                <Shield className="h-5 w-5 text-orange-400" />
-                <span>1 year warranty</span>
-              </div>
-              <div className="flex items-center space-x-2 text-sm text-gray-300">
-                <RotateCcw className="h-5 w-5 text-orange-400" />
-                <span>30-day returns</span>
+            {/* Enhanced Product Features */}
+            <div className="bg-white/5 backdrop-blur-xl rounded-2xl border border-white/10 p-6">
+              <h3 className="text-lg font-semibold text-white mb-4">Product Benefits</h3>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <div className="flex items-center space-x-3 text-gray-200">
+                  <div className="w-10 h-10 bg-gradient-to-br from-orange-500/20 to-orange-600/20 rounded-full flex items-center justify-center border border-orange-500/30">
+                    <Truck className="h-5 w-5 text-orange-400" />
+                  </div>
+                  <span className="font-medium">Free shipping over $50</span>
+                </div>
+                <div className="flex items-center space-x-3 text-gray-200">
+                  <div className="w-10 h-10 bg-gradient-to-br from-green-500/20 to-green-600/20 rounded-full flex items-center justify-center border border-green-500/30">
+                    <Shield className="h-5 w-5 text-green-400" />
+                  </div>
+                  <span className="font-medium">1 year warranty</span>
+                </div>
+                <div className="flex items-center space-x-3 text-gray-200">
+                  <div className="w-10 h-10 bg-gradient-to-br from-blue-500/20 to-blue-600/20 rounded-full flex items-center justify-center border border-blue-500/30">
+                    <RotateCcw className="h-5 w-5 text-blue-400" />
+                  </div>
+                  <span className="font-medium">30-day returns</span>
+                </div>
               </div>
             </div>
           </div>
         </div>
 
-        {/* Product Tabs */}
-        <Card className="mb-12 bg-gray-900 border-gray-700">
-          <CardHeader>
-            <div className="flex space-x-8 border-b border-gray-700">
+        {/* Enhanced Product Tabs */}
+        <div className="bg-white/5 backdrop-blur-xl rounded-2xl border border-white/10 shadow-2xl mb-16">
+          <div className="border-b border-white/10">
+            <div className="flex space-x-1 p-2">
               {[
-                { key: 'description', label: 'Description' },
-                { key: 'reviews', label: 'Reviews' },
-                { key: 'shipping', label: 'Shipping & Returns' },
+                { key: 'description', label: 'Description', icon: '📝' },
+                { key: 'reviews', label: 'Reviews', icon: '⭐' },
+                { key: 'shipping', label: 'Shipping & Returns', icon: '🚚' },
               ].map((tab) => (
                 <button
                   key={tab.key}
                   onClick={() => setActiveTab(tab.key as any)}
                   className={cn(
-                    'pb-4 px-1 border-b-2 font-medium text-sm transition-colors',
+                    'flex items-center space-x-2 px-6 py-4 rounded-xl font-semibold text-sm transition-all duration-300',
                     activeTab === tab.key
-                      ? 'border-orange-500 text-orange-400'
-                      : 'border-transparent text-gray-400 hover:text-gray-200'
+                      ? 'bg-gradient-to-r from-orange-500 to-orange-600 text-white shadow-lg shadow-orange-500/25 scale-105'
+                      : 'text-gray-300 hover:text-white hover:bg-white/10'
                   )}
                 >
-                  {tab.label}
+                  <span className="text-lg">{tab.icon}</span>
+                  <span>{tab.label}</span>
                 </button>
               ))}
             </div>
-          </CardHeader>
-          <CardContent className="pt-6">
+          </div>
+          <div className="p-8">
             {activeTab === 'description' && (
               <div className="prose max-w-none">
-                <p className="text-gray-300 leading-relaxed">
-                  {product.description}
-                </p>
+                <div className="bg-white/5 backdrop-blur-md rounded-xl border border-white/10 p-6">
+                  <h3 className="text-xl font-bold text-white mb-4">Product Description</h3>
+                  <p className="text-gray-200 leading-relaxed text-lg">
+                    {product.description}
+                  </p>
+                </div>
                 {/* Additional product details would go here */}
               </div>
             )}
 
             {activeTab === 'reviews' && (
-              <div className="text-center py-8">
-                <p className="text-gray-400">Reviews feature coming soon!</p>
-              </div>
+              <ProductReviewsSection productId={productId} />
             )}
 
             {activeTab === 'shipping' && (
-              <div className="space-y-4">
-                <div>
-                  <h4 className="font-semibold mb-2 text-white">Shipping Information</h4>
-                  <ul className="text-gray-300 space-y-1">
-                    <li>• Free shipping on orders over $50</li>
-                    <li>• Standard delivery: 3-5 business days</li>
-                    <li>• Express delivery: 1-2 business days</li>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                <div className="bg-white/5 backdrop-blur-md rounded-xl border border-white/10 p-6">
+                  <div className="flex items-center space-x-3 mb-4">
+                    <div className="w-10 h-10 bg-gradient-to-br from-blue-500/20 to-blue-600/20 rounded-full flex items-center justify-center border border-blue-500/30">
+                      <Truck className="h-5 w-5 text-blue-400" />
+                    </div>
+                    <h4 className="text-xl font-bold text-white">Shipping Information</h4>
+                  </div>
+                  <ul className="text-gray-200 space-y-3 text-lg">
+                    <li className="flex items-center space-x-3">
+                      <span className="text-green-400">✓</span>
+                      <span>Free shipping on orders over $50</span>
+                    </li>
+                    <li className="flex items-center space-x-3">
+                      <span className="text-blue-400">📦</span>
+                      <span>Standard delivery: 3-5 business days</span>
+                    </li>
+                    <li className="flex items-center space-x-3">
+                      <span className="text-orange-400">⚡</span>
+                      <span>Express delivery: 1-2 business days</span>
+                    </li>
                   </ul>
                 </div>
-                <div>
-                  <h4 className="font-semibold mb-2 text-white">Returns & Exchanges</h4>
-                  <ul className="text-gray-300 space-y-1">
-                    <li>• 30-day return policy</li>
-                    <li>• Items must be in original condition</li>
-                    <li>• Free return shipping</li>
+                <div className="bg-white/5 backdrop-blur-md rounded-xl border border-white/10 p-6">
+                  <div className="flex items-center space-x-3 mb-4">
+                    <div className="w-10 h-10 bg-gradient-to-br from-green-500/20 to-green-600/20 rounded-full flex items-center justify-center border border-green-500/30">
+                      <RotateCcw className="h-5 w-5 text-green-400" />
+                    </div>
+                    <h4 className="text-xl font-bold text-white">Returns & Exchanges</h4>
+                  </div>
+                  <ul className="text-gray-200 space-y-3 text-lg">
+                    <li className="flex items-center space-x-3">
+                      <span className="text-green-400">✓</span>
+                      <span>30-day return policy</span>
+                    </li>
+                    <li className="flex items-center space-x-3">
+                      <span className="text-blue-400">📋</span>
+                      <span>Items must be in original condition</span>
+                    </li>
+                    <li className="flex items-center space-x-3">
+                      <span className="text-orange-400">🚚</span>
+                      <span>Free return shipping</span>
+                    </li>
                   </ul>
                 </div>
               </div>
             )}
-          </CardContent>
-        </Card>
+          </div>
+        </div>
 
-        {/* Related Products */}
+        {/* Enhanced Related Products */}
         {relatedProducts && relatedProducts.length > 0 && (
-          <div>
-            <h2 className="text-2xl font-bold text-white mb-6">Related Products</h2>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-              {relatedProducts.map((relatedProduct) => (
-                <ProductCard key={relatedProduct.id} product={relatedProduct} />
+          <div className="bg-white/5 backdrop-blur-xl rounded-2xl border border-white/10 p-8 shadow-2xl">
+            <div className="text-center mb-8">
+              <h2 className="text-3xl font-bold bg-gradient-to-r from-white via-gray-100 to-orange-200 bg-clip-text text-transparent mb-2">
+                You Might Also Like
+              </h2>
+              <p className="text-gray-300 text-lg">Discover more amazing products</p>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8">
+              {relatedProducts.map((relatedProduct, index) => (
+                <div
+                  key={relatedProduct.id}
+                  className="animate-in fade-in slide-in-from-bottom-4 duration-700"
+                  style={{ animationDelay: `${index * 150}ms` }}
+                >
+                  <ProductCard
+                    product={relatedProduct}
+                    className="transform hover:scale-105 transition-all duration-300 hover:shadow-2xl hover:shadow-orange-500/10"
+                  />
+                </div>
               ))}
             </div>
           </div>

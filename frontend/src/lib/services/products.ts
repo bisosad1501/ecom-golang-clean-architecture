@@ -4,6 +4,11 @@ import { Product, PaginatedResponse, ProductFilters, ApiResponse } from '@/types
 export interface ProductsParams extends ProductFilters {
   page?: number
   limit?: number
+  search?: string
+  category_id?: string
+  min_price?: number
+  max_price?: number
+  rating?: number
   sort_by?: string
   sort_order?: 'asc' | 'desc'
 }

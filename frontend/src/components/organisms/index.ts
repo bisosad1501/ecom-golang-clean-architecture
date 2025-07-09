@@ -1,5 +1,8 @@
 // ===== ORGANISMS EXPORT =====
-// Complex components made of molecules and atoms
+// Complex componen// Shopping organisms
+export { ShoppingCart } from './ShoppingCart'
+export { CartSummary } from './CartSummary'
+export { Wishlist } from './Wishlist'
 
 // Layout organisms
 export { Header } from './Header'
@@ -51,7 +54,6 @@ export { SubcategoryMenu } from './SubcategoryMenu'
 
 // Shopping organisms
 export { ShoppingCart } from './ShoppingCart'
-export { CartSidebar } from './CartSidebar'
 export { CartSummary } from './CartSummary'
 export { Wishlist } from './Wishlist'
 export { ComparisonTable } from './ComparisonTable'

@@ -10,31 +10,34 @@ import (
 type ReviewStatus string
 
 const (
-	ReviewStatusPending  ReviewStatus = "pending"
-	ReviewStatusApproved ReviewStatus = "approved"
-	ReviewStatusRejected ReviewStatus = "rejected"
+	ReviewStatusPending  ReviewStatus = "pending"  // For admin moderation (rarely used)
+	ReviewStatusApproved ReviewStatus = "approved" // Default status, visible to public
+	ReviewStatusHidden   ReviewStatus = "hidden"   // Admin hides inappropriate content
+	ReviewStatusRejected ReviewStatus = "rejected" // Admin rejects completely
 )
 
 // Review represents a product review
 type Review struct {
-	ID        uuid.UUID    `json:"id" gorm:"type:uuid;primary_key;default:gen_random_uuid()"`
-	UserID    uuid.UUID    `json:"user_id" gorm:"type:uuid;not null;index"`
-	User      User         `json:"user,omitempty" gorm:"foreignKey:UserID"`
-	ProductID uuid.UUID    `json:"product_id" gorm:"type:uuid;not null;index"`
-	Product   Product      `json:"product,omitempty" gorm:"foreignKey:ProductID"`
-	OrderID   *uuid.UUID   `json:"order_id" gorm:"type:uuid;index"` // Optional: link to order for verified purchases
-	Order     *Order       `json:"order,omitempty" gorm:"foreignKey:OrderID"`
-	Rating    int          `json:"rating" gorm:"not null;check:rating >= 1 AND rating <= 5" validate:"required,min=1,max=5"`
-	Title     string       `json:"title" gorm:"not null" validate:"required,max=200"`
-	Comment   string       `json:"comment" gorm:"type:text" validate:"max=2000"`
-	Status    ReviewStatus `json:"status" gorm:"default:'pending'"`
-	IsVerified bool        `json:"is_verified" gorm:"default:false"` // Verified purchase
-	HelpfulCount int       `json:"helpful_count" gorm:"default:0"`
-	NotHelpfulCount int    `json:"not_helpful_count" gorm:"default:0"`
-	Images      []ReviewImage `json:"images,omitempty" gorm:"foreignKey:ReviewID"`
-	Votes       []ReviewVote  `json:"votes,omitempty" gorm:"foreignKey:ReviewID"`
-	CreatedAt   time.Time    `json:"created_at" gorm:"autoCreateTime"`
-	UpdatedAt   time.Time    `json:"updated_at" gorm:"autoUpdateTime"`
+	ID              uuid.UUID     `json:"id" gorm:"type:uuid;primary_key;default:gen_random_uuid()"`
+	UserID          uuid.UUID     `json:"user_id" gorm:"type:uuid;not null;index"`
+	User            User          `json:"user,omitempty" gorm:"foreignKey:UserID"`
+	ProductID       uuid.UUID     `json:"product_id" gorm:"type:uuid;not null;index"`
+	Product         Product       `json:"product,omitempty" gorm:"foreignKey:ProductID"`
+	OrderID         *uuid.UUID    `json:"order_id" gorm:"type:uuid;index"` // Optional: link to order for verified purchases
+	Order           *Order        `json:"order,omitempty" gorm:"foreignKey:OrderID"`
+	Rating          int           `json:"rating" gorm:"not null;check:rating >= 1 AND rating <= 5" validate:"required,min=1,max=5"`
+	Title           string        `json:"title" gorm:"not null" validate:"required,max=200"`
+	Comment         string        `json:"comment" gorm:"type:text" validate:"max=2000"`
+	Status          ReviewStatus  `json:"status" gorm:"default:'pending'"`
+	IsVerified      bool          `json:"is_verified" gorm:"default:false"` // Verified purchase
+	AdminReply      string        `json:"admin_reply" gorm:"type:text"`     // Admin response to review
+	AdminReplyAt    *time.Time    `json:"admin_reply_at"`                   // When admin replied
+	HelpfulCount    int           `json:"helpful_count" gorm:"default:0"`
+	NotHelpfulCount int           `json:"not_helpful_count" gorm:"default:0"`
+	Images          []ReviewImage `json:"images,omitempty" gorm:"foreignKey:ReviewID"`
+	Votes           []ReviewVote  `json:"votes,omitempty" gorm:"foreignKey:ReviewID"`
+	CreatedAt       time.Time     `json:"created_at" gorm:"autoCreateTime"`
+	UpdatedAt       time.Time     `json:"updated_at" gorm:"autoUpdateTime"`
 }
 
 // TableName returns the table name for Review entity
@@ -58,12 +61,12 @@ func (r *Review) GetHelpfulPercentage() float64 {
 
 // ReviewImage represents images attached to reviews
 type ReviewImage struct {
-	ID       uuid.UUID `json:"id" gorm:"type:uuid;primary_key;default:gen_random_uuid()"`
-	ReviewID uuid.UUID `json:"review_id" gorm:"type:uuid;not null;index"`
-	Review   Review    `json:"review,omitempty" gorm:"foreignKey:ReviewID"`
-	URL      string    `json:"url" gorm:"not null" validate:"required,url"`
-	AltText  string    `json:"alt_text"`
-	SortOrder int      `json:"sort_order" gorm:"default:0"`
+	ID        uuid.UUID `json:"id" gorm:"type:uuid;primary_key;default:gen_random_uuid()"`
+	ReviewID  uuid.UUID `json:"review_id" gorm:"type:uuid;not null;index"`
+	Review    Review    `json:"review,omitempty" gorm:"foreignKey:ReviewID"`
+	URL       string    `json:"url" gorm:"not null" validate:"required,url"`
+	AltText   string    `json:"alt_text"`
+	SortOrder int       `json:"sort_order" gorm:"default:0"`
 	CreatedAt time.Time `json:"created_at" gorm:"autoCreateTime"`
 }
 
@@ -82,14 +85,14 @@ const (
 
 // ReviewVote represents votes on reviews (helpful/not helpful)
 type ReviewVote struct {
-	ID       uuid.UUID      `json:"id" gorm:"type:uuid;primary_key;default:gen_random_uuid()"`
-	ReviewID uuid.UUID      `json:"review_id" gorm:"type:uuid;not null;index"`
-	Review   Review         `json:"review,omitempty" gorm:"foreignKey:ReviewID"`
-	UserID   uuid.UUID      `json:"user_id" gorm:"type:uuid;not null;index"`
-	User     User           `json:"user,omitempty" gorm:"foreignKey:UserID"`
-	VoteType ReviewVoteType `json:"vote_type" gorm:"not null"`
-	CreatedAt time.Time     `json:"created_at" gorm:"autoCreateTime"`
-	UpdatedAt time.Time     `json:"updated_at" gorm:"autoUpdateTime"`
+	ID        uuid.UUID      `json:"id" gorm:"type:uuid;primary_key;default:gen_random_uuid()"`
+	ReviewID  uuid.UUID      `json:"review_id" gorm:"type:uuid;not null;index"`
+	Review    Review         `json:"review,omitempty" gorm:"foreignKey:ReviewID"`
+	UserID    uuid.UUID      `json:"user_id" gorm:"type:uuid;not null;index"`
+	User      User           `json:"user,omitempty" gorm:"foreignKey:UserID"`
+	VoteType  ReviewVoteType `json:"vote_type" gorm:"not null"`
+	CreatedAt time.Time      `json:"created_at" gorm:"autoCreateTime"`
+	UpdatedAt time.Time      `json:"updated_at" gorm:"autoUpdateTime"`
 }
 
 // TableName returns the table name for ReviewVote entity
@@ -152,25 +155,25 @@ func (pr *ProductRating) GetRatingCounts() map[int]int {
 
 // ReviewSummary represents a summary of reviews for a product
 type ReviewSummary struct {
-	ProductID         uuid.UUID          `json:"product_id"`
-	AverageRating     float64            `json:"average_rating"`
-	TotalReviews      int                `json:"total_reviews"`
-	RatingDistribution map[int]float64   `json:"rating_distribution"`
-	RatingCounts      map[int]int        `json:"rating_counts"`
-	RecentReviews     []Review           `json:"recent_reviews,omitempty"`
+	ProductID          uuid.UUID       `json:"product_id"`
+	AverageRating      float64         `json:"average_rating"`
+	TotalReviews       int             `json:"total_reviews"`
+	RatingDistribution map[int]float64 `json:"rating_distribution"`
+	RatingCounts       map[int]int     `json:"rating_counts"`
+	RecentReviews      []Review        `json:"recent_reviews,omitempty"`
 }
 
 // ReviewFilter represents filters for review queries
 type ReviewFilter struct {
-	ProductID    *uuid.UUID    `json:"product_id"`
-	UserID       *uuid.UUID    `json:"user_id"`
-	Rating       *int          `json:"rating"`
-	Status       *ReviewStatus `json:"status"`
-	IsVerified   *bool         `json:"is_verified"`
-	MinRating    *int          `json:"min_rating"`
-	MaxRating    *int          `json:"max_rating"`
-	SortBy       string        `json:"sort_by"`       // created_at, rating, helpful_count
-	SortOrder    string        `json:"sort_order"`    // asc, desc
-	Limit        int           `json:"limit"`
-	Offset       int           `json:"offset"`
+	ProductID  *uuid.UUID    `json:"product_id"`
+	UserID     *uuid.UUID    `json:"user_id"`
+	Rating     *int          `json:"rating"`
+	Status     *ReviewStatus `json:"status"`
+	IsVerified *bool         `json:"is_verified"`
+	MinRating  *int          `json:"min_rating"`
+	MaxRating  *int          `json:"max_rating"`
+	SortBy     string        `json:"sort_by"`    // created_at, rating, helpful_count
+	SortOrder  string        `json:"sort_order"` // asc, desc
+	Limit      int           `json:"limit"`
+	Offset     int           `json:"offset"`
 }

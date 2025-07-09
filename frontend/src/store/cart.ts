@@ -7,7 +7,6 @@ interface CartState {
   cart: Cart | null
   isLoading: boolean
   error: string | null
-  isOpen: boolean
 }
 
 interface CartActions {
@@ -17,9 +16,6 @@ interface CartActions {
   removeItem: (itemId: string) => Promise<void>
   clearCart: () => Promise<void>
   clearCartLocal: () => void  // Clear cart from local state only (for logout)
-  openCart: () => void
-  closeCart: () => void
-  toggleCart: () => void
   clearError: () => void
 }
 
@@ -32,7 +28,6 @@ export const useCartStore = create<CartStore>()(
       cart: null,
       isLoading: false,
       error: null,
-      isOpen: false,
 
       // Actions
       fetchCart: async () => {
@@ -87,7 +82,6 @@ export const useCartStore = create<CartStore>()(
             cart,
             isLoading: false,
             error: null,
-            isOpen: true, // Open cart when item is added
           })
         } catch (error: any) {
           set({
@@ -206,23 +200,18 @@ export const useCartStore = create<CartStore>()(
         // Clear cart from local state only (used for logout)
         set({
           cart: null,
-          isOpen: false,
           error: null,
         })
       },
 
-      openCart: () => set({ isOpen: true }),
-      closeCart: () => set({ isOpen: false }),
-      toggleCart: () => set((state) => ({ isOpen: !state.isOpen })),
       clearError: () => set({ error: null }),
     }),
     {
       name: 'cart-storage',
       partialize: (state) => ({
-        // Only persist cart if we have items and isOpen state
+        // Only persist cart if we have items
         // Don't persist when cart is null (i.e., user logged out)
         cart: state.cart,
-        isOpen: state.isOpen,
       }),
       onRehydrateStorage: () => (state) => {
         // After rehydration, validate cart belongs to current user

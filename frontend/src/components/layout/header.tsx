@@ -40,7 +40,7 @@ export function Header() {
   const userMenuRef = useRef<HTMLDivElement>(null)
 
   const { user, isAuthenticated, logout, refreshUser } = useAuthStore()
-  const { cart, openCart, fetchCart } = useCartStore()
+  const { cart, fetchCart } = useCartStore()
 
   const cartItemCount = getCartItemCount(cart)
   const visibleNavItems = getVisibleNavItems(user?.role || null)
@@ -264,7 +264,7 @@ export function Header() {
                       <>
                         <div className="space-y-3 max-h-64 overflow-y-auto">
                           {cart.items.slice(0, 3).map((item) => (
-                            <div key={item.id} className="flex items-center gap-3 p-2 hover:bg-muted rounded-lg transition-colors">
+                            <div key={item.id} className="flex items-center gap-3 p-2 hover:bg-gray-800/80 rounded-lg transition-colors">
                               <div className="w-12 h-12 bg-muted rounded-lg overflow-hidden">
                                 {item.product.images && item.product.images.length > 0 ? (
                                   <img 

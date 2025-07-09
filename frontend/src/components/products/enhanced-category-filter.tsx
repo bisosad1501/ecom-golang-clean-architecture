@@ -113,10 +113,10 @@ export function EnhancedCategoryFilter({
       <div key={category.id} className="space-y-1">
         <div
           className={cn(
-            'flex items-center space-x-2 p-2 rounded-lg cursor-pointer transition-all duration-200',
-            'hover:bg-gray-700',
-            isSelected && 'bg-orange-500 text-white ring-1 ring-orange-400',
-            isInPath && !isSelected && 'bg-gray-700 text-gray-200',
+            'flex items-center space-x-2 p-3 rounded-lg cursor-pointer transition-all duration-300 font-medium group',
+            'hover:bg-white/[0.08] hover:border-white/20 border border-transparent backdrop-blur-sm',
+            isSelected && 'bg-gradient-to-r from-[#ff9000] to-[#ff9000] text-white border-[#ff9000]/50 shadow-md shadow-[#ff9000]/20',
+            isInPath && !isSelected && 'bg-white/[0.05] border-white/15 text-gray-200',
           )}
           style={{ paddingLeft: `${level * 16 + 8}px` }}
           onClick={() => onCategoryChange(isSelected ? undefined : category.id)}
@@ -125,7 +125,7 @@ export function EnhancedCategoryFilter({
             <Button
               variant="ghost"
               size="sm"
-              className="h-4 w-4 p-0 hover:bg-gray-600 text-gray-300"
+              className="h-6 w-6 p-0 hover:bg-white/10 rounded-md transition-all duration-300"
               onClick={(e) => {
                 e.stopPropagation()
                 toggleExpanded(category.id)
@@ -133,39 +133,46 @@ export function EnhancedCategoryFilter({
             >
               <ChevronRight
                 className={cn(
-                  'h-3 w-3 transition-transform duration-200',
-                  isExpanded && 'rotate-90'
+                  'h-3 w-3 transition-transform duration-300',
+                  isExpanded && 'rotate-90',
+                  isSelected ? 'text-white' : 'text-gray-400'
                 )}
               />
             </Button>
           )}
 
-          <Tag className={cn(
-            'h-4 w-4',
-            isSelected ? 'text-white' : 'text-gray-400'
-          )} />
+          <div className="p-1 rounded-md transition-all duration-300">
+            <Tag className={cn(
+              'h-3.5 w-3.5 transition-colors duration-300',
+              isSelected ? 'text-white' : 'text-[#ff9000]'
+            )} />
+          </div>
 
           <span className={cn(
-            "flex-1 text-sm font-medium",
-            isSelected ? 'text-white' : 'text-gray-300'
+            "flex-1 text-sm font-medium transition-colors duration-300",
+            isSelected ? 'text-white' : 'text-gray-300 group-hover:text-white'
           )}>{category.name}</span>
 
           {showProductCount && category.product_count !== undefined && (
             <Badge
               className={cn(
-                "text-xs",
+                "text-xs font-medium transition-all duration-300",
                 isSelected
-                  ? "bg-white/20 text-white"
-                  : "bg-gray-700 text-gray-300"
+                  ? "bg-white/20 text-white border border-white/30"
+                  : "bg-white/10 text-gray-300 border border-white/15"
               )}
             >
               {category.product_count}
             </Badge>
           )}
+
+          <div className="opacity-0 group-hover:opacity-100 transition-opacity duration-300 text-orange-400">
+            →
+          </div>
         </div>
 
         {hasChildren && isExpanded && (
-          <div className="space-y-1">
+          <div className="space-y-1 pl-2 border-l border-white/10 ml-3">
             {category.children!.map(child => renderCategory(child, level + 1))}
           </div>
         )}
@@ -175,109 +182,119 @@ export function EnhancedCategoryFilter({
 
   if (isLoading) {
     return (
-      <Card className={cn(className, "bg-gray-800 border-gray-700")}>
-        <CardHeader>
-          <CardTitle className="text-white">Categories</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-2">
-            {[...Array(6)].map((_, i) => (
-              <div key={i} className="h-8 bg-gray-700 rounded animate-pulse" />
-            ))}
+      <div className="space-y-4">
+        <div className="flex items-center gap-2 mb-4">
+          <div className="p-1.5 bg-gradient-to-br from-orange-500/20 to-orange-600/20 rounded-lg border border-orange-500/30">
+            <Package className="w-4 h-4 text-orange-400" />
           </div>
-        </CardContent>
-      </Card>
+          <h3 className="text-base font-semibold bg-gradient-to-r from-white to-gray-300 bg-clip-text text-transparent">
+            Categories
+          </h3>
+        </div>
+        <div className="space-y-2">
+          {[...Array(6)].map((_, i) => (
+            <div key={i} className="h-12 bg-white/[0.05] border border-white/10 rounded-lg animate-pulse backdrop-blur-sm" />
+          ))}
+        </div>
+      </div>
     )
   }
 
   return (
-    <Card className={cn(className, "bg-gray-800 border-gray-700")}>
-      <CardHeader className="pb-3">
-        <CardTitle className="flex items-center justify-between text-base">
-          <div className="flex items-center space-x-2">
-            <Package className="h-5 w-5 text-orange-400" />
-            <span className="text-white">Categories</span>
+    <div className="space-y-4">
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <div className="p-1.5 bg-gradient-to-br from-[#ff9000]/20 to-[#ff9000]/20 rounded-lg border border-[#ff9000]/30">
+            <Package className="w-4 h-4 text-[#ff9000]" />
           </div>
-          {selectedCategoryId && (
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => onCategoryChange(undefined)}
-              className="text-xs text-orange-400 hover:text-orange-300 hover:bg-orange-500/10"
-            >
-              Clear
-            </Button>
-          )}
-        </CardTitle>
-      </CardHeader>
-
-      <CardContent className="pt-0">
-        {/* Search Categories */}
-        {showSearch && (
-          <div className="mb-3">
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-              <Input
-                placeholder="Search categories..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-10 text-sm bg-gray-700 border-gray-600 text-white placeholder-gray-400"
-              />
-            </div>
-          </div>
-        )}
-
-        {/* Category Breadcrumbs */}
-        {categoryPath.length > 0 && (
-          <div className="mb-3 p-3 bg-gradient-to-r from-orange-500/10 to-orange-400/10 rounded-lg border border-orange-500/20">
-            <p className="text-xs font-medium text-orange-400 mb-2">Current Selection:</p>
-            <div className="flex items-center space-x-1 text-sm">
-              {categoryPath.map((category, index) => (
-                <div key={category.id} className="flex items-center space-x-1">
-                  <button
-                    onClick={() => onCategoryChange(category.id)}
-                    className="text-orange-300 hover:text-orange-200 hover:underline font-medium transition-colors"
-                  >
-                    {category.name}
-                  </button>
-                  {index < categoryPath.length - 1 && (
-                    <ChevronRight className="h-3 w-3 text-gray-400" />
-                  )}
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {/* Category Tree */}
-        <div className="space-y-1 max-h-80 overflow-y-auto">
-          {filteredCategories?.filter(cat => !cat.parent_id).map(category => renderCategory(category))}
+          <h3 className="text-base font-semibold bg-gradient-to-r from-white to-gray-300 bg-clip-text text-transparent">
+            Categories
+          </h3>
         </div>
-
-        {/* Search Behavior Info */}
         {selectedCategoryId && (
-          <div className="mt-3 p-3 bg-blue-500/10 rounded-lg text-xs text-blue-300 border border-blue-500/20">
-            <div className="flex items-start space-x-2">
-              <Search className="h-4 w-4 mt-0.5 flex-shrink-0" />
-              <div>
-                <p className="font-medium mb-1">🔍 Smart Search Active</p>
-                <p className="text-blue-200">
-                  • Products in this category<br/>
-                  • Products in all subcategories<br/>
-                  • Includes nested hierarchy
-                </p>
-              </div>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => onCategoryChange(undefined)}
+            className="text-xs text-[#ff9000] hover:text-white hover:bg-[#ff9000]/20 border border-[#ff9000]/30 hover:border-[#ff9000]/50 rounded-lg px-2 py-1 font-medium transition-all duration-300 hover:scale-105"
+          >
+            Clear
+          </Button>
+        )}
+      </div>
+
+      {/* Search Categories */}
+      {showSearch && (
+        <div className="relative">
+          <div className="absolute left-3 top-1/2 transform -translate-y-1/2 z-10">
+            <div className="p-1 bg-[#ff9000]/10 rounded border border-[#ff9000]/20">
+              <Search className="h-3 w-3 text-[#ff9000]" />
             </div>
           </div>
-        )}
+          <Input
+            placeholder="Search categories..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="pl-11 text-sm bg-white/[0.05] border-white/15 text-white placeholder-gray-400 backdrop-blur-sm focus:bg-white/[0.08] focus:border-[#ff9000]/50 transition-all duration-300 rounded-lg"
+          />
+        </div>
+      )}
 
-        {searchTerm && filteredCategories.length === 0 && (
-          <div className="text-center py-8 text-gray-400">
+      {/* Category Breadcrumbs */}
+      {categoryPath.length > 0 && (
+        <div className="p-4 bg-gradient-to-r from-[#ff9000]/10 to-[#ff9000]/10 rounded-lg border border-[#ff9000]/20 backdrop-blur-sm">
+          <p className="text-xs font-medium text-[#ff9000] mb-2">Current Selection:</p>
+          <div className="flex items-center space-x-1 text-sm">
+            {categoryPath.map((category, index) => (
+              <div key={category.id} className="flex items-center space-x-1">
+                <button
+                  onClick={() => onCategoryChange(category.id)}
+                  className="text-[#ff9000] hover:text-white hover:underline font-medium transition-colors duration-300"
+                >
+                  {category.name}
+                </button>
+                {index < categoryPath.length - 1 && (
+                  <ChevronRight className="h-3 w-3 text-gray-400" />
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Category Tree */}
+      <div className="space-y-2 max-h-80 overflow-y-auto scrollbar-thin scrollbar-thumb-white/10 scrollbar-track-transparent">
+        {filteredCategories?.filter(cat => !cat.parent_id).map(category => renderCategory(category))}
+      </div>
+
+      {/* Search Behavior Info */}
+      {selectedCategoryId && (
+        <div className="p-4 bg-gradient-to-r from-blue-500/10 to-blue-600/10 rounded-lg border border-blue-500/20 backdrop-blur-sm">
+          <div className="flex items-start space-x-2">
+            <div className="p-1 bg-blue-500/20 rounded border border-blue-500/30">
+              <Search className="h-3 w-3 text-blue-400" />
+            </div>
+            <div>
+              <p className="font-medium mb-1 text-blue-300">🔍 Smart Search Active</p>
+              <p className="text-xs text-blue-200 leading-relaxed">
+                • Products in this category<br/>
+                • Products in all subcategories<br/>
+                • Includes nested hierarchy
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {searchTerm && filteredCategories.length === 0 && (
+        <div className="text-center py-8 text-gray-400">
+          <div className="p-3 bg-white/[0.05] rounded-lg border border-white/10 max-w-sm mx-auto">
             <Package className="h-8 w-8 mx-auto mb-2 opacity-50" />
             <p className="text-sm">No categories found for "{searchTerm}"</p>
           </div>
-        )}
-      </CardContent>
-    </Card>
+        </div>
+      )}
+    </div>
   )
 }
