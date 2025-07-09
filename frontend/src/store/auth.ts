@@ -130,6 +130,17 @@ export const useAuthStore = create<AuthStore>()(
           localStorage.removeItem(AUTH_TOKEN_KEY)
         }
 
+        // IMPORTANT: Clear cart when user logs out to prevent cart sharing
+        // Import cart store and clear it
+        import('@/store/cart').then(({ useCartStore }) => {
+          const cartStore = useCartStore.getState()
+          cartStore.clearCartLocal() // Use local clear to avoid API call during logout
+          // Also clear the cart from localStorage immediately
+          if (typeof window !== 'undefined') {
+            localStorage.removeItem('cart-storage')
+          }
+        })
+
         set({
           user: null,
           token: null,

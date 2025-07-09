@@ -40,11 +40,18 @@ export function Header() {
   const userMenuRef = useRef<HTMLDivElement>(null)
 
   const { user, isAuthenticated, logout, refreshUser } = useAuthStore()
-  const { cart, openCart } = useCartStore()
+  const { cart, openCart, fetchCart } = useCartStore()
 
   const cartItemCount = getCartItemCount(cart)
   const visibleNavItems = getVisibleNavItems(user?.role || null)
   const isAdmin = user?.role === 'admin'
+
+  // Fetch cart when user authentication state changes
+  useEffect(() => {
+    if (isAuthenticated) {
+      fetchCart()
+    }
+  }, [isAuthenticated, fetchCart])
 
   // Close user menu when clicking outside
   useEffect(() => {
@@ -355,12 +362,14 @@ export function Header() {
 
                 {/* User dropdown */}
                 {isUserMenuOpen && (
-                  <div className="absolute right-0 mt-2 w-48 rounded-2xl border bg-white py-1 shadow-2xl z-[60] backdrop-blur-sm">
-                    <div className="px-4 py-3 border-b border-gray-100">
-                      <p className="text-sm font-semibold text-gray-900">
+                  <div className="absolute right-0 mt-2 w-56 rounded-2xl border-2 border-border bg-black/95 py-1 shadow-2xl z-[60] backdrop-blur-sm">
+                    <div className="px-4 py-3 border-b border-border">
+                      <p className="text-sm font-semibold text-white max-w-[180px] truncate" title={user?.first_name + ' ' + user?.last_name}>
                         {user?.first_name} {user?.last_name}
                       </p>
-                      <p className="text-xs text-gray-500">{user?.email}</p>
+                      <p className="text-xs text-gray-400 max-w-[180px] break-all whitespace-normal" title={user?.email}>
+                        {user?.email}
+                      </p>
                       {isAdmin && (
                         <div className={cn(
                           "inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium mt-2",
@@ -387,7 +396,7 @@ export function Header() {
                       <Link
                         key={item.href}
                         href={item.href}
-                        className="flex items-center px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 hover:text-primary-600 transition-colors"
+                        className="flex items-center px-4 py-2.5 text-sm text-gray-200 hover:bg-orange-500/10 hover:text-orange-500 transition-colors"
                         onClick={() => setIsUserMenuOpen(false)}
                       >
                         {item.icon === 'User' && <User className="mr-3 h-4 w-4" />}
@@ -403,19 +412,18 @@ export function Header() {
                       <>
                         <Link
                           href="/admin"
-                          className="flex items-center px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 hover:text-primary-600 border-t border-gray-100 transition-colors"
+                          className="flex items-center px-4 py-2.5 text-sm text-gray-200 hover:bg-orange-500/10 hover:text-orange-500 border-t border-white/10 transition-colors"
                           onClick={() => setIsUserMenuOpen(false)}
                         >
                           <Settings className="mr-3 h-4 w-4" />
                           Admin Panel
                         </Link>
-                        
                         <button
                           onClick={() => {
                             setIsShoppingMode(!isShoppingMode)
                             setIsUserMenuOpen(false)
                           }}
-                          className="flex w-full items-center px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 hover:text-primary-600 transition-colors"
+                          className="flex w-full items-center px-4 py-2.5 text-sm text-gray-200 hover:bg-orange-500/10 hover:text-orange-500 transition-colors"
                         >
                           {isShoppingMode ? (
                             <>
@@ -431,10 +439,9 @@ export function Header() {
                         </button>
                       </>
                     )}
-                    
                     <button
                       onClick={handleLogout}
-                      className="flex w-full items-center px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 hover:text-red-600 border-t border-gray-100 transition-colors"
+                      className="flex w-full items-center px-4 py-2.5 text-sm text-gray-200 hover:bg-orange-500/10 hover:text-red-500 border-t border-white/10 transition-colors"
                     >
                       <LogOut className="mr-3 h-4 w-4" />
                       Sign out

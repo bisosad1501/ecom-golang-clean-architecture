@@ -77,14 +77,14 @@ const (
 
 // OAuthUserInfo represents standardized user info from OAuth providers
 type OAuthUserInfo struct {
-	Provider     OAuthProvider `json:"provider"`
-	ProviderID   string        `json:"provider_id"`
-	Email        string        `json:"email"`
-	Name         string        `json:"name"`
-	FirstName    string        `json:"first_name"`
-	LastName     string        `json:"last_name"`
-	Picture      string        `json:"picture"`
-	Verified     bool          `json:"verified"`
+	Provider   OAuthProvider `json:"provider"`
+	ProviderID string        `json:"provider_id"`
+	Email      string        `json:"email"`
+	Name       string        `json:"name"`
+	FirstName  string        `json:"first_name"`
+	LastName   string        `json:"last_name"`
+	Picture    string        `json:"picture"`
+	Verified   bool          `json:"verified"`
 }
 
 // ToStandardUserInfo converts Google user info to standard format
