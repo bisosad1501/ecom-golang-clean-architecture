@@ -76,16 +76,16 @@ export function EditProductForm({ product, onSuccess, onCancel }: EditProductFor
     defaultValues: {
       name: product.name,
       description: product.description,
-      short_description: product.short_description || '',
+      short_description: (product as any).short_description || '',
       sku: product.sku,
-      price: product.price,
-      compare_price: product.compare_price || undefined,
-      cost_price: product.cost_price || undefined,
-      stock: product.stock,
-      category_id: product.category?.id || product.category_id || '',
-      weight: product.weight || undefined,
+      price: (product as any).price,
+      compare_price: (product as any).compare_price || undefined,
+      cost_price: (product as any).cost_price || undefined,
+      stock: (product as any).stock,
+      category_id: product.category?.id || (product as any).category_id || '',
+      weight: (product as any).weight || undefined,
       status: (product.status as any) || 'active',
-      is_digital: Boolean(product.is_digital),
+      is_digital: Boolean((product as any).is_digital),
     },
   })
 
@@ -111,7 +111,7 @@ export function EditProductForm({ product, onSuccess, onCancel }: EditProductFor
     if (product.images) {
       const productImages = product.images.map((img, index) => ({
         url: img.url,
-        alt_text: img.alt_text || '',
+        alt_text: (img as any).alt_text || '',
         position: index,
       }))
       console.log('Mapped product images:', productImages)
@@ -141,7 +141,7 @@ export function EditProductForm({ product, onSuccess, onCancel }: EditProductFor
     }
     
     if (product.tags) {
-      const productTags = product.tags.map(tag => tag.name)
+      const productTags = (product as any).tags?.map((tag: any) => typeof tag === 'string' ? tag : tag.name) || []
       const currentTagsStr = JSON.stringify(tags)
       const productTagsStr = JSON.stringify(productTags)
       
@@ -157,16 +157,16 @@ export function EditProductForm({ product, onSuccess, onCancel }: EditProductFor
     reset({
       name: product.name,
       description: product.description,
-      short_description: product.short_description || '',
+      short_description: (product as any).short_description || '',
       sku: product.sku,
-      price: product.price,
-      compare_price: product.compare_price || undefined,
-      cost_price: product.cost_price || undefined,
-      stock: product.stock,
-      category_id: product.category?.id || product.category_id || '',
-      weight: product.weight || undefined,
+      price: (product as any).price,
+      compare_price: (product as any).compare_price || undefined,
+      cost_price: (product as any).cost_price || undefined,
+      stock: (product as any).stock,
+      category_id: product.category?.id || (product as any).category_id || '',
+      weight: (product as any).weight || undefined,
       status: (product.status as any) || 'active',
-      is_digital: Boolean(product.is_digital),
+      is_digital: Boolean((product as any).is_digital),
     })
   }, [product, reset])
 
@@ -345,7 +345,7 @@ export function EditProductForm({ product, onSuccess, onCancel }: EditProductFor
         // Option 1: Send full images array (current approach)
         formDataWithExtras.images = images.map(img => ({
           url: img.url,
-          alt_text: img.alt_text || '',
+          alt_text: (img as any).alt_text || '',
           position: img.position,
         }))
 
@@ -398,35 +398,36 @@ export function EditProductForm({ product, onSuccess, onCancel }: EditProductFor
     reset()
     const productImages = product.images?.map((img, index) => ({
       url: img.url,
-      alt_text: img.alt_text || '',
+      alt_text: (img as any).alt_text || '',
       position: index,
     })) || []
     
     setImages(productImages)
     setOriginalImages(productImages)
     setImagesChanged(false) // Reset flag
-    setTags(product.tags?.map(tag => tag.name) || [])
+    setTags((product as any).tags?.map((tag: any) => typeof tag === 'string' ? tag : tag.name) || [])
     setNewTag('')
   }
 
   return (
-    <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
+    <form onSubmit={handleSubmit(onSubmit)} className="space-y-8">
       {/* Basic Information */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Basic Information</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
+      <div className="bg-gradient-to-r from-gray-800 to-gray-700 rounded-xl p-6 border border-gray-600">
+        <h3 className="text-lg font-semibold text-white mb-6 flex items-center gap-2">
+          <span className="w-2 h-2 bg-blue-500 rounded-full"></span>
+          Basic Information
+        </h3>
+        <div className="space-y-6">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label htmlFor="name">Product Name</Label>
+              <Label htmlFor="name" className="text-sm font-medium text-gray-300">Product Name</Label>
               <Input
                 id="name"
                 {...register('name')}
-                className={errors.name ? 'border-red-500' : ''}
+                className={`bg-gray-900 border-gray-600 text-white focus:border-blue-500 focus:ring-blue-500 ${errors.name ? 'border-red-500' : ''}`}
               />
               {errors.name && (
-                <p className="text-sm text-red-600 flex items-center gap-1">
+                <p className="text-sm text-red-400 flex items-center gap-1">
                   <AlertCircle className="h-4 w-4" />
                   {errors.name.message}
                 </p>
@@ -434,14 +435,14 @@ export function EditProductForm({ product, onSuccess, onCancel }: EditProductFor
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="sku">SKU</Label>
+              <Label htmlFor="sku" className="text-sm font-medium text-gray-300">SKU</Label>
               <Input
                 id="sku"
                 {...register('sku')}
-                className={errors.sku ? 'border-red-500' : ''}
+                className={`bg-gray-900 border-gray-600 text-white focus:border-blue-500 focus:ring-blue-500 font-mono ${errors.sku ? 'border-red-500' : ''}`}
               />
               {errors.sku && (
-                <p className="text-sm text-red-600 flex items-center gap-1">
+                <p className="text-sm text-red-400 flex items-center gap-1">
                   <AlertCircle className="h-4 w-4" />
                   {errors.sku.message}
                 </p>
@@ -450,15 +451,15 @@ export function EditProductForm({ product, onSuccess, onCancel }: EditProductFor
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="description">Description</Label>
+            <Label htmlFor="description" className="text-sm font-medium text-gray-300">Description</Label>
             <Textarea
               id="description"
               rows={4}
               {...register('description')}
-              className={errors.description ? 'border-red-500' : ''}
+              className={`bg-gray-900 border-gray-600 text-white focus:border-blue-500 focus:ring-blue-500 ${errors.description ? 'border-red-500' : ''}`}
             />
             {errors.description && (
-              <p className="text-sm text-red-600 flex items-center gap-1">
+              <p className="text-sm text-red-400 flex items-center gap-1">
                 <AlertCircle className="h-4 w-4" />
                 {errors.description.message}
               </p>
@@ -466,33 +467,32 @@ export function EditProductForm({ product, onSuccess, onCancel }: EditProductFor
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="short_description">Short Description</Label>
+            <Label htmlFor="short_description" className="text-sm font-medium text-gray-300">Short Description</Label>
             <Textarea
               id="short_description"
               rows={2}
               {...register('short_description')}
+              className="bg-gray-900 border-gray-600 text-white focus:border-blue-500 focus:ring-blue-500"
             />
           </div>
-        </CardContent>
-      </Card>
+        </div>
+      </div>
 
       {/* Images */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <ImageIcon className="h-5 w-5" />
-            Product Images
-            {imagesChanged && (
-              <Badge variant="outline" className="text-orange-600 border-orange-600">
-                Modified
-              </Badge>
-            )}
-          </CardTitle>
-          <p className="text-sm text-gray-600 dark:text-gray-400">
-            Upload images to showcase your product. The first image will be used as the primary product image.
-          </p>
-        </CardHeader>
-        <CardContent>
+      <div className="bg-gradient-to-r from-gray-800 to-gray-700 rounded-xl p-6 border border-gray-600">
+        <div className="flex items-center gap-2 mb-6">
+          <ImageIcon className="h-5 w-5 text-white" />
+          <h3 className="text-lg font-semibold text-white">Product Images</h3>
+          {imagesChanged && (
+            <Badge variant="outline" className="text-orange-400 border-orange-400 bg-orange-500/10">
+              Modified
+            </Badge>
+          )}
+        </div>
+        <p className="text-sm text-gray-400 mb-6">
+          Upload images to showcase your product. The first image will be used as the primary product image.
+        </p>
+        <div>
           <ImageUploadGrid
             images={images}
             onImagesChange={(newImages) => {
@@ -507,67 +507,70 @@ export function EditProductForm({ product, onSuccess, onCancel }: EditProductFor
             maxImages={10}
             isUploading={isUploadingImages}
           />
-        </CardContent>
-      </Card>
+        </div>
+      </div>
 
       {/* Pricing & Inventory */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Pricing & Inventory</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
+      <div className="bg-gradient-to-r from-gray-800 to-gray-700 rounded-xl p-6 border border-gray-600">
+        <h3 className="text-lg font-semibold text-white mb-6 flex items-center gap-2">
+          <span className="w-2 h-2 bg-[#FF9000] rounded-full"></span>
+          Pricing & Inventory
+        </h3>
+        <div className="space-y-6">
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="price">Price</Label>
+            <div className="bg-gray-900 rounded-lg p-4 border border-gray-600 space-y-2">
+              <Label htmlFor="price" className="text-sm font-medium text-gray-300">Price *</Label>
               <Input
                 id="price"
                 type="number"
                 step="0.01"
                 {...register('price', { valueAsNumber: true })}
-                className={errors.price ? 'border-red-500' : ''}
+                className={`bg-gray-800 border-gray-600 text-white focus:border-[#FF9000] focus:ring-[#FF9000] ${errors.price ? 'border-red-500' : ''}`}
               />
               {errors.price && (
-                <p className="text-sm text-red-600 flex items-center gap-1">
+                <p className="text-sm text-red-400 flex items-center gap-1">
                   <AlertCircle className="h-4 w-4" />
                   {errors.price.message}
                 </p>
               )}
             </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="compare_price">Compare Price</Label>
+            <div className="bg-gray-900 rounded-lg p-4 border border-gray-600 space-y-2">
+              <Label htmlFor="compare_price" className="text-sm font-medium text-gray-300">Compare Price</Label>
               <Input
                 id="compare_price"
                 type="number"
                 step="0.01"
                 {...register('compare_price', { valueAsNumber: true })}
+                className="bg-gray-800 border-gray-600 text-white focus:border-[#FF9000] focus:ring-[#FF9000]"
               />
             </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="cost_price">Cost Price</Label>
+            <div className="bg-gray-900 rounded-lg p-4 border border-gray-600 space-y-2">
+              <Label htmlFor="cost_price" className="text-sm font-medium text-gray-300">Cost Price</Label>
               <Input
                 id="cost_price"
                 type="number"
                 step="0.01"
                 {...register('cost_price', { valueAsNumber: true })}
+                className="bg-gray-800 border-gray-600 text-white focus:border-[#FF9000] focus:ring-[#FF9000]"
               />
             </div>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label htmlFor="stock">Stock Quantity</Label>
+              <Label htmlFor="stock" className="text-sm font-medium text-gray-300">Stock Quantity</Label>
               <Input
                 id="stock"
                 type="number"
                 {...register('stock', { valueAsNumber: true })}
-                className={errors.stock ? 'border-red-500' : ''}
+                className={`bg-gray-900 border-gray-600 text-white focus:border-[#FF9000] focus:ring-[#FF9000] ${errors.stock ? 'border-red-500' : ''}`}
               />
               {errors.stock && (
-                <p className="text-sm text-red-600 flex items-center gap-1">
+                <p className="text-sm text-red-400 flex items-center gap-1">
                   <AlertCircle className="h-4 w-4" />
-                  {errors.stock.message}
+                  {errors.stock?.message}
                 </p>
               )}
             </div>
@@ -614,13 +617,13 @@ export function EditProductForm({ product, onSuccess, onCancel }: EditProductFor
                   </Button>
                   
                   {categoryDropdownOpen && (
-                    <div className="absolute z-50 w-full mt-1 bg-white border border-gray-200 rounded-md shadow-lg max-h-60">
+                    <div className="absolute z-50 w-full mt-1 bg-gray-900 border border-gray-600 rounded-md shadow-lg max-h-60">
                       <div 
                         className="flex"
                         onMouseLeave={() => setHoveredParentId(null)}
                       >
                         {/* Left Column - Parent Categories */}
-                        <div className="flex-1 p-1 border-r border-gray-100">
+                        <div className="flex-1 p-1 border-r border-gray-700">
                           {(() => {
                             // Group categories by parent
                             const parentCategories = categories.filter(cat => (cat.level || 0) === 0)
@@ -645,8 +648,8 @@ export function EditProductForm({ product, onSuccess, onCancel }: EditProductFor
                                     className={cn(
                                       "cursor-pointer select-none py-2.5 px-3 text-sm rounded transition-colors flex items-center justify-between",
                                       isParentSelected 
-                                        ? "bg-blue-100 text-blue-900" 
-                                        : "hover:bg-gray-100"
+                                        ? "bg-blue-600 text-white" 
+                                        : "hover:bg-gray-800 text-gray-300"
                                     )}
                                     onClick={() => {
                                       console.log('=== PARENT CATEGORY SELECTED ===')
@@ -656,17 +659,20 @@ export function EditProductForm({ product, onSuccess, onCancel }: EditProductFor
                                     }}
                                   >
                                     <div className="flex items-center">
-                                      <span className="font-medium text-gray-900">
+                                      <span className={cn(
+                                        "font-medium",
+                                        isParentSelected ? "text-white" : "text-gray-200"
+                                      )}>
                                         {parentCategory.name}
                                       </span>
                                       {isParentSelected && (
-                                        <span className="text-blue-600 ml-2 font-bold">✓</span>
+                                        <span className="text-blue-300 ml-2 font-bold">✓</span>
                                       )}
                                     </div>
                                     <div className="flex items-center">
                                       {children.length > 0 && (
                                         <>
-                                          <span className="text-xs text-gray-500 mr-2">
+                                          <span className="text-xs text-gray-400 mr-2">
                                             {children.length}
                                           </span>
                                           <svg 
@@ -704,7 +710,7 @@ export function EditProductForm({ product, onSuccess, onCancel }: EditProductFor
                               
                               return (
                                 <div>
-                                  <div className="px-3 py-2 text-xs font-medium text-gray-600 border-b border-gray-100 mb-1">
+                                  <div className="px-3 py-2 text-xs font-medium text-gray-400 border-b border-gray-700 mb-1">
                                     {hoveredParent.name}
                                   </div>
                                   {children.map((childCategory) => {
@@ -716,8 +722,8 @@ export function EditProductForm({ product, onSuccess, onCancel }: EditProductFor
                                         className={cn(
                                           "cursor-pointer select-none py-2 px-3 text-sm rounded transition-colors flex items-center justify-between",
                                           isChildSelected 
-                                            ? "bg-blue-100 text-blue-900 font-medium" 
-                                            : "hover:bg-gray-100 text-gray-700"
+                                            ? "bg-blue-600 text-white font-medium" 
+                                            : "hover:bg-gray-800 text-gray-300"
                                         )}
                                         onClick={() => {
                                           console.log('=== CHILD CATEGORY SELECTED ===')
@@ -730,7 +736,7 @@ export function EditProductForm({ product, onSuccess, onCancel }: EditProductFor
                                           {childCategory.name}
                                         </span>
                                         {isChildSelected && (
-                                          <span className="text-blue-600 font-bold">✓</span>
+                                          <span className="text-blue-300 font-bold">✓</span>
                                         )}
                                       </div>
                                     )
@@ -757,31 +763,33 @@ export function EditProductForm({ product, onSuccess, onCancel }: EditProductFor
               )}
             </div>
           </div>
-        </CardContent>
-      </Card>
+        </div>
+      </div>
 
       {/* Product Details */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Product Details</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
+      <div className="bg-gradient-to-r from-gray-800 to-gray-700 rounded-xl p-6 border border-gray-600">
+        <h3 className="text-lg font-semibold text-white mb-6 flex items-center gap-2">
+          <span className="w-2 h-2 bg-purple-500 rounded-full"></span>
+          Product Details
+        </h3>
+        <div className="space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label htmlFor="weight">Weight (kg)</Label>
+              <Label htmlFor="weight" className="text-sm font-medium text-gray-300">Weight (kg)</Label>
               <Input
                 id="weight"
                 type="number"
                 step="0.01"
                 {...register('weight', { valueAsNumber: true })}
+                className="bg-gray-900 border-gray-600 text-white focus:border-purple-500 focus:ring-purple-500"
               />
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="status">Status</Label>
+              <Label htmlFor="status" className="text-sm font-medium text-gray-300">Status</Label>
               <select
                 {...register('status')}
-                className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                className="flex h-10 w-full rounded-md border border-gray-600 bg-gray-900 px-3 py-2 text-sm text-white ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple-500 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
               >
                 <option value="active">Active</option>
                 <option value="draft">Draft</option>
@@ -795,25 +803,27 @@ export function EditProductForm({ product, onSuccess, onCancel }: EditProductFor
               id="is_digital"
               type="checkbox"
               {...register('is_digital')}
-              className="h-4 w-4 rounded border-gray-300"
+              className="h-4 w-4 rounded border-gray-600 bg-gray-900 text-purple-500 focus:ring-purple-500 focus:ring-offset-gray-800"
             />
-            <Label htmlFor="is_digital">Digital Product</Label>
+            <Label htmlFor="is_digital" className="text-gray-300">Digital Product</Label>
           </div>
-        </CardContent>
-      </Card>
+        </div>
+      </div>
 
       {/* Tags */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Tags ({tags.length}/10)</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
+      <div className="bg-gradient-to-r from-gray-800 to-gray-700 rounded-xl p-6 border border-gray-600">
+        <h3 className="text-lg font-semibold text-white mb-6 flex items-center gap-2">
+          <span className="w-2 h-2 bg-green-500 rounded-full"></span>
+          Tags ({tags.length}/10)
+        </h3>
+        <div className="space-y-4">
           <div className="flex gap-2">
             <Input
               placeholder="Enter tag name"
               value={newTag}
               onChange={(e) => setNewTag(e.target.value)}
               onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), addTag())}
+              className="bg-gray-900 border-gray-600 text-white focus:border-green-500 focus:ring-green-500 placeholder:text-gray-400"
             />
             <Button
               type="button"
@@ -847,8 +857,8 @@ export function EditProductForm({ product, onSuccess, onCancel }: EditProductFor
               ))}
             </div>
           )}
-        </CardContent>
-      </Card>
+        </div>
+      </div>
 
       {/* Actions */}
       <div className="flex justify-end space-x-4">

@@ -16,6 +16,8 @@ export const productKeys = {
   suggestions: (query: string) => [...productKeys.all, 'suggestions', query] as const,
   reviews: (id: string) => [...productKeys.all, 'reviews', id] as const,
   analytics: (id: string, period: string) => [...productKeys.all, 'analytics', id, period] as const,
+  admin: () => [...productKeys.all, 'admin'] as const,
+  adminList: (params: ProductsParams) => [...productKeys.admin(), 'list', params] as const,
 }
 
 // Hooks for fetching products
@@ -30,6 +32,24 @@ export function useProducts(params: ProductsParams = {}) {
         return result
       } catch (error) {
         console.error('useProducts: Error fetching products:', error)
+        throw error
+      }
+    },
+    staleTime: 5 * 60 * 1000, // 5 minutes
+  })
+}
+
+export function useAdminProducts(params: ProductsParams = {}) {
+  return useQuery({
+    queryKey: productKeys.adminList(params),
+    queryFn: async () => {
+      console.log('useAdminProducts: Fetching admin products with params:', params)
+      try {
+        const result = await productService.getAdminProducts(params)
+        console.log('useAdminProducts: Successfully fetched admin products:', result)
+        return result
+      } catch (error) {
+        console.error('useAdminProducts: Error fetching admin products:', error)
         throw error
       }
     },

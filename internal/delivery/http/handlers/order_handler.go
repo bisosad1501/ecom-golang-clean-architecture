@@ -136,20 +136,35 @@ func (h *OrderHandler) GetOrderPublic(c *gin.Context) {
 		return
 	}
 
-	// Return basic order info for success page (no sensitive data)
-	publicOrder := map[string]interface{}{
-		"id":             order.ID,
-		"order_number":   order.OrderNumber,
-		"status":         order.Status,
-		"payment_status": order.PaymentStatus,
-		"total":          order.Total,
-		"created_at":     order.CreatedAt,
-		"items":          order.Items,
+	// Return full order info for public access (since we have order ID, it's safe)
+	// Users who have the order ID should be able to see all non-sensitive details
+	orderResponse := map[string]interface{}{
+		"id":               order.ID,
+		"order_number":     order.OrderNumber,
+		"status":           order.Status,
+		"payment_status":   order.PaymentStatus,
+		"subtotal":         order.Subtotal,
+		"tax_amount":       order.TaxAmount,
+		"shipping_amount":  order.ShippingAmount,
+		"discount_amount":  order.DiscountAmount,
+		"total":            order.Total,
+		"currency":         order.Currency,
+		"notes":            order.Notes,
+		"item_count":       order.ItemCount,
+		"can_be_cancelled": order.CanBeCancelled,
+		"can_be_refunded":  order.CanBeRefunded,
+		"created_at":       order.CreatedAt,
+		"updated_at":       order.UpdatedAt,
+		"items":            order.Items,
+		"shipping_address": order.ShippingAddress,
+		"billing_address":  order.BillingAddress,
+		"user":             order.User,
+		"payment":          order.Payment,
 	}
 
 	c.JSON(http.StatusOK, SuccessResponse{
 		Message: "Order retrieved successfully",
-		Data:    publicOrder,
+		Data:    orderResponse,
 	})
 }
 

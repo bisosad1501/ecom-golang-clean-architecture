@@ -34,6 +34,8 @@ func (r *orderRepository) GetByID(ctx context.Context, id uuid.UUID) (*entities.
 		Preload("User").
 		Preload("Items").
 		Preload("Items.Product").
+		Preload("Items.Product.Images").
+		Preload("Items.Product.Category").
 		Preload("Payment").
 		Where("id = ?", id).
 		First(&order).Error
@@ -53,6 +55,8 @@ func (r *orderRepository) GetByOrderNumber(ctx context.Context, orderNumber stri
 		Preload("User").
 		Preload("Items").
 		Preload("Items.Product").
+		Preload("Items.Product.Images").
+		Preload("Items.Product.Category").
 		Preload("Payment").
 		Where("order_number = ?", orderNumber).
 		First(&order).Error

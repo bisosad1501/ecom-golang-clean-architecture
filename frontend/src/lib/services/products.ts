@@ -136,6 +136,24 @@ class ProductService {
   }
 
   // Admin methods
+  async getAdminProducts(params: ProductsParams = {}): Promise<PaginatedResponse<Product>> {
+    console.log('ProductService.getAdminProducts called with params:', params)
+    try {
+      const queryString = buildQueryString(params)
+      const endpoint = `/admin/products${queryString ? `?${queryString}` : ''}`
+      console.log('ProductService.getAdminProducts endpoint:', endpoint)
+      
+      const response = await apiClient.get<PaginatedResponse<Product>>(endpoint)
+      console.log('ProductService.getAdminProducts response:', response)
+      console.log('ProductService.getAdminProducts response.data:', response.data)
+      
+      return response.data
+    } catch (error) {
+      console.error('ProductService.getAdminProducts error:', error)
+      throw error
+    }
+  }
+
   async createProduct(data: CreateProductRequest): Promise<Product> {
     const response = await apiClient.post<Product>('/admin/products', data)
     return response.data

@@ -180,65 +180,170 @@ export function AdminDashboard() {
         }
       />
 
-      {/* Stats Cards */}
+      {/* Enhanced Quick Stats with Modern Design - Similar to Orders Page */}
       <RequirePermission permission={PERMISSIONS.ANALYTICS_VIEW}>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-          <BiHubStatCard
-            title="Total Revenue"
-            value={formatPrice(stats.revenue.current)}
-            change={stats.revenue.change}
-            icon={<DollarSign className="h-8 w-8 text-white" />}
-            color="primary"
-          />
-          <BiHubStatCard
-            title="Total Orders"
-            value={stats.orders.current}
-            change={stats.orders.change}
-            icon={<ShoppingCart className="h-8 w-8 text-white" />}
-            color="success"
-          />
-          <BiHubStatCard
-            title="Total Customers"
-            value={stats.customers.current}
-            change={stats.customers.change}
-            icon={<Users className="h-8 w-8 text-white" />}
-            color="info"
-          />
-          <BiHubStatCard
-            title="Total Products"
-            value={stats.products.current}
-            change={stats.products.change}
-            icon={<Package className="h-8 w-8 text-white" />}
-            color="warning"
-          />
-        </div>
+        <div className="space-y-6">
+          {/* Primary Stats Row - Modern Glass Design */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            {/* Total Revenue */}
+            <div className="group relative bg-white/5 backdrop-blur-sm border border-green-300/20 rounded-xl p-4 hover:bg-white/10 hover:border-green-400/40 hover:scale-[1.02] transition-all duration-200 shadow-sm hover:shadow-lg hover:shadow-green-500/10">
+              <div className="absolute inset-0 bg-gradient-to-br from-green-500/5 to-emerald-600/5 rounded-xl opacity-0 group-hover:opacity-100 transition-opacity duration-200"></div>
+              <div className="relative flex items-center justify-between">
+                <div>
+                  <p className="text-green-400/80 text-sm font-medium uppercase tracking-wide">Total Revenue</p>
+                  <p className="text-2xl font-bold text-green-100 mt-1">{formatPrice(stats.revenue.current)}</p>
+                  <div className="flex items-center gap-1 mt-2">
+                    {stats.revenue.isPositive ? (
+                      <TrendingUp className="h-3 w-3 text-green-400" />
+                    ) : (
+                      <TrendingDown className="h-3 w-3 text-red-400" />
+                    )}
+                    <span className={cn(
+                      "text-xs font-medium",
+                      stats.revenue.isPositive ? "text-green-400" : "text-red-400"
+                    )}>
+                      {stats.revenue.change}%
+                    </span>
+                  </div>
+                </div>
+                <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-green-500/20 to-emerald-600/20 border border-green-400/30 flex items-center justify-center group-hover:scale-110 transition-transform">
+                  <DollarSign className="h-5 w-5 text-green-400" />
+                </div>
+              </div>
+            </div>
 
-        {/* Additional Stats Row */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mt-6">
-          <BiHubStatCard
-            title="Pending Orders"
-            value={pendingOrders}
-            icon={<Clock className="h-8 w-8 text-white" />}
-            color="warning"
-          />
-          <BiHubStatCard
-            title="Low Stock Items"
-            value={lowStockItems}
-            icon={<Package className="h-8 w-8 text-white" />}
-            color="error"
-          />
-          <BiHubStatCard
-            title="Pending Reviews"
-            value={pendingReviews}
-            icon={<Star className="h-8 w-8 text-white" />}
-            color="info"
-          />
-          <BiHubStatCard
-            title="Active Users"
-            value={activeUsers}
-            icon={<Users className="h-8 w-8 text-white" />}
-            color="success"
-          />
+            {/* Total Orders */}
+            <div className="group relative bg-white/5 backdrop-blur-sm border border-blue-300/20 rounded-xl p-4 hover:bg-white/10 hover:border-blue-400/40 hover:scale-[1.02] transition-all duration-200 shadow-sm hover:shadow-lg hover:shadow-blue-500/10">
+              <div className="absolute inset-0 bg-gradient-to-br from-blue-500/5 to-indigo-600/5 rounded-xl opacity-0 group-hover:opacity-100 transition-opacity duration-200"></div>
+              <div className="relative flex items-center justify-between">
+                <div>
+                  <p className="text-blue-400/80 text-sm font-medium uppercase tracking-wide">Total Orders</p>
+                  <p className="text-2xl font-bold text-blue-100 mt-1">{stats.orders.current}</p>
+                  <div className="flex items-center gap-1 mt-2">
+                    {stats.orders.isPositive ? (
+                      <TrendingUp className="h-3 w-3 text-green-400" />
+                    ) : (
+                      <TrendingDown className="h-3 w-3 text-red-400" />
+                    )}
+                    <span className={cn(
+                      "text-xs font-medium",
+                      stats.orders.isPositive ? "text-green-400" : "text-red-400"
+                    )}>
+                      {stats.orders.change}%
+                    </span>
+                  </div>
+                </div>
+                <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-blue-500/20 to-indigo-600/20 border border-blue-400/30 flex items-center justify-center group-hover:scale-110 transition-transform">
+                  <ShoppingCart className="h-5 w-5 text-blue-400" />
+                </div>
+              </div>
+            </div>
+
+            {/* Total Customers */}
+            <div className="group relative bg-white/5 backdrop-blur-sm border border-purple-300/20 rounded-xl p-4 hover:bg-white/10 hover:border-purple-400/40 hover:scale-[1.02] transition-all duration-200 shadow-sm hover:shadow-lg hover:shadow-purple-500/10">
+              <div className="absolute inset-0 bg-gradient-to-br from-purple-500/5 to-violet-600/5 rounded-xl opacity-0 group-hover:opacity-100 transition-opacity duration-200"></div>
+              <div className="relative flex items-center justify-between">
+                <div>
+                  <p className="text-purple-400/80 text-sm font-medium uppercase tracking-wide">Total Customers</p>
+                  <p className="text-2xl font-bold text-purple-100 mt-1">{stats.customers.current}</p>
+                  <div className="flex items-center gap-1 mt-2">
+                    {stats.customers.isPositive ? (
+                      <TrendingUp className="h-3 w-3 text-green-400" />
+                    ) : (
+                      <TrendingDown className="h-3 w-3 text-red-400" />
+                    )}
+                    <span className={cn(
+                      "text-xs font-medium",
+                      stats.customers.isPositive ? "text-green-400" : "text-red-400"
+                    )}>
+                      {stats.customers.change}%
+                    </span>
+                  </div>
+                </div>
+                <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-purple-500/20 to-violet-600/20 border border-purple-400/30 flex items-center justify-center group-hover:scale-110 transition-transform">
+                  <Users className="h-5 w-5 text-purple-400" />
+                </div>
+              </div>
+            </div>
+
+            {/* Total Products */}
+            <div className="group relative bg-white/5 backdrop-blur-sm border border-amber-300/20 rounded-xl p-4 hover:bg-white/10 hover:border-amber-400/40 hover:scale-[1.02] transition-all duration-200 shadow-sm hover:shadow-lg hover:shadow-amber-500/10">
+              <div className="absolute inset-0 bg-gradient-to-br from-amber-500/5 to-orange-500/5 rounded-xl opacity-0 group-hover:opacity-100 transition-opacity duration-200"></div>
+              <div className="relative flex items-center justify-between">
+                <div>
+                  <p className="text-amber-400/80 text-sm font-medium uppercase tracking-wide">Total Products</p>
+                  <p className="text-2xl font-bold text-amber-100 mt-1">{stats.products.current}</p>
+                  <div className="flex items-center gap-1 mt-2">
+                    {stats.products.isPositive ? (
+                      <TrendingUp className="h-3 w-3 text-green-400" />
+                    ) : (
+                      <TrendingDown className="h-3 w-3 text-red-400" />
+                    )}
+                    <span className={cn(
+                      "text-xs font-medium",
+                      stats.products.isPositive ? "text-green-400" : "text-red-400"
+                    )}>
+                      {stats.products.change}%
+                    </span>
+                  </div>
+                </div>
+                <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-amber-500/20 to-orange-500/20 border border-amber-400/30 flex items-center justify-center group-hover:scale-110 transition-transform">
+                  <Package className="h-5 w-5 text-amber-400" />
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Secondary Stats - Ultra Compact Cards */}
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+            {/* Pending Orders */}
+            <div className="group relative bg-white/5 backdrop-blur-sm border border-amber-300/20 rounded-lg p-2.5 hover:bg-white/10 hover:border-amber-400/40 hover:scale-[1.02] transition-all duration-200 shadow-sm hover:shadow-md hover:shadow-amber-500/10">
+              <div className="absolute inset-0 bg-gradient-to-br from-amber-500/5 to-orange-500/5 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity duration-200"></div>
+              <div className="relative flex flex-col items-center text-center">
+                <div className="w-6 h-6 rounded-md bg-gradient-to-br from-amber-500/20 to-orange-500/20 border border-amber-400/30 flex items-center justify-center mb-1.5 group-hover:scale-110 transition-transform">
+                  <Clock className="h-3 w-3 text-amber-400" />
+                </div>
+                <p className="text-xs text-amber-400/90 font-medium uppercase tracking-wider">Pending</p>
+                <p className="text-base font-bold text-amber-300 mt-0.5">{pendingOrders}</p>
+              </div>
+            </div>
+
+            {/* Low Stock */}
+            <div className="group relative bg-white/5 backdrop-blur-sm border border-red-300/20 rounded-lg p-2.5 hover:bg-white/10 hover:border-red-400/40 hover:scale-[1.02] transition-all duration-200 shadow-sm hover:shadow-md hover:shadow-red-500/10">
+              <div className="absolute inset-0 bg-gradient-to-br from-red-500/5 to-rose-600/5 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity duration-200"></div>
+              <div className="relative flex flex-col items-center text-center">
+                <div className="w-6 h-6 rounded-md bg-gradient-to-br from-red-500/20 to-rose-600/20 border border-red-400/30 flex items-center justify-center mb-1.5 group-hover:scale-110 transition-transform">
+                  <Package className="h-3 w-3 text-red-400" />
+                </div>
+                <p className="text-xs text-red-400/90 font-medium uppercase tracking-wider">Low Stock</p>
+                <p className="text-base font-bold text-red-300 mt-0.5">{lowStockItems}</p>
+              </div>
+            </div>
+
+            {/* Pending Reviews */}
+            <div className="group relative bg-white/5 backdrop-blur-sm border border-sky-300/20 rounded-lg p-2.5 hover:bg-white/10 hover:border-sky-400/40 hover:scale-[1.02] transition-all duration-200 shadow-sm hover:shadow-md hover:shadow-sky-500/10">
+              <div className="absolute inset-0 bg-gradient-to-br from-sky-500/5 to-blue-600/5 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity duration-200"></div>
+              <div className="relative flex flex-col items-center text-center">
+                <div className="w-6 h-6 rounded-md bg-gradient-to-br from-sky-500/20 to-blue-600/20 border border-sky-400/30 flex items-center justify-center mb-1.5 group-hover:scale-110 transition-transform">
+                  <Star className="h-3 w-3 text-sky-400" />
+                </div>
+                <p className="text-xs text-sky-400/90 font-medium uppercase tracking-wider">Reviews</p>
+                <p className="text-base font-bold text-sky-300 mt-0.5">{pendingReviews}</p>
+              </div>
+            </div>
+
+            {/* Active Users */}
+            <div className="group relative bg-white/5 backdrop-blur-sm border border-emerald-300/20 rounded-lg p-2.5 hover:bg-white/10 hover:border-emerald-400/40 hover:scale-[1.02] transition-all duration-200 shadow-sm hover:shadow-md hover:shadow-emerald-500/10">
+              <div className="absolute inset-0 bg-gradient-to-br from-emerald-500/5 to-green-600/5 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity duration-200"></div>
+              <div className="relative flex flex-col items-center text-center">
+                <div className="w-6 h-6 rounded-md bg-gradient-to-br from-emerald-500/20 to-green-600/20 border border-emerald-400/30 flex items-center justify-center mb-1.5 group-hover:scale-110 transition-transform">
+                  <Users className="h-3 w-3 text-emerald-400" />
+                </div>
+                <p className="text-xs text-emerald-400/90 font-medium uppercase tracking-wider">Active</p>
+                <p className="text-base font-bold text-emerald-300 mt-0.5">{activeUsers}</p>
+              </div>
+            </div>
+          </div>
         </div>
       </RequirePermission>
 
@@ -261,37 +366,54 @@ export function AdminDashboard() {
               </Button>
             }
           >
-            <div className="space-y-4">
+            <div className="space-y-3">
               {recentOrders.length > 0 ? (
                 recentOrders.slice(0, 5).map((order) => (
-                  <div key={order.id} className="flex items-center justify-between p-4 bg-gray-800 rounded-lg hover:bg-gray-750 transition-colors">
-                    <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center">
-                        <ShoppingCart className="h-5 w-5 text-white" />
+                  <div key={order.id} className="group relative bg-white/5 backdrop-blur-sm border border-gray-700/50 rounded-xl p-4 hover:bg-white/10 hover:border-gray-600/50 hover:scale-[1.01] transition-all duration-200 shadow-sm hover:shadow-lg">
+                    {/* Gradient Background */}
+                    <div className="absolute inset-0 bg-gradient-to-br from-blue-500/5 to-purple-500/5 rounded-xl opacity-0 group-hover:opacity-100 transition-opacity duration-200"></div>
+
+                    <div className="relative flex items-center justify-between">
+                      <div className="flex items-center gap-4">
+                        {/* Modern Status Icon */}
+                        <div className="relative w-10 h-10 rounded-lg bg-gradient-to-br from-blue-500/20 to-indigo-600/20 border border-blue-400/30 flex items-center justify-center shadow-sm">
+                          <ShoppingCart className="h-4 w-4 text-blue-400" />
+                          <div className="absolute inset-0 bg-white/10 rounded-lg blur-sm"></div>
+                        </div>
+
+                        <div>
+                          <p className="text-sm font-semibold text-white group-hover:text-[#FF9000] transition-colors">
+                            Order #{order.order_number || order.id.slice(0, 8)}
+                          </p>
+                          <p className="text-xs text-gray-400 mt-0.5">
+                            {order.user?.first_name} {order.user?.last_name}
+                          </p>
+                        </div>
                       </div>
-                      <div>
-                        <p className={BIHUB_ADMIN_THEME.typography.body.medium}>
-                          Order #{order.order_number || order.id.slice(0, 8)}
+
+                      <div className="text-right">
+                        <p className="text-lg font-bold text-[#FF9000] group-hover:text-[#FF9000]/80 transition-colors">
+                          {formatPrice((order?.total || order?.total_amount || 0))}
                         </p>
-                        <p className={BIHUB_ADMIN_THEME.typography.body.small}>
-                          {order.user?.first_name} {order.user?.last_name}
-                        </p>
+                        <div className="mt-1">
+                          <BiHubStatusBadge status={getBadgeVariant(order.status)}>
+                            {order.status}
+                          </BiHubStatusBadge>
+                        </div>
                       </div>
-                    </div>
-                    <div className="text-right">
-                      <p className="text-lg font-bold text-[#FF9000]">
-                        {formatPrice((order?.total || order?.total_amount || 0))}
-                      </p>
-                      <BiHubStatusBadge status={getBadgeVariant(order.status)}>
-                        {order.status}
-                      </BiHubStatusBadge>
                     </div>
                   </div>
                 ))
               ) : (
-                <div className="text-center py-8">
-                  <ShoppingCart className="h-12 w-12 text-gray-600 mx-auto mb-4" />
-                  <p className={BIHUB_ADMIN_THEME.typography.body.medium}>No recent orders</p>
+                <div className="relative bg-white/5 backdrop-blur-sm border border-gray-700/50 rounded-xl p-8 text-center">
+                  <div className="absolute inset-0 bg-gradient-to-br from-gray-500/5 to-slate-500/5 rounded-xl"></div>
+                  <div className="relative">
+                    <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-gray-500/20 to-slate-500/20 border border-gray-400/30 flex items-center justify-center mx-auto mb-4">
+                      <ShoppingCart className="h-6 w-6 text-gray-400" />
+                    </div>
+                    <p className="text-lg font-semibold text-white mb-1">No recent orders</p>
+                    <p className="text-sm text-gray-400">Orders will appear here once customers start placing them</p>
+                  </div>
                 </div>
               )}
             </div>
@@ -350,7 +472,7 @@ export function AdminDashboard() {
           <div className="space-y-4">
             {topProducts.length > 0 ? (
               topProducts.map((product: any, index: number) => (
-                <div key={product.id} className="flex items-center justify-between p-4 bg-gray-800 rounded-lg hover:bg-gray-750 transition-colors">
+                <div key={product.id || `product-${index}`} className="flex items-center justify-between p-4 bg-gray-800 rounded-lg hover:bg-gray-750 transition-colors">
                   <div className="flex items-center gap-3">
                     <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-purple-500 to-purple-600 flex items-center justify-center text-white font-bold text-sm">
                       #{index + 1}

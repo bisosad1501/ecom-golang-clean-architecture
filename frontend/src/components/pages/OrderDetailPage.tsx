@@ -54,11 +54,6 @@ export function OrderDetailPage({ orderId }: Props) {
   const [copiedTrackingId, setCopiedTrackingId] = useState(false)
   const { data: order, isLoading, error } = useOrder(orderId)
 
-  console.log('OrderDetailPage - orderId:', orderId)
-  console.log('OrderDetailPage - order data:', order)
-  console.log('OrderDetailPage - isLoading:', isLoading)
-  console.log('OrderDetailPage - error:', error)
-
   const copyTrackingNumber = () => {
     if (order?.tracking_number) {
       navigator.clipboard.writeText(order.tracking_number)
@@ -247,36 +242,63 @@ export function OrderDetailPage({ orderId }: Props) {
                 <div className="space-y-4">
                   {order?.items?.map((item, index) => (
                     <div key={item.id} className="flex items-center gap-4 p-4 bg-gray-800/30 rounded-lg hover:bg-gray-800/50 transition-colors">
-                      <div className="relative w-16 h-16 bg-gray-700 rounded-lg overflow-hidden">
+                      {/* Product Image */}
+                      <div className="relative w-20 h-20 bg-gray-700 rounded-lg overflow-hidden flex-shrink-0">
                         <Image
-                          src={item.product?.images?.[0]?.url || '/placeholder-product.jpg'}
+                          src={item.product?.images?.[0]?.url || '/placeholder-product.svg'}
                           alt={item.product?.name || item.product_name || 'Product'}
                           fill
                           className="object-cover"
                         />
                       </div>
 
-                      <div className="flex-1">
-                        <h4 className="font-semibold text-white">{item.product?.name || item.product_name}</h4>
-                        <p className="text-gray-400 text-sm">SKU: {item.product_sku}</p>
-                        <p className="text-gray-400 text-sm">Quantity: {item.quantity}</p>
+                      {/* Product Details */}
+                      <div className="flex-1 min-w-0">
+                        <h4 className="font-semibold text-white text-lg mb-1">
+                          {item.product?.name || item.product_name}
+                        </h4>
+                        <div className="space-y-1">
+                          <p className="text-gray-400 text-sm">
+                            <span className="font-medium">SKU:</span> {item.product_sku}
+                          </p>
+                          <p className="text-gray-400 text-sm">
+                            <span className="font-medium">Quantity:</span> {item.quantity}
+                          </p>
+                          {item.product?.description && (
+                            <p className="text-gray-400 text-sm line-clamp-2">
+                              {item.product.description}
+                            </p>
+                          )}
+                        </div>
                       </div>
 
-                      <div className="text-right">
-                        <p className="font-semibold text-white">{formatPrice(item.price)}</p>
-                        <p className="text-gray-400 text-sm">each</p>
+                      {/* Pricing */}
+                      <div className="text-right flex-shrink-0">
+                        <div className="space-y-1">
+                          <p className="text-gray-400 text-sm">Unit Price</p>
+                          <p className="font-semibold text-white text-lg">{formatPrice(item.price)}</p>
+                        </div>
                       </div>
 
-                      <div className="text-right">
-                        <p className="font-bold text-orange-400">{formatPrice(item.total)}</p>
-                        <p className="text-gray-400 text-sm">total</p>
+                      <div className="text-right flex-shrink-0 ml-4">
+                        <div className="space-y-1">
+                          <p className="text-gray-400 text-sm">Total</p>
+                          <p className="font-bold text-orange-400 text-xl">{formatPrice(item.total)}</p>
+                        </div>
                       </div>
 
+                      {/* Review Button for delivered orders */}
                       {order?.status === 'delivered' && (
-                        <Button variant="outline" size="sm" className="border-orange-500/50 text-orange-400 hover:bg-orange-500/10">
-                          <Star className="h-4 w-4 mr-1" />
-                          Review
-                        </Button>
+                        <div className="flex-shrink-0 ml-4">
+                          <Button 
+                            variant="outline" 
+                            size="sm" 
+                            className="border-orange-500/50 text-orange-400 hover:bg-orange-500/10 hover:border-orange-500"
+                          >
+                            <Star className="h-4 w-4 mr-1" />
+                            Review
+                          </Button>
+                        </div>
                       )}
                     </div>
                   ))}
@@ -290,43 +312,63 @@ export function OrderDetailPage({ orderId }: Props) {
             {/* Order Summary */}
             <Card className="bg-gradient-to-br from-gray-900/60 to-gray-800/60 backdrop-blur-sm border-gray-700">
               <CardHeader>
-                <CardTitle className="text-white">Order Summary</CardTitle>
+                <CardTitle className="text-white flex items-center gap-2">
+                  <div className="w-2 h-2 rounded-full bg-orange-400"></div>
+                  Order Summary
+                </CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
-                <div className="flex justify-between">
-                  <span className="text-gray-400">Subtotal</span>
-                  <span className="text-white">{formatPrice(order?.subtotal || 0)}</span>
+                {/* Subtotal */}
+                <div className="flex justify-between items-center py-2">
+                  <span className="text-gray-400 font-medium">Subtotal</span>
+                  <span className="text-white font-semibold text-lg">{formatPrice(order?.subtotal || 0)}</span>
                 </div>
-                <div className="flex justify-between">
-                  <span className="text-gray-400">Shipping</span>
-                  <span className="text-white">
+                
+                {/* Shipping */}
+                <div className="flex justify-between items-center py-2">
+                  <span className="text-gray-400 font-medium">Shipping</span>
+                  <span className="text-white font-semibold text-lg">
                     {(order?.shipping_amount || 0) === 0 ? (
-                      <span className="text-green-400">FREE</span>
+                      <span className="text-green-400 font-bold">FREE</span>
                     ) : (
                       formatPrice(order?.shipping_amount || 0)
                     )}
                   </span>
                 </div>
-                <div className="flex justify-between">
-                  <span className="text-gray-400">Tax</span>
-                  <span className="text-white">{formatPrice(order?.tax_amount || 0)}</span>
+                
+                {/* Tax */}
+                <div className="flex justify-between items-center py-2">
+                  <span className="text-gray-400 font-medium">Tax</span>
+                  <span className="text-white font-semibold text-lg">{formatPrice(order?.tax_amount || 0)}</span>
                 </div>
-                {order?.discount_amount && order.discount_amount > 0 && (
-                  <div className="flex justify-between">
-                    <span className="text-gray-400">Discount</span>
-                    <span className="text-green-400">-{formatPrice(order.discount_amount)}</span>
+                
+                {/* Discount */}
+                {order?.discount_amount && order.discount_amount > 0 ? (
+                  <div className="flex justify-between items-center py-2">
+                    <span className="text-gray-400 font-medium">Discount</span>
+                    <span className="text-green-400 font-semibold text-lg">-{formatPrice(order.discount_amount)}</span>
                   </div>
-                )}
-                <Separator className="bg-gray-700" />
-                <div className="flex justify-between text-lg font-bold">
-                  <span className="text-white">Total</span>
-                  <span className="text-orange-400">{formatPrice(order?.total || 0)}</span>
+                ) : null}
+                
+                <div className="h-px bg-gray-700 my-4"></div>
+                
+                {/* Total */}
+                <div className="flex justify-between items-center py-3 bg-gray-800/50 rounded-lg px-4">
+                  <span className="text-white font-bold text-xl">Total</span>
+                  <span className="text-orange-400 font-bold text-2xl">{formatPrice(order?.total || 0)}</span>
                 </div>
-                <div className="flex justify-between">
-                  <span className="text-gray-400">Payment Status</span>
-                  <span className={`font-semibold ${order?.payment_status === 'paid' ? 'text-green-400' : 'text-yellow-400'}`}>
-                    {order?.payment_status?.charAt(0).toUpperCase() + (order?.payment_status?.slice(1) || '')}
-                  </span>
+                
+                <div className="h-px bg-gray-700 my-4"></div>
+                
+                {/* Payment Status */}
+                <div className="flex justify-between items-center py-2">
+                  <span className="text-gray-400 font-medium">Payment Status</span>
+                  <div className="flex items-center gap-2">
+                    <div className={`w-2 h-2 rounded-full ${order?.payment_status === 'paid' ? 'bg-green-400' : 'bg-yellow-400'}`}></div>
+                    <span className={`font-semibold text-lg ${order?.payment_status === 'paid' ? 'text-green-400' : 'text-yellow-400'}`}>
+                      {order?.payment_status?.charAt(0).toUpperCase() + (order?.payment_status?.slice(1) || '')}
+                    </span>
+                  </div>
                 </div>
               </CardContent>
             </Card>
@@ -345,6 +387,7 @@ export function OrderDetailPage({ orderId }: Props) {
                     <p className="font-semibold text-white">
                       {order.shipping_address.first_name} {order.shipping_address.last_name}
                     </p>
+                    {order.shipping_address.company && <p>{order.shipping_address.company}</p>}
                     <p>{order.shipping_address.address1}</p>
                     {order.shipping_address.address2 && <p>{order.shipping_address.address2}</p>}
                     <p>{order.shipping_address.city}, {order.shipping_address.state} {order.shipping_address.zip_code}</p>

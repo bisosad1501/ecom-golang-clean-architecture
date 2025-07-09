@@ -287,6 +287,7 @@ func SetupRoutes(
 			// Admin product management
 			adminProducts := admin.Group("/products")
 			{
+				adminProducts.GET("", productHandler.GetProducts)
 				adminProducts.POST("", productHandler.CreateProduct)
 				adminProducts.PUT("/:id", productHandler.UpdateProduct)  // Complete replacement
 				adminProducts.PATCH("/:id", productHandler.PatchProduct) // Partial update

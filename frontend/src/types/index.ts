@@ -65,11 +65,15 @@ export interface Order extends BaseEntity {
   item_count: number
   can_be_cancelled: boolean
   can_be_refunded: boolean
+  tracking_number?: string // Add missing tracking number
+  estimated_delivery?: string // Add missing estimated delivery
+  created_at: string // Explicitly add created_at for order detail page
+  updated_at: string // Explicitly add updated_at for order detail page
 }
 
 export interface OrderItem {
   id: string
-  product?: Product
+  product?: any  // Use any for now to avoid circular import
   product_name: string
   product_sku: string
   quantity: number
@@ -82,11 +86,12 @@ export interface OrderAddress {
   type?: string
   first_name: string
   last_name: string
-  address_line_1: string
-  address_line_2?: string
+  company?: string
+  address1: string // Backend uses address1, not address_line_1
+  address2?: string // Backend uses address2, not address_line_2
   city: string
   state: string
-  postal_code: string
+  zip_code: string // Backend uses zip_code, not postal_code
   country: string
   phone?: string
   is_default?: boolean
@@ -98,8 +103,8 @@ export interface CreateOrderRequest {
     quantity: number
     price: number
   }>
-  shipping_address: Address
-  billing_address: Address
+  shipping_address: any
+  billing_address: any
   payment_method: string
 }
 
@@ -117,7 +122,7 @@ export interface Cart {
 export interface CartItem {
   id: string
   product_id?: string  // Optional for backward compatibility
-  product: Product
+  product: any  // Use any for now
   quantity: number
   price: number
   subtotal?: number    // Backend uses subtotal

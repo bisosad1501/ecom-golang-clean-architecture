@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { Plus, Search, Filter, MoreHorizontal, Edit, Trash2, Eye, FolderTree, ChevronDown, ChevronRight, Settings, Expand, Minimize, Tag, Folder, FolderOpen, Grid, List, Move } from 'lucide-react'
+import { Plus, Search, Filter, MoreHorizontal, Edit, Trash2, Eye, FolderTree, ChevronDown, ChevronRight, Settings, Expand, Minimize, Tag, Folder, FolderOpen, Grid, List, Move, Calendar } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { RequirePermission } from '@/components/auth/permission-guard'
@@ -123,28 +123,39 @@ export function AdminCategoriesPage() {
 
   if (showAddForm) {
     return (
-      <div className="space-y-6">
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-3xl font-bold text-gray-900">Add New Category</h1>
-            <p className="text-gray-600 mt-2">Create a new category for your products</p>
-          </div>
-          
-          <Button 
-            variant="outline" 
-            onClick={() => setShowAddForm(false)}
-          >
-            Back to Categories
-          </Button>
-        </div>
-
-        <AddCategoryForm 
-          onSuccess={() => {
-            setShowAddForm(false)
-            refetch()
-          }}
-          onCancel={() => setShowAddForm(false)}
+      <div className={BIHUB_ADMIN_THEME.spacing.section}>
+        <BiHubPageHeader
+          title="Add New Category"
+          subtitle="Create a new category to organize your BiHub products"
+          breadcrumbs={[
+            { label: 'Admin' },
+            { label: 'Categories' },
+            { label: 'Add Category' }
+          ]}
+          action={
+            <Button
+              variant="outline"
+              onClick={() => setShowAddForm(false)}
+              className={BIHUB_ADMIN_THEME.components.button.secondary}
+            >
+              Back to Categories
+            </Button>
+          }
         />
+
+        <BiHubAdminCard
+          title="Category Information"
+          subtitle="Fill in the details for your new category"
+          icon={<FolderTree className="h-5 w-5 text-white" />}
+        >
+          <AddCategoryForm
+            onSuccess={() => {
+              setShowAddForm(false)
+              refetch()
+            }}
+            onCancel={() => setShowAddForm(false)}
+          />
+        </BiHubAdminCard>
       </div>
     )
   }
@@ -200,100 +211,121 @@ export function AdminCategoriesPage() {
         />
       </div>
 
-      {/* Search & Filters */}
-      <BiHubAdminCard
-        title="Search & Filter Categories"
-        subtitle="Find and organize BiHub categories"
-        icon={<Search className="h-5 w-5 text-white" />}
-        headerAction={
-          <div className="flex items-center gap-2">
+      {/* Modern Search & Filters */}
+      <div className="relative bg-white/5 backdrop-blur-sm border border-gray-700/50 rounded-2xl p-6 shadow-lg">
+        <div className="absolute inset-0 bg-gradient-to-br from-blue-500/5 to-purple-500/5 rounded-2xl"></div>
+        <div className="relative">
+          {/* Header */}
+          <div className="flex items-center justify-between mb-6">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-500/20 to-purple-500/20 border border-blue-400/30 flex items-center justify-center">
+                <Search className="h-5 w-5 text-blue-400" />
+              </div>
+              <div>
+                <h3 className="text-lg font-semibold text-white">Search & Filter Categories</h3>
+                <p className="text-sm text-gray-400">Find and organize your BiHub categories</p>
+              </div>
+            </div>
             <Button
               variant="outline"
               size="sm"
               onClick={() => setViewMode(viewMode === 'grid' ? 'list' : 'grid')}
-              className={cn(
-                BIHUB_ADMIN_THEME.components.button.ghost,
-                'h-10 w-10 p-0'
-              )}
+              className="group relative bg-white/5 border-gray-600/50 text-gray-300 hover:bg-white/10 hover:border-gray-500 hover:text-white transition-all duration-200"
             >
-              {viewMode === 'grid' ? (
-                <List className="h-4 w-4" />
-              ) : (
-                <Grid className="h-4 w-4" />
-              )}
+              <div className="flex items-center gap-2">
+                {viewMode === 'grid' ? (
+                  <List className="h-4 w-4" />
+                ) : (
+                  <Grid className="h-4 w-4" />
+                )}
+                <span className="text-sm font-medium">
+                  {viewMode === 'grid' ? 'List View' : 'Grid View'}
+                </span>
+              </div>
             </Button>
           </div>
-        }
-      >
-        <div className="flex flex-col lg:flex-row items-center gap-4">
-          <div className="flex-1 w-full">
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
-              <Input
-                placeholder="Search categories by name or description..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className={cn(
-                  BIHUB_ADMIN_THEME.components.input.base,
-                  'pl-10 pr-12 h-12'
+
+          {/* Search Controls */}
+          <div className="flex flex-col lg:flex-row items-center gap-4">
+            <div className="flex-1 w-full">
+              <div className="relative group">
+                <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400 group-focus-within:text-blue-400 transition-colors" />
+                <Input
+                  placeholder="Search categories by name or description..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="w-full h-12 pl-12 pr-12 bg-white/5 border-gray-600/50 rounded-xl text-white placeholder:text-gray-400 focus:bg-white/10 focus:border-blue-500/50 focus:ring-2 focus:ring-blue-500/20 transition-all duration-200"
+                />
+                {searchQuery && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setSearchQuery('')}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 h-6 w-6 p-0 text-gray-400 hover:text-white hover:bg-white/10 rounded-md transition-all duration-200"
+                  >
+                    ×
+                  </Button>
                 )}
-              />
-              {searchQuery && (
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => setSearchQuery('')}
-                  className="absolute right-2 top-1/2 -translate-y-1/2 h-8 w-8 p-0 text-gray-400 hover:text-white"
-                >
-                  ×
-                </Button>
-              )}
+              </div>
             </div>
           </div>
         </div>
-      </BiHubAdminCard>
+      </div>
 
-      {/* Categories List */}
+      {/* Modern Categories List */}
       {isLoading ? (
         <div className={cn(
           viewMode === 'grid'
-            ? 'grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6'
-            : 'space-y-4'
+            ? 'grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4'
+            : 'space-y-3'
         )}>
           {[...Array(6)].map((_, i) => (
-            <div key={i} className={cn(
-              BIHUB_ADMIN_THEME.components.card.base,
-              'p-6 animate-pulse'
-            )}>
-              <div className="flex items-center gap-4 mb-4">
-                <div className="w-12 h-12 bg-gray-700 rounded-xl"></div>
-                <div className="space-y-2 flex-1">
-                  <div className="h-4 bg-gray-700 rounded w-1/3"></div>
-                  <div className="h-3 bg-gray-700 rounded w-1/2"></div>
+            <div key={i} className="relative bg-white/5 backdrop-blur-sm border border-gray-700/50 rounded-2xl p-5 animate-pulse">
+              <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center gap-4">
+                  <div className="w-12 h-12 bg-gray-700/50 rounded-xl"></div>
+                  <div>
+                    <div className="h-5 bg-gray-700/50 rounded w-24 mb-2"></div>
+                    <div className="h-4 bg-gray-700/50 rounded w-16"></div>
+                  </div>
                 </div>
+                {viewMode === 'grid' && (
+                  <div className="h-6 bg-gray-700/50 rounded w-20"></div>
+                )}
               </div>
-              <div className="space-y-2">
-                <div className="h-3 bg-gray-700 rounded w-3/4"></div>
-                <div className="h-3 bg-gray-700 rounded w-1/2"></div>
+              <div className="space-y-3">
+                <div className="h-4 bg-gray-700/50 rounded w-3/4"></div>
+                <div className="h-4 bg-gray-700/50 rounded w-1/2"></div>
+                <div className="h-4 bg-gray-700/50 rounded w-1/4"></div>
+              </div>
+              <div className="flex items-center gap-3 mt-6 pt-4 border-t border-gray-700/50">
+                <div className="h-8 bg-gray-700/50 rounded w-20"></div>
+                <div className="h-8 bg-gray-700/50 rounded w-8"></div>
               </div>
             </div>
           ))}
         </div>
       ) : filteredCategories.length === 0 ? (
-        <BiHubEmptyState
-          icon={<Tag className="h-8 w-8 text-gray-400" />}
-          title={searchQuery ? 'No categories found' : 'No categories yet'}
-          description={
-            searchQuery
-              ? `No categories found matching "${searchQuery}". Try adjusting your search terms.`
-              : 'Start organizing your BiHub products by creating categories.'
-          }
-          action={
+        <div className="relative bg-white/5 backdrop-blur-sm border border-gray-700/50 rounded-2xl p-12 text-center">
+          <div className="absolute inset-0 bg-gradient-to-br from-gray-500/5 to-slate-500/5 rounded-2xl"></div>
+          <div className="relative">
+            <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-gray-500/20 to-slate-500/20 border border-gray-400/30 flex items-center justify-center mx-auto mb-6">
+              <Tag className="h-8 w-8 text-gray-400" />
+            </div>
+            <h3 className="text-xl font-bold text-white mb-2">
+              {searchQuery ? 'No categories found' : 'No categories yet'}
+            </h3>
+            <p className="text-gray-400 mb-6 max-w-md mx-auto">
+              {searchQuery
+                ? `No categories found matching "${searchQuery}". Try adjusting your search terms.`
+                : 'Start organizing your BiHub products by creating categories.'
+              }
+            </p>
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
               <RequirePermission permission={PERMISSIONS.CATEGORIES_CREATE}>
                 <Button
                   onClick={() => setShowAddForm(true)}
-                  className={BIHUB_ADMIN_THEME.components.button.primary}
+                  className="bg-blue-500/20 border border-blue-400/30 text-blue-400 hover:bg-blue-500/30 hover:border-blue-400/50 hover:text-blue-300 transition-all duration-200"
                 >
                   <Plus className="mr-2 h-5 w-5" />
                   Create First Category
@@ -303,86 +335,150 @@ export function AdminCategoriesPage() {
               {searchQuery && (
                 <Button
                   onClick={() => setSearchQuery('')}
-                  className={BIHUB_ADMIN_THEME.components.button.secondary}
+                  className="bg-gray-500/20 border border-gray-400/30 text-gray-400 hover:bg-gray-500/30 hover:border-gray-400/50 hover:text-gray-300 transition-all duration-200"
                 >
                   Clear Search
                 </Button>
               )}
             </div>
-          }
-        />
+          </div>
+        </div>
       ) : (
         <div className={cn(
           viewMode === 'grid'
-            ? 'grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6'
-            : 'space-y-4'
+            ? 'grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4'
+            : 'space-y-3'
         )}>
           {filteredCategories.map((category) => (
             <div
               key={category.id}
               className={cn(
-                BIHUB_ADMIN_THEME.components.card.base,
-                BIHUB_ADMIN_THEME.components.card.hover,
-                'group',
-                viewMode === 'list' && 'flex items-center gap-6 p-6'
+                'group relative bg-white/5 backdrop-blur-sm border border-gray-700/50 rounded-2xl p-5 hover:bg-white/10 hover:border-gray-600/50 hover:scale-[1.02] transition-all duration-200 shadow-lg hover:shadow-xl',
+                viewMode === 'list' && 'flex items-center gap-6'
               )}
             >
-              {/* Category Icon & Info */}
+              {/* Gradient Background */}
               <div className={cn(
-                'flex items-center gap-4',
-                viewMode === 'grid' ? 'mb-4' : 'flex-1'
+                'absolute inset-0 bg-gradient-to-br opacity-0 group-hover:opacity-100 transition-opacity duration-200 rounded-2xl',
+                category.is_active ? 'from-emerald-500/5 to-green-600/5' : 'from-red-500/5 to-rose-600/5'
+              )} />
+
+              {/* Category Header */}
+              <div className={cn(
+                'relative flex items-center justify-between mb-4',
+                viewMode === 'list' && 'flex-1 mb-0'
               )}>
-                <div className={cn(
-                  'w-12 h-12 rounded-xl bg-gradient-to-br flex items-center justify-center',
-                  getCategoryColor(category)
-                )}>
-                  {getCategoryIcon(category)}
-                </div>
-
-                <div className="flex-1">
-                  <div className="flex items-center gap-3 mb-2">
-                    <h3 className={cn(
-                      BIHUB_ADMIN_THEME.typography.heading.h4,
-                      'group-hover:text-[#FF9000] transition-colors'
-                    )}>
-                      {category.name}
-                    </h3>
-
-                    <BiHubStatusBadge status={category.is_active ? 'success' : 'error'}>
-                      {category.is_active ? 'Active' : 'Inactive'}
-                    </BiHubStatusBadge>
+                <div className="flex items-center gap-4">
+                  {/* Modern Category Icon */}
+                  <div className={cn(
+                    'relative w-12 h-12 rounded-xl bg-gradient-to-br flex items-center justify-center shadow-lg border border-white/10',
+                    getCategoryColor(category)
+                  )}>
+                    <div className="relative z-10 text-white">
+                      {getCategoryIcon(category)}
+                    </div>
+                    <div className="absolute inset-0 bg-white/10 rounded-xl blur-sm"></div>
                   </div>
 
-                  {category.description && (
-                    <p className={cn(
-                      BIHUB_ADMIN_THEME.typography.body.small,
-                      'line-clamp-2'
+                  <div>
+                    <h3 className="text-lg font-bold text-white group-hover:text-[#FF9000] transition-colors">
+                      {category.name}
+                    </h3>
+                    {/* Modern Status Badge */}
+                    <div className={cn(
+                      'inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold mt-2 border border-white/10 backdrop-blur-sm',
+                      category.is_active
+                        ? 'bg-emerald-100 text-emerald-800 border-emerald-200 dark:bg-emerald-950/30 dark:text-emerald-300 dark:border-emerald-800'
+                        : 'bg-red-100 text-red-800 border-red-200 dark:bg-red-950/30 dark:text-red-300 dark:border-red-800'
                     )}>
-                      {category.description}
-                    </p>
-                  )}
+                      <div className={cn(
+                        'w-2 h-2 rounded-full mr-2',
+                        category.is_active ? 'bg-emerald-500' : 'bg-red-500'
+                      )} />
+                      {category.is_active ? 'Active' : 'Inactive'}
+                    </div>
+                  </div>
+                </div>
 
-                  <div className="flex items-center gap-4 mt-2 text-xs text-gray-400">
-                    <span>Created: {formatDate(category.created_at)}</span>
-                    {category.parent_id && (
-                      <span>Subcategory</span>
-                    )}
+                {viewMode === 'grid' && (
+                  <div className="text-right">
+                    <p className="text-2xl font-bold text-[#FF9000] group-hover:text-[#FF9000]/80 transition-colors">
+                      {getChildrenCount(category.id)}
+                    </p>
+                    <p className="text-xs text-gray-400 mt-1">Subcategories</p>
+                  </div>
+                )}
+              </div>
+
+              {/* Category Details */}
+              <div className={cn(
+                'relative space-y-3',
+                viewMode === 'list' && 'flex-1 grid grid-cols-2 md:grid-cols-4 gap-4 space-y-0'
+              )}>
+                {category.description && (
+                  <div className="flex items-center gap-3">
+                    <div className="w-8 h-8 rounded-lg bg-white/5 flex items-center justify-center border border-white/10">
+                      <FolderTree className="h-4 w-4 text-gray-400" />
+                    </div>
+                    <div>
+                      <p className="text-xs text-gray-400 uppercase tracking-wide">Description</p>
+                      <p className="text-sm text-white font-medium line-clamp-1">
+                        {category.description}
+                      </p>
+                    </div>
+                  </div>
+                )}
+
+                <div className="flex items-center gap-3">
+                  <div className="w-8 h-8 rounded-lg bg-white/5 flex items-center justify-center border border-white/10">
+                    <Calendar className="h-4 w-4 text-gray-400" />
+                  </div>
+                  <div>
+                    <p className="text-xs text-gray-400 uppercase tracking-wide">Created</p>
+                    <p className="text-sm text-white font-medium">
+                      {formatDate(category.created_at)}
+                    </p>
+                  </div>
+                </div>
+
+                {category.parent_id && (
+                  <div className="flex items-center gap-3">
+                    <div className="w-8 h-8 rounded-lg bg-white/5 flex items-center justify-center border border-white/10">
+                      <FolderTree className="h-4 w-4 text-gray-400" />
+                    </div>
+                    <div>
+                      <p className="text-xs text-gray-400 uppercase tracking-wide">Type</p>
+                      <p className="text-sm text-white font-medium">Subcategory</p>
+                    </div>
+                  </div>
+                )}
+
+                <div className="flex items-center gap-3">
+                  <div className="w-8 h-8 rounded-lg bg-white/5 flex items-center justify-center border border-white/10">
+                    <FolderTree className="h-4 w-4 text-gray-400" />
+                  </div>
+                  <div>
+                    <p className="text-xs text-gray-400 uppercase tracking-wide">Level</p>
+                    <p className="text-sm text-white font-medium">
+                      {getCategoryLevel(category)}
+                    </p>
                   </div>
                 </div>
               </div>
-              {/* Actions */}
+
+              {/* Modern Action Buttons */}
               <div className={cn(
-                'flex items-center gap-2 mt-4',
-                viewMode === 'list' && 'flex-shrink-0 mt-0'
+                'relative flex items-center gap-3 mt-6 pt-4 border-t border-white/10',
+                viewMode === 'list' && 'flex-shrink-0 mt-0 pt-0 border-t-0'
               )}>
                 <Button
                   variant="outline"
                   size="sm"
                   onClick={() => handleEditCategory(category)}
-                  className={BIHUB_ADMIN_THEME.components.button.ghost}
+                  className="group/btn relative bg-white/5 border-gray-600/50 text-gray-300 hover:bg-blue-500/10 hover:border-blue-500/50 hover:text-blue-400 transition-all duration-200"
                 >
                   <Edit className="h-4 w-4 mr-2" />
-                  {viewMode === 'grid' ? 'Edit' : ''}
+                  {viewMode === 'grid' ? 'Edit Category' : 'Edit'}
                 </Button>
 
                 <DropdownMenu>
@@ -390,32 +486,32 @@ export function AdminCategoriesPage() {
                     <Button
                       variant="outline"
                       size="sm"
-                      className={BIHUB_ADMIN_THEME.components.button.ghost}
+                      className="group/btn relative bg-white/5 border-gray-600/50 text-gray-300 hover:bg-purple-500/10 hover:border-purple-500/50 hover:text-purple-400 transition-all duration-200"
                     >
                       <MoreHorizontal className="h-4 w-4" />
                     </Button>
                   </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end" className="w-48 bg-gray-900 border-gray-700">
+                  <DropdownMenuContent align="end" className="w-56 bg-gray-900/95 backdrop-blur-sm border-gray-700/50 rounded-xl shadow-xl">
                     <DropdownMenuItem
                       onClick={() => handleEditCategory(category)}
-                      className="text-gray-300 hover:text-white hover:bg-gray-800"
+                      className="text-gray-300 hover:text-white hover:bg-gray-800/50 rounded-lg m-1 p-3"
                     >
-                      <Edit className="mr-2 h-4 w-4" />
+                      <Edit className="mr-3 h-4 w-4" />
                       Edit Category
                     </DropdownMenuItem>
                     <DropdownMenuItem
-                      className="text-gray-300 hover:text-white hover:bg-gray-800"
+                      className="text-gray-300 hover:text-white hover:bg-gray-800/50 rounded-lg m-1 p-3"
                     >
-                      <Move className="mr-2 h-4 w-4" />
+                      <Move className="mr-3 h-4 w-4" />
                       Move Category
                     </DropdownMenuItem>
-                    <DropdownMenuSeparator className="bg-gray-700" />
+                    <div className="h-px bg-gray-700/50 mx-2 my-1"></div>
                     <RequirePermission permission={PERMISSIONS.CATEGORIES_DELETE}>
                       <DropdownMenuItem
                         onClick={() => handleDeleteCategory(category.id)}
-                        className="text-red-400 hover:text-red-300 hover:bg-red-900/20"
+                        className="text-red-400 hover:text-red-300 hover:bg-red-900/20 rounded-lg m-1 p-3"
                       >
-                        <Trash2 className="mr-2 h-4 w-4" />
+                        <Trash2 className="mr-3 h-4 w-4" />
                         Delete Category
                       </DropdownMenuItem>
                     </RequirePermission>
