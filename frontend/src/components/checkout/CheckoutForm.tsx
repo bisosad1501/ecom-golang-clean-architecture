@@ -12,14 +12,18 @@ import { Label } from '@/components/ui/label'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Separator } from '@/components/ui/separator'
 import { Badge } from '@/components/ui/badge'
+import { AnimatedBackground } from '@/components/ui/animated-background'
 import { useCartStore, getCartTotal, getCartItemCount } from '@/store/cart'
 import { useOrderStore } from '@/store/order'
 import { usePaymentStore } from '@/store/payment'
 import { useAuthStore } from '@/store/auth'
 import { redirectToCheckout } from '@/lib/stripe'
-import { formatPrice } from '@/lib/utils'
-import { Loader2, CreditCard, MapPin, ShoppingBag, Lock, ArrowLeft, Truck, Shield, CheckCircle, AlertCircle } from 'lucide-react'
+import { formatPrice, cn } from '@/lib/utils'
+import { Loader2, CreditCard, MapPin, ShoppingBag, Lock, ArrowLeft, Truck, Shield, CheckCircle, AlertCircle, Gift, Star } from 'lucide-react'
 import { toast } from 'sonner'
+
+// Màu chủ đạo của BiHub - đồng bộ với logo
+const THEME_COLOR = '#ff9000' // Màu vàng cam của logo
 
 const addressSchema = z.object({
   street: z.string().min(1, 'Street address is required'),
@@ -134,16 +138,29 @@ export default function CheckoutForm() {
 
   if (!isAuthenticated) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-black text-white">
-        <div className="container mx-auto px-4 py-16">
+      <div className="min-h-screen bg-gradient-to-br from-black via-gray-900 to-black text-white relative overflow-hidden">
+        <AnimatedBackground className="opacity-30" />
+        <div className="container mx-auto px-4 py-16 relative z-10">
           <div className="max-w-md mx-auto text-center">
-            <div className="bg-gray-900/50 backdrop-blur-sm border border-gray-700 rounded-2xl p-8">
-              <Lock className="h-16 w-16 text-orange-500 mx-auto mb-6" />
-              <h2 className="text-2xl font-bold mb-4">Login Required</h2>
-              <p className="text-gray-400 mb-6">Please log in to continue with checkout</p>
+            <div className={cn(
+              "backdrop-blur-sm border rounded-2xl p-8 transition-all duration-300",
+              "bg-gradient-to-br from-slate-900/90 via-gray-900/95 to-slate-800/90",
+              "border-gray-700/50 hover:border-[#ff9000]/30",
+              "shadow-xl shadow-black/40 hover:shadow-[#ff9000]/10"
+            )}>
+              <div className="w-20 h-20 mx-auto rounded-full bg-gradient-to-br from-[#ff9000]/20 to-[#ff9000]/40 flex items-center justify-center mb-6">
+                <Lock className="h-10 w-10 text-[#ff9000]" />
+              </div>
+              <h2 className="text-3xl font-bold mb-4 bg-gradient-to-r from-white via-gray-200 to-[#ff9000] bg-clip-text text-transparent">Login Required</h2>
+              <p className="text-gray-400 mb-8">Please log in to continue with checkout</p>
               <Button
                 onClick={() => router.push('/auth/login')}
-                className="w-full bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700"
+                className={cn(
+                  "w-full transition-all duration-300",
+                  "bg-gradient-to-r from-[#ff9000] to-orange-600 hover:from-[#ff9000] hover:to-orange-700",
+                  "text-white font-semibold py-3 rounded-xl",
+                  "hover:scale-[1.02] hover:shadow-lg hover:shadow-[#ff9000]/25"
+                )}
               >
                 Login to Continue
               </Button>
@@ -156,16 +173,29 @@ export default function CheckoutForm() {
 
   if (!cart || cart.items.length === 0) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-black text-white">
-        <div className="container mx-auto px-4 py-16">
+      <div className="min-h-screen bg-gradient-to-br from-black via-gray-900 to-black text-white relative overflow-hidden">
+        <AnimatedBackground className="opacity-30" />
+        <div className="container mx-auto px-4 py-16 relative z-10">
           <div className="max-w-md mx-auto text-center">
-            <div className="bg-gray-900/50 backdrop-blur-sm border border-gray-700 rounded-2xl p-8">
-              <ShoppingBag className="h-16 w-16 text-orange-500 mx-auto mb-6" />
-              <h2 className="text-2xl font-bold mb-4">Your Cart is Empty</h2>
-              <p className="text-gray-400 mb-6">Add some items to your cart before checkout</p>
+            <div className={cn(
+              "backdrop-blur-sm border rounded-2xl p-8 transition-all duration-300",
+              "bg-gradient-to-br from-slate-900/90 via-gray-900/95 to-slate-800/90",
+              "border-gray-700/50 hover:border-[#ff9000]/30",
+              "shadow-xl shadow-black/40 hover:shadow-[#ff9000]/10"
+            )}>
+              <div className="w-20 h-20 mx-auto rounded-full bg-gradient-to-br from-[#ff9000]/20 to-[#ff9000]/40 flex items-center justify-center mb-6">
+                <ShoppingBag className="h-10 w-10 text-[#ff9000]" />
+              </div>
+              <h2 className="text-3xl font-bold mb-4 bg-gradient-to-r from-white via-gray-200 to-[#ff9000] bg-clip-text text-transparent">Your Cart is Empty</h2>
+              <p className="text-gray-400 mb-8">Add some items to your cart before checkout</p>
               <Button
                 onClick={() => router.push('/products')}
-                className="w-full bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700"
+                className={cn(
+                  "w-full transition-all duration-300",
+                  "bg-gradient-to-r from-[#ff9000] to-orange-600 hover:from-[#ff9000] hover:to-orange-700",
+                  "text-white font-semibold py-3 rounded-xl",
+                  "hover:scale-[1.02] hover:shadow-lg hover:shadow-[#ff9000]/25"
+                )}
               >
                 Continue Shopping
               </Button>
@@ -177,100 +207,106 @@ export default function CheckoutForm() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-black text-white">
-      {/* Enhanced BiHub Header with Progress */}
-      <div className="bg-black/50 backdrop-blur-sm border-b border-gray-700">
-        <div className="container mx-auto px-4 py-6">
-          <div className="flex items-center justify-between mb-6">
-            <div className="flex items-center space-x-4">
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => router.back()}
-                className="text-gray-400 hover:text-white transition-all duration-300 hover:scale-105"
-              >
-                <ArrowLeft className="h-4 w-4 mr-2" />
-                Back to Cart
-              </Button>
-              <div>
-                <h1 className="text-3xl font-bold">
-                  Bi<span className="bg-gradient-to-r from-orange-400 to-orange-600 bg-clip-text text-transparent">Hub</span> Checkout
-                </h1>
-                <p className="text-gray-400 text-sm">Secure payment processing • Step 1 of 2</p>
+    <div className="min-h-screen bg-gradient-to-br from-black via-gray-900 to-black text-white relative overflow-hidden">
+      {/* Enhanced Background */}
+      <AnimatedBackground className="opacity-30" />
+      
+      <div className="container mx-auto px-4 lg:px-6 py-8 relative z-10">
+        <div className="w-full space-y-8">
+          {/* Unified Header */}
+          <div className="max-w-6xl mx-auto">
+            <div className="mb-6">
+              <div className="flex items-center justify-between gap-4">
+                <div className="flex items-center space-x-4">
+                  <h1 className="text-4xl font-bold text-white">
+                    Checkout
+                  </h1>
+                  <p className="text-sm text-gray-400">Secure payment processing • Step 1 of 2</p>
+                </div>
+                
+                <div className="flex items-center gap-3">
+                  <div className="flex items-center gap-2">
+                    <Shield className="h-4 w-4 text-green-400" />
+                    <span className="text-sm text-gray-400">256-bit SSL</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Lock className="h-4 w-4 text-blue-400" />
+                    <span className="text-sm text-gray-400">Encrypted</span>
+                  </div>
+                </div>
               </div>
             </div>
-            <div className="flex items-center space-x-4">
-              <div className="flex items-center space-x-2">
-                <Shield className="h-5 w-5 text-green-500" />
-                <span className="text-sm text-gray-400">256-bit SSL</span>
+
+            {/* Progress Steps */}
+            <div className="flex items-center justify-center md:space-x-8 max-w-2xl mx-auto mb-8">
+              <div className="flex items-center space-x-3">
+                <div className={cn(
+                  "w-8 h-8 rounded-lg flex items-center justify-center shadow-md",
+                  "bg-[#ff9000]"
+                )}>
+                  <span className="text-white font-bold">1</span>
+                </div>
+                <div>
+                  <p className="text-white font-semibold">Shipping Details</p>
+                  <p className="text-gray-400 text-xs">Current step</p>
+                </div>
               </div>
-              <div className="flex items-center space-x-2">
-                <Lock className="h-5 w-5 text-blue-500" />
-                <span className="text-sm text-gray-400">Encrypted</span>
+
+              <div className="flex-1 h-1 bg-gray-800 rounded-full mx-4">
+                <div className="h-1 bg-[#ff9000] rounded-full w-0 transition-all duration-1000"></div>
+              </div>
+
+              <div className="flex items-center space-x-3 opacity-50">
+                <div className="w-8 h-8 bg-gray-800/80 rounded-lg flex items-center justify-center">
+                  <span className="text-gray-400 font-bold">2</span>
+                </div>
+                <div>
+                  <p className="text-gray-400 font-semibold">Payment</p>
+                  <p className="text-gray-500 text-xs">Next step</p>
+                </div>
               </div>
             </div>
           </div>
 
-          {/* Progress Steps */}
-          <div className="flex items-center justify-center space-x-8">
-            <div className="flex items-center space-x-3">
-              <div className="w-10 h-10 bg-gradient-to-r from-orange-500 to-orange-600 rounded-full flex items-center justify-center shadow-lg">
-                <span className="text-white font-bold">1</span>
-              </div>
-              <div>
-                <p className="text-white font-semibold">Shipping Details</p>
-                <p className="text-gray-400 text-xs">Current step</p>
-              </div>
-            </div>
-
-            <div className="flex-1 h-1 bg-gray-700 rounded-full mx-4">
-              <div className="h-1 bg-gradient-to-r from-orange-500 to-orange-600 rounded-full w-0 transition-all duration-1000"></div>
-            </div>
-
-            <div className="flex items-center space-x-3 opacity-50">
-              <div className="w-10 h-10 bg-gray-700 rounded-full flex items-center justify-center">
-                <span className="text-gray-400 font-bold">2</span>
-              </div>
-              <div>
-                <p className="text-gray-400 font-semibold">Payment</p>
-                <p className="text-gray-500 text-xs">Next step</p>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <div className="container mx-auto px-4 py-8">
-        <div className="max-w-6xl mx-auto">
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+          <div className="max-w-6xl mx-auto">
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
             {/* Checkout Form */}
             <div className="lg:col-span-2 space-y-6">
               <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
                 {/* Shipping Address */}
-                <Card className="bg-gray-900/50 backdrop-blur-sm border-gray-700 hover:border-orange-500/50 transition-all duration-300">
-                  <CardHeader className="pb-4">
+                <Card className={cn(
+                  "overflow-hidden backdrop-blur-sm border text-white transition-all duration-300",
+                  "bg-gradient-to-br from-slate-900/80 via-gray-900/85 to-slate-800/80",
+                  "hover:shadow-lg hover:shadow-[#ff9000]/8 hover:-translate-y-0.5",
+                  "rounded-xl backdrop-saturate-150 border-gray-700/50 hover:border-[#ff9000]/30"
+                )}>
+                  <CardHeader className="pb-3">
                     <CardTitle className="flex items-center gap-3 text-white">
-                      <div className="p-2 bg-orange-500/20 rounded-lg">
-                        <MapPin className="h-5 w-5 text-orange-500" />
+                      <div className="p-2 bg-[#ff9000]/20 rounded-lg">
+                        <MapPin className="h-4 w-4 text-[#ff9000]" />
                       </div>
-                      Shipping Address
+                      <span className="text-white">
+                        Shipping Address
+                      </span>
                     </CardTitle>
                   </CardHeader>
-                  <CardContent className="space-y-4">
+                  <CardContent className="space-y-5">
                     <div className="space-y-2">
                       <Label htmlFor="shipping_street" className="text-gray-300 font-medium flex items-center gap-2">
                         Street Address
-                        <span className="text-red-400">*</span>
+                        <span className="text-[#ff9000]">*</span>
                       </Label>
-                      <div className="relative">
-                        <Input
+                      <div className="relative">                          <Input
                           id="shipping_street"
                           {...register('shipping_address.street')}
                           placeholder="123 Main St, Apartment, suite, etc."
-                          className={`bg-gray-800/50 border-gray-600 text-white placeholder:text-gray-400 focus:border-orange-500 focus:ring-orange-500/20 transition-all duration-300 ${
+                          className={cn(
+                            "bg-gray-800/40 border-gray-700/70 text-white placeholder:text-gray-500",
+                            "focus:border-[#ff9000] focus:ring-[#ff9000]/20 transition-all duration-300",
+                            "rounded-lg",
                             errors.shipping_address?.street ? 'border-red-500 focus:border-red-500' : ''
-                          }`}
-                          defaultValue={user?.address || ''}
+                          )}
+                          defaultValue={(user as any)?.address || ''}
                         />
                         {!errors.shipping_address?.street && (
                           <CheckCircle className="absolute right-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-green-500 opacity-0 transition-opacity duration-300" />
@@ -289,29 +325,45 @@ export default function CheckoutForm() {
 
                     <div className="grid grid-cols-2 gap-4">
                       <div>
-                        <Label htmlFor="shipping_city" className="text-gray-300 font-medium">City</Label>
+                        <Label htmlFor="shipping_city" className="text-gray-300 font-medium flex items-center gap-2">
+                          City
+                          <span className="text-[#ff9000]">*</span>
+                        </Label>
                         <Input
                           id="shipping_city"
                           {...register('shipping_address.city')}
                           placeholder="New York"
-                          className="bg-gray-800/50 border-gray-600 text-white placeholder:text-gray-400 focus:border-orange-500 focus:ring-orange-500/20"
+                          className={cn(
+                            "bg-gray-800/40 border-gray-700/70 text-white placeholder:text-gray-500",
+                            "focus:border-[#ff9000] focus:ring-[#ff9000]/20 transition-all duration-300",
+                            "rounded-lg"
+                          )}
                         />
                         {errors.shipping_address?.city && (
-                          <p className="text-sm text-red-400 mt-1">
+                          <p className="text-sm text-red-400 mt-1 flex items-center gap-1">
+                            <AlertCircle className="h-3 w-3" />
                             {errors.shipping_address.city.message}
                           </p>
                         )}
                       </div>
                       <div>
-                        <Label htmlFor="shipping_state" className="text-gray-300 font-medium">State</Label>
+                        <Label htmlFor="shipping_state" className="text-gray-300 font-medium flex items-center gap-2">
+                          State
+                          <span className="text-[#ff9000]">*</span>
+                        </Label>
                         <Input
                           id="shipping_state"
                           {...register('shipping_address.state')}
                           placeholder="NY"
-                          className="bg-gray-800/50 border-gray-600 text-white placeholder:text-gray-400 focus:border-orange-500 focus:ring-orange-500/20"
+                          className={cn(
+                            "bg-gray-800/40 border-gray-700/70 text-white placeholder:text-gray-500",
+                            "focus:border-[#ff9000] focus:ring-[#ff9000]/20 transition-all duration-300",
+                            "rounded-xl"
+                          )}
                         />
                         {errors.shipping_address?.state && (
-                          <p className="text-sm text-red-400 mt-1">
+                          <p className="text-sm text-red-400 mt-1 flex items-center gap-1">
+                            <AlertCircle className="h-3 w-3" />
                             {errors.shipping_address.state.message}
                           </p>
                         )}
@@ -320,29 +372,45 @@ export default function CheckoutForm() {
 
                     <div className="grid grid-cols-2 gap-4">
                       <div>
-                        <Label htmlFor="shipping_zip" className="text-gray-300 font-medium">ZIP Code</Label>
+                        <Label htmlFor="shipping_zip" className="text-gray-300 font-medium flex items-center gap-2">
+                          ZIP Code
+                          <span className="text-[#ff9000]">*</span>
+                        </Label>
                         <Input
                           id="shipping_zip"
                           {...register('shipping_address.zip_code')}
                           placeholder="10001"
-                          className="bg-gray-800/50 border-gray-600 text-white placeholder:text-gray-400 focus:border-orange-500 focus:ring-orange-500/20"
+                          className={cn(
+                            "bg-gray-800/40 border-gray-700/70 text-white placeholder:text-gray-500",
+                            "focus:border-[#ff9000] focus:ring-[#ff9000]/20 transition-all duration-300",
+                            "rounded-xl"
+                          )}
                         />
                         {errors.shipping_address?.zip_code && (
-                          <p className="text-sm text-red-400 mt-1">
+                          <p className="text-sm text-red-400 mt-1 flex items-center gap-1">
+                            <AlertCircle className="h-3 w-3" />
                             {errors.shipping_address.zip_code.message}
                           </p>
                         )}
                       </div>
                       <div>
-                        <Label htmlFor="shipping_country" className="text-gray-300 font-medium">Country</Label>
+                        <Label htmlFor="shipping_country" className="text-gray-300 font-medium flex items-center gap-2">
+                          Country
+                          <span className="text-[#ff9000]">*</span>
+                        </Label>
                         <Input
                           id="shipping_country"
                           {...register('shipping_address.country')}
                           placeholder="US"
-                          className="bg-gray-800/50 border-gray-600 text-white placeholder:text-gray-400 focus:border-orange-500 focus:ring-orange-500/20"
+                          className={cn(
+                            "bg-gray-800/40 border-gray-700/70 text-white placeholder:text-gray-500",
+                            "focus:border-[#ff9000] focus:ring-[#ff9000]/20 transition-all duration-300",
+                            "rounded-xl"
+                          )}
                         />
                         {errors.shipping_address?.country && (
-                          <p className="text-sm text-red-400 mt-1">
+                          <p className="text-sm text-red-400 mt-1 flex items-center gap-1">
+                            <AlertCircle className="h-3 w-3" />
                             {errors.shipping_address.country.message}
                           </p>
                         )}
@@ -356,15 +424,34 @@ export default function CheckoutForm() {
 
 
                 {/* Additional Options */}
-                <Card className="bg-gray-900/50 backdrop-blur-sm border-gray-700 hover:border-orange-500/50 transition-all duration-300">
-                  <CardContent className="pt-6 space-y-4">
+                <Card className={cn(
+                  "overflow-hidden backdrop-blur-sm border text-white transition-all duration-300",
+                  "bg-gradient-to-br from-slate-900/80 via-gray-900/85 to-slate-800/80",
+                  "hover:shadow-lg hover:shadow-[#ff9000]/8 hover:-translate-y-0.5",
+                  "rounded-xl backdrop-saturate-150 border-gray-700/50 hover:border-[#ff9000]/30"
+                )}>
+                  <CardHeader className="pb-3">
+                    <CardTitle className="flex items-center gap-3 text-white">
+                      <div className="p-2 bg-[#ff9000]/20 rounded-lg">
+                        <Gift className="h-4 w-4 text-[#ff9000]" />
+                      </div>
+                      <span className="text-white">
+                        Additional Options
+                      </span>
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-5">
                     <div>
                       <Label htmlFor="coupon_code" className="text-gray-300 font-medium">Coupon Code (Optional)</Label>
                       <Input
                         id="coupon_code"
                         {...register('coupon_code')}
                         placeholder="Enter coupon code"
-                        className="bg-gray-800/50 border-gray-600 text-white placeholder:text-gray-400 focus:border-orange-500 focus:ring-orange-500/20"
+                        className={cn(
+                          "bg-gray-800/40 border-gray-700/70 text-white placeholder:text-gray-500",
+                          "focus:border-[#ff9000] focus:ring-[#ff9000]/20 transition-all duration-300",
+                          "rounded-lg"
+                        )}
                       />
                     </div>
 
@@ -374,7 +461,11 @@ export default function CheckoutForm() {
                         id="notes"
                         {...register('notes')}
                         placeholder="Special instructions for your order"
-                        className="w-full px-3 py-2 bg-gray-800/50 border border-gray-600 text-white placeholder:text-gray-400 rounded-md focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
+                        className={cn(
+                          "w-full px-3 py-2 bg-gray-800/40 border border-gray-700/70 text-white",
+                          "placeholder:text-gray-500 rounded-lg focus:outline-none focus:ring-2",
+                          "focus:ring-[#ff9000]/20 focus:border-[#ff9000] transition-all duration-300"
+                        )}
                         rows={3}
                       />
                     </div>
@@ -382,58 +473,82 @@ export default function CheckoutForm() {
                 </Card>
 
                 {/* Payment Method */}
-                <Card className="bg-gray-900/50 backdrop-blur-sm border-gray-700">
-                  <CardHeader className="pb-4">
+                <Card className={cn(
+                  "overflow-hidden backdrop-blur-sm border text-white transition-all duration-300",
+                  "bg-gradient-to-br from-slate-900/80 via-gray-900/85 to-slate-800/80",
+                  "hover:shadow-lg hover:shadow-[#ff9000]/8 hover:-translate-y-0.5",
+                  "rounded-xl backdrop-saturate-150 border-gray-700/50 hover:border-[#ff9000]/30"
+                )}>
+                  <CardHeader className="pb-3">
                     <CardTitle className="flex items-center gap-3 text-white">
                       <div className="p-2 bg-blue-500/20 rounded-lg">
-                        <CreditCard className="h-5 w-5 text-blue-400" />
+                        <CreditCard className="h-4 w-4 text-blue-400" />
                       </div>
-                      Payment Method
+                      <span className="text-white">
+                        Payment Method
+                      </span>
                     </CardTitle>
                   </CardHeader>
                   <CardContent>
-                    <div className="bg-gradient-to-r from-blue-500/10 to-purple-500/10 border border-blue-500/20 rounded-xl p-4">
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-3">
-                          <div className="w-12 h-8 bg-gradient-to-r from-blue-600 to-purple-600 rounded-md flex items-center justify-center">
-                            <span className="text-white font-bold text-xs">STRIPE</span>
+                    <div className="bg-gradient-to-r from-blue-500/10 to-purple-500/10 border border-blue-500/30 rounded-lg p-5 relative overflow-hidden">
+                      {/* Decorative background pattern */}
+                      <div className="absolute inset-0 bg-gradient-to-br from-blue-600/5 to-purple-600/5 opacity-50"></div>
+                      
+                      <div className="relative flex items-center justify-between">
+                        <div className="flex items-center gap-4">
+                          <div className="w-14 h-9 bg-gradient-to-r from-blue-600 to-purple-600 rounded-lg flex items-center justify-center shadow-xl relative overflow-hidden">
+                            {/* Shine effect */}
+                            <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent -skew-x-12 animate-pulse"></div>
+                            <span className="text-white font-bold text-base tracking-wider relative z-10">Stripe</span>
                           </div>
                           <div>
-                            <p className="text-white font-medium">Secure Card Payment</p>
-                            <p className="text-gray-400 text-sm">Visa, Mastercard, American Express</p>
+                            <p className="text-white font-semibold text-lg">Secure Card Payment</p>
+                            <p className="text-gray-400 text-sm flex items-center gap-1">
+                              <span>💳</span>
+                              Visa, Mastercard, American Express
+                            </p>
                           </div>
                         </div>
-                        <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-2 bg-green-500/20 px-3 py-1.5 rounded-full border border-green-500/30">
                           <Shield className="h-4 w-4 text-green-400" />
-                          <span className="text-green-400 text-sm font-medium">Secured</span>
+                          <span className="text-green-400 text-sm font-semibold">Secured</span>
                         </div>
                       </div>
-                      <div className="mt-3 pt-3 border-t border-gray-700">
-                        <p className="text-xs text-gray-400">
-                          🔒 Your payment information is encrypted and secure. We never store your card details.
-                        </p>
+                      
+                      <div className="mt-4 pt-4 border-t border-gray-700/50 relative">
+                        <div className="flex items-center gap-2 text-gray-400">
+                          <span className="text-lg">🔒</span>
+                          <p className="text-xs">
+                            Your payment information is encrypted and secure. Powered by <span className="text-blue-400 font-semibold">Stripe</span>.
+                          </p>
+                        </div>
                       </div>
                     </div>
                   </CardContent>
                 </Card>
 
                 {/* Submit Button */}
-                <div className="pt-4">
+                <div className="pt-6">
                   <Button
                     type="submit"
-                    className="w-full bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 text-white font-semibold py-4 px-6 rounded-xl transition-all duration-300 transform hover:scale-[1.02] hover:shadow-2xl hover:shadow-orange-500/25"
+                    className={cn(
+                      "w-full transition-all duration-300",
+                      "bg-[#ff9000] hover:bg-[#e68100]",
+                      "text-white font-semibold py-5 px-6 rounded-lg",
+                      "transform hover:scale-[1.01] hover:shadow-lg hover:shadow-[#ff9000]/25"
+                    )}
                     size="lg"
                     disabled={isProcessing}
                   >
                     {isProcessing ? (
                       <>
-                        <Loader2 className="mr-3 h-5 w-5 animate-spin" />
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                         Creating Order...
                       </>
                     ) : (
                       <>
-                        <CreditCard className="mr-3 h-5 w-5" />
-                        Pay ${finalTotal.toFixed(2)} with Stripe
+                        <CreditCard className="mr-2 h-4 w-4" />
+                        Pay {formatPrice(finalTotal)} with Stripe
                       </>
                     )}
                   </Button>
@@ -441,9 +556,9 @@ export default function CheckoutForm() {
                   <div className="text-center mt-4">
                     <p className="text-xs text-gray-400">
                       By clicking "Pay", you agree to our{' '}
-                      <a href="/terms" className="text-orange-400 hover:text-orange-300 underline">Terms of Service</a>
+                      <a href="/terms" className="text-[#ff9000] hover:text-orange-400 underline">Terms of Service</a>
                       {' '}and{' '}
-                      <a href="/privacy" className="text-orange-400 hover:text-orange-300 underline">Privacy Policy</a>
+                      <a href="/privacy" className="text-[#ff9000] hover:text-orange-400 underline">Privacy Policy</a>
                     </p>
                   </div>
                 </div>
@@ -452,38 +567,50 @@ export default function CheckoutForm() {
 
             {/* Order Summary */}
             <div className="space-y-6">
-              <Card className="bg-gray-900/50 backdrop-blur-sm border-gray-700 sticky top-6">
-                <CardHeader className="pb-4">
+              <Card className={cn(
+                "overflow-hidden backdrop-blur-sm border text-white transition-all duration-300",
+                "bg-gradient-to-br from-slate-900/80 via-gray-900/85 to-slate-800/80",
+                "rounded-xl backdrop-saturate-150 border-gray-700/50 hover:border-[#ff9000]/30",
+                "shadow-lg sticky top-32"
+              )}>
+                <CardHeader className="pb-3">
                   <CardTitle className="flex items-center gap-3 text-white">
-                    <div className="p-2 bg-orange-500/20 rounded-lg">
-                      <ShoppingBag className="h-5 w-5 text-orange-500" />
+                    <div className="p-2 bg-[#ff9000]/20 rounded-lg">
+                      <ShoppingBag className="h-4 w-4 text-[#ff9000]" />
                     </div>
-                    Order Summary
+                    <span className="text-white">
+                      Order Summary
+                    </span>
                   </CardTitle>
                 </CardHeader>
-                <CardContent className="space-y-4">
+                <CardContent className="space-y-5">
                   {/* Cart Items */}
-                  <div className="space-y-3 max-h-64 overflow-y-auto">
+                  <div className="space-y-2 max-h-64 overflow-y-auto pr-1 custom-scrollbar">
                     {cart.items.map((item) => (
-                      <div key={item.id} className="flex items-center space-x-3 p-3 bg-gray-800/30 rounded-lg">
-                        <div className="relative h-12 w-12 flex-shrink-0 overflow-hidden rounded-lg border border-gray-600">
+                      <div key={item.id} className={cn(
+                        "flex items-center gap-2 p-2 rounded-lg transition-all duration-300",
+                        "bg-gradient-to-br from-slate-900/40 to-gray-800/40",
+                        "border border-gray-800/80 hover:border-[#ff9000]/20"
+                      )}>
+                        <div className="relative h-14 w-14 flex-shrink-0 overflow-hidden rounded-md border border-gray-700/50">
                           <Image
-                            src={item.product.images?.[0]?.url || '/placeholder-product.jpg'}
+                            src={item.product.images?.[0]?.url || '/placeholder-product.svg'}
                             alt={item.product.name}
                             fill
                             className="object-cover"
+                            sizes="64px"
                           />
                         </div>
                         <div className="flex-1 min-w-0">
                           <p className="font-medium text-white truncate">{item.product.name}</p>
                           <p className="text-sm text-gray-400">Qty: {item.quantity}</p>
                         </div>
-                        <p className="font-semibold text-orange-400">{formatPrice(item.subtotal || item.price * item.quantity)}</p>
+                        <p className="font-semibold text-[#ff9000]">{formatPrice(item.subtotal || item.price * item.quantity)}</p>
                       </div>
                     ))}
                   </div>
 
-                  <Separator className="bg-gray-700" />
+                  <Separator className="bg-gray-700/50" />
 
                   {/* Order Totals */}
                   <div className="space-y-3">
@@ -493,7 +620,7 @@ export default function CheckoutForm() {
                     </div>
                     <div className="flex justify-between text-gray-300">
                       <span className="flex items-center gap-2">
-                        <Truck className="h-4 w-4" />
+                        <Truck className="h-4 w-4 text-[#ff9000]" />
                         Shipping
                       </span>
                       <span className={shippingCost === 0 ? "text-green-400 font-medium" : ""}>
@@ -505,19 +632,21 @@ export default function CheckoutForm() {
                       <span>{formatPrice(tax)}</span>
                     </div>
 
-                    <Separator className="bg-gray-700" />
+                    <Separator className="bg-gray-700/50" />
 
-                    <div className="flex justify-between text-xl font-bold text-white">
-                      <span>Total</span>
-                      <span className="text-orange-400">{formatPrice(finalTotal)}</span>
+                    <div className="flex justify-between text-xl font-bold">
+                      <span className="text-white">Total</span>
+                      <span className="text-[#ff9000] font-extrabold">
+                        {formatPrice(finalTotal)}
+                      </span>
                     </div>
                   </div>
 
                   {/* Security Notice */}
-                  <div className="bg-green-900/20 border border-green-700/50 rounded-lg p-3 mt-4">
-                    <div className="flex items-center space-x-2">
-                      <Lock className="h-4 w-4 text-green-400" />
-                      <span className="text-sm text-green-300">
+                  <div className="bg-gray-800/30 rounded-lg p-3 mt-4">
+                    <div className="flex items-center gap-2">
+                      <Shield className="h-4 w-4 text-green-400" />
+                      <span className="text-sm text-gray-300">
                         Your payment information is secure and encrypted
                       </span>
                     </div>
@@ -526,6 +655,7 @@ export default function CheckoutForm() {
               </Card>
             </div>
           </div>
+        </div>
         </div>
       </div>
     </div>
