@@ -9,6 +9,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Separator } from '@/components/ui/separator'
 import { AnimatedBackground } from '@/components/ui/animated-background'
+import { InvoicePreviewModal } from '@/components/modals/InvoicePreviewModal'
 import { useOrder } from '@/hooks/use-orders'
 import { formatPrice, formatDate, cn } from '@/lib/utils'
 import { toast } from 'sonner'
@@ -57,6 +58,7 @@ const getStatusColor = (status: string) => {
 
 export function OrderDetailPage({ orderId }: Props) {
   const [copiedTrackingId, setCopiedTrackingId] = useState(false)
+  const [showInvoiceModal, setShowInvoiceModal] = useState(false)
   const { data: order, isLoading, error } = useOrder(orderId)
 
   const copyTrackingNumber = () => {
@@ -199,6 +201,7 @@ export function OrderDetailPage({ orderId }: Props) {
               <Button 
                 variant="outline" 
                 size="sm"
+                onClick={() => setShowInvoiceModal(true)}
                 className="h-8 px-2 border-gray-600/50 text-gray-300 hover:bg-gray-800/50 hover:border-[#ff9000]/30 hover:text-[#ff9000] transition-all duration-300"
               >
                 <Download className="h-3 w-3 mr-1" />
@@ -556,6 +559,15 @@ export function OrderDetailPage({ orderId }: Props) {
           </div>
         </div>
       </div>
+
+      {/* Invoice Preview Modal */}
+      {order && (
+        <InvoicePreviewModal
+          isOpen={showInvoiceModal}
+          onClose={() => setShowInvoiceModal(false)}
+          order={order}
+        />
+      )}
     </div>
   )
 }

@@ -134,10 +134,10 @@ export function Header() {
         <div className="flex h-14 items-center justify-between">{/* Reduced height */}
           {/* Logo */}
           <div className="flex items-center">
-            <Link href="/" className="flex items-center space-x-2.5 group">
+            <Link href="/" className="flex items-center group">
               <span className="text-2xl font-bold flex items-center">
                 <span className="text-white">Bi</span>
-                <span className="ml-1 px-2 py-0.5 rounded-[2px] text-black font-bold" style={{letterSpacing: '0.5px', backgroundColor: '#FF9000'}}>hub</span>
+                <span className="ml-0.5 px-0.5 py-0 rounded-[3px] text-black font-bold" style={{letterSpacing: '0.3px', backgroundColor: '#FF9000', lineHeight: '1.1'}}>hub</span>
               </span>
             </Link>
           </div>

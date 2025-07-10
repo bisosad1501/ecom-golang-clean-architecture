@@ -28,9 +28,9 @@ export function BiHubAdminLogo({ size = 'default' }: { size?: 'small' | 'default
         <span className={cn(BIHUB_ADMIN_THEME.typography.heading.h3, 'flex items-center')}>
           <span className={BIHUB_BRAND.logo.colors.text}>{BIHUB_BRAND.logo.text}</span>
           <span className={cn(
-            'ml-1 px-2 py-0.5 rounded-[2px] font-bold',
+            'ml-0.5 px-1.5 py-0.5 rounded-[2px] font-bold',
             BIHUB_BRAND.logo.colors.accent
-          )} style={{letterSpacing: '0.5px'}}>
+          )} style={{letterSpacing: '0.3px'}}>
             {BIHUB_BRAND.logo.accent}
           </span>
           <span className="ml-2 text-gray-400 text-sm font-normal">Admin</span>
