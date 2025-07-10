@@ -17,6 +17,7 @@ type OrderUseCase interface {
 	GetOrder(ctx context.Context, orderID uuid.UUID) (*OrderResponse, error)
 	GetOrderBySessionID(ctx context.Context, sessionID string, userID uuid.UUID) (*OrderResponse, error)
 	GetUserOrders(ctx context.Context, userID uuid.UUID, limit, offset int) ([]*OrderResponse, error)
+	GetUserOrdersWithFilters(ctx context.Context, userID uuid.UUID, req GetUserOrdersRequest) (*PaginatedOrderResponse, error)
 	UpdateOrderStatus(ctx context.Context, orderID uuid.UUID, status entities.OrderStatus) (*OrderResponse, error)
 	CancelOrder(ctx context.Context, orderID uuid.UUID) (*OrderResponse, error)
 	GetOrders(ctx context.Context, req GetOrdersRequest) ([]*OrderResponse, error)
@@ -71,6 +72,34 @@ type GetOrdersRequest struct {
 	SortOrder     string                  `json:"sort_order"`
 	Limit         int                     `json:"limit" validate:"min=1,max=100"`
 	Offset        int                     `json:"offset" validate:"min=0"`
+}
+
+// GetUserOrdersRequest represents get user orders request with filters
+type GetUserOrdersRequest struct {
+	Status        *entities.OrderStatus   `json:"status"`
+	PaymentStatus *entities.PaymentStatus `json:"payment_status"`
+	StartDate     *time.Time              `json:"start_date"`
+	EndDate       *time.Time              `json:"end_date"`
+	SortBy        string                  `json:"sort_by"`
+	SortOrder     string                  `json:"sort_order"`
+	Limit         int                     `json:"limit" validate:"min=1,max=100"`
+	Offset        int                     `json:"offset" validate:"min=0"`
+}
+
+// PaginationMeta represents pagination metadata
+type PaginationMeta struct {
+	Page       int   `json:"page"`
+	Limit      int   `json:"limit"`
+	Total      int64 `json:"total"`
+	TotalPages int   `json:"total_pages"`
+	HasNext    bool  `json:"has_next"`
+	HasPrev    bool  `json:"has_prev"`
+}
+
+// PaginatedOrderResponse represents a paginated order response
+type PaginatedOrderResponse struct {
+	Data       []*OrderResponse `json:"data"`
+	Pagination PaginationMeta   `json:"pagination"`
 }
 
 // AddressRequest represents address request
@@ -315,6 +344,67 @@ func (uc *orderUseCase) GetUserOrders(ctx context.Context, userID uuid.UUID, lim
 	}
 
 	return responses, nil
+}
+
+// GetUserOrdersWithFilters gets user's orders with filters
+func (uc *orderUseCase) GetUserOrdersWithFilters(ctx context.Context, userID uuid.UUID, req GetUserOrdersRequest) (*PaginatedOrderResponse, error) {
+	// Convert request to search parameters
+	params := repositories.OrderSearchParams{
+		UserID:        &userID,
+		Status:        req.Status,
+		PaymentStatus: req.PaymentStatus,
+		StartDate:     req.StartDate,
+		EndDate:       req.EndDate,
+		SortBy:        req.SortBy,
+		SortOrder:     req.SortOrder,
+		Limit:         req.Limit,
+		Offset:        req.Offset,
+	}
+
+	// Set default sorting if not provided
+	if params.SortBy == "" {
+		params.SortBy = "created_at"
+		params.SortOrder = "desc"
+	}
+
+	// Get total count with same filters
+	totalCount, err := uc.orderRepo.CountSearch(ctx, params)
+	if err != nil {
+		return nil, err
+	}
+
+	// Get orders
+	orders, err := uc.orderRepo.Search(ctx, params)
+	if err != nil {
+		return nil, err
+	}
+
+	// Convert to responses
+	responses := make([]*OrderResponse, len(orders))
+	for i, order := range orders {
+		responses[i] = uc.toOrderResponse(order)
+	}
+
+	// Calculate pagination metadata
+	page := (req.Offset / req.Limit) + 1
+	totalPages := int((totalCount + int64(req.Limit) - 1) / int64(req.Limit)) // Ceiling division
+	if totalPages == 0 {
+		totalPages = 1
+	}
+
+	pagination := PaginationMeta{
+		Page:       page,
+		Limit:      req.Limit,
+		Total:      totalCount,
+		TotalPages: totalPages,
+		HasNext:    req.Offset+req.Limit < int(totalCount),
+		HasPrev:    req.Offset > 0,
+	}
+
+	return &PaginatedOrderResponse{
+		Data:       responses,
+		Pagination: pagination,
+	}, nil
 }
 
 // UpdateOrderStatus updates order status

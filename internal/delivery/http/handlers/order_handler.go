@@ -170,13 +170,18 @@ func (h *OrderHandler) GetOrderPublic(c *gin.Context) {
 
 // GetUserOrders handles getting user's orders
 // @Summary Get user's orders
-// @Description Get current user's order history
+// @Description Get current user's order history with optional filters
 // @Tags orders
 // @Accept json
 // @Produce json
 // @Security BearerAuth
+// @Param status query string false "Order status"
+// @Param payment_status query string false "Payment status"
+// @Param search query string false "Search query"
 // @Param limit query int false "Limit" default(10)
 // @Param offset query int false "Offset" default(0)
+// @Param sort_by query string false "Sort by field" default(created_at)
+// @Param sort_order query string false "Sort order" default(desc)
 // @Success 200 {array} usecases.OrderResponse
 // @Failure 401 {object} ErrorResponse
 // @Router /orders [get]
@@ -197,10 +202,40 @@ func (h *OrderHandler) GetUserOrders(c *gin.Context) {
 		return
 	}
 
-	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "10"))
-	offset, _ := strconv.Atoi(c.DefaultQuery("offset", "0"))
+	// Build request with filters
+	req := usecases.GetUserOrdersRequest{
+		SortBy:    c.DefaultQuery("sort_by", "created_at"),
+		SortOrder: c.DefaultQuery("sort_order", "desc"),
+		Limit:     10,
+		Offset:    0,
+	}
 
-	orders, err := h.orderUseCase.GetUserOrders(c.Request.Context(), userID, limit, offset)
+	// Parse status filter
+	if statusStr := c.Query("status"); statusStr != "" {
+		status := entities.OrderStatus(statusStr)
+		req.Status = &status
+	}
+
+	// Parse payment status filter
+	if paymentStatusStr := c.Query("payment_status"); paymentStatusStr != "" {
+		paymentStatus := entities.PaymentStatus(paymentStatusStr)
+		req.PaymentStatus = &paymentStatus
+	}
+
+	// Parse limit and offset
+	if limitStr := c.Query("limit"); limitStr != "" {
+		if limit, err := strconv.Atoi(limitStr); err == nil && limit > 0 {
+			req.Limit = limit
+		}
+	}
+
+	if offsetStr := c.Query("offset"); offsetStr != "" {
+		if offset, err := strconv.Atoi(offsetStr); err == nil && offset >= 0 {
+			req.Offset = offset
+		}
+	}
+
+	orders, err := h.orderUseCase.GetUserOrdersWithFilters(c.Request.Context(), userID, req)
 	if err != nil {
 		c.JSON(getErrorStatusCode(err), ErrorResponse{
 			Error: err.Error(),

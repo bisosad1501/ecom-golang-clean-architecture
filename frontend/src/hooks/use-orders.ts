@@ -48,26 +48,53 @@ export function useOrders(params: {
         console.log('useOrders - Raw API response:', response)
         console.log('useOrders - Response data:', response.data)
         
-        // Handle the SuccessResponse structure from backend
-        let ordersArray = response.data
+        // The backend now returns a paginated response structure directly
+        const responseData = response.data
+        console.log('useOrders - Checking response structure...')
+        console.log('useOrders - Has data property:', !!responseData.data)
+        console.log('useOrders - Has pagination property:', !!responseData.pagination)
+        console.log('useOrders - Type of data:', typeof responseData.data)
+        console.log('useOrders - Type of pagination:', typeof responseData.pagination)
         
-        // If the response is wrapped in SuccessResponse structure
-        if (response.data && response.data.data) {
-          console.log('useOrders - Detected SuccessResponse wrapper, unwrapping...')
-          ordersArray = response.data.data
+        // Check if the response has the new pagination structure
+        if (responseData && responseData.data && responseData.pagination) {
+          console.log('useOrders - Using backend pagination structure')
+          console.log('useOrders - Pagination data:', responseData.pagination)
+          return {
+            data: responseData.data,
+            pagination: {
+              page: responseData.pagination.page,
+              limit: responseData.pagination.limit,
+              total: responseData.pagination.total,
+              total_pages: responseData.pagination.total_pages,
+              has_next: responseData.pagination.has_next,
+              has_prev: responseData.pagination.has_prev
+            }
+          }
         }
         
-        // Ensure we have an array
-        if (!Array.isArray(ordersArray)) {
-          console.log('useOrders - Response is not an array, using empty array')
-          ordersArray = []
+        // Fallback for old structure (array of orders) or unknown structure
+        let ordersArray: Order[] = []
+        
+        // Check if responseData is directly an array
+        if (Array.isArray(responseData)) {
+          ordersArray = responseData
+        }
+        // Check if it's a SuccessResponse wrapper with data array
+        else if (responseData && responseData.data && Array.isArray(responseData.data)) {
+          ordersArray = responseData.data
+        }
+        // Check if it's just an object with orders property
+        else if (responseData && Array.isArray(responseData.orders)) {
+          ordersArray = responseData.orders
         }
         
-        console.log('useOrders - Extracted orders array:', ordersArray)
+        console.log('useOrders - Using fallback pagination structure')
         console.log('useOrders - Orders count:', ordersArray.length)
+        console.log('useOrders - Response structure not recognized, using fallback')
         
         // Create paginated response structure
-        const responseData = {
+        return {
           data: ordersArray,
           pagination: {
             page: page,
@@ -78,9 +105,6 @@ export function useOrders(params: {
             has_prev: page > 1
           }
         }
-        
-        console.log('useOrders - Final processed data:', responseData)
-        return responseData
       } catch (error) {
         console.error('useOrders - API call failed:', error)
         throw error

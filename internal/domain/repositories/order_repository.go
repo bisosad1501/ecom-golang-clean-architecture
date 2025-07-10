@@ -47,6 +47,9 @@ type OrderRepository interface {
 	// Search searches orders based on criteria
 	Search(ctx context.Context, params OrderSearchParams) ([]*entities.Order, error)
 
+	// CountSearch counts orders based on search criteria
+	CountSearch(ctx context.Context, params OrderSearchParams) (int64, error)
+
 	// GetByUserID retrieves orders by user ID
 	GetByUserID(ctx context.Context, userID uuid.UUID, limit, offset int) ([]*entities.Order, error)
 
