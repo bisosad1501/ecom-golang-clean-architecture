@@ -216,7 +216,13 @@ export function AdminProductsPage() {
             <div className="relative flex items-center justify-between">
               <div>
                 <p className="text-emerald-400/80 text-sm font-medium uppercase tracking-wide">In Stock</p>
-                <p className="text-2xl font-bold text-emerald-100 mt-1">{products.filter((p: Product) => ((p as any).stock ?? 0) > 0).length}</p>
+                <p className="text-2xl font-bold text-emerald-100 mt-1">
+                  {products.filter((p: Product) => {
+                    const stockStatus = (p as any).stock_status || 'in_stock'
+                    const stock = (p as any).stock ?? 0
+                    return stockStatus === 'in_stock' && stock > 0
+                  }).length}
+                </p>
               </div>
               <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-emerald-500/20 to-green-600/20 border border-emerald-400/30 flex items-center justify-center group-hover:scale-110 transition-transform">
                 <Package className="h-5 w-5 text-emerald-400" />
@@ -230,10 +236,28 @@ export function AdminProductsPage() {
             <div className="relative flex items-center justify-between">
               <div>
                 <p className="text-amber-400/80 text-sm font-medium uppercase tracking-wide">Low Stock</p>
-                <p className="text-2xl font-bold text-amber-100 mt-1">{products.filter((p: Product) => ((p as any).stock ?? 0) <= 5 && ((p as any).stock ?? 0) > 0).length}</p>
+                <p className="text-2xl font-bold text-amber-100 mt-1">
+                  {products.filter((p: Product) => (p as any).is_low_stock === true).length}
+                </p>
               </div>
               <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-amber-500/20 to-orange-500/20 border border-amber-400/30 flex items-center justify-center group-hover:scale-110 transition-transform">
                 <Package className="h-5 w-5 text-amber-400" />
+              </div>
+            </div>
+          </div>
+
+          {/* On Sale */}
+          <div className="group relative bg-white/5 backdrop-blur-sm border border-orange-300/20 rounded-xl p-4 hover:bg-white/10 hover:border-orange-400/40 hover:scale-[1.02] transition-all duration-200 shadow-sm hover:shadow-lg hover:shadow-orange-500/10">
+            <div className="absolute inset-0 bg-gradient-to-br from-orange-500/5 to-red-500/5 rounded-xl opacity-0 group-hover:opacity-100 transition-opacity duration-200"></div>
+            <div className="relative flex items-center justify-between">
+              <div>
+                <p className="text-orange-400/80 text-sm font-medium uppercase tracking-wide">On Sale</p>
+                <p className="text-2xl font-bold text-orange-100 mt-1">
+                  {products.filter((p: Product) => (p as any).is_on_sale === true).length}
+                </p>
+              </div>
+              <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-orange-500/20 to-red-500/20 border border-orange-400/30 flex items-center justify-center group-hover:scale-110 transition-transform">
+                <Package className="h-5 w-5 text-orange-400" />
               </div>
             </div>
           </div>
@@ -433,10 +457,24 @@ export function AdminProductsPage() {
 
                 {viewMode === 'grid' && (
                   <div className="text-right">
-                    <p className="text-2xl font-bold text-[#FF9000] group-hover:text-[#FF9000]/80 transition-colors">
-                      {formatPrice((product as any).price || 0)}
+                    <div className="flex flex-col items-end gap-1">
+                      <p className="text-2xl font-bold text-[#FF9000] group-hover:text-[#FF9000]/80 transition-colors">
+                        {formatPrice((product as any).current_price || (product as any).price || 0)}
+                      </p>
+                      {(product as any).is_on_sale && (
+                        <div className="flex items-center gap-2">
+                          <p className="text-sm text-gray-400 line-through">
+                            {formatPrice((product as any).price || 0)}
+                          </p>
+                          <Badge className="bg-[#FF9000]/20 text-[#FF9000] text-xs px-1.5 py-0.5">
+                            -{Math.round((product as any).sale_discount_percentage || 0)}%
+                          </Badge>
+                        </div>
+                      )}
+                    </div>
+                    <p className="text-xs text-gray-400 mt-1">
+                      {(product as any).is_on_sale ? 'Sale Price' : 'Price'}
                     </p>
-                    <p className="text-xs text-gray-400 mt-1">Price</p>
                   </div>
                 )}
               </div>
@@ -464,11 +502,12 @@ export function AdminProductsPage() {
                       </div>
                     </div>
 
-                    {/* Stock for grid view */}
+                    {/* Enhanced Stock for grid view */}
                     <div className="flex items-center gap-3">
                       <div className={cn(
                         "w-8 h-8 rounded-lg bg-white/5 flex items-center justify-center border border-white/10",
-                        ((product as any).stock ?? 0) > 0 ? "text-emerald-400" : "text-red-400"
+                        (product as any).stock_status === 'in_stock' ? "text-emerald-400" :
+                        (product as any).stock_status === 'out_of_stock' ? "text-red-400" : "text-amber-400"
                       )}>
                         <Package className="h-4 w-4" />
                       </div>
@@ -477,13 +516,24 @@ export function AdminProductsPage() {
                         <div className="flex items-center gap-2">
                           <p className={cn(
                             "text-sm font-medium",
-                            ((product as any).stock ?? 0) > 0 ? "text-emerald-400" : "text-red-400"
+                            (product as any).stock_status === 'in_stock' ? "text-emerald-400" :
+                            (product as any).stock_status === 'out_of_stock' ? "text-red-400" : "text-amber-400"
                           )}>
                             {(product as any).stock ?? 0} items
                           </p>
-                          {((product as any).stock ?? 0) <= 5 && ((product as any).stock ?? 0) > 0 && (
+                          {(product as any).is_low_stock && (
                             <Badge variant="outline" className="text-xs px-1.5 py-0 bg-amber-500/10 text-amber-400 border-amber-500/30">
                               Low Stock
+                            </Badge>
+                          )}
+                          {(product as any).is_on_sale && (
+                            <Badge variant="outline" className="text-xs px-1.5 py-0 bg-[#FF9000]/10 text-[#FF9000] border-[#FF9000]/30">
+                              Sale
+                            </Badge>
+                          )}
+                          {(product as any).featured && (
+                            <Badge variant="outline" className="text-xs px-1.5 py-0 bg-purple-500/10 text-purple-400 border-purple-500/30">
+                              Featured
                             </Badge>
                           )}
                         </div>
@@ -518,29 +568,61 @@ export function AdminProductsPage() {
                       </p>
                     </div>
 
-                    {/* Price Column */}
-                    <div className="flex flex-col min-w-0 w-24">
+                    {/* Enhanced Price Column */}
+                    <div className="flex flex-col min-w-0 w-32">
                       <p className="text-xs text-gray-400 uppercase tracking-wide font-medium mb-1">PRICE</p>
-                      <p className="text-sm font-bold text-[#FF9000] truncate">
-                        {formatPrice((product as any).price || 0)}
-                      </p>
+                      <div className="flex flex-col gap-1">
+                        <p className="text-sm font-bold text-[#FF9000] truncate">
+                          {formatPrice((product as any).current_price || (product as any).price || 0)}
+                        </p>
+                        {(product as any).is_on_sale && (
+                          <div className="flex items-center gap-1">
+                            <p className="text-xs text-gray-400 line-through">
+                              {formatPrice((product as any).price || 0)}
+                            </p>
+                            <Badge className="bg-[#FF9000]/20 text-[#FF9000] text-xs px-1 py-0">
+                              -{Math.round((product as any).sale_discount_percentage || 0)}%
+                            </Badge>
+                          </div>
+                        )}
+                      </div>
                     </div>
 
-                    {/* Stock Column */}
-                    <div className="flex flex-col min-w-0 w-28">
+                    {/* Enhanced Stock Column */}
+                    <div className="flex flex-col min-w-0 w-32">
                       <p className="text-xs text-gray-400 uppercase tracking-wide font-medium mb-1">STOCK</p>
-                      <div className="flex items-center gap-2">
-                        <p className={cn(
-                          "text-sm font-medium truncate",
-                          ((product as any).stock ?? 0) > 0 ? "text-emerald-400" : "text-red-400"
-                        )}>
-                          {(product as any).stock ?? 0} items
-                        </p>
-                        {((product as any).stock ?? 0) <= 5 && ((product as any).stock ?? 0) > 0 && (
-                          <Badge variant="outline" className="text-xs px-1.5 py-0 bg-amber-500/10 text-amber-400 border-amber-500/30 flex-shrink-0">
-                            Low
+                      <div className="flex flex-col gap-1">
+                        <div className="flex items-center gap-2">
+                          <p className={cn(
+                            "text-sm font-medium truncate",
+                            (product as any).stock_status === 'in_stock' ? "text-emerald-400" :
+                            (product as any).stock_status === 'out_of_stock' ? "text-red-400" : "text-amber-400"
+                          )}>
+                            {(product as any).stock ?? 0}
+                          </p>
+                          <Badge variant="outline" className={cn(
+                            "text-xs px-1.5 py-0 flex-shrink-0",
+                            (product as any).stock_status === 'in_stock' ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/30" :
+                            (product as any).stock_status === 'out_of_stock' ? "bg-red-500/10 text-red-400 border-red-500/30" :
+                            "bg-amber-500/10 text-amber-400 border-amber-500/30"
+                          )}>
+                            {(product as any).stock_status === 'in_stock' ? 'In Stock' :
+                             (product as any).stock_status === 'out_of_stock' ? 'Out' :
+                             (product as any).stock_status === 'on_backorder' ? 'Backorder' : 'Unknown'}
                           </Badge>
-                        )}
+                        </div>
+                        <div className="flex items-center gap-1">
+                          {(product as any).is_low_stock && (
+                            <Badge variant="outline" className="text-xs px-1 py-0 bg-amber-500/10 text-amber-400 border-amber-500/30">
+                              Low
+                            </Badge>
+                          )}
+                          {(product as any).featured && (
+                            <Badge variant="outline" className="text-xs px-1 py-0 bg-purple-500/10 text-purple-400 border-purple-500/30">
+                              Featured
+                            </Badge>
+                          )}
+                        </div>
                       </div>
                     </div>
 

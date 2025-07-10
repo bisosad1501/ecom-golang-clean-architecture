@@ -7,6 +7,7 @@ import (
 
 	"ecom-golang-clean-architecture/internal/domain/entities"
 	"ecom-golang-clean-architecture/internal/infrastructure/config"
+
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"
@@ -68,6 +69,15 @@ func AutoMigrate(db *gorm.DB) error {
 		&entities.ProductImage{},
 		&entities.ProductTag{},
 		// &entities.ProductProductTag{}, // Remove custom join table, let GORM handle it
+
+		// Brand and Product Extensions
+		&entities.Brand{},
+		&entities.ProductVariant{},
+		&entities.ProductAttribute{},
+		&entities.ProductAttributeTerm{},
+		&entities.ProductAttributeValue{},
+		&entities.ProductVariantAttribute{},
+
 		&entities.Cart{},
 		&entities.CartItem{},
 		&entities.Order{},
@@ -237,6 +247,47 @@ func SeedData(db *gorm.DB) error {
 					return fmt.Errorf("failed to create category %s: %w", category.Name, err)
 				}
 				log.Printf("Created category: %s", category.Name)
+			}
+		}
+	}
+
+	// Create brands
+	brands := []entities.Brand{
+		{Name: "Apple", Slug: "apple", Description: "Technology company", IsActive: true},
+		{Name: "Samsung", Slug: "samsung", Description: "Electronics manufacturer", IsActive: true},
+		{Name: "Nike", Slug: "nike", Description: "Sportswear brand", IsActive: true},
+		{Name: "Adidas", Slug: "adidas", Description: "Athletic apparel", IsActive: true},
+		{Name: "Sony", Slug: "sony", Description: "Electronics and entertainment", IsActive: true},
+	}
+
+	for _, brand := range brands {
+		var existingBrand entities.Brand
+		if err := db.Where("slug = ?", brand.Slug).First(&existingBrand).Error; err != nil {
+			if err == gorm.ErrRecordNotFound {
+				if err := db.Create(&brand).Error; err != nil {
+					return fmt.Errorf("failed to create brand %s: %w", brand.Name, err)
+				}
+				log.Printf("Created brand: %s", brand.Name)
+			}
+		}
+	}
+
+	// Create product attributes
+	attributes := []entities.ProductAttribute{
+		{Name: "Color", Slug: "color", Type: "color", IsVisible: true},
+		{Name: "Size", Slug: "size", Type: "select", IsVisible: true},
+		{Name: "Material", Slug: "material", Type: "text", IsVisible: true},
+		{Name: "Brand", Slug: "brand", Type: "select", IsVisible: true},
+	}
+
+	for _, attr := range attributes {
+		var existingAttr entities.ProductAttribute
+		if err := db.Where("slug = ?", attr.Slug).First(&existingAttr).Error; err != nil {
+			if err == gorm.ErrRecordNotFound {
+				if err := db.Create(&attr).Error; err != nil {
+					return fmt.Errorf("failed to create attribute %s: %w", attr.Name, err)
+				}
+				log.Printf("Created attribute: %s", attr.Name)
 			}
 		}
 	}

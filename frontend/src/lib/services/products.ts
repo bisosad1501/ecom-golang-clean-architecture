@@ -11,32 +11,75 @@ export interface ProductsParams extends ProductFilters {
   rating?: number
   sort_by?: string
   sort_order?: 'asc' | 'desc'
+
+  // Enhanced filters
+  featured?: boolean
+  on_sale?: boolean
+  stock_status?: 'in_stock' | 'out_of_stock' | 'on_backorder'
+  product_type?: string
+  brand_id?: string
 }
 
 export interface CreateProductRequest {
   name: string
   description: string
-  short_description?: string
+  short_description: string
   sku: string
+
+  // SEO and Metadata
+  slug?: string
+  meta_title?: string
+  meta_description?: string
+  keywords?: string
+  featured?: boolean
+  visibility?: 'visible' | 'hidden' | 'private'
+
+  // Pricing
   price: number
-  compare_price?: number // Backend expects compare_price not sale_price
+  compare_price?: number
   cost_price?: number
+
+  // Sale Pricing
+  sale_price?: number
+  sale_start_date?: string
+  sale_end_date?: string
+
+  // Inventory
   stock: number
-  category_id: string
-  is_digital?: boolean
+  low_stock_threshold?: number
+  track_quantity?: boolean
+  allow_backorder?: boolean
+
+  // Physical Properties
   weight?: number
   dimensions?: {
     length: number
     width: number
     height: number
   }
+
+  // Shipping and Tax
+  requires_shipping?: boolean
+  shipping_class?: string
+  tax_class?: string
+  country_of_origin?: string
+
+  // Categorization
+  category_id: string
+  brand_id?: string
+
+  // Content
   images?: Array<{
     url: string
     alt_text?: string
     position?: number
   }>
   tags?: string[]
-  status?: string // Backend requires status
+
+  // Status and Type
+  status?: string
+  product_type?: 'simple' | 'variable' | 'grouped' | 'external' | 'digital'
+  is_digital?: boolean
 }
 
 export interface UpdateProductRequest extends Partial<CreateProductRequest> {}

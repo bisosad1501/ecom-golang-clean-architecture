@@ -7,6 +7,7 @@ import (
 
 	"ecom-golang-clean-architecture/internal/domain/entities"
 	"ecom-golang-clean-architecture/internal/domain/repositories"
+
 	"github.com/google/uuid"
 	"gorm.io/gorm"
 )
@@ -70,11 +71,34 @@ func (r *productRepository) Update(ctx context.Context, product *entities.Produc
 	// Use Updates instead of Save to ensure all fields are updated properly
 	// Select specific fields to avoid issues with relationships
 	result := r.db.WithContext(ctx).Model(product).Select(
-		"name", "description", "sku", "price", "compare_price", "cost_price", 
-		"stock", "weight", "category_id", "status", "is_digital", "updated_at",
-		"length", "width", "height", // dimensions fields
+		// Basic fields
+		"name", "description", "short_description", "sku", "updated_at",
+
+		// SEO and Metadata
+		"slug", "meta_title", "meta_description", "keywords", "featured", "visibility",
+
+		// Pricing
+		"price", "compare_price", "cost_price",
+
+		// Sale Pricing
+		"sale_price", "sale_start_date", "sale_end_date",
+
+		// Inventory
+		"stock", "low_stock_threshold", "track_quantity", "allow_backorder", "stock_status",
+
+		// Physical Properties
+		"weight", "length", "width", "height", // dimensions fields
+
+		// Shipping and Tax
+		"requires_shipping", "shipping_class", "tax_class", "country_of_origin",
+
+		// Categorization
+		"category_id", "brand_id",
+
+		// Status and Type
+		"status", "product_type", "is_digital",
 	).Updates(product)
-	
+
 	return result.Error
 }
 
@@ -170,14 +194,14 @@ func (r *productRepository) Search(ctx context.Context, params repositories.Prod
 			)
 			SELECT id FROM category_tree
 		`
-		
+
 		var categoryIDs []uuid.UUID
 		rows, err := r.db.WithContext(ctx).Raw(categoryQuery, *params.CategoryID).Rows()
 		if err != nil {
 			return nil, err
 		}
 		defer rows.Close()
-		
+
 		for rows.Next() {
 			var id uuid.UUID
 			if err := rows.Scan(&id); err != nil {
@@ -185,7 +209,7 @@ func (r *productRepository) Search(ctx context.Context, params repositories.Prod
 			}
 			categoryIDs = append(categoryIDs, id)
 		}
-		
+
 		if len(categoryIDs) > 0 {
 			query = query.Where("category_id IN ?", categoryIDs)
 		} else {
@@ -270,7 +294,7 @@ func (r *productRepository) UpdateStock(ctx context.Context, productID uuid.UUID
 		Model(&entities.Product{}).
 		Where("id = ?", productID).
 		Update("stock", stock)
-	
+
 	if result.Error != nil {
 		return result.Error
 	}
@@ -336,12 +360,12 @@ func (r *productRepository) ClearTags(ctx context.Context, productID uuid.UUID) 
 	if err := r.db.WithContext(ctx).First(&product, productID).Error; err != nil {
 		return err
 	}
-	
+
 	// Use GORM Association to clear all tags
 	if err := r.db.WithContext(ctx).Model(&product).Association("Tags").Clear(); err != nil {
 		return fmt.Errorf("failed to clear tags: %w", err)
 	}
-	
+
 	return nil
 }
 
@@ -352,17 +376,17 @@ func (r *productRepository) AddTag(ctx context.Context, productID, tagID uuid.UU
 	if err := r.db.WithContext(ctx).First(&product, productID).Error; err != nil {
 		return err
 	}
-	
+
 	var tag entities.ProductTag
 	if err := r.db.WithContext(ctx).First(&tag, tagID).Error; err != nil {
 		return err
 	}
-	
+
 	// Use GORM Association to append tag
 	if err := r.db.WithContext(ctx).Model(&product).Association("Tags").Append(&tag); err != nil {
 		return fmt.Errorf("failed to add tag: %w", err)
 	}
-	
+
 	return nil
 }
 
@@ -372,29 +396,29 @@ func (r *productRepository) ReplaceTags(ctx context.Context, productID uuid.UUID
 		// If no tags provided, just clear all
 		return r.ClearTags(ctx, productID)
 	}
-	
+
 	// Get the product
 	var product entities.Product
 	if err := r.db.WithContext(ctx).First(&product, productID).Error; err != nil {
 		return err
 	}
-	
+
 	// Get all tags
 	var tags []entities.ProductTag
 	if err := r.db.WithContext(ctx).Where("id IN ?", tagIDs).Find(&tags).Error; err != nil {
 		return err
 	}
-	
+
 	// Validate that all tag IDs exist
 	if len(tags) != len(tagIDs) {
 		return fmt.Errorf("some tag IDs do not exist")
 	}
-	
+
 	// Use GORM Association to replace all tags
 	if err := r.db.WithContext(ctx).Model(&product).Association("Tags").Replace(tags); err != nil {
 		return fmt.Errorf("failed to replace tags: %w", err)
 	}
-	
+
 	return nil
 }
 
@@ -405,4 +429,127 @@ func (r *productRepository) CountProducts(ctx context.Context) (int64, error) {
 		Model(&entities.Product{}).
 		Count(&count).Error
 	return count, err
+}
+
+// GetByBrand retrieves products by brand
+func (r *productRepository) GetByBrand(ctx context.Context, brandID uuid.UUID, limit, offset int) ([]*entities.Product, error) {
+	var products []*entities.Product
+	err := r.db.WithContext(ctx).
+		Preload("Category").
+		Preload("Brand").
+		Preload("Images", func(db *gorm.DB) *gorm.DB {
+			return db.Where("position >= 0").Order("position ASC")
+		}).
+		Preload("Tags").
+		Where("brand_id = ?", brandID).
+		Limit(limit).
+		Offset(offset).
+		Find(&products).Error
+	return products, err
+}
+
+// GetBySlug retrieves a product by slug
+func (r *productRepository) GetBySlug(ctx context.Context, slug string) (*entities.Product, error) {
+	var product entities.Product
+	err := r.db.WithContext(ctx).
+		Preload("Category").
+		Preload("Brand").
+		Preload("Images", func(db *gorm.DB) *gorm.DB {
+			return db.Where("position >= 0").Order("position ASC")
+		}).
+		Preload("Tags").
+		Where("slug = ?", slug).
+		First(&product).Error
+	if err != nil {
+		if err == gorm.ErrRecordNotFound {
+			return nil, entities.ErrProductNotFound
+		}
+		return nil, err
+	}
+	return &product, nil
+}
+
+// ExistsBySlug checks if a product exists with the given slug
+func (r *productRepository) ExistsBySlug(ctx context.Context, slug string) (bool, error) {
+	var count int64
+	err := r.db.WithContext(ctx).Model(&entities.Product{}).Where("slug = ?", slug).Count(&count).Error
+	return count > 0, err
+}
+
+// SearchAdvanced performs advanced search with multiple filters
+func (r *productRepository) SearchAdvanced(ctx context.Context, params repositories.AdvancedSearchParams) ([]*entities.Product, error) {
+	query := r.db.WithContext(ctx).
+		Preload("Category").
+		Preload("Brand").
+		Preload("Images", func(db *gorm.DB) *gorm.DB {
+			return db.Where("position >= 0").Order("position ASC")
+		}).
+		Preload("Tags")
+
+	// Apply filters
+	if params.Query != "" {
+		query = query.Where("name ILIKE ? OR description ILIKE ? OR short_description ILIKE ?",
+			"%"+params.Query+"%", "%"+params.Query+"%", "%"+params.Query+"%")
+	}
+
+	if params.CategoryID != nil {
+		query = query.Where("category_id = ?", *params.CategoryID)
+	}
+
+	if params.BrandID != nil {
+		query = query.Where("brand_id = ?", *params.BrandID)
+	}
+
+	if params.MinPrice != nil {
+		query = query.Where("price >= ?", *params.MinPrice)
+	}
+
+	if params.MaxPrice != nil {
+		query = query.Where("price <= ?", *params.MaxPrice)
+	}
+
+	if params.InStock != nil && *params.InStock {
+		query = query.Where("stock > 0")
+	}
+
+	if params.Featured != nil {
+		query = query.Where("featured = ?", *params.Featured)
+	}
+
+	if params.Visibility != nil {
+		query = query.Where("visibility = ?", *params.Visibility)
+	}
+
+	if params.ProductType != nil {
+		query = query.Where("product_type = ?", *params.ProductType)
+	}
+
+	if params.Status != nil {
+		query = query.Where("status = ?", *params.Status)
+	}
+
+	// Apply sorting
+	if params.SortBy != "" {
+		order := params.SortBy
+		if params.SortOrder == "desc" {
+			order += " DESC"
+		} else {
+			order += " ASC"
+		}
+		query = query.Order(order)
+	} else {
+		query = query.Order("created_at DESC")
+	}
+
+	// Apply pagination
+	if params.Limit > 0 {
+		query = query.Limit(params.Limit)
+	}
+	if params.Offset > 0 {
+		query = query.Offset(params.Offset)
+	}
+
+	var products []*entities.Product
+	err := query.Find(&products).Error
+	return products, err
 }

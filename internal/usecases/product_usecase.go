@@ -8,25 +8,65 @@ import (
 
 	"ecom-golang-clean-architecture/internal/domain/entities"
 	"ecom-golang-clean-architecture/internal/domain/repositories"
+
 	"github.com/google/uuid"
 )
 
 // Request structs
 type CreateProductRequest struct {
-	Name         string                   `json:"name" validate:"required"`
-	Description  string                   `json:"description" validate:"required"`
-	SKU          string                   `json:"sku" validate:"required"`
-	Price        float64                  `json:"price" validate:"required,gt=0"`
-	ComparePrice *float64                 `json:"compare_price" validate:"omitempty,gt=0"`
-	CostPrice    *float64                 `json:"cost_price" validate:"omitempty,gt=0"`
-	Stock        int                      `json:"stock" validate:"required,min=0"`
-	Weight       *float64                 `json:"weight" validate:"omitempty,gt=0"`
-	Dimensions   *DimensionsRequest       `json:"dimensions"`
-	CategoryID   uuid.UUID                `json:"category_id" validate:"required"`
-	Images       []ProductImageRequest    `json:"images"`
-	Tags         []string                 `json:"tags"`
-	Status       entities.ProductStatus   `json:"status"`
-	IsDigital    bool                     `json:"is_digital"`
+	Name             string `json:"name" validate:"required"`
+	Description      string `json:"description" validate:"required"`
+	ShortDescription string `json:"short_description"`
+	SKU              string `json:"sku" validate:"required"`
+
+	// SEO and Metadata
+	Slug            string                     `json:"slug" validate:"required"`
+	MetaTitle       string                     `json:"meta_title"`
+	MetaDescription string                     `json:"meta_description"`
+	Keywords        string                     `json:"keywords"`
+	Featured        bool                       `json:"featured"`
+	Visibility      entities.ProductVisibility `json:"visibility"`
+
+	// Pricing
+	Price        float64  `json:"price" validate:"required,gt=0"`
+	ComparePrice *float64 `json:"compare_price" validate:"omitempty,gt=0"`
+	CostPrice    *float64 `json:"cost_price" validate:"omitempty,gt=0"`
+
+	// Sale Pricing
+	SalePrice     *float64   `json:"sale_price" validate:"omitempty,gt=0"`
+	SaleStartDate *time.Time `json:"sale_start_date"`
+	SaleEndDate   *time.Time `json:"sale_end_date"`
+
+	// Inventory
+	Stock             int  `json:"stock" validate:"required,min=0"`
+	LowStockThreshold int  `json:"low_stock_threshold"`
+	TrackQuantity     bool `json:"track_quantity"`
+	AllowBackorder    bool `json:"allow_backorder"`
+
+	// Physical Properties
+	Weight     *float64           `json:"weight" validate:"omitempty,gt=0"`
+	Dimensions *DimensionsRequest `json:"dimensions"`
+
+	// Shipping and Tax
+	RequiresShipping bool   `json:"requires_shipping"`
+	ShippingClass    string `json:"shipping_class"`
+	TaxClass         string `json:"tax_class"`
+	CountryOfOrigin  string `json:"country_of_origin"`
+
+	// Categorization
+	CategoryID uuid.UUID  `json:"category_id" validate:"required"`
+	BrandID    *uuid.UUID `json:"brand_id"`
+
+	// Content
+	Images     []ProductImageRequest     `json:"images"`
+	Tags       []string                  `json:"tags"`
+	Attributes []ProductAttributeRequest `json:"attributes"`
+	Variants   []ProductVariantRequest   `json:"variants"`
+
+	// Status and Type
+	Status      entities.ProductStatus `json:"status"`
+	ProductType entities.ProductType   `json:"product_type"`
+	IsDigital   bool                   `json:"is_digital"`
 }
 
 type GetProductsRequest struct {
@@ -54,8 +94,35 @@ type DimensionsRequest struct {
 }
 
 type ProductImageRequest struct {
-	URL     string `json:"url" validate:"required,url"`
-	AltText string `json:"alt_text"`
+	URL      string `json:"url" validate:"required,url"`
+	AltText  string `json:"alt_text"`
+	Position int    `json:"position"`
+}
+
+type ProductAttributeRequest struct {
+	AttributeID uuid.UUID  `json:"attribute_id" validate:"required"`
+	TermID      *uuid.UUID `json:"term_id"`
+	Value       string     `json:"value"`
+	Position    int        `json:"position"`
+}
+
+type ProductVariantRequest struct {
+	SKU          string                           `json:"sku" validate:"required"`
+	Price        float64                          `json:"price" validate:"required,gt=0"`
+	ComparePrice *float64                         `json:"compare_price" validate:"omitempty,gt=0"`
+	CostPrice    *float64                         `json:"cost_price" validate:"omitempty,gt=0"`
+	Stock        int                              `json:"stock" validate:"min=0"`
+	Weight       *float64                         `json:"weight" validate:"omitempty,gt=0"`
+	Dimensions   *DimensionsRequest               `json:"dimensions"`
+	Image        string                           `json:"image"`
+	Position     int                              `json:"position"`
+	IsActive     bool                             `json:"is_active"`
+	Attributes   []ProductVariantAttributeRequest `json:"attributes"`
+}
+
+type ProductVariantAttributeRequest struct {
+	AttributeID uuid.UUID `json:"attribute_id" validate:"required"`
+	TermID      uuid.UUID `json:"term_id" validate:"required"`
 }
 
 // Response structs are defined in types.go
@@ -99,36 +166,114 @@ func NewProductUseCase(
 }
 
 type UpdateProductRequest struct {
-	Name         *string                  `json:"name"`
-	Description  *string                  `json:"description"`
-	Price        *float64                 `json:"price" validate:"omitempty,gt=0"`
-	ComparePrice *float64                 `json:"compare_price" validate:"omitempty,gt=0"`
-	CostPrice    *float64                 `json:"cost_price" validate:"omitempty,gt=0"`
-	Stock        *int                     `json:"stock" validate:"omitempty,min=0"`
-	Weight       *float64                 `json:"weight" validate:"omitempty,gt=0"`
-	Dimensions   *DimensionsRequest       `json:"dimensions"`
-	CategoryID   *uuid.UUID               `json:"category_id"`
-	Images       []ProductImageRequest    `json:"images"`        // For PUT: replace all images
-	Tags         []string                 `json:"tags"`          // For PUT: replace all tags
-	Status       *entities.ProductStatus  `json:"status"`
-	IsDigital    *bool                    `json:"is_digital"`
+	Name             *string `json:"name"`
+	Description      *string `json:"description"`
+	ShortDescription *string `json:"short_description"`
+
+	// SEO and Metadata
+	Slug            *string                     `json:"slug"`
+	MetaTitle       *string                     `json:"meta_title"`
+	MetaDescription *string                     `json:"meta_description"`
+	Keywords        *string                     `json:"keywords"`
+	Featured        *bool                       `json:"featured"`
+	Visibility      *entities.ProductVisibility `json:"visibility"`
+
+	// Pricing
+	Price        *float64 `json:"price" validate:"omitempty,gt=0"`
+	ComparePrice *float64 `json:"compare_price" validate:"omitempty,gt=0"`
+	CostPrice    *float64 `json:"cost_price" validate:"omitempty,gt=0"`
+
+	// Sale Pricing
+	SalePrice     *float64   `json:"sale_price" validate:"omitempty,gt=0"`
+	SaleStartDate *time.Time `json:"sale_start_date"`
+	SaleEndDate   *time.Time `json:"sale_end_date"`
+
+	// Inventory
+	Stock             *int  `json:"stock" validate:"omitempty,min=0"`
+	LowStockThreshold *int  `json:"low_stock_threshold"`
+	TrackQuantity     *bool `json:"track_quantity"`
+	AllowBackorder    *bool `json:"allow_backorder"`
+
+	// Physical Properties
+	Weight     *float64           `json:"weight" validate:"omitempty,gt=0"`
+	Dimensions *DimensionsRequest `json:"dimensions"`
+
+	// Shipping and Tax
+	RequiresShipping *bool   `json:"requires_shipping"`
+	ShippingClass    *string `json:"shipping_class"`
+	TaxClass         *string `json:"tax_class"`
+	CountryOfOrigin  *string `json:"country_of_origin"`
+
+	// Categorization
+	CategoryID *uuid.UUID `json:"category_id"`
+	BrandID    *uuid.UUID `json:"brand_id"`
+
+	// Content
+	Images     []ProductImageRequest     `json:"images"`     // For PUT: replace all images
+	Tags       []string                  `json:"tags"`       // For PUT: replace all tags
+	Attributes []ProductAttributeRequest `json:"attributes"` // For PUT: replace all attributes
+	Variants   []ProductVariantRequest   `json:"variants"`   // For PUT: replace all variants
+
+	// Status and Type
+	Status      *entities.ProductStatus `json:"status"`
+	ProductType *entities.ProductType   `json:"product_type"`
+	IsDigital   *bool                   `json:"is_digital"`
 }
 
 // PatchProductRequest for PATCH operations - only updates provided fields
 type PatchProductRequest struct {
-	Name         *string                  `json:"name"`
-	Description  *string                  `json:"description"`
-	Price        *float64                 `json:"price" validate:"omitempty,gt=0"`
-	ComparePrice *float64                 `json:"compare_price" validate:"omitempty,gt=0"`
-	CostPrice    *float64                 `json:"cost_price" validate:"omitempty,gt=0"`
-	Stock        *int                     `json:"stock" validate:"omitempty,min=0"`
-	Weight       *float64                 `json:"weight" validate:"omitempty,gt=0"`
-	Dimensions   *DimensionsRequest       `json:"dimensions"`
-	CategoryID   *uuid.UUID               `json:"category_id"`
-	Images       *[]ProductImageRequest   `json:"images"`        // For PATCH: nil = no change, empty = clear all, values = replace
-	Tags         *[]string                `json:"tags"`          // For PATCH: nil = no change, empty = clear all, values = replace  
-	Status       *entities.ProductStatus  `json:"status"`
-	IsDigital    *bool                    `json:"is_digital"`
+	Name             *string `json:"name"`
+	Description      *string `json:"description"`
+	ShortDescription *string `json:"short_description"`
+
+	// SEO and Metadata
+	Slug            *string                     `json:"slug"`
+	MetaTitle       *string                     `json:"meta_title"`
+	MetaDescription *string                     `json:"meta_description"`
+	Keywords        *string                     `json:"keywords"`
+	Featured        *bool                       `json:"featured"`
+	Visibility      *entities.ProductVisibility `json:"visibility"`
+
+	// Pricing
+	Price        *float64 `json:"price" validate:"omitempty,gt=0"`
+	ComparePrice *float64 `json:"compare_price" validate:"omitempty,gt=0"`
+	CostPrice    *float64 `json:"cost_price" validate:"omitempty,gt=0"`
+
+	// Sale Pricing
+	SalePrice     *float64   `json:"sale_price" validate:"omitempty,gt=0"`
+	SaleStartDate *time.Time `json:"sale_start_date"`
+	SaleEndDate   *time.Time `json:"sale_end_date"`
+
+	// Inventory
+	Stock             *int  `json:"stock" validate:"omitempty,min=0"`
+	LowStockThreshold *int  `json:"low_stock_threshold"`
+	TrackQuantity     *bool `json:"track_quantity"`
+	AllowBackorder    *bool `json:"allow_backorder"`
+
+	// Physical Properties
+	Weight     *float64           `json:"weight" validate:"omitempty,gt=0"`
+	Dimensions *DimensionsRequest `json:"dimensions"`
+
+	// Shipping and Tax
+	RequiresShipping *bool   `json:"requires_shipping"`
+	ShippingClass    *string `json:"shipping_class"`
+	TaxClass         *string `json:"tax_class"`
+	CountryOfOrigin  *string `json:"country_of_origin"`
+
+	// Categorization
+	CategoryID *uuid.UUID `json:"category_id"`
+	BrandID    *uuid.UUID `json:"brand_id"`
+
+	// Content
+	Images     *[]ProductImageRequest     `json:"images"`     // For PATCH: nil = no change, empty = clear all, values = replace
+	Tags       *[]string                  `json:"tags"`       // For PATCH: nil = no change, empty = clear all, values = replace
+	Attributes *[]ProductAttributeRequest `json:"attributes"` // For PATCH: nil = no change, empty = clear all, values = replace
+	Variants   *[]ProductVariantRequest   `json:"variants"`   // For PATCH: nil = no change, empty = clear all, values = replace
+
+	// Status and Type
+	Status      *entities.ProductStatus `json:"status"`
+	ProductType *entities.ProductType   `json:"product_type"`
+	IsDigital   *bool                   `json:"is_digital"`
 }
 
 // CreateProduct creates a new product
@@ -150,20 +295,73 @@ func (uc *productUseCase) CreateProduct(ctx context.Context, req CreateProductRe
 
 	// Create product
 	product := &entities.Product{
-		ID:          uuid.New(),
-		Name:        req.Name,
-		Description: req.Description,
-		SKU:         req.SKU,
-		Price:       req.Price,
+		ID:               uuid.New(),
+		Name:             req.Name,
+		Description:      req.Description,
+		ShortDescription: req.ShortDescription,
+		SKU:              req.SKU,
+
+		// SEO and Metadata
+		Slug:            req.Slug,
+		MetaTitle:       req.MetaTitle,
+		MetaDescription: req.MetaDescription,
+		Keywords:        req.Keywords,
+		Featured:        req.Featured,
+		Visibility:      req.Visibility,
+
+		// Pricing
+		Price:        req.Price,
 		ComparePrice: req.ComparePrice,
-		CostPrice:   req.CostPrice,
-		Stock:       req.Stock,
-		Weight:      req.Weight,
-		CategoryID:  req.CategoryID,
+		CostPrice:    req.CostPrice,
+
+		// Sale Pricing
+		SalePrice:     req.SalePrice,
+		SaleStartDate: req.SaleStartDate,
+		SaleEndDate:   req.SaleEndDate,
+
+		// Inventory
+		Stock:             req.Stock,
+		LowStockThreshold: req.LowStockThreshold,
+		TrackQuantity:     req.TrackQuantity,
+		AllowBackorder:    req.AllowBackorder,
+
+		// Physical Properties
+		Weight: req.Weight,
+
+		// Shipping and Tax
+		RequiresShipping: req.RequiresShipping,
+		ShippingClass:    req.ShippingClass,
+		TaxClass:         req.TaxClass,
+		CountryOfOrigin:  req.CountryOfOrigin,
+
+		// Categorization
+		CategoryID: req.CategoryID,
+		BrandID:    req.BrandID,
+
+		// Status and Type
 		Status:      req.Status,
+		ProductType: req.ProductType,
 		IsDigital:   req.IsDigital,
-		CreatedAt:   time.Now(),
-		UpdatedAt:   time.Now(),
+
+		CreatedAt: time.Now(),
+		UpdatedAt: time.Now(),
+	}
+
+	// Set default values if not provided
+	if product.Visibility == "" {
+		product.Visibility = entities.ProductVisibilityVisible
+	}
+	if product.ProductType == "" {
+		product.ProductType = entities.ProductTypeSimple
+	}
+	if product.Status == "" {
+		product.Status = entities.ProductStatusDraft
+	}
+	if product.LowStockThreshold == 0 {
+		product.LowStockThreshold = 5
+	}
+	if product.TaxClass == "" {
+		product.TaxClass = "standard"
 	}
 
 	if req.Dimensions != nil {
@@ -173,6 +371,9 @@ func (uc *productUseCase) CreateProduct(ctx context.Context, req CreateProductRe
 			Height: req.Dimensions.Height,
 		}
 	}
+
+	// Update stock status based on current stock
+	product.UpdateStockStatus()
 
 	// Create product first
 	if err := uc.productRepo.Create(ctx, product); err != nil {
@@ -189,6 +390,20 @@ func (uc *productUseCase) CreateProduct(ctx context.Context, req CreateProductRe
 	// Handle images if provided
 	if len(req.Images) > 0 {
 		if err := uc.replaceProductImages(ctx, product.ID, req.Images); err != nil {
+			return nil, err
+		}
+	}
+
+	// Handle attributes if provided
+	if len(req.Attributes) > 0 {
+		if err := uc.replaceProductAttributes(ctx, product.ID, req.Attributes); err != nil {
+			return nil, err
+		}
+	}
+
+	// Handle variants if provided
+	if len(req.Variants) > 0 {
+		if err := uc.replaceProductVariants(ctx, product.ID, req.Variants); err != nil {
 			return nil, err
 		}
 	}
@@ -222,7 +437,7 @@ func (uc *productUseCase) UpdateProduct(ctx context.Context, id uuid.UUID, req U
 
 	// Track what needs to be updated
 	hasChanges := false
-	
+
 	// Update basic fields only if they are provided
 	if req.Name != nil {
 		if *req.Name == "" {
@@ -231,12 +446,12 @@ func (uc *productUseCase) UpdateProduct(ctx context.Context, id uuid.UUID, req U
 		product.Name = *req.Name
 		hasChanges = true
 	}
-	
+
 	if req.Description != nil {
 		product.Description = *req.Description
 		hasChanges = true
 	}
-	
+
 	if req.Price != nil {
 		if *req.Price <= 0 {
 			return nil, fmt.Errorf("price must be greater than 0")
@@ -244,7 +459,7 @@ func (uc *productUseCase) UpdateProduct(ctx context.Context, id uuid.UUID, req U
 		product.Price = *req.Price
 		hasChanges = true
 	}
-	
+
 	if req.ComparePrice != nil {
 		if *req.ComparePrice <= 0 {
 			return nil, fmt.Errorf("compare price must be greater than 0")
@@ -252,7 +467,7 @@ func (uc *productUseCase) UpdateProduct(ctx context.Context, id uuid.UUID, req U
 		product.ComparePrice = req.ComparePrice
 		hasChanges = true
 	}
-	
+
 	if req.CostPrice != nil {
 		if *req.CostPrice < 0 {
 			return nil, fmt.Errorf("cost price cannot be negative")
@@ -260,7 +475,7 @@ func (uc *productUseCase) UpdateProduct(ctx context.Context, id uuid.UUID, req U
 		product.CostPrice = req.CostPrice
 		hasChanges = true
 	}
-	
+
 	if req.Stock != nil {
 		if *req.Stock < 0 {
 			return nil, fmt.Errorf("stock cannot be negative")
@@ -268,7 +483,7 @@ func (uc *productUseCase) UpdateProduct(ctx context.Context, id uuid.UUID, req U
 		product.Stock = *req.Stock
 		hasChanges = true
 	}
-	
+
 	if req.Weight != nil {
 		if *req.Weight <= 0 {
 			return nil, fmt.Errorf("weight must be greater than 0")
@@ -276,7 +491,7 @@ func (uc *productUseCase) UpdateProduct(ctx context.Context, id uuid.UUID, req U
 		product.Weight = req.Weight
 		hasChanges = true
 	}
-	
+
 	if req.CategoryID != nil {
 		// Verify category exists
 		_, err := uc.categoryRepo.GetByID(ctx, *req.CategoryID)
@@ -286,17 +501,17 @@ func (uc *productUseCase) UpdateProduct(ctx context.Context, id uuid.UUID, req U
 		product.CategoryID = *req.CategoryID
 		hasChanges = true
 	}
-	
+
 	if req.Status != nil {
 		product.Status = *req.Status
 		hasChanges = true
 	}
-	
+
 	if req.IsDigital != nil {
 		product.IsDigital = *req.IsDigital
 		hasChanges = true
 	}
-	
+
 	if req.Dimensions != nil {
 		if req.Dimensions.Length <= 0 || req.Dimensions.Width <= 0 || req.Dimensions.Height <= 0 {
 			return nil, fmt.Errorf("all dimensions must be greater than 0")
@@ -306,6 +521,122 @@ func (uc *productUseCase) UpdateProduct(ctx context.Context, id uuid.UUID, req U
 			Width:  req.Dimensions.Width,
 			Height: req.Dimensions.Height,
 		}
+		hasChanges = true
+	}
+
+	// Handle new SEO and Metadata fields
+	if req.ShortDescription != nil {
+		product.ShortDescription = *req.ShortDescription
+		hasChanges = true
+	}
+
+	if req.Slug != nil {
+		if *req.Slug == "" {
+			return nil, fmt.Errorf("slug cannot be empty")
+		}
+		product.Slug = *req.Slug
+		hasChanges = true
+	}
+
+	if req.MetaTitle != nil {
+		product.MetaTitle = *req.MetaTitle
+		hasChanges = true
+	}
+
+	if req.MetaDescription != nil {
+		product.MetaDescription = *req.MetaDescription
+		hasChanges = true
+	}
+
+	if req.Keywords != nil {
+		product.Keywords = *req.Keywords
+		hasChanges = true
+	}
+
+	if req.Featured != nil {
+		product.Featured = *req.Featured
+		hasChanges = true
+	}
+
+	if req.Visibility != nil {
+		product.Visibility = *req.Visibility
+		hasChanges = true
+	}
+
+	// Handle Sale Pricing
+	if req.SalePrice != nil {
+		if *req.SalePrice < 0 {
+			return nil, fmt.Errorf("sale price cannot be negative")
+		}
+		product.SalePrice = req.SalePrice
+		hasChanges = true
+	}
+
+	if req.SaleStartDate != nil {
+		product.SaleStartDate = req.SaleStartDate
+		hasChanges = true
+	}
+
+	if req.SaleEndDate != nil {
+		product.SaleEndDate = req.SaleEndDate
+		hasChanges = true
+	}
+
+	// Handle Inventory Management
+	if req.LowStockThreshold != nil {
+		if *req.LowStockThreshold < 0 {
+			return nil, fmt.Errorf("low stock threshold cannot be negative")
+		}
+		product.LowStockThreshold = *req.LowStockThreshold
+		hasChanges = true
+	}
+
+	if req.TrackQuantity != nil {
+		product.TrackQuantity = *req.TrackQuantity
+		hasChanges = true
+	}
+
+	if req.AllowBackorder != nil {
+		product.AllowBackorder = *req.AllowBackorder
+		hasChanges = true
+	}
+
+	// Handle Shipping and Tax
+	if req.RequiresShipping != nil {
+		product.RequiresShipping = *req.RequiresShipping
+		hasChanges = true
+	}
+
+	if req.ShippingClass != nil {
+		product.ShippingClass = *req.ShippingClass
+		hasChanges = true
+	}
+
+	if req.TaxClass != nil {
+		product.TaxClass = *req.TaxClass
+		hasChanges = true
+	}
+
+	if req.CountryOfOrigin != nil {
+		product.CountryOfOrigin = *req.CountryOfOrigin
+		hasChanges = true
+	}
+
+	// Handle Brand
+	if req.BrandID != nil {
+		product.BrandID = req.BrandID
+		hasChanges = true
+	}
+
+	// Handle Product Type
+	if req.ProductType != nil {
+		product.ProductType = *req.ProductType
+		hasChanges = true
+	}
+
+	// Update stock status if stock-related fields changed
+	if req.Stock != nil || req.LowStockThreshold != nil || req.TrackQuantity != nil || req.AllowBackorder != nil {
+		product.UpdateStockStatus()
 		hasChanges = true
 	}
 
@@ -439,6 +770,122 @@ func (uc *productUseCase) PatchProduct(ctx context.Context, id uuid.UUID, req Pa
 		hasChanges = true
 	}
 
+	// Handle new SEO and Metadata fields
+	if req.ShortDescription != nil {
+		product.ShortDescription = *req.ShortDescription
+		hasChanges = true
+	}
+
+	if req.Slug != nil {
+		if strings.TrimSpace(*req.Slug) == "" {
+			return nil, fmt.Errorf("slug cannot be empty")
+		}
+		product.Slug = *req.Slug
+		hasChanges = true
+	}
+
+	if req.MetaTitle != nil {
+		product.MetaTitle = *req.MetaTitle
+		hasChanges = true
+	}
+
+	if req.MetaDescription != nil {
+		product.MetaDescription = *req.MetaDescription
+		hasChanges = true
+	}
+
+	if req.Keywords != nil {
+		product.Keywords = *req.Keywords
+		hasChanges = true
+	}
+
+	if req.Featured != nil {
+		product.Featured = *req.Featured
+		hasChanges = true
+	}
+
+	if req.Visibility != nil {
+		product.Visibility = *req.Visibility
+		hasChanges = true
+	}
+
+	// Handle Sale Pricing
+	if req.SalePrice != nil {
+		if *req.SalePrice < 0 {
+			return nil, fmt.Errorf("sale price cannot be negative")
+		}
+		product.SalePrice = req.SalePrice
+		hasChanges = true
+	}
+
+	if req.SaleStartDate != nil {
+		product.SaleStartDate = req.SaleStartDate
+		hasChanges = true
+	}
+
+	if req.SaleEndDate != nil {
+		product.SaleEndDate = req.SaleEndDate
+		hasChanges = true
+	}
+
+	// Handle Inventory Management
+	if req.LowStockThreshold != nil {
+		if *req.LowStockThreshold < 0 {
+			return nil, fmt.Errorf("low stock threshold cannot be negative")
+		}
+		product.LowStockThreshold = *req.LowStockThreshold
+		hasChanges = true
+	}
+
+	if req.TrackQuantity != nil {
+		product.TrackQuantity = *req.TrackQuantity
+		hasChanges = true
+	}
+
+	if req.AllowBackorder != nil {
+		product.AllowBackorder = *req.AllowBackorder
+		hasChanges = true
+	}
+
+	// Handle Shipping and Tax
+	if req.RequiresShipping != nil {
+		product.RequiresShipping = *req.RequiresShipping
+		hasChanges = true
+	}
+
+	if req.ShippingClass != nil {
+		product.ShippingClass = *req.ShippingClass
+		hasChanges = true
+	}
+
+	if req.TaxClass != nil {
+		product.TaxClass = *req.TaxClass
+		hasChanges = true
+	}
+
+	if req.CountryOfOrigin != nil {
+		product.CountryOfOrigin = *req.CountryOfOrigin
+		hasChanges = true
+	}
+
+	// Handle Brand
+	if req.BrandID != nil {
+		product.BrandID = req.BrandID
+		hasChanges = true
+	}
+
+	// Handle Product Type
+	if req.ProductType != nil {
+		product.ProductType = *req.ProductType
+		hasChanges = true
+	}
+
+	// Update stock status if stock-related fields changed
+	if req.Stock != nil || req.LowStockThreshold != nil || req.TrackQuantity != nil || req.AllowBackorder != nil {
+		product.UpdateStockStatus()
+		hasChanges = true
+	}
+
 	// Handle Images - check if field is provided
 	if req.Images != nil {
 		// If empty slice, clear all images
@@ -485,14 +932,14 @@ func (uc *productUseCase) PatchProduct(ctx context.Context, id uuid.UUID, req Pa
 // replaceProductImages completely replaces all product images with new ones
 func (uc *productUseCase) replaceProductImages(ctx context.Context, productID uuid.UUID, images []ProductImageRequest) error {
 	fmt.Printf("DEBUG: replaceProductImages called for productID: %s with %d new images\n", productID.String(), len(images))
-	
+
 	// Validate images
 	for i, img := range images {
 		if img.URL == "" {
 			return fmt.Errorf("image URL cannot be empty at position %d", i)
 		}
 	}
-	
+
 	// Step 1: Get existing images
 	fmt.Printf("DEBUG: Getting existing images for productID: %s\n", productID.String())
 	existingImages, err := uc.imageRepo.GetByProductID(ctx, productID)
@@ -500,7 +947,7 @@ func (uc *productUseCase) replaceProductImages(ctx context.Context, productID uu
 		return fmt.Errorf("failed to get existing images: %w", err)
 	}
 	fmt.Printf("DEBUG: Found %d existing images\n", len(existingImages))
-	
+
 	// Step 2: Update/Replace strategy instead of delete
 	// Mark all existing images as "hidden" by setting position to -1
 	if len(existingImages) > 0 {
@@ -559,7 +1006,7 @@ func (uc *productUseCase) getActiveImagesByProductID(ctx context.Context, produc
 	if err != nil {
 		return nil, err
 	}
-	
+
 	var activeImages []*entities.ProductImage
 	for _, img := range allImages {
 		if img.Position >= 0 {
@@ -579,12 +1026,12 @@ func (uc *productUseCase) replaceProductTags(ctx context.Context, productID uuid
 			validTags = append(validTags, cleanTag)
 		}
 	}
-	
+
 	// If no valid tags, clear all tags
 	if len(validTags) == 0 {
 		return uc.productRepo.ClearTags(ctx, productID)
 	}
-	
+
 	// Find or create all tags and collect their IDs
 	var tagIDs []uuid.UUID
 	for _, tagName := range validTags {
@@ -691,21 +1138,61 @@ func (uc *productUseCase) UpdateStock(ctx context.Context, productID uuid.UUID, 
 // toProductResponse converts product entity to response (same as original)
 func (uc *productUseCase) toProductResponse(product *entities.Product) *ProductResponse {
 	response := &ProductResponse{
-		ID:          product.ID,
-		Name:        product.Name,
-		Description: product.Description,
-		SKU:         product.SKU,
-		Price:       product.Price,
+		ID:               product.ID,
+		Name:             product.Name,
+		Description:      product.Description,
+		ShortDescription: product.ShortDescription,
+		SKU:              product.SKU,
+
+		// SEO and Metadata
+		Slug:            product.Slug,
+		MetaTitle:       product.MetaTitle,
+		MetaDescription: product.MetaDescription,
+		Keywords:        product.Keywords,
+		Featured:        product.Featured,
+		Visibility:      product.Visibility,
+
+		// Pricing
+		Price:        product.Price,
 		ComparePrice: product.ComparePrice,
-		CostPrice:   product.CostPrice,
-		Stock:       product.Stock,
-		Weight:      product.Weight,
+		CostPrice:    product.CostPrice,
+
+		// Sale Pricing
+		SalePrice:     product.SalePrice,
+		SaleStartDate: product.SaleStartDate,
+		SaleEndDate:   product.SaleEndDate,
+		CurrentPrice:  product.GetCurrentPrice(),
+		IsOnSale:      product.IsOnSale(),
+		SaleDiscount:  product.GetSaleDiscountPercentage(),
+
+		// Inventory
+		Stock:             product.Stock,
+		LowStockThreshold: product.LowStockThreshold,
+		TrackQuantity:     product.TrackQuantity,
+		AllowBackorder:    product.AllowBackorder,
+		StockStatus:       product.StockStatus,
+		IsLowStock:        product.IsLowStock(),
+
+		// Physical Properties
+		Weight: product.Weight,
+
+		// Shipping and Tax
+		RequiresShipping: product.RequiresShipping,
+		ShippingClass:    product.ShippingClass,
+		TaxClass:         product.TaxClass,
+		CountryOfOrigin:  product.CountryOfOrigin,
+
+		// Status and Type
 		Status:      product.Status,
+		ProductType: product.ProductType,
 		IsDigital:   product.IsDigital,
 		IsAvailable: product.IsAvailable(),
 		HasDiscount: product.HasDiscount(),
-		CreatedAt:   product.CreatedAt,
-		UpdatedAt:   product.UpdatedAt,
+		HasVariants: product.HasVariants(),
+		MainImage:   product.GetMainImage(),
+
+		CreatedAt: product.CreatedAt,
+		UpdatedAt: product.UpdatedAt,
 	}
 
 	if product.Dimensions != nil {
@@ -723,6 +1210,19 @@ func (uc *productUseCase) toProductResponse(product *entities.Product) *ProductR
 			Description: product.Category.Description,
 			Slug:        product.Category.Slug,
 			Image:       product.Category.Image,
+		}
+	}
+
+	// Convert brand
+	if product.Brand != nil && product.Brand.ID != uuid.Nil {
+		response.Brand = &ProductBrandResponse{
+			ID:          product.Brand.ID,
+			Name:        product.Brand.Name,
+			Slug:        product.Brand.Slug,
+			Description: product.Brand.Description,
+			Logo:        product.Brand.Logo,
+			Website:     product.Brand.Website,
+			IsActive:    product.Brand.IsActive,
 		}
 	}
 
@@ -750,5 +1250,80 @@ func (uc *productUseCase) toProductResponse(product *entities.Product) *ProductR
 		}
 	}
 
+	// Convert attributes (placeholder for now)
+	response.Attributes = make([]ProductAttributeResponse, len(product.Attributes))
+	for i, attr := range product.Attributes {
+		response.Attributes[i] = ProductAttributeResponse{
+			ID:          attr.ID,
+			AttributeID: attr.AttributeID,
+			TermID:      attr.TermID,
+			Value:       attr.Value,
+			Position:    attr.Position,
+		}
+	}
+
+	// Convert variants (placeholder for now)
+	response.Variants = make([]ProductVariantResponse, len(product.Variants))
+	for i, variant := range product.Variants {
+		variantResponse := ProductVariantResponse{
+			ID:           variant.ID,
+			SKU:          variant.SKU,
+			Price:        variant.Price,
+			ComparePrice: variant.ComparePrice,
+			CostPrice:    variant.CostPrice,
+			Stock:        variant.Stock,
+			Weight:       variant.Weight,
+			Image:        variant.Image,
+			Position:     variant.Position,
+			IsActive:     variant.IsActive,
+		}
+
+		if variant.Dimensions != nil {
+			variantResponse.Dimensions = &DimensionsResponse{
+				Length: variant.Dimensions.Length,
+				Width:  variant.Dimensions.Width,
+				Height: variant.Dimensions.Height,
+			}
+		}
+
+		// Convert variant attributes (placeholder)
+		variantResponse.Attributes = make([]ProductVariantAttributeResponse, len(variant.Attributes))
+		for j, varAttr := range variant.Attributes {
+			variantResponse.Attributes[j] = ProductVariantAttributeResponse{
+				ID:          varAttr.ID,
+				AttributeID: varAttr.AttributeID,
+				TermID:      varAttr.TermID,
+			}
+		}
+
+		response.Variants[i] = variantResponse
+	}
+
 	return response
+}
+
+// replaceProductAttributes replaces all attributes for a product
+func (uc *productUseCase) replaceProductAttributes(ctx context.Context, productID uuid.UUID, attributes []ProductAttributeRequest) error {
+	// For now, we'll implement a basic version
+	// In a full implementation, you would:
+	// 1. Delete existing product attribute values
+	// 2. Create new attribute values
+	// 3. Validate that attributes and terms exist
+
+	// TODO: Implement full attribute management
+	// This is a placeholder for the attribute system
+	return nil
+}
+
+// replaceProductVariants replaces all variants for a product
+func (uc *productUseCase) replaceProductVariants(ctx context.Context, productID uuid.UUID, variants []ProductVariantRequest) error {
+	// For now, we'll implement a basic version
+	// In a full implementation, you would:
+	// 1. Delete existing product variants
+	// 2. Create new variants with their attributes
+	// 3. Validate variant data
+
+	// TODO: Implement full variant management
+	// This is a placeholder for the variant system
+	return nil
 }

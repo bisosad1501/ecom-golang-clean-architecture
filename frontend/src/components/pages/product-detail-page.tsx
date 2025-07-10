@@ -14,19 +14,23 @@ import {
   Shield,
   RotateCcw,
   ChevronLeft,
-  ChevronRight
+  ChevronRight,
+  ArrowLeft,
+  Eye,
+  CheckCircle,
+  Gift
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { ProductCard } from '@/components/products/product-card'
 import { ProductReviewsSection } from '@/components/reviews/product-reviews-section'
+import { AnimatedBackground } from '@/components/ui/animated-background'
 import { useProduct, useRelatedProducts, useAddToWishlist } from '@/hooks/use-products'
 import { useCartStore } from '@/store/cart'
 import { useAuthStore } from '@/store/auth'
 import { formatPrice, cn } from '@/lib/utils'
 import { toast } from 'sonner'
-import { getHighContrastClasses, PAGE_CONTRAST } from '@/constants/contrast-system'
 
 interface ProductDetailPageProps {
   productId: string
@@ -45,26 +49,36 @@ export function ProductDetailPage({ productId }: ProductDetailPageProps) {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-950 via-gray-900 to-black">
-        <div className="container mx-auto px-4 py-12">
+      <div className="min-h-screen bg-gradient-to-br from-black via-gray-900 to-black text-white relative overflow-hidden">
+        <AnimatedBackground className="opacity-30" />
+        <div className="container mx-auto px-4 lg:px-6 xl:px-8 py-6 relative z-10">
           <div className="animate-pulse">
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 mb-16">
-              <div className="space-y-4">
-                <div className="aspect-square bg-gradient-to-br from-gray-800/50 to-gray-900/50 rounded-2xl backdrop-blur-sm border border-white/10"></div>
-                <div className="grid grid-cols-4 gap-3">
-                  {[...Array(4)].map((_, i) => (
-                    <div key={i} className="aspect-square bg-gradient-to-br from-gray-800/30 to-gray-900/30 rounded-xl"></div>
+            {/* Header skeleton */}
+            <div className="flex items-center justify-between mb-6">
+              <div className="h-8 bg-white/8 rounded-lg w-32"></div>
+              <div className="h-4 bg-white/8 rounded w-48"></div>
+            </div>
+            
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 mb-8">
+              {/* Image skeleton - 6 columns */}
+              <div className="lg:col-span-6 space-y-3">
+                <div className="aspect-square bg-white/[0.03] border border-white/10 rounded-xl"></div>
+                <div className="grid grid-cols-6 gap-2">
+                  {[...Array(6)].map((_, i) => (
+                    <div key={i} className="aspect-square bg-white/[0.03] border border-white/10 rounded-lg"></div>
                   ))}
                 </div>
               </div>
-              <div className="space-y-6">
-                <div className="h-10 bg-gradient-to-r from-gray-800/50 to-gray-700/50 rounded-xl w-3/4"></div>
-                <div className="h-6 bg-gradient-to-r from-orange-500/30 to-orange-600/30 rounded-lg w-1/2"></div>
-                <div className="h-16 bg-gradient-to-r from-gray-800/50 to-gray-700/50 rounded-xl w-full"></div>
-                <div className="h-12 bg-gradient-to-r from-orange-500/30 to-orange-600/30 rounded-xl w-1/3"></div>
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="h-12 bg-gradient-to-r from-gray-800/50 to-gray-700/50 rounded-xl"></div>
-                  <div className="h-12 bg-gradient-to-r from-orange-500/30 to-orange-600/30 rounded-xl"></div>
+              {/* Content skeleton - 6 columns */}
+              <div className="lg:col-span-6 space-y-4">
+                <div className="h-4 bg-white/8 rounded w-20"></div>
+                <div className="h-6 bg-white/8 rounded w-3/4"></div>
+                <div className="h-4 bg-white/8 rounded w-1/2"></div>
+                <div className="bg-white/[0.03] border border-white/10 rounded-xl p-4">
+                  <div className="h-6 bg-white/8 rounded w-1/3"></div>
+                </div>
+                <div className="bg-white/[0.03] border border-white/10 rounded-xl p-4">
+                  <div className="h-16 bg-white/8 rounded w-full"></div>
                 </div>
               </div>
             </div>
@@ -76,8 +90,9 @@ export function ProductDetailPage({ productId }: ProductDetailPageProps) {
 
   if (error || !product) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-950 via-gray-900 to-black flex items-center justify-center">
-        <div className="container mx-auto px-4">
+      <div className="min-h-screen bg-gradient-to-br from-black via-gray-900 to-black text-white relative overflow-hidden flex items-center justify-center">
+        <AnimatedBackground className="opacity-30" />
+        <div className="container mx-auto px-4 relative z-10">
           <Card className="p-12 text-center max-w-lg mx-auto bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl shadow-2xl">
             <div className="w-20 h-20 bg-gradient-to-br from-red-500/20 to-red-600/20 rounded-full flex items-center justify-center mx-auto mb-6 border border-red-500/30">
               <span className="text-4xl">😞</span>
@@ -85,10 +100,10 @@ export function ProductDetailPage({ productId }: ProductDetailPageProps) {
             <h2 className="text-3xl font-bold bg-gradient-to-r from-white to-gray-300 bg-clip-text text-transparent mb-4">
               Product Not Found
             </h2>
-            <p className="text-gray-300 mb-8 text-lg leading-relaxed">
+            <p className="text-gray-300 mb-8 leading-relaxed">
               The product you're looking for doesn't exist or has been removed.
             </p>
-            <Button asChild className="bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 text-white px-8 py-3 rounded-xl font-semibold shadow-lg shadow-orange-500/25 transition-all duration-300 hover:scale-105">
+            <Button asChild className="bg-gradient-to-r from-[#ff9000] to-orange-600 hover:from-orange-600 hover:to-orange-700 text-white px-8 py-3 rounded-xl font-semibold shadow-lg shadow-[#ff9000]/25 transition-all duration-300 hover:scale-105">
               <Link href="/products">Browse Products</Link>
             </Button>
           </Card>
@@ -98,12 +113,22 @@ export function ProductDetailPage({ productId }: ProductDetailPageProps) {
   }
 
   const images = product.images || []
-  const hasDiscount = product.sale_price && product.sale_price < product.price
-  const discountPercentage = hasDiscount 
-    ? Math.round(((product.price - product.sale_price!) / product.price) * 100)
-    : 0
-  const displayPrice = product.sale_price || product.price
-  const isOutOfStock = product.stock <= 0
+  
+  // Enhanced pricing logic using new backend fields
+  const currentPrice = (product as any).current_price || (product as any).pricing?.price || (product as any).price || 0
+  const originalPrice = (product as any).price || (product as any).pricing?.price || 0
+  const salePrice = (product as any).sale_price
+  const isOnSale = (product as any).is_on_sale || false
+  const hasDiscount = (product as any).has_discount || isOnSale || false
+  const discountPercentage = (product as any).sale_discount_percentage || 0
+  const stockQuantity = (product as any).stock || (product as any).inventory?.stock_quantity || 0
+  const stockStatus = (product as any).stock_status || 'in_stock'
+  const isLowStock = (product as any).is_low_stock || false
+  const featured = (product as any).featured || false
+
+  const displayPrice = currentPrice
+  const comparePrice = isOnSale ? originalPrice : ((product as any).compare_price || (product as any).pricing?.compare_price)
+  const isOutOfStock = stockStatus === 'out_of_stock' || stockQuantity <= 0
 
   const handleAddToCart = async () => {
     if (isOutOfStock) return
@@ -148,354 +173,360 @@ export function ProductDetailPage({ productId }: ProductDetailPageProps) {
   }
 
   return (
-    <div className="min-h-screen bg-black">
-      <div className="container mx-auto px-4 py-8">
-        {/* Breadcrumb */}
-        <nav className="flex items-center space-x-2 text-sm text-gray-400 mb-8">
-          <Link href="/" className="hover:text-orange-400 transition-colors">Home</Link>
-          <span>/</span>
-          <Link href="/products" className="hover:text-orange-400 transition-colors">Products</Link>
-          {product.category && (
-            <>
-              <span>/</span>
-              <Link href={`/products?category=${product.category.id}`} className="hover:text-orange-400 transition-colors">
-                {product.category.name}
-              </Link>
-            </>
-          )}
-          <span>/</span>
-          <span className="text-white">{product.name}</span>
-        </nav>
+    <div className="min-h-screen bg-gradient-to-br from-black via-gray-900 to-black text-white relative overflow-hidden">
+      <AnimatedBackground className="opacity-30" />
 
-        {/* Product Details - More compact */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
-          {/* Product Images */}
-          <div className="space-y-3">
-            {/* Main Image */}
-            <div className="relative aspect-square overflow-hidden rounded-lg bg-gray-800">
-              {hasDiscount && (
-                <Badge className="absolute top-6 left-6 z-10 bg-gradient-to-r from-red-500 to-red-600 text-white px-4 py-2 text-lg font-bold shadow-lg">
-                  -{discountPercentage}% OFF
-                </Badge>
-              )}
-              {isOutOfStock && (
-                <Badge className="absolute top-6 right-6 z-10 bg-gradient-to-r from-gray-700 to-gray-800 text-white px-4 py-2 text-lg font-bold shadow-lg">
-                  Out of Stock
-                </Badge>
-              )}
-              <Image
-                src={images[selectedImageIndex]?.url || '/placeholder-product.jpg'}
-                alt={product.name}
-                fill
-                className="object-cover transition-all duration-500 hover:scale-105"
-                priority
-              />
+      <div className="container mx-auto px-4 lg:px-6 xl:px-8 py-6 relative z-10">
+        {/* Compact Header */}
+        <div className="mb-6">
+          <nav className="flex items-center space-x-2 text-sm text-gray-400 mb-3">
+            <Link href="/" className="hover:text-[#ff9000] transition-colors">Home</Link>
+            <span>/</span>
+            <Link href="/products" className="hover:text-[#ff9000] transition-colors">Products</Link>
+            {product.category && (
+              <>
+                <span>/</span>
+                <Link href={`/products?category=${product.category.id}`} className="hover:text-[#ff9000] transition-colors">
+                  {product.category.name}
+                </Link>
+              </>
+            )}
+          </nav>
+          
+          <Button variant="outline" size="sm" asChild className="border-white/20 hover:bg-white/10 transition-all duration-300">
+            <Link href="/products">
+              <ArrowLeft className="h-4 w-4 mr-2" />
+              Back to Products
+            </Link>
+          </Button>
+        </div>
 
-              {/* Enhanced Image Navigation */}
+        {/* Main Product Section - Unified Card */}
+        <div className="bg-white/[0.03] backdrop-blur-sm border border-white/10 rounded-xl overflow-hidden mb-6">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-0">
+            {/* Product Images */}
+            <div className="p-6 border-b lg:border-b-0 lg:border-r border-white/10">
+              {/* Main Image */}
+              <div className="relative group mb-4">
+                <div className="aspect-square overflow-hidden rounded-lg bg-white/[0.02] border border-white/10">
+                  {/* Enhanced Badges */}
+                  {featured && (
+                    <Badge className="absolute top-3 left-3 z-10 bg-gradient-to-r from-purple-500 to-pink-500 text-white px-2 py-1 text-xs font-bold">
+                      Featured
+                    </Badge>
+                  )}
+                  {hasDiscount && discountPercentage > 0 && (
+                    <Badge className={cn(
+                      "absolute top-3 z-10 bg-[#ff9000] text-white px-2 py-1 text-xs font-bold",
+                      featured ? "left-20" : "left-3"
+                    )}>
+                      -{Math.round(discountPercentage)}%
+                    </Badge>
+                  )}
+                  {isOutOfStock && (
+                    <Badge className="absolute top-3 right-3 z-10 bg-red-500 text-white px-2 py-1 text-xs">
+                      Sold Out
+                    </Badge>
+                  )}
+                  {!isOutOfStock && isLowStock && (
+                    <Badge className="absolute top-3 right-3 z-10 bg-amber-500 text-white px-2 py-1 text-xs">
+                      Low Stock
+                    </Badge>
+                  )}
+
+                  <Image
+                    src={images[selectedImageIndex]?.url || '/placeholder-product.svg'}
+                    alt={product.name}
+                    fill
+                    className="object-cover transition-transform duration-300 group-hover:scale-[1.02]"
+                    priority
+                  />
+
+                  {/* Navigation Arrows */}
+                  {images.length > 1 && (
+                    <>
+                      <Button
+                        variant="secondary"
+                        size="icon"
+                        className="absolute left-2 top-1/2 transform -translate-y-1/2 bg-black/40 hover:bg-black/60 text-white border-0 w-8 h-8 opacity-0 group-hover:opacity-100 transition-opacity"
+                        onClick={() => setSelectedImageIndex(prev => prev === 0 ? images.length - 1 : prev - 1)}
+                      >
+                        <ChevronLeft className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        variant="secondary"
+                        size="icon"
+                        className="absolute right-2 top-1/2 transform -translate-y-1/2 bg-black/40 hover:bg-black/60 text-white border-0 w-8 h-8 opacity-0 group-hover:opacity-100 transition-opacity"
+                        onClick={() => setSelectedImageIndex(prev => prev === images.length - 1 ? 0 : prev + 1)}
+                      >
+                        <ChevronRight className="h-4 w-4" />
+                      </Button>
+                    </>
+                  )}
+                </div>
+              </div>
+
+              {/* Thumbnail Strip */}
               {images.length > 1 && (
-                <>
-                  <Button
-                    variant="secondary"
-                    size="icon"
-                    className="absolute left-6 top-1/2 transform -translate-y-1/2 bg-white/10 backdrop-blur-md hover:bg-white/20 text-white border border-white/20 rounded-full w-12 h-12 shadow-xl transition-all duration-300 hover:scale-110"
-                    onClick={() => setSelectedImageIndex(prev =>
-                      prev === 0 ? images.length - 1 : prev - 1
-                    )}
-                  >
-                    <ChevronLeft className="h-5 w-5" />
-                  </Button>
-                  <Button
-                    variant="secondary"
-                    size="icon"
-                    className="absolute right-6 top-1/2 transform -translate-y-1/2 bg-white/10 backdrop-blur-md hover:bg-white/20 text-white border border-white/20 rounded-full w-12 h-12 shadow-xl transition-all duration-300 hover:scale-110"
-                    onClick={() => setSelectedImageIndex(prev =>
-                      prev === images.length - 1 ? 0 : prev + 1
-                    )}
-                  >
-                    <ChevronRight className="h-5 w-5" />
-                  </Button>
-                </>
-              )}
-
-              {/* Image Indicators */}
-              {images.length > 1 && (
-                <div className="absolute bottom-6 left-1/2 transform -translate-x-1/2 flex space-x-2">
-                  {images.map((_, index) => (
+                <div className="flex space-x-2 overflow-x-auto pb-2">
+                  {images.slice(0, 5).map((image, index) => (
                     <button
-                      key={index}
+                      key={image.id}
                       onClick={() => setSelectedImageIndex(index)}
                       className={cn(
-                        'w-3 h-3 rounded-full transition-all duration-300',
-                        selectedImageIndex === index
-                          ? 'bg-orange-500 scale-125'
-                          : 'bg-white/30 hover:bg-white/50'
+                        'flex-shrink-0 w-16 h-16 rounded border-2 overflow-hidden transition-all',
+                        selectedImageIndex === index 
+                          ? 'border-[#ff9000]' 
+                          : 'border-white/20 hover:border-[#ff9000]/50'
                       )}
-                    />
+                    >
+                      <Image src={image.url} alt="" width={64} height={64} className="object-cover w-full h-full" />
+                    </button>
                   ))}
                 </div>
               )}
             </div>
 
-            {/* Enhanced Thumbnail Images */}
-            {images.length > 1 && (
-              <div className="flex space-x-4 overflow-x-auto pb-2">
-                {images.map((image, index) => (
-                  <button
-                    key={image.id}
-                    onClick={() => setSelectedImageIndex(index)}
-                    className={cn(
-                      'relative w-24 h-24 flex-shrink-0 overflow-hidden rounded-xl border-2 transition-all duration-300 hover:scale-105',
-                      selectedImageIndex === index
-                        ? 'border-orange-500 shadow-lg shadow-orange-500/25 scale-105'
-                        : 'border-white/20 hover:border-orange-400/50 bg-white/5 backdrop-blur-sm'
-                    )}
-                  >
-                    <Image
-                      src={image.url}
-                      alt={image.alt_text || product.name}
-                      fill
-                      className="object-cover"
-                    />
-                  </button>
-                ))}
-              </div>
-            )}
-          </div>
+            {/* Product Info */}
+            <div className="p-6 space-y-4">
+              {/* Category */}
+              {product.category && (
+                <Link href={`/products?category=${product.category.id}`}>
+                  <Badge className="bg-[#ff9000]/20 text-[#ff9000] border border-[#ff9000]/30 hover:bg-[#ff9000]/30 transition-colors">
+                    {product.category.name}
+                  </Badge>
+                </Link>
+              )}
 
-          {/* Enhanced Product Info */}
-          <div className="space-y-8">
-            {/* Category Badge */}
-            {product.category && (
-              <Link
-                href={`/products?category=${product.category.id}`}
-                className="inline-block"
-              >
-                <Badge className="bg-gradient-to-r from-orange-500/20 to-orange-600/20 text-orange-300 border border-orange-500/30 px-4 py-2 text-sm font-medium hover:from-orange-500/30 hover:to-orange-600/30 transition-all duration-300 backdrop-blur-sm">
-                  📁 {product.category.name}
-                </Badge>
-              </Link>
-            )}
-
-            {/* Enhanced Title */}
-            <div className="space-y-4">
-              <h1 className="text-3xl lg:text-5xl font-bold bg-gradient-to-r from-white via-gray-100 to-orange-200 bg-clip-text text-transparent leading-tight">
+              {/* Title */}
+              <h1 className="text-2xl lg:text-3xl font-bold text-white leading-tight">
                 {product.name}
               </h1>
 
-              {/* Enhanced Rating */}
-              {product.rating && (
-                <div className="flex items-center space-x-4">
-                  <div className="flex items-center space-x-2">
-                    <div className="flex">
-                      {[...Array(5)].map((_, i) => (
-                        <Star
-                          key={i}
-                          className={cn(
-                            'h-6 w-6 transition-all duration-200',
-                            i < Math.floor(product.rating!.average)
-                              ? 'text-yellow-400 fill-current drop-shadow-sm'
-                              : 'text-gray-500'
-                          )}
-                        />
-                      ))}
-                    </div>
-                    <span className="text-lg font-semibold text-yellow-400">
-                      {product.rating.average.toFixed(1)}
+              {/* Rating */}
+              {product.rating_average > 0 && (
+                <div className="flex items-center gap-3">
+                  <div className="flex items-center gap-1">
+                    {[...Array(5)].map((_, i) => (
+                      <Star
+                        key={i}
+                        className={cn(
+                          'h-4 w-4',
+                          i < Math.floor(product.rating_average)
+                            ? 'text-yellow-400 fill-current'
+                            : 'text-gray-600'
+                        )}
+                      />
+                    ))}
+                    <span className="text-sm font-medium text-yellow-400 ml-1">
+                      {product.rating_average.toFixed(1)}
                     </span>
                   </div>
-                  <Badge className="bg-white/10 text-gray-300 border border-white/20 px-3 py-1">
-                    {product.rating.count} reviews
-                  </Badge>
+                  <span className="text-sm text-gray-400">({product.rating_count} reviews)</span>
                 </div>
               )}
-            </div>
 
-            {/* Enhanced Price Section */}
-            <div className="bg-white/5 backdrop-blur-xl rounded-2xl border border-white/10 p-6 space-y-4">
-              <div className="flex items-center space-x-4">
-                <span className="text-3xl lg:text-4xl font-bold bg-gradient-to-r from-orange-400 to-orange-500 bg-clip-text text-transparent">
-                  {formatPrice(displayPrice)}
-                </span>
-                {hasDiscount && (
-                  <div className="flex items-center space-x-3">
-                    <span className="text-xl lg:text-2xl text-gray-400 line-through">
-                      {formatPrice(product.price)}
-                    </span>
-                    <Badge className="bg-gradient-to-r from-red-500 to-red-600 text-white px-3 py-1 text-sm font-bold">
-                      -{discountPercentage}% OFF
-                    </Badge>
-                  </div>
+              {/* Enhanced Price Display */}
+              <div className="border border-white/10 rounded-lg p-4 bg-white/[0.02]">
+                <div className="flex items-center gap-3 mb-2">
+                  <span className="text-3xl font-bold text-[#ff9000]">
+                    {formatPrice(displayPrice)}
+                  </span>
+                  {hasDiscount && (
+                    <div className="flex items-center gap-2">
+                      {isOnSale ? (
+                        <span className="text-lg text-gray-500 line-through">
+                          {formatPrice(originalPrice)}
+                        </span>
+                      ) : comparePrice && (
+                        <span className="text-lg text-gray-500 line-through">
+                          {formatPrice(comparePrice)}
+                        </span>
+                      )}
+                      {discountPercentage > 0 && (
+                        <Badge className="bg-[#ff9000] text-white text-xs px-2 py-1">
+                          -{Math.round(discountPercentage)}%
+                        </Badge>
+                      )}
+                    </div>
+                  )}
+                </div>
+                {hasDiscount && discountPercentage > 0 && (
+                  <p className="text-green-400 text-sm font-medium">
+                    💰 You save {formatPrice((isOnSale ? originalPrice : comparePrice || 0) - displayPrice)}
+                  </p>
+                )}
+                {isOnSale && (
+                  <p className="text-[#ff9000] text-sm font-medium mt-1">
+                    🔥 Limited time sale!
+                  </p>
                 )}
               </div>
-              {hasDiscount && (
-                <div className="bg-green-500/10 border border-green-500/20 rounded-xl p-4">
-                  <p className="text-green-400 font-semibold text-lg">
-                    💰 You save {formatPrice(product.price - product.sale_price!)} ({discountPercentage}% off)
-                  </p>
-                </div>
-              )}
-            </div>
 
-            {/* Enhanced Short Description */}
-            {product.short_description && (
-              <div className="bg-white/5 backdrop-blur-xl rounded-2xl border border-white/10 p-6">
-                <p className="text-gray-200 text-lg leading-relaxed">
+              {/* Enhanced Stock Status */}
+              <div className="flex items-center gap-2">
+                {isOutOfStock ? (
+                  <Badge className="bg-red-500/20 text-red-400 border border-red-500/30">
+                    ❌ Sold Out
+                  </Badge>
+                ) : stockStatus === 'on_backorder' ? (
+                  <Badge className="bg-blue-500/20 text-blue-400 border border-blue-500/30">
+                    📦 Available on Backorder
+                  </Badge>
+                ) : isLowStock ? (
+                  <Badge className="bg-amber-500/20 text-amber-400 border border-amber-500/30">
+                    ⚠️ Low Stock - Only {stockQuantity} left
+                  </Badge>
+                ) : stockQuantity <= 10 ? (
+                  <Badge className="bg-yellow-500/20 text-yellow-400 border border-yellow-500/30">
+                    ⏰ Limited Stock - {stockQuantity} available
+                  </Badge>
+                ) : (
+                  <Badge className="bg-green-500/20 text-green-400 border border-green-500/30">
+                    ✅ In Stock ({stockQuantity} available)
+                  </Badge>
+                )}
+              </div>
+
+              {/* Short Description */}
+              {product.short_description && (
+                <p className="text-gray-300 text-sm leading-relaxed border-t border-white/10 pt-4">
                   {product.short_description}
                 </p>
-              </div>
-            )}
-
-            {/* Enhanced Stock Status */}
-            <div className="flex items-center space-x-3">
-              {isOutOfStock ? (
-                <Badge className="bg-gradient-to-r from-red-500 to-red-600 text-white px-4 py-2 text-lg font-semibold shadow-lg">
-                  ❌ Out of Stock
-                </Badge>
-              ) : product.stock <= 5 ? (
-                <Badge className="bg-gradient-to-r from-yellow-500 to-yellow-600 text-black px-4 py-2 text-lg font-semibold shadow-lg animate-pulse">
-                  ⚠️ Only {product.stock} left in stock
-                </Badge>
-              ) : (
-                <Badge className="bg-gradient-to-r from-green-500 to-green-600 text-white px-4 py-2 text-lg font-semibold shadow-lg">
-                  ✅ In Stock
-                </Badge>
               )}
-            </div>
 
-            {/* Enhanced Quantity and Add to Cart */}
-            {!isOutOfStock && (
-              <div className="space-y-6">
-                <div className="bg-white/5 backdrop-blur-xl rounded-2xl border border-white/10 p-6">
-                  <div className="flex items-center justify-between mb-4">
-                    <span className="text-lg font-semibold text-white">Quantity:</span>
-                    <div className="flex items-center bg-white/10 backdrop-blur-md border border-white/20 rounded-xl overflow-hidden">
+              {/* Purchase Actions */}
+              {!isOutOfStock && (
+                <div className="border-t border-white/10 pt-4 space-y-4">
+                  {/* Quantity */}
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm font-medium text-white">Quantity:</span>
+                    <div className="flex items-center border border-white/20 rounded-lg overflow-hidden bg-white/[0.02]">
                       <Button
                         variant="ghost"
                         size="sm"
                         onClick={() => setQuantity(Math.max(1, quantity - 1))}
                         disabled={quantity <= 1}
-                        className="text-white hover:bg-white/20 px-4 py-3 rounded-none border-r border-white/20"
+                        className="px-3 py-2 h-9 border-r border-white/20"
                       >
-                        <Minus className="h-5 w-5" />
+                        <Minus className="h-3 w-3" />
                       </Button>
-                      <span className="px-6 py-3 text-center min-w-[80px] text-white font-bold text-lg bg-white/5">
+                      <span className="px-4 py-2 min-w-[50px] text-center font-medium">
                         {quantity}
                       </span>
                       <Button
                         variant="ghost"
                         size="sm"
-                        onClick={() => setQuantity(Math.min(product.stock, quantity + 1))}
-                        disabled={quantity >= product.stock}
-                        className="text-white hover:bg-white/20 px-4 py-3 rounded-none border-l border-white/20"
+                        onClick={() => setQuantity(Math.min(stockQuantity, quantity + 1))}
+                        disabled={quantity >= stockQuantity}
+                        className="px-3 py-2 h-9 border-l border-white/20"
                       >
-                        <Plus className="h-5 w-5" />
+                        <Plus className="h-3 w-3" />
                       </Button>
                     </div>
                   </div>
 
-                  {/* Enhanced Action Buttons */}
-                  <div className="grid grid-cols-1 gap-4">
+                  {/* Action Buttons */}
+                  <div className="space-y-3">
                     <Button
-                      size="lg"
-                      className="w-full bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 text-white font-bold py-4 text-lg shadow-xl shadow-orange-500/25 transition-all duration-300 hover:scale-105 hover:shadow-2xl hover:shadow-orange-500/40"
+                      className="w-full bg-gradient-to-r from-[#ff9000] to-orange-600 hover:from-orange-600 hover:to-orange-700 text-white font-semibold py-3 transition-all duration-300 hover:scale-[1.02]"
                       onClick={handleAddToCart}
                       disabled={cartLoading}
                     >
-                      <ShoppingCart className="mr-3 h-6 w-6" />
-                      {cartLoading ? 'Adding to Cart...' : 'Add to Cart'}
+                      <ShoppingCart className="mr-2 h-4 w-4" />
+                      {cartLoading ? 'Adding...' : 'Add to Cart'}
                     </Button>
 
-                    <div className="grid grid-cols-2 gap-3">
+                    <div className="grid grid-cols-2 gap-2">
                       {isAuthenticated && (
                         <Button
                           variant="outline"
-                          size="lg"
+                          size="sm"
                           onClick={handleAddToWishlist}
                           disabled={addToWishlistMutation.isPending}
-                          className="border-white/20 text-white hover:bg-white/10 backdrop-blur-sm py-3 transition-all duration-300 hover:scale-105"
+                          className="border-white/20 hover:bg-white/10 transition-colors"
                         >
-                          <Heart className="h-5 w-5 mr-2" />
+                          <Heart className="h-4 w-4 mr-1" />
                           Wishlist
                         </Button>
                       )}
-
                       <Button
                         variant="outline"
-                        size="lg"
+                        size="sm"
                         onClick={handleShare}
-                        className="border-white/20 text-white hover:bg-white/10 backdrop-blur-sm py-3 transition-all duration-300 hover:scale-105"
+                        className="border-white/20 hover:bg-white/10 transition-colors"
                       >
-                        <Share2 className="h-5 w-5 mr-2" />
+                        <Share2 className="h-4 w-4 mr-1" />
                         Share
                       </Button>
                     </div>
                   </div>
                 </div>
-              </div>
-            )}
-
-            {/* Enhanced Product Features */}
-            <div className="bg-white/5 backdrop-blur-xl rounded-2xl border border-white/10 p-6">
-              <h3 className="text-lg font-semibold text-white mb-4">Product Benefits</h3>
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                <div className="flex items-center space-x-3 text-gray-200">
-                  <div className="w-10 h-10 bg-gradient-to-br from-orange-500/20 to-orange-600/20 rounded-full flex items-center justify-center border border-orange-500/30">
-                    <Truck className="h-5 w-5 text-orange-400" />
-                  </div>
-                  <span className="font-medium">Free shipping over $50</span>
-                </div>
-                <div className="flex items-center space-x-3 text-gray-200">
-                  <div className="w-10 h-10 bg-gradient-to-br from-green-500/20 to-green-600/20 rounded-full flex items-center justify-center border border-green-500/30">
-                    <Shield className="h-5 w-5 text-green-400" />
-                  </div>
-                  <span className="font-medium">1 year warranty</span>
-                </div>
-                <div className="flex items-center space-x-3 text-gray-200">
-                  <div className="w-10 h-10 bg-gradient-to-br from-blue-500/20 to-blue-600/20 rounded-full flex items-center justify-center border border-blue-500/30">
-                    <RotateCcw className="h-5 w-5 text-blue-400" />
-                  </div>
-                  <span className="font-medium">30-day returns</span>
-                </div>
-              </div>
+              )}
             </div>
           </div>
         </div>
 
-        {/* Enhanced Product Tabs */}
-        <div className="bg-white/5 backdrop-blur-xl rounded-2xl border border-white/10 shadow-2xl mb-16">
-          <div className="border-b border-white/10">
-            <div className="flex space-x-1 p-2">
+        {/* Features & Benefits */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+          <div className="bg-white/[0.03] border border-white/10 rounded-lg p-4 text-center">
+            <Truck className="h-8 w-8 text-[#ff9000] mx-auto mb-2" />
+            <h3 className="font-semibold text-white text-sm mb-1">Free Shipping</h3>
+            <p className="text-gray-400 text-xs">On orders over $50</p>
+          </div>
+          <div className="bg-white/[0.03] border border-white/10 rounded-lg p-4 text-center">
+            <Shield className="h-8 w-8 text-green-400 mx-auto mb-2" />
+            <h3 className="font-semibold text-white text-sm mb-1">1 Year Warranty</h3>
+            <p className="text-gray-400 text-xs">Quality guaranteed</p>
+          </div>
+          <div className="bg-white/[0.03] border border-white/10 rounded-lg p-4 text-center">
+            <RotateCcw className="h-8 w-8 text-blue-400 mx-auto mb-2" />
+            <h3 className="font-semibold text-white text-sm mb-1">Easy Returns</h3>
+            <p className="text-gray-400 text-xs">30-day policy</p>
+          </div>
+        </div>
+
+        {/* Compact Tabs */}
+        <div className="bg-white/[0.03] backdrop-blur-sm border border-white/10 rounded-xl mb-6">
+          <div className="border-b border-white/10 p-1">
+            <div className="flex space-x-1">
               {[
                 { key: 'description', label: 'Description', icon: '📝' },
                 { key: 'reviews', label: 'Reviews', icon: '⭐' },
-                { key: 'shipping', label: 'Shipping & Returns', icon: '🚚' },
+                { key: 'shipping', label: 'Shipping', icon: '🚚' },
               ].map((tab) => (
                 <button
                   key={tab.key}
                   onClick={() => setActiveTab(tab.key as any)}
                   className={cn(
-                    'flex items-center space-x-2 px-6 py-4 rounded-xl font-semibold text-sm transition-all duration-300',
+                    'flex items-center space-x-2 px-4 py-2 rounded-lg text-sm font-medium transition-all duration-300',
                     activeTab === tab.key
-                      ? 'bg-gradient-to-r from-orange-500 to-orange-600 text-white shadow-lg shadow-orange-500/25 scale-105'
-                      : 'text-gray-300 hover:text-white hover:bg-white/10'
+                      ? 'bg-[#ff9000] text-white'
+                      : 'text-gray-400 hover:text-white hover:bg-white/8'
                   )}
                 >
-                  <span className="text-lg">{tab.icon}</span>
+                  <span>{tab.icon}</span>
                   <span>{tab.label}</span>
+                  {tab.key === 'reviews' && product.rating_count > 0 && (
+                    <Badge className="bg-white/20 text-white text-xs px-1.5 py-0.5">
+                      {product.rating_count}
+                    </Badge>
+                  )}
                 </button>
               ))}
             </div>
           </div>
-          <div className="p-8">
+          <div className="p-6">
             {activeTab === 'description' && (
-              <div className="prose max-w-none">
-                <div className="bg-white/5 backdrop-blur-md rounded-xl border border-white/10 p-6">
-                  <h3 className="text-xl font-bold text-white mb-4">Product Description</h3>
-                  <p className="text-gray-200 leading-relaxed text-lg">
-                    {product.description}
-                  </p>
+              <div className="space-y-4">
+                <h3 className="text-lg font-semibold text-white">Product Description</h3>
+                <div className="text-gray-300 leading-relaxed">
+                  {product.description ? (
+                    <p>{product.description}</p>
+                  ) : (
+                    <p>No detailed description available for this product.</p>
+                  )}
                 </div>
-                {/* Additional product details would go here */}
               </div>
             )}
 
@@ -504,78 +535,85 @@ export function ProductDetailPage({ productId }: ProductDetailPageProps) {
             )}
 
             {activeTab === 'shipping' && (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                <div className="bg-white/5 backdrop-blur-md rounded-xl border border-white/10 p-6">
-                  <div className="flex items-center space-x-3 mb-4">
-                    <div className="w-10 h-10 bg-gradient-to-br from-blue-500/20 to-blue-600/20 rounded-full flex items-center justify-center border border-blue-500/30">
-                      <Truck className="h-5 w-5 text-blue-400" />
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div>
+                  <h4 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
+                    <Truck className="h-5 w-5 text-blue-400" />
+                    Shipping Options
+                  </h4>
+                  <div className="space-y-3">
+                    <div className="flex items-center gap-3 text-sm">
+                      <CheckCircle className="h-4 w-4 text-green-400" />
+                      <span className="text-gray-300">Free shipping on orders over $50</span>
                     </div>
-                    <h4 className="text-xl font-bold text-white">Shipping Information</h4>
+                    <div className="flex items-center gap-3 text-sm">
+                      <Truck className="h-4 w-4 text-blue-400" />
+                      <span className="text-gray-300">Standard delivery: 3-5 business days</span>
+                    </div>
+                    <div className="flex items-center gap-3 text-sm">
+                      <Gift className="h-4 w-4 text-[#ff9000]" />
+                      <span className="text-gray-300">Express delivery: 1-2 business days</span>
+                    </div>
                   </div>
-                  <ul className="text-gray-200 space-y-3 text-lg">
-                    <li className="flex items-center space-x-3">
-                      <span className="text-green-400">✓</span>
-                      <span>Free shipping on orders over $50</span>
-                    </li>
-                    <li className="flex items-center space-x-3">
-                      <span className="text-blue-400">📦</span>
-                      <span>Standard delivery: 3-5 business days</span>
-                    </li>
-                    <li className="flex items-center space-x-3">
-                      <span className="text-orange-400">⚡</span>
-                      <span>Express delivery: 1-2 business days</span>
-                    </li>
-                  </ul>
                 </div>
-                <div className="bg-white/5 backdrop-blur-md rounded-xl border border-white/10 p-6">
-                  <div className="flex items-center space-x-3 mb-4">
-                    <div className="w-10 h-10 bg-gradient-to-br from-green-500/20 to-green-600/20 rounded-full flex items-center justify-center border border-green-500/30">
-                      <RotateCcw className="h-5 w-5 text-green-400" />
+                <div>
+                  <h4 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
+                    <RotateCcw className="h-5 w-5 text-green-400" />
+                    Return Policy
+                  </h4>
+                  <div className="space-y-3">
+                    <div className="flex items-center gap-3 text-sm">
+                      <CheckCircle className="h-4 w-4 text-green-400" />
+                      <span className="text-gray-300">30-day return policy</span>
                     </div>
-                    <h4 className="text-xl font-bold text-white">Returns & Exchanges</h4>
+                    <div className="flex items-center gap-3 text-sm">
+                      <Shield className="h-4 w-4 text-blue-400" />
+                      <span className="text-gray-300">Items must be in original condition</span>
+                    </div>
+                    <div className="flex items-center gap-3 text-sm">
+                      <Truck className="h-4 w-4 text-[#ff9000]" />
+                      <span className="text-gray-300">Free return shipping</span>
+                    </div>
                   </div>
-                  <ul className="text-gray-200 space-y-3 text-lg">
-                    <li className="flex items-center space-x-3">
-                      <span className="text-green-400">✓</span>
-                      <span>30-day return policy</span>
-                    </li>
-                    <li className="flex items-center space-x-3">
-                      <span className="text-blue-400">📋</span>
-                      <span>Items must be in original condition</span>
-                    </li>
-                    <li className="flex items-center space-x-3">
-                      <span className="text-orange-400">🚚</span>
-                      <span>Free return shipping</span>
-                    </li>
-                  </ul>
                 </div>
               </div>
             )}
           </div>
         </div>
 
-        {/* Enhanced Related Products */}
+        {/* Related Products */}
         {relatedProducts && relatedProducts.length > 0 && (
-          <div className="bg-white/5 backdrop-blur-xl rounded-2xl border border-white/10 p-8 shadow-2xl">
-            <div className="text-center mb-8">
-              <h2 className="text-3xl font-bold bg-gradient-to-r from-white via-gray-100 to-orange-200 bg-clip-text text-transparent mb-2">
-                You Might Also Like
-              </h2>
-              <p className="text-gray-300 text-lg">Discover more amazing products</p>
+          <div className="bg-white/[0.03] backdrop-blur-sm border border-white/10 rounded-xl">
+            <div className="p-4 border-b border-white/10">
+              <h2 className="text-xl font-bold text-white mb-2">You Might Also Like</h2>
+              <p className="text-gray-400 text-sm">Discover similar products</p>
             </div>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8">
-              {relatedProducts.map((relatedProduct, index) => (
-                <div
-                  key={relatedProduct.id}
-                  className="animate-in fade-in slide-in-from-bottom-4 duration-700"
-                  style={{ animationDelay: `${index * 150}ms` }}
+            <div className="p-4">
+              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
+                {relatedProducts.map((relatedProduct, index) => (
+                  <div
+                    key={relatedProduct.id}
+                    className="animate-in fade-in duration-500"
+                    style={{ animationDelay: `${index * 100}ms` }}
+                  >
+                    <ProductCard
+                      product={relatedProduct}
+                      className="transition-all duration-300 hover:scale-[1.02] hover:shadow-lg hover:shadow-[#ff9000]/10"
+                    />
+                  </div>
+                ))}
+              </div>
+              <div className="text-center mt-6">
+                <Button
+                  asChild
+                  variant="outline"
+                  className="border-white/20 hover:bg-white/10 transition-colors"
                 >
-                  <ProductCard
-                    product={relatedProduct}
-                    className="transform hover:scale-105 transition-all duration-300 hover:shadow-2xl hover:shadow-orange-500/10"
-                  />
-                </div>
-              ))}
+                  <Link href="/products">
+                    View All Products
+                  </Link>
+                </Button>
+              </div>
             </div>
           </div>
         )}

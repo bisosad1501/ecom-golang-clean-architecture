@@ -27,21 +27,56 @@ export function AddProductForm({ onSuccess, onCancel }: AddProductFormProps) {
     description: '',
     short_description: '',
     sku: '',
+
+    // SEO and Metadata
+    slug: '',
+    meta_title: '',
+    meta_description: '',
+    keywords: '',
+    featured: false,
+    visibility: 'visible',
+
+    // Pricing
     price: 0,
-    compare_price: undefined, // Should be undefined for no discount
-    cost_price: undefined,   // Should be undefined if not set
+    compare_price: undefined,
+    cost_price: undefined,
+
+    // Sale Pricing
+    sale_price: undefined,
+    sale_start_date: undefined,
+    sale_end_date: undefined,
+
+    // Inventory
     stock: 0,
+    low_stock_threshold: 5,
+    track_quantity: true,
+    allow_backorder: false,
+
+    // Shipping and Tax
+    requires_shipping: true,
+    shipping_class: 'standard',
+    tax_class: 'standard',
+    country_of_origin: '',
+
+    // Categorization
     category_id: '',
+    brand_id: undefined,
+
+    // Product Type
+    product_type: 'simple',
     is_digital: false,
-    weight: undefined,       // Should be undefined if not set
+
+    // Physical Properties
+    weight: undefined,
     dimensions: {
       length: 0,
       width: 0,
       height: 0,
     },
+
     tags: [],
     status: 'draft',
-  })
+  } as CreateProductRequest)
   
   const [tagInput, setTagInput] = useState('')
   const [imageFiles, setImageFiles] = useState<File[]>([])
@@ -98,20 +133,56 @@ export function AddProductForm({ onSuccess, onCancel }: AddProductFormProps) {
         description: '',
         short_description: '',
         sku: '',
+
+        // SEO and Metadata
+        slug: '',
+        meta_title: '',
+        meta_description: '',
+        keywords: '',
+        featured: false,
+        visibility: 'visible',
+
+        // Pricing
         price: 0,
-        compare_price: 0,
+        compare_price: undefined,
+        cost_price: undefined,
+
+        // Sale Pricing
+        sale_price: undefined,
+        sale_start_date: undefined,
+        sale_end_date: undefined,
+
+        // Inventory
         stock: 0,
+        low_stock_threshold: 5,
+        track_quantity: true,
+        allow_backorder: false,
+
+        // Shipping and Tax
+        requires_shipping: true,
+        shipping_class: 'standard',
+        tax_class: 'standard',
+        country_of_origin: '',
+
+        // Categorization
         category_id: '',
+        brand_id: undefined,
+
+        // Product Type
+        product_type: 'simple',
         is_digital: false,
-        weight: 0,
+
+        // Physical Properties
+        weight: undefined,
         dimensions: {
           length: 0,
           width: 0,
           height: 0,
         },
+
         tags: [],
         status: 'draft',
-      })
+      } as CreateProductRequest)
       setImageFiles([])
       setImagePreviewUrls([])
       setImageUrlInput('')
@@ -433,16 +504,99 @@ export function AddProductForm({ onSuccess, onCancel }: AddProductFormProps) {
             </CardContent>
           </Card>
 
+          {/* SEO & Metadata */}
+          <Card>
+            <CardHeader>
+              <CardTitle>SEO & Metadata</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {/* Slug */}
+                <div>
+                  <Label htmlFor="slug">URL Slug</Label>
+                  <Input
+                    id="slug"
+                    value={(formData as any).slug || ''}
+                    onChange={(e) => handleInputChange('slug', e.target.value)}
+                    placeholder="product-url-slug"
+                  />
+                </div>
+
+                {/* Meta Title */}
+                <div>
+                  <Label htmlFor="meta_title">Meta Title</Label>
+                  <Input
+                    id="meta_title"
+                    value={(formData as any).meta_title || ''}
+                    onChange={(e) => handleInputChange('meta_title', e.target.value)}
+                    placeholder="SEO title for search engines"
+                  />
+                </div>
+              </div>
+
+              {/* Meta Description */}
+              <div>
+                <Label htmlFor="meta_description">Meta Description</Label>
+                <Textarea
+                  id="meta_description"
+                  value={(formData as any).meta_description || ''}
+                  onChange={(e) => handleInputChange('meta_description', e.target.value)}
+                  placeholder="SEO description for search engines"
+                  rows={2}
+                />
+              </div>
+
+              {/* Keywords */}
+              <div>
+                <Label htmlFor="keywords">Keywords</Label>
+                <Input
+                  id="keywords"
+                  value={(formData as any).keywords || ''}
+                  onChange={(e) => handleInputChange('keywords', e.target.value)}
+                  placeholder="keyword1, keyword2, keyword3"
+                />
+              </div>
+
+              {/* Featured & Visibility */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="flex items-center space-x-2">
+                  <input
+                    type="checkbox"
+                    id="featured"
+                    checked={(formData as any).featured || false}
+                    onChange={(e) => handleInputChange('featured', e.target.checked)}
+                    className="rounded border-gray-300"
+                  />
+                  <Label htmlFor="featured">Featured Product</Label>
+                </div>
+
+                <div>
+                  <Label htmlFor="visibility">Visibility</Label>
+                  <select
+                    id="visibility"
+                    value={(formData as any).visibility || 'visible'}
+                    onChange={(e) => handleInputChange('visibility', e.target.value)}
+                    className="w-full p-2 border border-gray-300 rounded-md"
+                  >
+                    <option value="visible">Visible</option>
+                    <option value="hidden">Hidden</option>
+                    <option value="private">Private</option>
+                  </select>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
           {/* Pricing */}
           <Card>
             <CardHeader>
               <CardTitle>Pricing</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 {/* Price */}
                 <div>
-                  <Label htmlFor="price">Price *</Label>
+                  <Label htmlFor="price">Regular Price *</Label>
                   <Input
                     id="price"
                     type="number"
@@ -452,6 +606,20 @@ export function AddProductForm({ onSuccess, onCancel }: AddProductFormProps) {
                     onChange={(e) => handleInputChange('price', parseFloat(e.target.value) || 0)}
                     placeholder="0.00"
                     required
+                  />
+                </div>
+
+                {/* Sale Price */}
+                <div>
+                  <Label htmlFor="sale_price">Sale Price</Label>
+                  <Input
+                    id="sale_price"
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    value={(formData as any).sale_price || ''}
+                    onChange={(e) => handleInputChange('sale_price', parseFloat(e.target.value) || undefined)}
+                    placeholder="0.00"
                   />
                 </div>
 
@@ -469,16 +637,39 @@ export function AddProductForm({ onSuccess, onCancel }: AddProductFormProps) {
                   />
                 </div>
               </div>
+
+              {/* Sale Date Range */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <Label htmlFor="sale_start_date">Sale Start Date</Label>
+                  <Input
+                    id="sale_start_date"
+                    type="datetime-local"
+                    value={(formData as any).sale_start_date || ''}
+                    onChange={(e) => handleInputChange('sale_start_date', e.target.value || undefined)}
+                  />
+                </div>
+
+                <div>
+                  <Label htmlFor="sale_end_date">Sale End Date</Label>
+                  <Input
+                    id="sale_end_date"
+                    type="datetime-local"
+                    value={(formData as any).sale_end_date || ''}
+                    onChange={(e) => handleInputChange('sale_end_date', e.target.value || undefined)}
+                  />
+                </div>
+              </div>
             </CardContent>
           </Card>
 
-          {/* Inventory */}
+          {/* Enhanced Inventory */}
           <Card>
             <CardHeader>
-              <CardTitle>Inventory</CardTitle>
+              <CardTitle>Inventory Management</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 {/* Stock */}
                 <div>
                   <Label htmlFor="stock">Stock Quantity *</Label>
@@ -490,6 +681,19 @@ export function AddProductForm({ onSuccess, onCancel }: AddProductFormProps) {
                     onChange={(e) => handleInputChange('stock', parseInt(e.target.value) || 0)}
                     placeholder="0"
                     required
+                  />
+                </div>
+
+                {/* Low Stock Threshold */}
+                <div>
+                  <Label htmlFor="low_stock_threshold">Low Stock Threshold</Label>
+                  <Input
+                    id="low_stock_threshold"
+                    type="number"
+                    min="0"
+                    value={(formData as any).low_stock_threshold || 5}
+                    onChange={(e) => handleInputChange('low_stock_threshold', parseInt(e.target.value) || 5)}
+                    placeholder="5"
                   />
                 </div>
 
@@ -508,6 +712,31 @@ export function AddProductForm({ onSuccess, onCancel }: AddProductFormProps) {
                     />
                   </div>
                 )}
+              </div>
+
+              {/* Inventory Options */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="flex items-center space-x-2">
+                  <input
+                    type="checkbox"
+                    id="track_quantity"
+                    checked={(formData as any).track_quantity !== false}
+                    onChange={(e) => handleInputChange('track_quantity', e.target.checked)}
+                    className="rounded border-gray-300"
+                  />
+                  <Label htmlFor="track_quantity">Track Quantity</Label>
+                </div>
+
+                <div className="flex items-center space-x-2">
+                  <input
+                    type="checkbox"
+                    id="allow_backorder"
+                    checked={(formData as any).allow_backorder || false}
+                    onChange={(e) => handleInputChange('allow_backorder', e.target.checked)}
+                    className="rounded border-gray-300"
+                  />
+                  <Label htmlFor="allow_backorder">Allow Backorders</Label>
+                </div>
               </div>
 
               {/* Dimensions (if not digital) */}
@@ -578,6 +807,71 @@ export function AddProductForm({ onSuccess, onCancel }: AddProductFormProps) {
               )}
             </CardContent>
           </Card>
+
+          {/* Shipping & Tax */}
+          <Card>
+            <CardHeader>
+              <CardTitle>Shipping & Tax</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {/* Shipping Class */}
+                <div>
+                  <Label htmlFor="shipping_class">Shipping Class</Label>
+                  <select
+                    id="shipping_class"
+                    value={(formData as any).shipping_class || 'standard'}
+                    onChange={(e) => handleInputChange('shipping_class', e.target.value)}
+                    className="w-full p-2 border border-gray-300 rounded-md"
+                  >
+                    <option value="standard">Standard</option>
+                    <option value="express">Express</option>
+                    <option value="overnight">Overnight</option>
+                    <option value="free">Free Shipping</option>
+                  </select>
+                </div>
+
+                {/* Tax Class */}
+                <div>
+                  <Label htmlFor="tax_class">Tax Class</Label>
+                  <select
+                    id="tax_class"
+                    value={(formData as any).tax_class || 'standard'}
+                    onChange={(e) => handleInputChange('tax_class', e.target.value)}
+                    className="w-full p-2 border border-gray-300 rounded-md"
+                  >
+                    <option value="standard">Standard</option>
+                    <option value="reduced">Reduced Rate</option>
+                    <option value="zero">Zero Rate</option>
+                    <option value="exempt">Tax Exempt</option>
+                  </select>
+                </div>
+              </div>
+
+              {/* Country of Origin */}
+              <div>
+                <Label htmlFor="country_of_origin">Country of Origin</Label>
+                <Input
+                  id="country_of_origin"
+                  value={(formData as any).country_of_origin || ''}
+                  onChange={(e) => handleInputChange('country_of_origin', e.target.value)}
+                  placeholder="e.g., United States"
+                />
+              </div>
+
+              {/* Requires Shipping */}
+              <div className="flex items-center space-x-2">
+                <input
+                  type="checkbox"
+                  id="requires_shipping"
+                  checked={(formData as any).requires_shipping !== false}
+                  onChange={(e) => handleInputChange('requires_shipping', e.target.checked)}
+                  className="rounded border-gray-300"
+                />
+                <Label htmlFor="requires_shipping">Requires Shipping</Label>
+              </div>
+            </CardContent>
+          </Card>
         </div>
 
         {/* Sidebar */}
@@ -608,6 +902,23 @@ export function AddProductForm({ onSuccess, onCancel }: AddProductFormProps) {
                 {categoriesLoading && (
                   <p className="text-sm text-gray-500 mt-1">Loading categories...</p>
                 )}
+              </div>
+
+              {/* Product Type */}
+              <div>
+                <Label htmlFor="product_type">Product Type</Label>
+                <select
+                  id="product_type"
+                  value={(formData as any).product_type || 'simple'}
+                  onChange={(e) => handleInputChange('product_type', e.target.value)}
+                  className="w-full p-2 border border-gray-300 rounded-md"
+                >
+                  <option value="simple">Simple Product</option>
+                  <option value="variable">Variable Product</option>
+                  <option value="grouped">Grouped Product</option>
+                  <option value="external">External Product</option>
+                  <option value="digital">Digital Product</option>
+                </select>
               </div>
 
               {/* Digital Product */}

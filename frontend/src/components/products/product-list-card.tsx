@@ -30,13 +30,20 @@ export function ProductListCard({ product, className }: ProductListCardProps) {
 
   const primaryImage = product.images?.[0]?.url || '/placeholder-product.jpg'
   
-  const hasDiscount = product.compare_price && product.compare_price < product.price
-  const discountPercentage = hasDiscount 
-    ? Math.round(((product.price - product.compare_price!) / product.price) * 100)
-    : 0
+  // Enhanced pricing logic using new backend fields
+  const currentPrice = (product as any).current_price || (product as any).pricing?.price || (product as any).price || 0
+  const originalPrice = (product as any).price || (product as any).pricing?.price || 0
+  const isOnSale = (product as any).is_on_sale || false
+  const hasDiscount = (product as any).has_discount || isOnSale || false
+  const discountPercentage = (product as any).sale_discount_percentage || 0
+  const featured = (product as any).featured || false
+  const stockStatus = (product as any).stock_status || 'in_stock'
+  const isLowStock = (product as any).is_low_stock || false
 
-  const displayPrice = product.compare_price || product.price
-  const isOutOfStock = product.stock <= 0
+  const displayPrice = currentPrice
+  const comparePrice = isOnSale ? originalPrice : ((product as any).compare_price || (product as any).pricing?.compare_price)
+  const stockQuantity = (product as any).stock || (product as any).inventory?.stock_quantity || 0
+  const isOutOfStock = stockStatus === 'out_of_stock' || stockQuantity <= 0
 
   const handleAddToCart = async (e: React.MouseEvent) => {
     e.preventDefault()
@@ -87,16 +94,25 @@ export function ProductListCard({ product, className }: ProductListCardProps) {
         <div className="flex gap-4 p-4">
           {/* Product Image */}
           <div className="relative w-32 h-32 flex-shrink-0 overflow-hidden rounded-lg bg-gray-800">
-            {/* Discount badge */}
-            {hasDiscount && (
-              <Badge
-                className="absolute top-2 left-2 z-10 bg-red-500 text-white text-xs px-2 py-1"
-              >
-                -{discountPercentage}%
+            {/* Enhanced badges */}
+            {featured && (
+              <Badge className="absolute top-2 left-2 z-10 bg-gradient-to-r from-purple-500 to-pink-500 text-white text-xs px-2 py-1">
+                Featured
               </Badge>
             )}
 
-            {/* Out of stock badge */}
+            {hasDiscount && discountPercentage > 0 && (
+              <Badge
+                className={cn(
+                  "absolute top-2 z-10 bg-[#ff9000] text-white text-xs px-2 py-1",
+                  featured ? "left-20" : "left-2"
+                )}
+              >
+                -{Math.round(discountPercentage)}%
+              </Badge>
+            )}
+
+            {/* Stock status badges */}
             {isOutOfStock && (
               <Badge
                 className="absolute top-2 right-2 z-10 bg-gray-700 text-gray-200 text-xs px-2 py-1"
@@ -163,25 +179,63 @@ export function ProductListCard({ product, className }: ProductListCardProps) {
               )}
             </div>
 
-            {/* Price and Actions */}
+            {/* Enhanced Price and Actions */}
             <div className="flex items-center justify-between">
               <div>
-                {/* Price */}
+                {/* Enhanced Price Display */}
                 <div className="flex items-baseline gap-2 mb-1">
                   <span className="text-xl font-bold text-white">
                     {formatPrice(displayPrice)}
                   </span>
                   {hasDiscount && (
-                    <span className="text-sm line-through text-gray-500">
-                      {formatPrice(product.price)}
-                    </span>
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm line-through text-gray-500">
+                        {formatPrice(isOnSale ? originalPrice : comparePrice || 0)}
+                      </span>
+                      {discountPercentage > 0 && (
+                        <Badge className="bg-[#ff9000]/20 text-[#ff9000] text-xs px-1.5 py-0.5">
+                          -{Math.round(discountPercentage)}%
+                        </Badge>
+                      )}
+                    </div>
                   )}
                 </div>
 
-                {/* Stock status */}
-                {product.stock <= 5 && product.stock > 0 && (
-                  <p className="text-xs font-medium text-orange-400">
-                    Only {product.stock} left in stock
+                {/* Sale indicator */}
+                {isOnSale && (
+                  <div className="flex items-center gap-1 mb-1">
+                    <span className="text-xs text-[#ff9000] font-medium">🔥 On Sale</span>
+                  </div>
+                )}
+
+                {/* Enhanced Stock status */}
+                {!isOutOfStock && (
+                  <div className="flex items-center gap-2">
+                    {isLowStock ? (
+                      <p className="text-xs font-medium text-amber-400">
+                        ⚠️ Only {stockQuantity} left
+                      </p>
+                    ) : stockQuantity <= 10 ? (
+                      <p className="text-xs font-medium text-green-400">
+                        ✅ {stockQuantity} in stock
+                      </p>
+                    ) : (
+                      <p className="text-xs font-medium text-green-400">
+                        ✅ In Stock
+                      </p>
+                    )}
+
+                    {featured && (
+                      <Badge className="bg-purple-500/20 text-purple-400 text-xs px-1.5 py-0.5">
+                        Featured
+                      </Badge>
+                    )}
+                  </div>
+                )}
+
+                {isOutOfStock && (
+                  <p className="text-xs font-medium text-red-400">
+                    ❌ Out of Stock
                   </p>
                 )}
               </div>

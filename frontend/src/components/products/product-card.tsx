@@ -43,19 +43,21 @@ export function ProductCard({
   const primaryImage = product.images?.[0]?.url || '/placeholder-product.jpg'
   const secondaryImage = product.images?.[1]?.url
   
-  // Enhanced price logic with compare_price for discount calculation
+  // Enhanced price logic using new backend fields
   // Support both frontend Product type and backend response format
-  const currentPrice = (product as any).pricing?.price || (product as any).price || 0
-  const originalPrice = (product as any).pricing?.compare_price || (product as any).compare_price
-  const hasDiscount = originalPrice && currentPrice < originalPrice
-  const discountPercentage = hasDiscount
-    ? Math.round(((originalPrice - currentPrice) / originalPrice) * 100)
-    : 0
+  const currentPrice = (product as any).current_price || (product as any).pricing?.price || (product as any).price || 0
+  const originalPrice = (product as any).price || (product as any).pricing?.price || 0
+  const salePrice = (product as any).sale_price
+  const isOnSale = (product as any).is_on_sale || false
+  const hasDiscount = (product as any).has_discount || isOnSale || false
+  const discountPercentage = (product as any).sale_discount_percentage || 0
 
   const displayPrice = currentPrice
-  const comparePrice = originalPrice
-  const stockQuantity = (product as any).inventory?.stock_quantity || (product as any).stock || 0
-  const isOutOfStock = stockQuantity <= 0
+  const comparePrice = isOnSale ? originalPrice : ((product as any).compare_price || (product as any).pricing?.compare_price)
+  const stockQuantity = (product as any).stock || (product as any).inventory?.stock_quantity || 0
+  const stockStatus = (product as any).stock_status || 'in_stock'
+  const isLowStock = (product as any).is_low_stock || false
+  const isOutOfStock = stockStatus === 'out_of_stock' || stockQuantity <= 0
 
   const handleAddToCart = async (e: React.MouseEvent) => {
     e.preventDefault()
@@ -133,16 +135,28 @@ export function ProductCard({
             isHovered && 'translate-x-full'
           )} />
           
-          {/* Discount badge dễ nhìn trên background sáng */}
-          {hasDiscount && (
+          {/* Featured badge */}
+          {(product as any).featured && (
             <div className="absolute top-3 left-3 z-20">
+              <Badge className="shadow-md bg-gradient-to-r from-purple-500 to-pink-500 text-white border-0 text-xs px-2 py-1 rounded-md backdrop-blur-sm">
+                Featured
+              </Badge>
+            </div>
+          )}
+
+          {/* Discount badge */}
+          {hasDiscount && discountPercentage > 0 && (
+            <div className={cn(
+              "absolute top-3 z-20",
+              (product as any).featured ? "left-20" : "left-3"
+            )}>
               <span className="text-xs font-medium text-white bg-[#ff9000] px-2 py-1 rounded-md shadow-md">
-                -{discountPercentage}%
+                -{Math.round(discountPercentage)}%
               </span>
             </div>
           )}
 
-          {/* Minimal out of stock badge */}
+          {/* Stock status badges */}
           {isOutOfStock && (
             <div className="absolute top-3 right-3 z-20">
               <Badge
@@ -152,6 +166,15 @@ export function ProductCard({
                 }}
               >
                 Sold Out
+              </Badge>
+            </div>
+          )}
+
+          {/* Low stock warning */}
+          {!isOutOfStock && isLowStock && (
+            <div className="absolute top-3 right-3 z-20">
+              <Badge className="shadow-md bg-amber-500/90 text-white border border-amber-400/20 text-xs px-2 py-1 rounded-md backdrop-blur-sm">
+                Low Stock
               </Badge>
             </div>
           )}
@@ -314,13 +337,24 @@ export function ProductCard({
               )}
             </div>
             
-            {/* Stock status indicator */}
-            {stockQuantity <= 5 && stockQuantity > 0 && (
+            {/* Enhanced stock status indicator */}
+            {!isOutOfStock && (
               <div className="flex items-center gap-1">
-                <div className="w-1.5 h-1.5 rounded-full bg-amber-400" />
-                <span className="text-xs text-amber-400 font-medium">
-                  {stockQuantity} left
-                </span>
+                {isLowStock ? (
+                  <>
+                    <div className="w-1.5 h-1.5 rounded-full bg-amber-400" />
+                    <span className="text-xs text-amber-400 font-medium">
+                      {stockQuantity} left
+                    </span>
+                  </>
+                ) : stockQuantity <= 10 && stockQuantity > 0 ? (
+                  <>
+                    <div className="w-1.5 h-1.5 rounded-full bg-green-400" />
+                    <span className="text-xs text-green-400 font-medium">
+                      In Stock
+                    </span>
+                  </>
+                ) : null}
               </div>
             )}
           </div>

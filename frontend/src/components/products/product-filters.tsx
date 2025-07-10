@@ -60,6 +60,9 @@ export function ProductFilters({ currentParams }: ProductFiltersProps) {
     currentParams.max_price ||
     currentParams.rating ||
     currentParams.in_stock ||
+    (currentParams as any).featured ||
+    (currentParams as any).on_sale ||
+    (currentParams as any).stock_status ||
     currentParams.tags?.length
   )
 
@@ -216,7 +219,7 @@ export function ProductFilters({ currentParams }: ProductFiltersProps) {
         </div>
       </div>
 
-      {/* Availability */}
+      {/* Availability & Stock Status */}
       <div className="bg-white/[0.08] backdrop-blur-xl rounded-xl border border-white/15 shadow-lg overflow-hidden transition-all duration-300 hover:bg-white/[0.10]">
         <div className="p-5 pb-4">
           <div className="flex items-center gap-2 mb-4">
@@ -228,8 +231,8 @@ export function ProductFilters({ currentParams }: ProductFiltersProps) {
             </h3>
           </div>
         </div>
-        
-        <div className="px-5 pb-5">
+
+        <div className="px-5 pb-5 space-y-3">
           <label className="flex items-center justify-between p-4 rounded-lg bg-white/[0.05] border border-white/10 hover:bg-white/[0.08] hover:border-white/20 transition-all duration-300 cursor-pointer group">
             <div className="flex items-center gap-3">
               <div className="relative">
@@ -248,6 +251,92 @@ export function ProductFilters({ currentParams }: ProductFiltersProps) {
             </div>
             <div className="opacity-0 group-hover:opacity-100 transition-opacity duration-300 text-[#ff9000]">
               →
+            </div>
+          </label>
+
+          {/* Stock Status Options */}
+          <div className="space-y-2">
+            {[
+              { value: 'in_stock', label: 'In Stock', color: 'emerald' },
+              { value: 'out_of_stock', label: 'Out of Stock', color: 'red' },
+              { value: 'on_backorder', label: 'On Backorder', color: 'blue' },
+            ].map((status) => (
+              <label key={status.value} className="flex items-center justify-between p-3 rounded-lg bg-white/[0.03] border border-white/5 hover:bg-white/[0.06] hover:border-white/15 transition-all duration-300 cursor-pointer group">
+                <div className="flex items-center gap-3">
+                  <div className="relative">
+                    <input
+                      type="radio"
+                      name="stock_status"
+                      checked={(currentParams as any).stock_status === status.value}
+                      onChange={(e) => updateFilters({
+                        stock_status: e.target.checked ? status.value : undefined
+                      } as any)}
+                      className="w-4 h-4 rounded-full border-white/20 bg-white/10 text-[#ff9000] focus:ring-[#ff9000]/50 focus:ring-2 transition-all duration-300"
+                    />
+                  </div>
+                  <span className="text-sm font-medium text-white group-hover:text-[#ff9000]/80 transition-colors duration-300">
+                    {status.label}
+                  </span>
+                </div>
+              </label>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      {/* Special Filters */}
+      <div className="bg-white/[0.08] backdrop-blur-xl rounded-xl border border-white/15 shadow-lg overflow-hidden transition-all duration-300 hover:bg-white/[0.10]">
+        <div className="p-5 pb-4">
+          <div className="flex items-center gap-2 mb-4">
+            <div className="p-1.5 bg-gradient-to-br from-purple-500/20 to-pink-500/20 rounded-lg border border-purple-500/30">
+              <div className="w-4 h-4 bg-gradient-to-br from-purple-400 to-pink-500 rounded-full"></div>
+            </div>
+            <h3 className="text-base font-semibold bg-gradient-to-r from-white to-gray-300 bg-clip-text text-transparent">
+              Special Offers
+            </h3>
+          </div>
+        </div>
+
+        <div className="px-5 pb-5 space-y-3">
+          <label className="flex items-center justify-between p-4 rounded-lg bg-white/[0.05] border border-white/10 hover:bg-white/[0.08] hover:border-white/20 transition-all duration-300 cursor-pointer group">
+            <div className="flex items-center gap-3">
+              <div className="relative">
+                <input
+                  type="checkbox"
+                  checked={(currentParams as any).featured === true}
+                  onChange={(e) => updateFilters({
+                    featured: e.target.checked ? true : undefined
+                  } as any)}
+                  className="w-4 h-4 rounded border-white/20 bg-white/10 text-purple-500 focus:ring-purple-500/50 focus:ring-2 transition-all duration-300"
+                />
+              </div>
+              <span className="text-sm font-medium text-white group-hover:text-purple-400 transition-colors duration-300">
+                Featured Products
+              </span>
+            </div>
+            <div className="opacity-0 group-hover:opacity-100 transition-opacity duration-300 text-purple-400">
+              ⭐
+            </div>
+          </label>
+
+          <label className="flex items-center justify-between p-4 rounded-lg bg-white/[0.05] border border-white/10 hover:bg-white/[0.08] hover:border-white/20 transition-all duration-300 cursor-pointer group">
+            <div className="flex items-center gap-3">
+              <div className="relative">
+                <input
+                  type="checkbox"
+                  checked={(currentParams as any).on_sale === true}
+                  onChange={(e) => updateFilters({
+                    on_sale: e.target.checked ? true : undefined
+                  } as any)}
+                  className="w-4 h-4 rounded border-white/20 bg-white/10 text-[#ff9000] focus:ring-[#ff9000]/50 focus:ring-2 transition-all duration-300"
+                />
+              </div>
+              <span className="text-sm font-medium text-white group-hover:text-[#ff9000]/80 transition-colors duration-300">
+                On Sale
+              </span>
+            </div>
+            <div className="opacity-0 group-hover:opacity-100 transition-opacity duration-300 text-[#ff9000]">
+              🔥
             </div>
           </label>
         </div>
