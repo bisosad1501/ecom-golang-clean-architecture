@@ -3,15 +3,202 @@
 import { useState, useEffect } from 'react'
 import Image from 'next/image'
 import Link from 'next/link'
-import { Minus, Plus, Trash2, ShoppingBag, ArrowLeft, Heart, Star, Shield, Truck, CreditCard, Gift, Zap, CheckCircle, AlertCircle } from 'lucide-react'
+import { Minus, Plus, Trash2, ShoppingBag, ArrowLeft, Heart, Star, Shield, Truck, CreditCard, Gift, Zap, CheckCircle, AlertCircle, Eye } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
 import { Separator } from '@/components/ui/separator'
+import { AnimatedBackground } from '@/components/ui/animated-background'
 import { useCartStore, getCartTotal, getCartItemCount } from '@/store/cart'
-import { formatPrice } from '@/lib/utils'
+import { formatPrice, cn } from '@/lib/utils'
 import { toast } from 'sonner'
+import { useProductRatingSummary } from '@/hooks/use-reviews'
+import { CompactReviewSummary } from '@/components/reviews'
+
+// Cart Item Component đồng bộ với ProductCard design
+function CartItemCard({ item, isLoading, onUpdateQuantity, onRemove, onAddToWishlist }: {
+  item: any,
+  isLoading: boolean,
+  onUpdateQuantity: (id: string, quantity: number) => void,
+  onRemove: (id: string) => void,
+  onAddToWishlist: (productId: string) => void
+}) {
+  const { data: ratingSummary } = useProductRatingSummary(item.product.id)
+  
+  // Enhanced price logic giống ProductCard
+  const currentPrice = item.price
+  const originalPrice = item.product.compare_price || item.price * 1.2 // fallback for demo
+  const hasDiscount = originalPrice && currentPrice < originalPrice
+  const discountPercentage = hasDiscount
+    ? Math.round(((originalPrice - currentPrice) / originalPrice) * 100)
+    : 0
+
+  return (
+    <div className="relative group">
+      {/* Refined outer glow giống ProductCard */}
+      <div className={cn(
+        'absolute -inset-0.5 rounded-3xl opacity-0 group-hover:opacity-40 transition-all duration-700 ease-out',
+        'bg-gradient-to-br from-[#ff9000]/15 via-orange-500/8 to-amber-400/10 blur-lg'
+      )} />
+      
+      <Card className={cn(
+        'relative overflow-hidden backdrop-blur-sm border text-white transition-all duration-300 ease-out',
+        'bg-gradient-to-br from-slate-900/80 via-gray-900/85 to-slate-800/80',
+        'hover:shadow-lg hover:shadow-[#ff9000]/8 hover:-translate-y-0.5',
+        'rounded-2xl backdrop-saturate-150 border-gray-700/50 hover:border-[#ff9000]/30',
+        'before:absolute before:inset-0 before:bg-gradient-to-br before:from-white/1 before:via-transparent before:to-white/0.5 before:pointer-events-none before:rounded-2xl'
+      )}>
+        <CardContent className="p-4">
+          <div className="flex gap-4 items-start">
+            {/* Larger Product Image */}
+            <div className="relative flex-shrink-0">
+              <div className="relative w-36 h-36 rounded-xl overflow-hidden bg-gradient-to-br from-gray-100 to-gray-200 shadow-lg">
+                {/* Discount badge */}
+                {hasDiscount && (
+                  <div className="absolute top-2 left-2 z-20">
+                    <span className="text-sm font-bold text-white bg-[#ff9000] px-2.5 py-1 rounded-md shadow-md">
+                      -{discountPercentage}%
+                    </span>
+                  </div>
+                )}
+
+                <Image
+                  src={item.product.images?.[0]?.url || '/placeholder-product.svg'}
+                  alt={item.product.name}
+                  fill
+                  className="object-cover transition-all duration-300 ease-out group-hover:scale-105"
+                  sizes="(max-width: 144px) 100vw, 144px"
+                />
+                
+                {/* Quick View on hover */}
+                <div className={cn(
+                  'absolute inset-0 flex items-center justify-center transition-all duration-300',
+                  'bg-black/60 backdrop-blur-sm opacity-0 group-hover:opacity-100'
+                )}>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-9 w-9 bg-white/90 hover:bg-white text-slate-700 hover:text-blue-600 rounded-lg"
+                    asChild
+                  >
+                    <Link href={`/products/${item.product.id}`}>
+                      <Eye className="h-4 w-4" />
+                    </Link>
+                  </Button>
+                </div>
+              </div>
+            </div>
+
+            {/* Expanded Product Info Section */}
+            <div className="flex-1 min-w-0 space-y-2">
+              {/* Category and Wishlist Row */}
+              <div className="flex items-start justify-between gap-2">
+                <div className="flex items-center gap-2">
+                  {item.product.category && (
+                    <span className="text-sm font-semibold text-[#ff9000] bg-[#ff9000]/15 px-3 py-1.5 rounded-lg border border-[#ff9000]/40 shadow-sm">
+                      {item.product.category.name}
+                    </span>
+                  )}
+                  
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => onAddToWishlist(item.product.id)}
+                    className="h-8 w-8 p-0 text-gray-400 hover:text-red-400 hover:bg-red-500/15 rounded-lg border border-transparent hover:border-red-500/30"
+                  >
+                    <Heart className="h-4 w-4" />
+                  </Button>
+                </div>
+              </div>
+
+              {/* Product Name - Much Larger */}
+              <h3 className="text-xl font-bold leading-tight line-clamp-2 text-white group-hover:text-[#ff9000]/90 transition-colors">
+                <Link href={`/products/${item.product.id}`} className="hover:text-[#ff9000] transition-colors">
+                  {item.product.name}
+                </Link>
+              </h3>
+
+              {/* Price Section - Larger and more prominent */}
+              <div className="flex items-center gap-3">
+                <span className="text-2xl font-bold text-white">
+                  {formatPrice(currentPrice)}
+                </span>
+                {hasDiscount && (
+                  <span className="text-lg line-through text-gray-500">
+                    {formatPrice(originalPrice)}
+                  </span>
+                )}
+              </div>
+
+              {/* Review Section - Well positioned */}
+              {ratingSummary && (
+                <div>
+                  <CompactReviewSummary
+                    summary={ratingSummary}
+                    className="text-sm"
+                  />
+                </div>
+              )}
+            </div>
+
+            {/* Controls Section - Better organized */}
+            <div className="flex flex-col items-end gap-3 flex-shrink-0 min-w-[200px]">
+              {/* Quantity Controls - Larger and cleaner */}
+              <div className="flex items-center gap-2">
+                <span className="text-sm text-gray-400 font-medium whitespace-nowrap">Qty:</span>
+                <div className="flex items-center bg-white/[0.08] rounded-lg border border-white/20 shadow-sm">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => onUpdateQuantity(item.id, item.quantity - 1)}
+                    disabled={isLoading || item.quantity <= 1}
+                    className="h-9 w-9 p-0 rounded-l-lg hover:bg-[#ff9000]/20 text-gray-300 hover:text-[#ff9000] transition-colors disabled:opacity-50"
+                  >
+                    <Minus className="h-4 w-4" />
+                  </Button>
+                  
+                  <span className="px-4 py-2 text-base font-bold text-white min-w-[3rem] text-center">
+                    {item.quantity}
+                  </span>
+                  
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => onUpdateQuantity(item.id, item.quantity + 1)}
+                    disabled={isLoading || item.quantity >= 10}
+                    className="h-9 w-9 p-0 rounded-r-lg hover:bg-[#ff9000]/20 text-gray-300 hover:text-[#ff9000] transition-colors disabled:opacity-50"
+                  >
+                    <Plus className="h-4 w-4" />
+                  </Button>
+                </div>
+              </div>
+
+              {/* Item Subtotal - Clear but less prominent than final total */}
+              <div className="text-right">
+                <div className="text-sm text-gray-400 mb-1">Subtotal</div>
+                <div className="text-xl font-bold text-white">
+                  {formatPrice(currentPrice * item.quantity)}
+                </div>
+              </div>
+
+              {/* Remove Button - More prominent */}
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => onRemove(item.id)}
+                className="h-10 px-4 text-gray-400 hover:text-red-400 hover:bg-red-500/15 border border-transparent hover:border-red-500/30 rounded-lg transition-colors font-medium"
+              >
+                <Trash2 className="h-4 w-4 mr-2" />
+                Remove
+              </Button>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+    </div>
+  )
+}
 
 export function CartPage() {
   const { 
@@ -25,6 +212,7 @@ export function CartPage() {
   
   const [couponCode, setCouponCode] = useState('')
   const [isApplyingCoupon, setIsApplyingCoupon] = useState(false)
+  const [showClearConfirm, setShowClearConfirm] = useState(false)
 
   // Fetch cart data when component mounts
   useEffect(() => {
@@ -57,13 +245,16 @@ export function CartPage() {
   }
 
   const handleClearCart = async () => {
-    if (window.confirm('Are you sure you want to clear your cart?')) {
-      try {
-        await clearCart()
-        toast.success('Cart cleared')
-      } catch (error) {
-        toast.error('Failed to clear cart')
-      }
+    setShowClearConfirm(true)
+  }
+
+  const confirmClearCart = async () => {
+    try {
+      await clearCart()
+      toast.success('Cart cleared successfully!')
+      setShowClearConfirm(false)
+    } catch (error) {
+      toast.error('Failed to clear cart')
     }
   }
 
@@ -82,22 +273,34 @@ export function CartPage() {
     }
   }
 
+  const handleAddToWishlist = async (productId: string) => {
+    try {
+      // Add to wishlist logic here
+      toast.success('Added to wishlist!')
+    } catch (error) {
+      toast.error('Failed to add to wishlist')
+    }
+  }
+
   // Loading state
   if (isLoading && !cart) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-black flex items-center justify-center">
-        <div className="text-center">
-          <div className="relative mb-8">
-            <div className="animate-spin rounded-full h-20 w-20 border-4 border-gray-700 border-t-orange-500 mx-auto"></div>
-            <div className="absolute inset-0 rounded-full h-20 w-20 border-4 border-transparent border-r-orange-400 animate-pulse mx-auto"></div>
-          </div>
-          <div className="space-y-3">
-            <h3 className="text-xl font-semibold text-white">Loading your cart...</h3>
-            <p className="text-gray-400">Preparing your shopping experience</p>
-            <div className="flex justify-center space-x-1 mt-4">
-              <div className="w-2 h-2 bg-orange-500 rounded-full animate-bounce"></div>
-              <div className="w-2 h-2 bg-orange-500 rounded-full animate-bounce" style={{animationDelay: '0.1s'}}></div>
-              <div className="w-2 h-2 bg-orange-500 rounded-full animate-bounce" style={{animationDelay: '0.2s'}}></div>
+      <div className="min-h-screen bg-gradient-to-br from-black via-gray-900 to-black text-white relative overflow-hidden">
+        <AnimatedBackground className="opacity-30" />
+        <div className="container mx-auto px-4 lg:px-6 xl:px-8 py-8 relative z-10 flex items-center justify-center min-h-screen">
+          <div className="text-center">
+            <div className="relative mb-8">
+              <div className="animate-spin rounded-full h-20 w-20 border-4 border-gray-700/40 border-t-[#ff9000] mx-auto"></div>
+              <div className="absolute inset-0 rounded-full h-20 w-20 border-4 border-transparent border-r-[#ff9000]/60 animate-pulse mx-auto"></div>
+            </div>
+            <div className="space-y-3">
+              <h3 className="text-xl font-semibold bg-gradient-to-r from-white to-gray-300 bg-clip-text text-transparent">Loading your cart...</h3>
+              <p className="text-gray-400">Preparing your shopping experience</p>
+              <div className="flex justify-center space-x-1 mt-4">
+                <div className="w-2 h-2 bg-[#ff9000] rounded-full animate-bounce"></div>
+                <div className="w-2 h-2 bg-[#ff9000] rounded-full animate-bounce" style={{animationDelay: '0.1s'}}></div>
+                <div className="w-2 h-2 bg-[#ff9000] rounded-full animate-bounce" style={{animationDelay: '0.2s'}}></div>
+              </div>
             </div>
           </div>
         </div>
@@ -107,64 +310,99 @@ export function CartPage() {
 
   if (!cart || cart.items.length === 0) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-black py-16">
-        <div className="container mx-auto px-4">
-          <div className="max-w-4xl mx-auto text-center">
-            {/* Enhanced Empty Cart Hero */}
-            <div className="relative mb-12 animate-fade-in">
-              <div className="w-48 h-48 mx-auto rounded-full bg-gradient-to-br from-gray-800/50 to-gray-900/50 backdrop-blur-sm flex items-center justify-center shadow-2xl border border-gray-700/50 relative overflow-hidden">
-                <div className="absolute inset-0 bg-gradient-to-r from-orange-500/10 to-transparent animate-pulse"></div>
-                <ShoppingBag className="h-24 w-24 text-gray-400 relative z-10" />
-              </div>
-              <div className="absolute -top-4 -right-4 w-16 h-16 bg-gradient-to-br from-orange-500 to-orange-600 rounded-full flex items-center justify-center shadow-xl animate-bounce">
-                <span className="text-white text-xl font-bold">0</span>
-              </div>
-            </div>
-
-            <h1 className="text-5xl lg:text-6xl font-bold text-white mb-6 animate-slide-up">
-              Your <span className="text-gradient">BiHub</span> cart is empty
-            </h1>
-            <p className="text-xl text-gray-300 mb-12 leading-relaxed animate-slide-up">
-              Discover amazing products and start building your perfect BiHub collection.
-            </p>
-
-            {/* Action buttons */}
-            <div className="flex flex-col sm:flex-row gap-6 justify-center mb-16 animate-scale-in">
-              <Button size="lg" className="btn-gradient px-8 py-4 text-lg" asChild>
-                <Link href="/products">
-                  <ShoppingBag className="mr-3 h-6 w-6" />
-                  Start Shopping
-                </Link>
-              </Button>
-              <Button size="lg" variant="outline" className="border-gray-600 text-gray-300 hover:bg-gray-800 hover:text-white px-8 py-4 text-lg" asChild>
-                <Link href="/">
-                  Browse Categories
-                </Link>
-              </Button>
-            </div>
-
-            {/* BiHub Features */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-8 animate-fade-in">
-              <div className="glass-effect p-6 rounded-2xl text-center">
-                <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-emerald-500 to-emerald-600 flex items-center justify-center mx-auto mb-4">
-                  <Truck className="h-8 w-8 text-white" />
+      <div className="min-h-screen bg-gradient-to-br from-black via-gray-900 to-black text-white relative overflow-hidden">
+        <AnimatedBackground className="opacity-30" />
+        <div className="container mx-auto px-4 lg:px-6 xl:px-8 py-16 relative z-10">
+          <div className="max-w-3xl mx-auto text-center">
+            <div className="space-y-6">
+              {/* Compact Empty Cart Hero */}
+              <div className="relative animate-in fade-in slide-in-from-bottom-4 duration-500">
+                <div className="w-32 h-32 mx-auto rounded-full bg-gradient-to-br from-slate-900/70 via-gray-900/75 to-slate-800/80 backdrop-blur-sm flex items-center justify-center shadow-xl border border-gray-700/40 relative overflow-hidden">
+                  <div className="absolute inset-0 bg-gradient-to-r from-[#ff9000]/10 to-transparent animate-pulse"></div>
+                  <ShoppingBag className="h-16 w-16 text-gray-400 relative z-10" />
                 </div>
-                <h3 className="font-bold text-white mb-2 text-lg">Free Shipping</h3>
-                <p className="text-gray-300">On orders over $50</p>
-              </div>
-              <div className="glass-effect p-6 rounded-2xl text-center">
-                <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center mx-auto mb-4">
-                  <Shield className="h-8 w-8 text-white" />
+                <div className="absolute -top-2 -right-2 w-10 h-10 bg-gradient-to-br from-[#ff9000] to-[#ff9000] rounded-full flex items-center justify-center shadow-lg animate-bounce">
+                  <span className="text-white text-sm font-bold">0</span>
                 </div>
-                <h3 className="font-bold text-white mb-2 text-lg">Secure Payment</h3>
-                <p className="text-gray-300">100% secure checkout</p>
               </div>
-              <div className="glass-effect p-6 rounded-2xl text-center">
-                <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-purple-500 to-purple-600 flex items-center justify-center mx-auto mb-4">
-                  <ArrowLeft className="h-8 w-8 text-white" />
-                </div>
-                <h3 className="font-bold text-white mb-2 text-lg">Easy Returns</h3>
-                <p className="text-gray-300">30-day return policy</p>
+
+              <div className="space-y-4 animate-in fade-in slide-in-from-bottom-4 duration-500" style={{animationDelay: '0.2s'}}>
+                <h1 className="text-3xl lg:text-4xl font-bold bg-gradient-to-r from-white via-gray-200 to-[#ff9000] bg-clip-text text-transparent leading-tight">
+                  Your <span className="text-[#ff9000]">Shopping Cart</span> is empty
+                </h1>
+                <p className="text-lg text-gray-300 leading-relaxed">
+                  Discover amazing products and start building your perfect collection.
+                </p>
+              </div>
+
+              {/* Compact Action buttons */}
+              <div className="flex flex-col sm:flex-row gap-3 justify-center animate-in fade-in slide-in-from-bottom-4 duration-500" style={{animationDelay: '0.4s'}}>
+                <Button 
+                  size="lg" 
+                  className="bg-gradient-to-r from-[#ff9000] to-[#ff9000] hover:from-[#ff9000]/90 hover:to-[#ff9000]/90 text-white font-bold py-3 px-6 text-base rounded-xl transition-all duration-300 hover:scale-105 hover:shadow-xl hover:shadow-[#ff9000]/25" 
+                  asChild
+                >
+                  <Link href="/products">
+                    <ShoppingBag className="mr-2 h-5 w-5" />
+                    Start Shopping
+                  </Link>
+                </Button>
+                <Button 
+                  size="lg" 
+                  variant="outline" 
+                  className="border-white/10 bg-white/[0.06] backdrop-blur-md text-gray-300 hover:bg-white/[0.08] hover:border-white/15 hover:text-white py-3 px-6 text-base rounded-xl transition-all duration-300" 
+                  asChild
+                >
+                  <Link href="/">
+                    Browse Categories
+                  </Link>
+                </Button>
+              </div>
+
+              {/* Compact Features */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-8 animate-in fade-in slide-in-from-bottom-4 duration-500" style={{animationDelay: '0.6s'}}>
+                <Card className={cn(
+                  'relative overflow-hidden backdrop-blur-sm border text-white transition-all duration-500 ease-out',
+                  'bg-gradient-to-br from-slate-900/70 via-gray-900/75 to-slate-800/80',
+                  'rounded-xl backdrop-saturate-150 border-gray-700/40',
+                  'before:absolute before:inset-0 before:bg-gradient-to-br before:from-white/2 before:via-transparent before:to-white/1 before:pointer-events-none before:rounded-xl'
+                )}>
+                  <CardContent className="p-4 text-center">
+                    <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-emerald-500 to-emerald-600 flex items-center justify-center mx-auto mb-3">
+                      <Truck className="h-6 w-6 text-white" />
+                    </div>
+                    <h3 className="font-bold text-white mb-1 text-base">Free Shipping</h3>
+                    <p className="text-gray-300 text-sm">On orders over $50</p>
+                  </CardContent>
+                </Card>
+                <Card className={cn(
+                  'relative overflow-hidden backdrop-blur-sm border text-white transition-all duration-500 ease-out',
+                  'bg-gradient-to-br from-slate-900/70 via-gray-900/75 to-slate-800/80',
+                  'rounded-xl backdrop-saturate-150 border-gray-700/40',
+                  'before:absolute before:inset-0 before:bg-gradient-to-br before:from-white/2 before:via-transparent before:to-white/1 before:pointer-events-none before:rounded-xl'
+                )}>
+                  <CardContent className="p-4 text-center">
+                    <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center mx-auto mb-3">
+                      <Shield className="h-6 w-6 text-white" />
+                    </div>
+                    <h3 className="font-bold text-white mb-1 text-base">Secure Payment</h3>
+                    <p className="text-gray-300 text-sm">100% secure checkout</p>
+                  </CardContent>
+                </Card>
+                <Card className={cn(
+                  'relative overflow-hidden backdrop-blur-sm border text-white transition-all duration-500 ease-out',
+                  'bg-gradient-to-br from-slate-900/70 via-gray-900/75 to-slate-800/80',
+                  'rounded-xl backdrop-saturate-150 border-gray-700/40',
+                  'before:absolute before:inset-0 before:bg-gradient-to-br before:from-white/2 before:via-transparent before:to-white/1 before:pointer-events-none before:rounded-xl'
+                )}>
+                  <CardContent className="p-4 text-center">
+                    <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-purple-500 to-purple-600 flex items-center justify-center mx-auto mb-3">
+                      <ArrowLeft className="h-6 w-6 text-white" />
+                    </div>
+                    <h3 className="font-bold text-white mb-1 text-base">Easy Returns</h3>
+                    <p className="text-gray-300 text-sm">30-day return policy</p>
+                  </CardContent>
+                </Card>
               </div>
             </div>
           </div>
@@ -174,35 +412,124 @@ export function CartPage() {
   }
 
   return (
-    <div className="min-h-screen hero-gradient py-12">
-      <div className="container mx-auto px-4">
-        {/* Simple Cart Header */}
-        <div className="mb-12 animate-fade-in">
-          <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-8">
-            <div>
-              <h1 className="text-3xl lg:text-4xl font-bold text-white mb-3">
-                Your Cart
+    <>
+      {/* Modern Clear Cart Confirmation Dialog */}
+      {showClearConfirm && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center">
+          {/* Backdrop */}
+          <div 
+            className="absolute inset-0 bg-black/70 backdrop-blur-sm"
+            onClick={() => setShowClearConfirm(false)}
+          />
+          
+          {/* Dialog */}
+          <div className="relative z-10 w-full max-w-md mx-4 animate-in fade-in slide-in-from-bottom-4 duration-300">
+            <Card className={cn(
+              'relative overflow-hidden backdrop-blur-sm border text-white',
+              'bg-gradient-to-br from-slate-900/90 via-gray-900/90 to-slate-800/90',
+              'rounded-2xl backdrop-saturate-150 border-gray-700/40',
+              'shadow-2xl shadow-red-500/10',
+              'before:absolute before:inset-0 before:bg-gradient-to-br before:from-white/5 before:via-transparent before:to-white/2 before:pointer-events-none before:rounded-2xl'
+            )}>
+              <CardContent className="p-6">
+                <div className="text-center space-y-6">
+                  {/* Icon */}
+                  <div className="w-16 h-16 rounded-full bg-gradient-to-br from-red-500/20 to-red-600/20 border border-red-500/30 flex items-center justify-center mx-auto">
+                    <Trash2 className="h-8 w-8 text-red-400" />
+                  </div>
+                  
+                  {/* Content */}
+                  <div className="space-y-3">
+                    <h3 className="text-xl font-bold text-white">Clear Shopping Cart</h3>
+                    <p className="text-gray-300 leading-relaxed">
+                      Are you sure you want to remove all items from your cart? This action cannot be undone.
+                    </p>
+                    <div className="bg-red-500/10 border border-red-500/20 rounded-lg p-3">
+                      <p className="text-red-300 text-sm flex items-center gap-2">
+                        <AlertCircle className="h-4 w-4" />
+                        {cartItemCount} {cartItemCount === 1 ? 'item' : 'items'} will be removed
+                      </p>
+                    </div>
+                  </div>
+                  
+                  {/* Actions */}
+                  <div className="flex flex-col sm:flex-row gap-3">
+                    <Button
+                      variant="outline"
+                      onClick={() => setShowClearConfirm(false)}
+                      className="flex-1 border-white/10 bg-white/[0.06] backdrop-blur-md text-gray-300 hover:bg-white/[0.08] hover:border-white/15 hover:text-white transition-all duration-300 rounded-lg"
+                    >
+                      Cancel
+                    </Button>
+                    <Button
+                      onClick={confirmClearCart}
+                      disabled={isLoading}
+                      className="flex-1 bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 text-white font-medium transition-all duration-300 hover:scale-105 hover:shadow-lg hover:shadow-red-500/25 rounded-lg"
+                    >
+                      {isLoading ? (
+                        <>
+                          <div className="animate-spin rounded-full h-4 w-4 border-2 border-white/30 border-t-white mr-2"></div>
+                          Clearing...
+                        </>
+                      ) : (
+                        <>
+                          <Trash2 className="h-4 w-4 mr-2" />
+                          Clear Cart
+                        </>
+                      )}
+                    </Button>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        </div>
+      )}
+
+      <div className="min-h-screen bg-gradient-to-br from-black via-gray-900 to-black text-white relative overflow-hidden">
+      {/* Enhanced Background Pattern - Matching Products Page */}
+      <AnimatedBackground className="opacity-30" />
+      
+      {/* Main Content Area */}
+      <div className="container mx-auto px-4 lg:px-6 xl:px-8 py-8 relative z-10">
+        {/* Cart Header - Matching Products Page Style */}
+        <div className="mb-8">
+          <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-6 mb-6">
+            <div className="space-y-2">
+              <h1 className="text-2xl lg:text-3xl font-bold bg-gradient-to-r from-white via-gray-200 to-[#ff9000] bg-clip-text text-transparent leading-tight">
+                Your <span className="text-[#ff9000]">Shopping Cart</span>
               </h1>
-              <p className="text-lg text-gray-300">
-                {cartItemCount} {cartItemCount === 1 ? 'item' : 'items'} • Total: <span className="text-orange-400 font-bold">{formatPrice(cartTotal)}</span>
-              </p>
+              <div className="flex items-center gap-3">
+                <p className="text-gray-400 text-sm">
+                  <span className="text-[#ff9000] font-medium">{cartItemCount}</span> {cartItemCount === 1 ? 'item' : 'items'} • Cart value: <span className="text-[#ff9000] font-medium">{formatPrice(cartTotal)}</span>
+                </p>
+                <Badge className="bg-white/8 text-gray-300 border-white/15 px-2 py-1 text-xs backdrop-blur-sm font-medium">
+                  {cartItemCount} Items
+                </Badge>
+              </div>
             </div>
 
-            <div className="flex flex-col sm:flex-row gap-4">
+            {/* Action Controls */}
+            <div className="flex items-center gap-3">
               <Button
                 variant="outline"
-                size="lg"
+                size="sm"
                 onClick={handleClearCart}
                 disabled={isLoading}
-                className="border-red-500/50 text-red-400 hover:bg-red-500 hover:text-white hover:border-red-500 transition-all duration-300"
+                className="rounded-lg border border-white/10 bg-white/[0.06] backdrop-blur-md text-gray-400 hover:bg-red-500/10 hover:border-red-500/30 hover:text-red-400 transition-all duration-200 h-7 px-2.5 text-xs font-medium shadow-sm"
               >
-                <Trash2 className="mr-2 h-5 w-5" />
+                <Trash2 className="h-3 w-3 mr-1" />
                 Clear Cart
               </Button>
 
-              <Button variant="outline" size="lg" className="border-gray-600 text-gray-300 hover:bg-gray-800 hover:text-white" asChild>
+              <Button 
+                variant="outline" 
+                size="sm" 
+                className="rounded-lg border border-white/10 bg-white/[0.06] backdrop-blur-md text-gray-400 hover:bg-white/[0.08] hover:border-white/15 hover:text-white transition-all duration-200 h-7 px-2.5 text-xs font-medium shadow-sm" 
+                asChild
+              >
                 <Link href="/products" className="flex items-center">
-                  <ArrowLeft className="mr-2 h-5 w-5" />
+                  <ArrowLeft className="h-3 w-3 mr-1" />
                   Continue Shopping
                 </Link>
               </Button>
@@ -210,229 +537,71 @@ export function CartPage() {
           </div>
         </div>
 
-        <div className="grid grid-cols-1 xl:grid-cols-3 gap-6 lg:gap-8 animate-slide-up">
-          {/* BiHub Cart Items */}
-          <div className="xl:col-span-2 space-y-4 lg:space-y-6">
+        <div className="grid grid-cols-1 xl:grid-cols-3 gap-6 lg:gap-8">
+          {/* Cart Items - Using New Component */}
+          <div className="xl:col-span-2 space-y-6">
             {cart.items.map((item, index) => (
-              <Card
+              <CartItemCard
                 key={item.id}
-                className="bg-gray-900/50 backdrop-blur-sm border-gray-700 hover:border-orange-500/50 transition-all duration-500 hover:shadow-2xl hover:shadow-orange-500/20 hover:scale-[1.02] group animate-fade-in"
-                style={{ animationDelay: `${index * 100}ms` }}
-              >
-                <CardContent className="p-4 sm:p-6">
-                  <div className="flex flex-col sm:flex-row gap-4 sm:gap-6">
-                    {/* Enhanced Product Image */}
-                    <div className="relative h-28 w-28 sm:h-36 sm:w-36 flex-shrink-0 overflow-hidden rounded-2xl border border-gray-600 group-hover:border-orange-500/50 transition-all duration-500">
-                      <div className="absolute inset-0 bg-gradient-to-br from-orange-500/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500 z-10"></div>
-                      <Image
-                        src={item.product.images?.[0]?.url || '/placeholder-product.jpg'}
-                        alt={item.product.name}
-                        fill
-                        className="object-cover transition-all duration-700 group-hover:scale-110 group-hover:rotate-1"
-                      />
-                      <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
-
-                      {/* Floating Badge */}
-                      <div className="absolute -top-2 -right-2 w-8 h-8 bg-gradient-to-br from-orange-500 to-orange-600 rounded-full flex items-center justify-center shadow-lg transform group-hover:scale-110 transition-transform duration-300">
-                        <span className="text-white text-xs font-bold">#{index + 1}</span>
-                      </div>
-
-                      {/* Quick Actions Overlay */}
-                      <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all duration-300 z-20">
-                        <Button
-                          size="sm"
-                          variant="secondary"
-                          className="bg-white/90 text-gray-900 hover:bg-white transform scale-90 group-hover:scale-100 transition-transform duration-300"
-                          asChild
-                        >
-                          <Link href={`/products/${item.product.id}`}>
-                            View Details
-                          </Link>
-                        </Button>
-                      </div>
-                    </div>
-
-                    {/* Enhanced Product Details */}
-                    <div className="flex-1 min-w-0">
-                      <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-6">
-                        <div className="flex-1 space-y-4">
-                          {/* Product Header */}
-                          <div className="space-y-3">
-                            <div className="flex items-center gap-3">
-                              <Badge className="bg-gradient-to-r from-orange-500/20 to-orange-600/20 text-orange-400 border-orange-500/30 text-xs font-medium px-3 py-1">
-                                Premium
-                              </Badge>
-                              <div className="flex items-center gap-1">
-                                {[...Array(5)].map((_, i) => (
-                                  <Star key={i} className="h-4 w-4 fill-orange-400 text-orange-400 drop-shadow-sm" />
-                                ))}
-                                <span className="text-sm text-gray-400 ml-2">(4.9)</span>
-                              </div>
-                            </div>
-
-                            <h3 className="text-2xl font-bold text-white leading-tight group-hover:text-orange-400 transition-colors duration-300">
-                              <Link
-                                href={`/products/${item.product.id}`}
-                                className="hover:text-orange-400 transition-colors duration-300 cursor-pointer"
-                              >
-                              {item.product.name}
-                            </Link>
-                          </h3>
-
-                            <div className="flex items-center gap-3 text-sm text-gray-400">
-                              <span>SKU: <span className="font-mono text-gray-300">{item.product.sku}</span></span>
-                              <Separator orientation="vertical" className="h-4 bg-gray-600" />
-                              <span className="flex items-center gap-1">
-                                <CheckCircle className="h-4 w-4 text-green-400" />
-                                In Stock
-                              </span>
-                            </div>
-
-                            {/* Enhanced Pricing */}
-                            <div className="space-y-2">
-                              <div className="flex items-baseline gap-3">
-                                <span className="text-3xl font-bold text-orange-400">
-                                  {formatPrice(item.price)}
-                                </span>
-                                <span className="text-sm text-gray-400 line-through">
-                                  {formatPrice(item.price * 1.2)}
-                                </span>
-                                <Badge className="bg-green-500/20 text-green-400 border-green-500/30 text-xs">
-                                  20% OFF
-                                </Badge>
-                              </div>
-                              <div className="text-lg font-semibold text-white">
-                                Subtotal: <span className="text-orange-300 font-bold">{formatPrice(item.price * item.quantity)}</span>
-                              </div>
-                            </div>
-                          </div>
-                        </div>
-
-                        {/* Enhanced Quantity & Actions */}
-                        <div className="flex flex-col sm:flex-row sm:items-start gap-4 sm:gap-6 w-full sm:w-auto">
-                          {/* Advanced Quantity Controls */}
-                          <div className="flex flex-col gap-4 sm:min-w-[140px]">
-                            <div className="flex items-center justify-between">
-                              <span className="text-sm font-medium text-gray-300">Quantity:</span>
-                              <span className="text-xs text-gray-400">Max: 10</span>
-                            </div>
-
-                            <div className="relative">
-                              <div className="flex items-center bg-gradient-to-r from-gray-800 to-gray-800/80 rounded-2xl p-1 border border-gray-600 hover:border-orange-500/50 transition-all duration-300 shadow-lg">
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  onClick={() => handleUpdateQuantity(item.id, item.quantity - 1)}
-                                  disabled={isLoading || item.quantity <= 1}
-                                  className="h-12 w-12 rounded-xl hover:bg-orange-500/20 text-gray-300 hover:text-orange-400 transition-all duration-300 transform hover:scale-110 disabled:opacity-50 disabled:hover:scale-100"
-                                >
-                                  <Minus className="h-5 w-5" />
-                                </Button>
-
-                                <div className="flex-1 text-center relative">
-                                  <span className="text-2xl font-bold text-white block transition-all duration-300">
-                                    {item.quantity}
-                                  </span>
-                                  <div className="absolute inset-0 bg-gradient-to-r from-orange-500/10 to-transparent rounded-lg opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
-                                </div>
-
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  onClick={() => handleUpdateQuantity(item.id, item.quantity + 1)}
-                                  disabled={isLoading || item.quantity >= 10}
-                                  className="h-12 w-12 rounded-xl hover:bg-orange-500/20 text-gray-300 hover:text-orange-400 transition-all duration-300 transform hover:scale-110 disabled:opacity-50 disabled:hover:scale-100"
-                                >
-                                  <Plus className="h-5 w-5" />
-                                </Button>
-                              </div>
-
-                              {/* Quantity Progress Bar */}
-                              <div className="w-full bg-gray-700 rounded-full h-1 mt-2">
-                                <div
-                                  className="bg-gradient-to-r from-orange-500 to-orange-600 h-1 rounded-full transition-all duration-500"
-                                  style={{ width: `${(item.quantity / 10) * 100}%` }}
-                                ></div>
-                              </div>
-                            </div>
-                          </div>
-
-                          {/* Enhanced Action Buttons */}
-                          <div className="flex flex-col gap-3">
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              className="border-gray-600 text-gray-300 hover:bg-gradient-to-r hover:from-pink-500/20 hover:to-red-500/20 hover:border-pink-500/50 hover:text-pink-400 transition-all duration-300 transform hover:scale-105"
-                            >
-                              <Heart className="h-4 w-4 mr-2" />
-                              Save for Later
-                            </Button>
-
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() => handleRemoveItem(item.id)}
-                              disabled={isLoading}
-                              className="border-red-500/50 text-red-400 hover:bg-gradient-to-r hover:from-red-500 hover:to-red-600 hover:text-white hover:border-red-500 transition-all duration-300 transform hover:scale-105 hover:shadow-lg hover:shadow-red-500/25"
-                            >
-                              <Trash2 className="h-4 w-4 mr-2" />
-                              {isLoading ? 'Removing...' : 'Remove'}
-                            </Button>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
+                item={item}
+                isLoading={isLoading}
+                onUpdateQuantity={handleUpdateQuantity}
+                onRemove={handleRemoveItem}
+                onAddToWishlist={handleAddToWishlist}
+              />
             ))}
           </div>
 
-          {/* BiHub Order Summary */}
+          {/* Order Summary - Matching Products Page Style */}
           <div className="lg:col-span-1">
-            <div className="sticky top-8 space-y-6">
-              {/* Enhanced Promo Code */}
-              <Card className="bg-gradient-to-br from-gray-900/60 to-gray-800/60 backdrop-blur-sm border-gray-700 hover:border-purple-500/50 transition-all duration-500 hover:shadow-2xl hover:shadow-purple-500/10 group">
-                <CardHeader className="pb-4">
-                  <CardTitle className="flex items-center gap-3 text-white">
-                    <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-purple-500 to-purple-600 flex items-center justify-center shadow-lg group-hover:scale-110 transition-transform duration-300">
-                      <Gift className="h-5 w-5 text-white" />
+            <div className="sticky top-8 space-y-4">
+              {/* Promo Code - Balanced prominence */}
+              <Card className={cn(
+                'relative overflow-hidden backdrop-blur-sm border text-white transition-all duration-300 ease-out',
+                'bg-gradient-to-br from-slate-900/75 via-gray-900/80 to-slate-800/75',
+                'hover:shadow-md hover:shadow-purple-500/8 hover:-translate-y-0.5',
+                'rounded-xl backdrop-saturate-150 border-gray-700/50 hover:border-purple-500/30',
+                'before:absolute before:inset-0 before:bg-gradient-to-br before:from-white/1 before:via-transparent before:to-white/0.5 before:pointer-events-none before:rounded-xl'
+              )}>
+                <CardContent className="p-4">
+                  <div className="flex items-center gap-3 mb-4">
+                    <div className="w-9 h-9 rounded-lg bg-gradient-to-br from-purple-500 to-purple-600 flex items-center justify-center shadow-lg">
+                      <Gift className="h-4 w-4 text-white" />
                     </div>
                     <div>
-                      <span className="text-lg font-bold">Promo Code</span>
-                      <p className="text-sm text-gray-400 font-normal">Save up to 30% off</p>
+                      <h3 className="text-base font-semibold text-white">Promo Code</h3>
+                      <p className="text-sm text-gray-400">Save up to 30% off</p>
                     </div>
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
+                  </div>
+                  
                   <div className="space-y-3">
                     <div className="flex gap-3">
-                      <div className="relative flex-1">
-                        <Input
-                          placeholder="Enter promo code"
-                          value={couponCode}
-                          onChange={(e) => setCouponCode(e.target.value)}
-                          className="bg-gray-800/50 border-gray-600 text-white placeholder-gray-400 focus:border-purple-500 focus:ring-purple-500/20 pr-12"
-                        />
-                        <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
-                          <Gift className="h-4 w-4 text-gray-400" />
-                        </div>
-                      </div>
+                      <Input
+                        placeholder="Enter promo code"
+                        value={couponCode}
+                        onChange={(e) => setCouponCode(e.target.value)}
+                        className="flex-1 bg-white/[0.08] border-white/20 text-white placeholder-gray-400 focus:border-purple-500/50 focus:ring-purple-500/20 rounded-lg"
+                      />
                       <Button
                         onClick={handleApplyCoupon}
                         disabled={!couponCode.trim() || isApplyingCoupon}
-                        className="bg-gradient-to-r from-purple-500 to-purple-600 hover:from-purple-600 hover:to-purple-700 text-white font-semibold px-6 transition-all duration-300 transform hover:scale-105 hover:shadow-lg hover:shadow-purple-500/25"
+                        className="bg-gradient-to-r from-purple-500 to-purple-600 hover:from-purple-600 hover:to-purple-700 text-white font-medium px-4 transition-all duration-300 rounded-lg"
                       >
                         {isApplyingCoupon ? 'Applying...' : 'Apply'}
                       </Button>
                     </div>
 
-                    {/* Popular Codes */}
                     <div className="flex gap-2 flex-wrap">
-                      <Badge className="bg-purple-500/20 text-purple-400 border-purple-500/30 cursor-pointer hover:bg-purple-500/30 transition-colors duration-300">
+                      <Badge 
+                        className="bg-purple-500/20 text-purple-400 border-purple-500/30 cursor-pointer hover:bg-purple-500/30 transition-colors duration-300 text-xs"
+                        onClick={() => setCouponCode('SAVE20')}
+                      >
                         SAVE20
                       </Badge>
-                      <Badge className="bg-purple-500/20 text-purple-400 border-purple-500/30 cursor-pointer hover:bg-purple-500/30 transition-colors duration-300">
+                      <Badge 
+                        className="bg-purple-500/20 text-purple-400 border-purple-500/30 cursor-pointer hover:bg-purple-500/30 transition-colors duration-300 text-xs"
+                        onClick={() => setCouponCode('FIRST10')}
+                      >
                         FIRST10
                       </Badge>
                     </div>
@@ -440,174 +609,135 @@ export function CartPage() {
                 </CardContent>
               </Card>
 
-              {/* Enhanced Order Summary */}
-              <Card className="bg-gradient-to-br from-gray-900/60 to-gray-800/60 backdrop-blur-sm border-gray-700 hover:border-orange-500/50 transition-all duration-500 hover:shadow-2xl hover:shadow-orange-500/10 group">
-                <CardHeader className="pb-6">
-                  <CardTitle className="text-xl text-white flex items-center gap-3">
-                    <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-orange-500 to-orange-600 flex items-center justify-center shadow-lg group-hover:scale-110 transition-transform duration-300">
-                      <ShoppingBag className="h-6 w-6 text-white" />
+              {/* Order Summary - Main focus */}
+              <Card className={cn(
+                'relative overflow-hidden backdrop-blur-sm border text-white transition-all duration-300 ease-out',
+                'bg-gradient-to-br from-slate-900/85 via-gray-900/90 to-slate-800/85',
+                'hover:shadow-lg hover:shadow-[#ff9000]/8 hover:-translate-y-0.5',
+                'rounded-2xl backdrop-saturate-150 border-gray-700/60 hover:border-[#ff9000]/30',
+                'before:absolute before:inset-0 before:bg-gradient-to-br before:from-white/1 before:via-transparent before:to-white/0.5 before:pointer-events-none before:rounded-2xl'
+              )}>
+                <CardContent className="p-5">
+                  <div className="flex items-center gap-3 mb-4">
+                    <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-[#ff9000] to-[#ff9000] flex items-center justify-center shadow-lg">
+                      <ShoppingBag className="h-5 w-5 text-white" />
                     </div>
                     <div>
-                      <span className="text-xl font-bold">Order Summary</span>
-                      <p className="text-sm text-gray-400 font-normal">{cartItemCount} items in cart</p>
+                      <h3 className="text-lg font-bold text-white">Order Summary</h3>
+                      <p className="text-sm text-gray-400">{cartItemCount} items in cart</p>
                     </div>
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-6">
-                  {/* Order Details */}
+                  </div>
+
                   <div className="space-y-4">
-                    <div className="flex justify-between items-center p-3 bg-gray-800/30 rounded-lg">
-                      <span className="text-gray-300 flex items-center gap-2">
-                        <div className="w-2 h-2 bg-blue-400 rounded-full"></div>
-                        Subtotal
-                      </span>
-                      <span className="font-semibold text-white text-lg">{formatPrice(cartTotal)}</span>
+                    {/* Breakdown Items - Simplified and less prominent */}
+                    <div className="space-y-2 py-3 border-b border-white/10">
+                      {/* Subtotal - Less prominent */}
+                      <div className="flex justify-between items-center text-sm">
+                        <span className="text-gray-400">Subtotal ({cartItemCount} items)</span>
+                        <span className="text-gray-300">{formatPrice(cartTotal)}</span>
+                      </div>
+
+                      {/* Shipping - Less prominent */}
+                      <div className="flex justify-between items-center text-sm">
+                        <span className="text-gray-400">Shipping</span>
+                        <span className="text-gray-300">
+                          {shippingCost === 0 ? (
+                            <div className="flex items-center gap-2">
+                              <span className="text-green-400 font-medium">FREE</span>
+                              <Badge className="bg-green-500/20 text-green-400 border-green-500/30 text-xs">
+                                Over $50
+                              </Badge>
+                            </div>
+                          ) : (
+                            <span>{formatPrice(shippingCost)}</span>
+                          )}
+                        </span>
+                      </div>
+
+                      {/* Tax - Less prominent */}
+                      <div className="flex justify-between items-center text-sm">
+                        <span className="text-gray-400">Tax (8%)</span>
+                        <span className="text-gray-300">{formatPrice(tax)}</span>
+                      </div>
                     </div>
 
-                    <div className="flex justify-between items-center p-3 bg-gray-800/30 rounded-lg">
-                      <span className="text-gray-300 flex items-center gap-2">
-                        <Truck className="h-4 w-4 text-green-400" />
-                        Shipping
-                      </span>
-                      <span className="font-semibold">
-                        {shippingCost === 0 ? (
-                          <div className="flex items-center gap-2">
-                            <span className="text-green-400 font-bold">FREE</span>
-                            <Badge className="bg-green-500/20 text-green-400 border-green-500/30 text-xs">
-                              Over $50
-                            </Badge>
+                    {/* FINAL TOTAL - The only prominent total */}
+                    <div className="relative">
+                      <div className="absolute inset-0 bg-gradient-to-r from-[#ff9000]/20 to-[#ff9000]/5 rounded-xl blur-lg"></div>
+                      <div className="relative border-2 border-[#ff9000]/40 rounded-xl p-4 bg-gradient-to-r from-[#ff9000]/10 to-[#ff9000]/5 backdrop-blur-sm">
+                        <div className="flex justify-between items-center">
+                          <span className="text-white font-bold text-xl">Total</span>
+                          <div className="text-right">
+                            <span className="text-3xl font-bold text-[#ff9000] drop-shadow-lg">{formatPrice(finalTotal)}</span>
+                            <p className="text-xs text-gray-400 mt-1">Including all taxes & fees</p>
                           </div>
-                        ) : (
-                          <span className="text-white text-lg">{formatPrice(shippingCost)}</span>
-                        )}
-                      </span>
-                    </div>
-
-                    <div className="flex justify-between items-center p-3 bg-gray-800/30 rounded-lg">
-                      <span className="text-gray-300 flex items-center gap-2">
-                        <div className="w-2 h-2 bg-yellow-400 rounded-full"></div>
-                        Tax (8%)
-                      </span>
-                      <span className="font-semibold text-white text-lg">{formatPrice(tax)}</span>
-                    </div>
-                  </div>
-
-                  {/* Total Section */}
-                  <div className="relative">
-                    <div className="absolute inset-0 bg-gradient-to-r from-orange-500/10 to-transparent rounded-xl"></div>
-                    <div className="border-2 border-orange-500/30 rounded-xl p-4 bg-gradient-to-r from-orange-500/5 to-transparent">
-                      <div className="flex justify-between items-center">
-                        <span className="text-white text-xl font-bold">Total</span>
-                        <div className="text-right">
-                          <span className="text-3xl font-bold text-orange-400 block">{formatPrice(finalTotal)}</span>
-                          <span className="text-sm text-gray-400">Including all taxes</span>
                         </div>
                       </div>
                     </div>
-                  </div>
 
-                  {/* Savings Badge */}
-                  {cartTotal > 100 && (
-                    <div className="bg-gradient-to-r from-green-500/20 to-emerald-500/20 border border-green-500/30 rounded-lg p-3 text-center">
-                      <div className="flex items-center justify-center gap-2 text-green-400">
-                        <CheckCircle className="h-5 w-5" />
-                        <span className="font-semibold">You saved {formatPrice(cartTotal * 0.1)} today!</span>
-                      </div>
-                    </div>
-                  )}
-
-                  {cartTotal < 50 && (
-                    <div className="bg-gradient-to-r from-blue-500/20 to-indigo-500/20 border border-blue-500/30 rounded-2xl p-4">
-                      <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center">
-                          <Truck className="h-5 w-5 text-white" />
-                        </div>
-                        <div>
-                          <p className="font-semibold text-blue-300">Almost there!</p>
-                          <p className="text-sm text-blue-400">
-                            Add {formatPrice(50 - cartTotal)} more for free shipping
-                          </p>
+                    {/* Savings Notice */}
+                    {cartTotal > 100 && (
+                      <div className="bg-gradient-to-r from-green-500/20 to-emerald-500/20 border border-green-500/30 rounded-lg p-3 text-center">
+                        <div className="flex items-center justify-center gap-2 text-green-400 text-sm">
+                          <CheckCircle className="h-4 w-4" />
+                          <span className="font-semibold">You saved {formatPrice(cartTotal * 0.1)} today!</span>
                         </div>
                       </div>
-                    </div>
-                  )}
+                    )}
 
-                  {/* Enhanced Checkout Section */}
-                  <div className="space-y-6">
-                    {/* Main Checkout Button */}
-                    <div className="relative group">
-                      <div className="absolute -inset-1 bg-gradient-to-r from-orange-500 to-orange-600 rounded-2xl blur opacity-25 group-hover:opacity-75 transition duration-1000 group-hover:duration-200"></div>
-                      <Button
-                        size="lg"
-                        className="relative w-full bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 text-white font-bold text-lg py-6 rounded-xl transition-all duration-300 transform hover:scale-[1.02] hover:shadow-2xl hover:shadow-orange-500/25"
-                        asChild
-                      >
-                        <Link href="/checkout" className="flex items-center justify-center gap-3">
-                          <CreditCard className="h-6 w-6" />
-                          <span>Proceed to Secure Checkout</span>
-                          <div className="ml-2 flex items-center gap-1">
-                            <div className="w-2 h-2 bg-white rounded-full animate-pulse"></div>
-                            <div className="w-2 h-2 bg-white rounded-full animate-pulse" style={{animationDelay: '0.2s'}}></div>
-                            <div className="w-2 h-2 bg-white rounded-full animate-pulse" style={{animationDelay: '0.4s'}}></div>
+                    {cartTotal < 50 && (
+                      <div className="bg-gradient-to-r from-blue-500/20 to-indigo-500/20 border border-blue-500/30 rounded-lg p-3">
+                        <div className="flex items-center gap-3">
+                          <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center">
+                            <Truck className="h-4 w-4 text-white" />
                           </div>
-                        </Link>
-                      </Button>
+                          <div>
+                            <p className="font-semibold text-blue-300 text-sm">Almost there!</p>
+                            <p className="text-xs text-blue-400">
+                              Add {formatPrice(50 - cartTotal)} more for free shipping
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Checkout Button - Most prominent action */}
+                    <Button
+                      size="lg"
+                      className="w-full bg-gradient-to-r from-[#ff9000] to-[#ff9000] hover:from-[#ff9000]/90 hover:to-[#ff9000]/90 text-white font-bold py-4 text-lg rounded-xl transition-all duration-300 hover:scale-[1.02] hover:shadow-2xl hover:shadow-[#ff9000]/30 ring-2 ring-[#ff9000]/20 hover:ring-[#ff9000]/40"
+                      asChild
+                    >
+                      <Link href="/checkout" className="flex items-center justify-center gap-2">
+                        <CreditCard className="h-5 w-5" />
+                        <span>Proceed to Checkout</span>
+                      </Link>
+                    </Button>
+
+                    {/* Security Features - Smaller and less prominent */}
+                    <div className="grid grid-cols-3 gap-2">
+                      <div className="flex flex-col items-center gap-1 p-2 bg-white/[0.05] rounded-lg border border-white/10">
+                        <Shield className="h-3 w-3 text-green-400" />
+                        <span className="text-xs text-gray-500">SSL Secured</span>
+                      </div>
+                      <div className="flex flex-col items-center gap-1 p-2 bg-white/[0.05] rounded-lg border border-white/10">
+                        <CreditCard className="h-3 w-3 text-blue-400" />
+                        <span className="text-xs text-gray-500">Safe Payment</span>
+                      </div>
+                      <div className="flex flex-col items-center gap-1 p-2 bg-white/[0.05] rounded-lg border border-white/10">
+                        <Truck className="h-3 w-3 text-[#ff9000]" />
+                        <span className="text-xs text-gray-500">Fast Delivery</span>
+                      </div>
                     </div>
 
-                    {/* Security Features */}
-                    <div className="grid grid-cols-3 gap-3 text-center">
-                      <div className="flex flex-col items-center gap-2 p-3 bg-gray-800/30 rounded-lg">
-                        <Shield className="h-5 w-5 text-green-400" />
-                        <span className="text-xs text-gray-400">SSL Secured</span>
-                      </div>
-                      <div className="flex flex-col items-center gap-2 p-3 bg-gray-800/30 rounded-lg">
-                        <CreditCard className="h-5 w-5 text-blue-400" />
-                        <span className="text-xs text-gray-400">Safe Payment</span>
-                      </div>
-                      <div className="flex flex-col items-center gap-2 p-3 bg-gray-800/30 rounded-lg">
-                        <Truck className="h-5 w-5 text-orange-400" />
-                        <span className="text-xs text-gray-400">Fast Delivery</span>
-                      </div>
-                    </div>
-
-                    {/* Continue Shopping */}
+                    {/* Continue Shopping - Subtle */}
                     <div className="text-center">
                       <Link
                         href="/products"
-                        className="inline-flex items-center gap-2 text-sm text-orange-400 hover:text-orange-300 transition-all duration-300 font-medium hover:gap-3"
+                        className="inline-flex items-center gap-2 text-xs text-gray-500 hover:text-[#ff9000]/70 transition-all duration-300 font-medium"
                       >
-                        <ArrowLeft className="h-4 w-4" />
+                        <ArrowLeft className="h-3 w-3" />
                         Continue Shopping
                       </Link>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-
-              {/* BiHub Trust Signals */}
-              <Card className="bg-gray-900/50 border-gray-700">
-                <CardContent className="p-6">
-                  <h3 className="text-lg font-bold text-white mb-4">BiHub Guarantee</h3>
-                  <div className="space-y-4">
-                    <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 bg-gradient-to-br from-emerald-500 to-emerald-600 rounded-full flex items-center justify-center">
-                        <Shield className="h-5 w-5 text-white" />
-                      </div>
-                      <span className="text-sm font-medium text-gray-300">Secure SSL encryption</span>
-                    </div>
-
-                    <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-blue-600 rounded-full flex items-center justify-center">
-                        <CreditCard className="h-5 w-5 text-white" />
-                      </div>
-                      <span className="text-sm font-medium text-gray-300">Multiple payment options</span>
-                    </div>
-
-                    <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 bg-gradient-to-br from-purple-500 to-purple-600 rounded-full flex items-center justify-center">
-                        <ArrowLeft className="h-5 w-5 text-white" />
-                      </div>
-                      <span className="text-sm font-medium text-gray-300">30-day return policy</span>
                     </div>
                   </div>
                 </CardContent>
@@ -617,5 +747,6 @@ export function CartPage() {
         </div>
       </div>
     </div>
+    </>
   )
 }
