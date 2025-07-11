@@ -52,6 +52,19 @@ func (r *userRepository) GetByEmail(ctx context.Context, email string) (*entitie
 	return &user, nil
 }
 
+// GetByUsername retrieves a user by username
+func (r *userRepository) GetByUsername(ctx context.Context, username string) (*entities.User, error) {
+	var user entities.User
+	err := r.db.WithContext(ctx).Where("username = ?", username).First(&user).Error
+	if err != nil {
+		if err == gorm.ErrRecordNotFound {
+			return nil, entities.ErrUserNotFound
+		}
+		return nil, err
+	}
+	return &user, nil
+}
+
 // GetByGoogleID retrieves a user by Google ID
 func (r *userRepository) GetByGoogleID(ctx context.Context, googleID string) (*entities.User, error) {
 	var user entities.User
@@ -327,8 +340,8 @@ func (r *userRepository) applyUserFilters(query *gorm.DB, filters repositories.U
 	}
 	if filters.Search != "" {
 		searchPattern := "%" + filters.Search + "%"
-		query = query.Where("first_name ILIKE ? OR last_name ILIKE ? OR email ILIKE ? OR username ILIKE ?",
-			searchPattern, searchPattern, searchPattern, searchPattern)
+		query = query.Where("first_name ILIKE ? OR last_name ILIKE ? OR email ILIKE ?",
+			searchPattern, searchPattern, searchPattern)
 	}
 
 	return query

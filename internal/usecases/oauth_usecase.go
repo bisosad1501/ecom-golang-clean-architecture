@@ -9,9 +9,9 @@ import (
 
 	"github.com/google/uuid"
 
-	"ecom-golang-clean-architecture/internal/infrastructure/config"
 	"ecom-golang-clean-architecture/internal/domain/entities"
 	"ecom-golang-clean-architecture/internal/domain/repositories"
+	"ecom-golang-clean-architecture/internal/infrastructure/config"
 	"ecom-golang-clean-architecture/internal/infrastructure/oauth"
 )
 

@@ -44,7 +44,7 @@ type User struct {
 	IsOAuthUser bool   `json:"is_oauth_user" gorm:"default:false"`
 
 	// Enhanced user fields
-	Username    string     `json:"username" gorm:"uniqueIndex"`
+	Username    *string    `json:"username,omitempty" gorm:"index"` // Optional, non-unique display name
 	DateOfBirth *time.Time `json:"date_of_birth"`
 	Gender      string     `json:"gender"`
 	Language    string     `json:"language" gorm:"default:'en'"`
