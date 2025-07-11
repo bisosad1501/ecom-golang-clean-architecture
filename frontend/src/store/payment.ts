@@ -104,9 +104,16 @@ export const usePaymentStore = create<PaymentStore>()(
 
           const checkoutData = response.data?.data || response.data
 
-          if (checkoutData.success) {
+          console.log('Checkout session response:', checkoutData)
+
+          // Check if we have session data
+          if (checkoutData.session_id || checkoutData.session_url) {
             toast.success('Redirecting to payment...')
-            return checkoutData
+            return {
+              id: checkoutData.session_id,
+              url: checkoutData.session_url,
+              expires_at: '', // Not provided by backend
+            }
           } else {
             throw new Error(checkoutData.message || 'Failed to create checkout session')
           }
