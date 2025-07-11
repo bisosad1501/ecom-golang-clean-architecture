@@ -4,6 +4,7 @@ import (
 	"net/http"
 
 	"ecom-golang-clean-architecture/internal/domain/entities"
+	pkgErrors "ecom-golang-clean-architecture/pkg/errors"
 )
 
 // SuccessResponse represents a successful API response
@@ -36,6 +37,12 @@ type Pagination struct {
 
 // getErrorStatusCode returns appropriate HTTP status code for domain errors
 func getErrorStatusCode(err error) int {
+	// Check if it's an AppError first
+	if appErr := pkgErrors.GetAppError(err); appErr != nil {
+		return appErr.StatusCode
+	}
+
+	// Fallback to legacy error handling
 	switch err {
 	case entities.ErrUserNotFound,
 		 entities.ErrProductNotFound,

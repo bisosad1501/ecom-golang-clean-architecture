@@ -404,14 +404,32 @@ func (p *Product) GetMainImage() string {
 
 // ReduceStock reduces the product stock
 func (p *Product) ReduceStock(quantity int) error {
+	if quantity <= 0 {
+		return ErrInvalidInput
+	}
+
 	if !p.CanReduceStock(quantity) {
 		return ErrInsufficientStock
 	}
+
 	p.Stock -= quantity
+
+	// Update stock status based on remaining stock
+	p.UpdateStockStatus()
+
 	return nil
 }
 
 // IncreaseStock increases the product stock
-func (p *Product) IncreaseStock(quantity int) {
+func (p *Product) IncreaseStock(quantity int) error {
+	if quantity <= 0 {
+		return ErrInvalidInput
+	}
+
 	p.Stock += quantity
+
+	// Update stock status based on new stock level
+	p.UpdateStockStatus()
+
+	return nil
 }

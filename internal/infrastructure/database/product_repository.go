@@ -46,6 +46,27 @@ func (r *productRepository) GetByID(ctx context.Context, id uuid.UUID) (*entitie
 	return &product, nil
 }
 
+// GetByIDs retrieves multiple products by IDs (bulk operation)
+func (r *productRepository) GetByIDs(ctx context.Context, ids []uuid.UUID) ([]*entities.Product, error) {
+	if len(ids) == 0 {
+		return []*entities.Product{}, nil
+	}
+
+	var products []*entities.Product
+	err := r.db.WithContext(ctx).
+		Preload("Category").
+		Preload("Images", func(db *gorm.DB) *gorm.DB {
+			return db.Where("position >= 0").Order("position ASC")
+		}).
+		Preload("Tags").
+		Where("id IN ?", ids).
+		Find(&products).Error
+	if err != nil {
+		return nil, err
+	}
+	return products, nil
+}
+
 // GetBySKU retrieves a product by SKU
 func (r *productRepository) GetBySKU(ctx context.Context, sku string) (*entities.Product, error) {
 	var product entities.Product

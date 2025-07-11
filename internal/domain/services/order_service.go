@@ -1,38 +1,64 @@
 package services
 
 import (
+	"context"
+	"crypto/rand"
 	"fmt"
-	"math/rand"
+	"math/big"
 	"time"
 
 	"ecom-golang-clean-architecture/internal/domain/entities"
+	"ecom-golang-clean-architecture/internal/domain/repositories"
 )
 
 // OrderService handles order-related business logic
 type OrderService interface {
-	GenerateOrderNumber() string
+	GenerateUniqueOrderNumber(ctx context.Context) (string, error)
 	CalculateOrderTotal(items []entities.CartItem, taxRate, shippingCost, discountAmount float64) (subtotal, taxAmount, total float64)
 	ValidateOrderItems(items []entities.CartItem) error
 }
 
-type orderService struct{}
-
-// NewOrderService creates a new order service
-func NewOrderService() OrderService {
-	return &orderService{}
+type orderService struct {
+	orderRepo repositories.OrderRepository
 }
 
-// GenerateOrderNumber generates a unique order number
-func (s *orderService) GenerateOrderNumber() string {
-	// Generate order number with format: ORD-YYYYMMDD-XXXXXX
-	now := time.Now()
-	dateStr := now.Format("20060102")
-	
-	// Generate random 6-digit number
-	rand.Seed(now.UnixNano())
-	randomNum := rand.Intn(999999-100000) + 100000
-	
-	return fmt.Sprintf("ORD-%s-%d", dateStr, randomNum)
+// NewOrderService creates a new order service
+func NewOrderService(orderRepo repositories.OrderRepository) OrderService {
+	return &orderService{
+		orderRepo: orderRepo,
+	}
+}
+
+// GenerateUniqueOrderNumber generates a unique order number
+func (s *orderService) GenerateUniqueOrderNumber(ctx context.Context) (string, error) {
+	const maxAttempts = 10
+
+	for attempt := 0; attempt < maxAttempts; attempt++ {
+		// Generate order number with format: ORD-YYYYMMDD-XXXXXX
+		now := time.Now()
+		dateStr := now.Format("20060102")
+
+		// Generate cryptographically secure random 6-digit number
+		randomBig, err := rand.Int(rand.Reader, big.NewInt(900000))
+		if err != nil {
+			return "", fmt.Errorf("failed to generate random number: %w", err)
+		}
+		randomNum := randomBig.Int64() + 100000
+
+		orderNumber := fmt.Sprintf("ORD-%s-%d", dateStr, randomNum)
+
+		// Check if order number already exists
+		exists, err := s.orderRepo.ExistsByOrderNumber(ctx, orderNumber)
+		if err != nil {
+			return "", fmt.Errorf("failed to check order number existence: %w", err)
+		}
+
+		if !exists {
+			return orderNumber, nil
+		}
+	}
+
+	return "", fmt.Errorf("failed to generate unique order number after %d attempts", maxAttempts)
 }
 
 // CalculateOrderTotal calculates the order totals

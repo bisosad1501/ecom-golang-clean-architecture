@@ -69,6 +69,19 @@ func (r *orderRepository) GetByOrderNumber(ctx context.Context, orderNumber stri
 	return &order, nil
 }
 
+// ExistsByOrderNumber checks if an order exists with the given order number
+func (r *orderRepository) ExistsByOrderNumber(ctx context.Context, orderNumber string) (bool, error) {
+	var count int64
+	err := r.db.WithContext(ctx).
+		Model(&entities.Order{}).
+		Where("order_number = ?", orderNumber).
+		Count(&count).Error
+	if err != nil {
+		return false, err
+	}
+	return count > 0, nil
+}
+
 // Update updates an existing order
 func (r *orderRepository) Update(ctx context.Context, order *entities.Order) error {
 	return r.db.WithContext(ctx).Save(order).Error

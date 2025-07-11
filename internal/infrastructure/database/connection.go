@@ -1,6 +1,7 @@
 package database
 
 import (
+	"context"
 	"fmt"
 	"log"
 	"time"
@@ -54,6 +55,34 @@ func NewConnection(cfg *config.DatabaseConfig) (*gorm.DB, error) {
 
 	log.Println("Database connection established successfully")
 	return db, nil
+}
+
+// TransactionManager provides transaction management utilities
+type TransactionManager struct {
+	db *gorm.DB
+}
+
+// NewTransactionManager creates a new transaction manager
+func NewTransactionManager(db *gorm.DB) *TransactionManager {
+	return &TransactionManager{db: db}
+}
+
+// WithTransaction executes a function within a database transaction
+func (tm *TransactionManager) WithTransaction(ctx context.Context, fn func(*gorm.DB) error) error {
+	return tm.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		return fn(tx)
+	})
+}
+
+// WithTransactionResult executes a function within a database transaction and returns a result
+func (tm *TransactionManager) WithTransactionResult(ctx context.Context, fn func(*gorm.DB) (interface{}, error)) (interface{}, error) {
+	var result interface{}
+	err := tm.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		var err error
+		result, err = fn(tx)
+		return err
+	})
+	return result, err
 }
 
 // AutoMigrate runs database migrations

@@ -85,6 +85,7 @@ func (c *Cart) GetItem(productID uuid.UUID) *CartItem {
 func (c *Cart) AddItem(productID uuid.UUID, quantity int, price float64) {
 	if existingItem := c.GetItem(productID); existingItem != nil {
 		existingItem.Quantity += quantity
+		existingItem.Price = price // Update price to current price
 		existingItem.UpdatedAt = time.Now()
 	} else {
 		newItem := CartItem{

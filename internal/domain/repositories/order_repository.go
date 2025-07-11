@@ -35,6 +35,9 @@ type OrderRepository interface {
 	// GetByOrderNumber retrieves an order by order number
 	GetByOrderNumber(ctx context.Context, orderNumber string) (*entities.Order, error)
 
+	// ExistsByOrderNumber checks if an order exists with the given order number
+	ExistsByOrderNumber(ctx context.Context, orderNumber string) (bool, error)
+
 	// Update updates an existing order
 	Update(ctx context.Context, order *entities.Order) error
 

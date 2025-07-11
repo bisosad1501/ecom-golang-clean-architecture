@@ -30,6 +30,9 @@ type ProductRepository interface {
 	// GetByID retrieves a product by ID
 	GetByID(ctx context.Context, id uuid.UUID) (*entities.Product, error)
 
+	// GetByIDs retrieves multiple products by IDs (bulk operation)
+	GetByIDs(ctx context.Context, ids []uuid.UUID) ([]*entities.Product, error)
+
 	// GetBySKU retrieves a product by SKU
 	GetBySKU(ctx context.Context, sku string) (*entities.Product, error)
 

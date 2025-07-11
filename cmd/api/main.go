@@ -104,9 +104,12 @@ func main() {
 	stockReservationRepo := database.NewStockReservationRepository(db)
 	orderEventRepo := database.NewOrderEventRepository(db)
 
+	// Initialize transaction manager
+	txManager := database.NewTransactionManager(db)
+
 	// Initialize domain services
 	passwordService := services.NewPasswordService()
-	orderService := services.NewOrderService()
+	orderService := services.NewOrderService(orderRepo)
 	stockReservationService := services.NewStockReservationService(
 		stockReservationRepo,
 		productRepo,
@@ -156,6 +159,7 @@ func main() {
 	cartUseCase := usecases.NewCartUseCase(
 		cartRepo,
 		productRepo,
+		txManager,
 	)
 
 	orderUseCase := usecases.NewOrderUseCase(
@@ -169,6 +173,7 @@ func main() {
 		orderService,
 		stockReservationService,
 		orderEventService,
+		txManager,
 	)
 
 	fileUseCase := usecases.NewFileUseCase(fileService)

@@ -34,8 +34,11 @@ func AuthMiddleware(jwtSecret string) gin.HandlerFunc {
 
 		// Parse and validate the token
 		token, err := jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) {
-			if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
-				return nil, jwt.ErrSignatureInvalid
+			// Validate the signing method is HMAC and specifically HS256
+			if method, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
+				return nil, fmt.Errorf("unexpected signing method: %v", token.Header["alg"])
+			} else if method != jwt.SigningMethodHS256 {
+				return nil, fmt.Errorf("unexpected signing method: %v", method.Alg())
 			}
 			return []byte(jwtSecret), nil
 		})

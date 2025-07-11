@@ -6,7 +6,10 @@ import (
 
 	"ecom-golang-clean-architecture/internal/domain/entities"
 	"ecom-golang-clean-architecture/internal/domain/repositories"
+	"ecom-golang-clean-architecture/internal/infrastructure/database"
+	pkgErrors "ecom-golang-clean-architecture/pkg/errors"
 	"github.com/google/uuid"
+	"gorm.io/gorm"
 )
 
 // CartUseCase defines cart use cases
@@ -21,16 +24,19 @@ type CartUseCase interface {
 type cartUseCase struct {
 	cartRepo    repositories.CartRepository
 	productRepo repositories.ProductRepository
+	txManager   *database.TransactionManager
 }
 
 // NewCartUseCase creates a new cart use case
 func NewCartUseCase(
 	cartRepo repositories.CartRepository,
 	productRepo repositories.ProductRepository,
+	txManager *database.TransactionManager,
 ) CartUseCase {
 	return &cartUseCase{
 		cartRepo:    cartRepo,
 		productRepo: productRepo,
+		txManager:   txManager,
 	}
 }
 
@@ -91,6 +97,27 @@ func (uc *cartUseCase) GetCart(ctx context.Context, userID uuid.UUID) (*CartResp
 
 // AddToCart adds item to cart
 func (uc *cartUseCase) AddToCart(ctx context.Context, userID uuid.UUID, req AddToCartRequest) (*CartResponse, error) {
+	// Validate input
+	if req.Quantity <= 0 {
+		return nil, pkgErrors.InvalidInput("Quantity must be greater than 0")
+	}
+
+	if req.Quantity > 100 { // Max quantity per item
+		return nil, pkgErrors.InvalidInput("Quantity cannot exceed 100")
+	}
+
+	// Execute in transaction to prevent race conditions
+	result, err := uc.txManager.WithTransactionResult(ctx, func(tx *gorm.DB) (interface{}, error) {
+		return uc.addToCartInTransaction(ctx, tx, userID, req)
+	})
+	if err != nil {
+		return nil, err
+	}
+	return result.(*CartResponse), nil
+}
+
+// addToCartInTransaction handles adding item to cart within a transaction
+func (uc *cartUseCase) addToCartInTransaction(ctx context.Context, tx *gorm.DB, userID uuid.UUID, req AddToCartRequest) (*CartResponse, error) {
 	// Get or create cart
 	cart, err := uc.cartRepo.GetByUserID(ctx, userID)
 	if err != nil {
@@ -101,44 +128,58 @@ func (uc *cartUseCase) AddToCart(ctx context.Context, userID uuid.UUID, req AddT
 			CreatedAt: time.Now(),
 			UpdatedAt: time.Now(),
 		}
-		
+
 		if err := uc.cartRepo.Create(ctx, cart); err != nil {
-			return nil, err
+			return nil, pkgErrors.Wrap(err, pkgErrors.ErrCodeInternalError, "Failed to create cart")
 		}
 	}
 
-	// Get product
+	// Get product with current price
 	product, err := uc.productRepo.GetByID(ctx, req.ProductID)
 	if err != nil {
-		return nil, entities.ErrProductNotFound
+		return nil, pkgErrors.ProductNotFound().WithContext("product_id", req.ProductID)
 	}
 
 	// Check if product is available
 	if !product.IsAvailable() {
-		return nil, entities.ErrProductNotAvailable
-	}
-
-	// Check stock
-	if !product.CanReduceStock(req.Quantity) {
-		return nil, entities.ErrInsufficientStock
+		return nil, pkgErrors.New(pkgErrors.ErrCodeProductNotAvailable, "Product is not available").
+			WithContext("product_id", req.ProductID).
+			WithContext("product_name", product.Name)
 	}
 
 	// Check if item already exists in cart
 	existingItem := cart.GetItem(req.ProductID)
 	if existingItem != nil {
-		// Update quantity
+		// Calculate new quantity
 		newQuantity := existingItem.Quantity + req.Quantity
+
+		// Check stock for new total quantity
 		if !product.CanReduceStock(newQuantity) {
-			return nil, entities.ErrInsufficientStock
+			return nil, pkgErrors.InsufficientStock().
+				WithContext("product_id", req.ProductID).
+				WithContext("product_name", product.Name).
+				WithContext("available_stock", product.Stock).
+				WithContext("requested_quantity", newQuantity)
 		}
-		
+
+		// Update existing item with current price and new quantity
 		existingItem.Quantity = newQuantity
+		existingItem.Price = product.Price // Update to current price
 		existingItem.UpdatedAt = time.Now()
-		
+
 		if err := uc.cartRepo.UpdateItem(ctx, existingItem); err != nil {
-			return nil, err
+			return nil, pkgErrors.Wrap(err, pkgErrors.ErrCodeInternalError, "Failed to update cart item")
 		}
 	} else {
+		// Check stock for new item
+		if !product.CanReduceStock(req.Quantity) {
+			return nil, pkgErrors.InsufficientStock().
+				WithContext("product_id", req.ProductID).
+				WithContext("product_name", product.Name).
+				WithContext("available_stock", product.Stock).
+				WithContext("requested_quantity", req.Quantity)
+		}
+
 		// Add new item
 		cartItem := &entities.CartItem{
 			ID:        uuid.New(),
@@ -149,16 +190,16 @@ func (uc *cartUseCase) AddToCart(ctx context.Context, userID uuid.UUID, req AddT
 			CreatedAt: time.Now(),
 			UpdatedAt: time.Now(),
 		}
-		
+
 		if err := uc.cartRepo.AddItem(ctx, cart.ID, cartItem); err != nil {
-			return nil, err
+			return nil, pkgErrors.Wrap(err, pkgErrors.ErrCodeInternalError, "Failed to add item to cart")
 		}
 	}
 
 	// Get updated cart
 	updatedCart, err := uc.cartRepo.GetByID(ctx, cart.ID)
 	if err != nil {
-		return nil, err
+		return nil, pkgErrors.Wrap(err, pkgErrors.ErrCodeCartNotFound, "Failed to get updated cart")
 	}
 
 	return uc.toCartResponse(updatedCart), nil

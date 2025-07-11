@@ -8,6 +8,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"ecom-golang-clean-architecture/internal/domain/entities"
 	"ecom-golang-clean-architecture/internal/usecases"
+	pkgErrors "ecom-golang-clean-architecture/pkg/errors"
 )
 
 // FileHandler handles file upload operations
@@ -120,17 +121,15 @@ func (h *FileHandler) uploadImageHandler(c *gin.Context, uploadType entities.Fil
 	response, err := h.fileUseCase.UploadImage(c.Request.Context(), file, header, uploadType, userID)
 	if err != nil {
 		fmt.Printf("Upload failed: %v\n", err)
-		// Handle specific error types
-		switch {
-		case err.Error() == "file size exceeds maximum allowed size":
-			c.JSON(http.StatusRequestEntityTooLarge, ErrorResponse{
-				Error: err.Error(),
+
+		// Use proper error handling with AppError
+		if appErr := pkgErrors.GetAppError(err); appErr != nil {
+			c.JSON(appErr.StatusCode, ErrorResponse{
+				Error:   appErr.Message,
+				Details: appErr.Details,
 			})
-		case err.Error() == "file extension is not allowed" || err.Error() == "content type is not allowed":
-			c.JSON(http.StatusBadRequest, ErrorResponse{
-				Error: err.Error(),
-			})
-		default:
+		} else {
+			// Fallback for non-AppError errors
 			c.JSON(http.StatusInternalServerError, ErrorResponse{
 				Error: "Failed to upload file: " + err.Error(),
 			})

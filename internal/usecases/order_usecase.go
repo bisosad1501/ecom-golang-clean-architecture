@@ -8,8 +8,11 @@ import (
 	"ecom-golang-clean-architecture/internal/domain/entities"
 	"ecom-golang-clean-architecture/internal/domain/repositories"
 	"ecom-golang-clean-architecture/internal/domain/services"
+	"ecom-golang-clean-architecture/internal/infrastructure/database"
+	pkgErrors "ecom-golang-clean-architecture/pkg/errors"
 
 	"github.com/google/uuid"
+	"gorm.io/gorm"
 )
 
 // OrderUseCase defines order use cases
@@ -45,6 +48,7 @@ type orderUseCase struct {
 	orderService            services.OrderService
 	stockReservationService services.StockReservationService
 	orderEventService       services.OrderEventService
+	txManager               *database.TransactionManager
 }
 
 // NewOrderUseCase creates a new order use case
@@ -59,6 +63,7 @@ func NewOrderUseCase(
 	orderService services.OrderService,
 	stockReservationService services.StockReservationService,
 	orderEventService services.OrderEventService,
+	txManager *database.TransactionManager,
 ) OrderUseCase {
 	return &orderUseCase{
 		orderRepo:               orderRepo,
@@ -71,6 +76,7 @@ func NewOrderUseCase(
 		orderService:            orderService,
 		stockReservationService: stockReservationService,
 		orderEventService:       orderEventService,
+		txManager:               txManager,
 	}
 }
 
@@ -212,40 +218,68 @@ type OrderAddressResponse struct {
 
 // CreateOrder creates a new order
 func (uc *orderUseCase) CreateOrder(ctx context.Context, userID uuid.UUID, req CreateOrderRequest) (*OrderResponse, error) {
+	// Execute the entire order creation in a transaction
+	result, err := uc.txManager.WithTransactionResult(ctx, func(tx *gorm.DB) (interface{}, error) {
+		return uc.createOrderInTransaction(ctx, tx, userID, req)
+	})
+	if err != nil {
+		return nil, err
+	}
+	return result.(*OrderResponse), nil
+}
+
+// createOrderInTransaction handles order creation within a transaction
+func (uc *orderUseCase) createOrderInTransaction(ctx context.Context, tx *gorm.DB, userID uuid.UUID, req CreateOrderRequest) (*OrderResponse, error) {
 	// Get user's cart
 	cart, err := uc.cartRepo.GetByUserID(ctx, userID)
 	if err != nil {
-		return nil, entities.ErrCartNotFound
+		return nil, pkgErrors.CartNotFound()
 	}
 
 	if cart.IsEmpty() {
-		return nil, entities.ErrInvalidInput
+		return nil, pkgErrors.InvalidInput("Cart is empty")
 	}
 
-	// Validate cart items and check stock
+	// Validate cart items
 	if err := uc.orderService.ValidateOrderItems(cart.Items); err != nil {
-		return nil, err
+		return nil, pkgErrors.Wrap(err, pkgErrors.ErrCodeInvalidInput, "Invalid cart items")
 	}
 
-	// Check product availability and stock reservation capability
+	// Bulk check product availability to avoid N+1 queries
+	productIDs := make([]uuid.UUID, len(cart.Items))
+	for i, item := range cart.Items {
+		productIDs[i] = item.ProductID
+	}
+
+	products, err := uc.getProductsBulk(ctx, productIDs)
+	if err != nil {
+		return nil, pkgErrors.Wrap(err, pkgErrors.ErrCodeProductNotFound, "Failed to get products")
+	}
+
+	// Validate products and stock availability
 	for _, item := range cart.Items {
-		product, err := uc.productRepo.GetByID(ctx, item.ProductID)
-		if err != nil {
-			return nil, entities.ErrProductNotFound
+		product, exists := products[item.ProductID]
+		if !exists {
+			return nil, pkgErrors.ProductNotFound().WithContext("product_id", item.ProductID)
 		}
 
 		if !product.IsAvailable() {
-			return nil, entities.ErrProductNotAvailable
+			return nil, pkgErrors.New(pkgErrors.ErrCodeProductNotAvailable, "Product not available").
+				WithContext("product_id", item.ProductID).
+				WithContext("product_name", product.Name)
 		}
 
-		// Check if we can reserve the stock instead of reducing it immediately
+		// Check if we can reserve the stock
 		canReserve, err := uc.stockReservationService.CanReserveStock(ctx, item.ProductID, item.Quantity)
 		if err != nil {
-			return nil, fmt.Errorf("failed to check stock availability: %w", err)
+			return nil, pkgErrors.Wrap(err, pkgErrors.ErrCodeInternalError, "Failed to check stock availability")
 		}
 
 		if !canReserve {
-			return nil, entities.ErrInsufficientStock
+			return nil, pkgErrors.InsufficientStock().
+				WithContext("product_id", item.ProductID).
+				WithContext("product_name", product.Name).
+				WithContext("requested_quantity", item.Quantity)
 		}
 	}
 
@@ -254,10 +288,16 @@ func (uc *orderUseCase) CreateOrder(ctx context.Context, userID uuid.UUID, req C
 		cart.Items, req.TaxRate, req.ShippingCost, req.DiscountAmount,
 	)
 
+	// Generate unique order number
+	orderNumber, err := uc.orderService.GenerateUniqueOrderNumber(ctx)
+	if err != nil {
+		return nil, pkgErrors.Wrap(err, pkgErrors.ErrCodeInternalError, "Failed to generate order number")
+	}
+
 	// Create order with reservation fields
 	order := &entities.Order{
 		ID:             uuid.New(),
-		OrderNumber:    uc.orderService.GenerateOrderNumber(),
+		OrderNumber:    orderNumber,
 		UserID:         userID,
 		Status:         entities.OrderStatusPending,
 		PaymentStatus:  entities.PaymentStatusPending,
@@ -310,9 +350,9 @@ func (uc *orderUseCase) CreateOrder(ctx context.Context, userID uuid.UUID, req C
 		order.BillingAddress = order.ShippingAddress
 	}
 
-	// Create order items
+	// Create order items using bulk data
 	for _, cartItem := range cart.Items {
-		product, _ := uc.productRepo.GetByID(ctx, cartItem.ProductID)
+		product := products[cartItem.ProductID]
 
 		orderItem := entities.OrderItem{
 			ID:          uuid.New(),
@@ -329,42 +369,58 @@ func (uc *orderUseCase) CreateOrder(ctx context.Context, userID uuid.UUID, req C
 		order.Items = append(order.Items, orderItem)
 	}
 
-	// Create order
+	// Create order within transaction
 	if err := uc.orderRepo.Create(ctx, order); err != nil {
-		return nil, err
+		return nil, pkgErrors.Wrap(err, pkgErrors.ErrCodeInternalError, "Failed to create order")
 	}
 
-	// Reserve stock instead of reducing it immediately
+	// Reserve stock within transaction
 	if err := uc.stockReservationService.ReserveStockForOrder(ctx, order.ID, userID, cart.Items); err != nil {
-		// If reservation fails, delete the order and return error
-		uc.orderRepo.Delete(ctx, order.ID)
-		return nil, fmt.Errorf("failed to reserve stock: %w", err)
+		return nil, pkgErrors.Wrap(err, pkgErrors.ErrCodeInsufficientStock, "Failed to reserve stock")
 	}
 
-	// Create order created event
-	if err := uc.orderEventService.CreateOrderCreatedEvent(ctx, order, &userID); err != nil {
-		fmt.Printf("Warning: Failed to create order created event: %v\n", err)
+	// Clear cart within transaction
+	if err := uc.cartRepo.ClearCart(ctx, cart.ID); err != nil {
+		return nil, pkgErrors.Wrap(err, pkgErrors.ErrCodeInternalError, "Failed to clear cart")
 	}
 
-	// Create inventory reserved event
-	if err := uc.orderEventService.CreateInventoryReservedEvent(ctx, order.ID, cart.Items, &userID); err != nil {
-		fmt.Printf("Warning: Failed to create inventory reserved event: %v\n", err)
-	}
+	// Create events (these can fail without rolling back the transaction)
+	go func() {
+		// Create order created event
+		if err := uc.orderEventService.CreateOrderCreatedEvent(context.Background(), order, &userID); err != nil {
+			fmt.Printf("Warning: Failed to create order created event: %v\n", err)
+		}
 
-	// Note: Payment record will be created during checkout session creation
-	// This allows the payment to have the proper transaction ID from Stripe
-	// Stock will be actually reduced when payment is confirmed via webhook
-
-	// Clear cart
-	uc.cartRepo.ClearCart(ctx, cart.ID)
+		// Create inventory reserved event
+		if err := uc.orderEventService.CreateInventoryReservedEvent(context.Background(), order.ID, cart.Items, &userID); err != nil {
+			fmt.Printf("Warning: Failed to create inventory reserved event: %v\n", err)
+		}
+	}()
 
 	// Get created order with relations
 	createdOrder, err := uc.orderRepo.GetByID(ctx, order.ID)
 	if err != nil {
-		return nil, err
+		return nil, pkgErrors.Wrap(err, pkgErrors.ErrCodeOrderNotFound, "Failed to retrieve created order")
 	}
 
 	return uc.toOrderResponse(createdOrder), nil
+}
+
+// getProductsBulk retrieves multiple products in a single query to avoid N+1 problem
+func (uc *orderUseCase) getProductsBulk(ctx context.Context, productIDs []uuid.UUID) (map[uuid.UUID]*entities.Product, error) {
+	// Use bulk query to get all products at once
+	productList, err := uc.productRepo.GetByIDs(ctx, productIDs)
+	if err != nil {
+		return nil, err
+	}
+
+	// Convert to map for easy lookup
+	products := make(map[uuid.UUID]*entities.Product)
+	for _, product := range productList {
+		products[product.ID] = product
+	}
+
+	return products, nil
 }
 
 // GetOrder gets an order by ID
