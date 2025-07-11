@@ -49,8 +49,16 @@ export interface Order extends BaseEntity {
     first_name: string
     last_name: string
   }
-  status: 'pending' | 'confirmed' | 'processing' | 'shipped' | 'delivered' | 'cancelled' | 'refunded'
+
+  // Order Status & Management
+  status: 'pending' | 'confirmed' | 'processing' | 'ready_to_ship' | 'shipped' | 'out_for_delivery' | 'delivered' | 'cancelled' | 'refunded' | 'returned' | 'exchanged'
+  fulfillment_status: 'pending' | 'processing' | 'packed' | 'shipped' | 'delivered' | 'returned' | 'cancelled'
   payment_status: 'pending' | 'processing' | 'paid' | 'failed' | 'cancelled' | 'refunded'
+  priority: 'low' | 'normal' | 'high' | 'urgent' | 'critical'
+  source: 'web' | 'mobile' | 'admin' | 'api' | 'phone' | 'email' | 'social'
+  customer_type: 'guest' | 'registered' | 'vip' | 'wholesale' | 'corporate'
+
+  // Financial Information
   items: OrderItem[]
   shipping_address?: OrderAddress
   billing_address?: OrderAddress
@@ -58,17 +66,55 @@ export interface Order extends BaseEntity {
   tax_amount: number
   shipping_amount: number
   discount_amount: number
-  total: number // Backend uses 'total', not 'total_amount'
+  tip_amount: number
+  total: number
   currency: string
-  notes?: string
+
+  // Shipping & Delivery
+  shipping_method?: string
+  tracking_number?: string
+  tracking_url?: string
+  carrier?: string
+  estimated_delivery?: string
+  actual_delivery?: string
+  delivery_instructions?: string
+  delivery_attempts: number
+
+  // Customer Information
+  customer_notes?: string
+  admin_notes?: string
+  internal_notes?: string
+
+  // Gift Options
+  is_gift: boolean
+  gift_message?: string
+  gift_wrap: boolean
+
+  // Business Information
+  sales_channel?: string
+  referral_source?: string
+  coupon_codes?: string
+  tags?: string
+
+  // Fulfillment Information
+  warehouse_id?: string
+  packed_at?: string
+  shipped_at?: string
+  processed_at?: string
+
+  // Order Capabilities
   payment?: any
   item_count: number
   can_be_cancelled: boolean
   can_be_refunded: boolean
-  tracking_number?: string // Add missing tracking number
-  estimated_delivery?: string // Add missing estimated delivery
-  created_at: string // Explicitly add created_at for order detail page
-  updated_at: string // Explicitly add updated_at for order detail page
+  can_be_shipped: boolean
+  can_be_delivered: boolean
+  is_shipped: boolean
+  is_delivered: boolean
+  has_tracking: boolean
+
+  created_at: string
+  updated_at: string
 }
 
 export interface OrderItem {
@@ -95,6 +141,25 @@ export interface OrderAddress {
   country: string
   phone?: string
   is_default?: boolean
+}
+
+// Order Event types
+export interface OrderEvent {
+  id: string
+  order_id: string
+  event_type: 'created' | 'status_changed' | 'payment_received' | 'payment_failed' | 'shipped' | 'delivered' | 'cancelled' | 'refunded' | 'returned' | 'note_added' | 'tracking_updated' | 'inventory_reserved' | 'inventory_released' | 'custom'
+  title: string
+  description: string
+  data?: string
+  user_id?: string
+  user?: {
+    id: string
+    first_name: string
+    last_name: string
+    email: string
+  }
+  is_public: boolean
+  created_at: string
 }
 
 export interface CreateOrderRequest {

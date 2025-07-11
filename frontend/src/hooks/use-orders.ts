@@ -1,7 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import apiClient from '@/lib/api'
-import { Order, PaginatedResponse, CreateOrderRequest } from '@/types'
+import { Order, PaginatedResponse, CreateOrderRequest, OrderEvent } from '@/types'
 
 // Query keys
 export const orderKeys = {
@@ -12,6 +12,7 @@ export const orderKeys = {
   detail: (id: string) => [...orderKeys.details(), id] as const,
   user: (userId: string) => [...orderKeys.all, 'user', userId] as const,
   admin: () => [...orderKeys.all, 'admin'] as const,
+  events: (orderId: string) => [...orderKeys.detail(orderId), 'events'] as const,
 }
 
 // Get orders (user's own orders)
@@ -557,11 +558,108 @@ export function useSearchOrders(query: string, options?: {
         search: query,
         limit: (options?.limit || 20).toString()
       })
-      
+
       const response = await apiClient.get<PaginatedResponse<Order>>(`/orders?${params}`)
       return response.data.data
     },
     enabled: options?.enabled !== false && !!query.trim(),
     staleTime: 30 * 1000,
+  })
+}
+
+// Get order events
+export function useOrderEvents(orderId: string, publicOnly: boolean = false) {
+  return useQuery({
+    queryKey: orderKeys.events(orderId),
+    queryFn: async (): Promise<OrderEvent[]> => {
+      const params = new URLSearchParams()
+      if (publicOnly) params.append('public', 'true')
+
+      const url = `/orders/${orderId}/events${params.toString() ? `?${params.toString()}` : ''}`
+      const response = await apiClient.get<{ data: OrderEvent[] }>(url)
+      return response.data.data
+    },
+    enabled: !!orderId,
+    staleTime: 30 * 1000,
+  })
+}
+
+// Add order note
+export function useAddOrderNote() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: async ({ orderId, note, isPublic }: {
+      orderId: string
+      note: string
+      isPublic: boolean
+    }) => {
+      const response = await apiClient.post(`/orders/${orderId}/notes`, {
+        note,
+        is_public: isPublic
+      })
+      return response.data
+    },
+    onSuccess: (_, variables) => {
+      toast.success('Note added successfully')
+      queryClient.invalidateQueries({ queryKey: orderKeys.events(variables.orderId) })
+      queryClient.invalidateQueries({ queryKey: orderKeys.detail(variables.orderId) })
+    },
+    onError: (error: any) => {
+      toast.error(error.response?.data?.error || 'Failed to add note')
+    },
+  })
+}
+
+// Update shipping info (Admin)
+export function useUpdateShippingInfo() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: async ({ orderId, shippingData }: {
+      orderId: string
+      shippingData: {
+        tracking_number: string
+        carrier: string
+        shipping_method: string
+        tracking_url?: string
+      }
+    }) => {
+      const response = await apiClient.put(`/admin/orders/${orderId}/shipping`, shippingData)
+      return response.data
+    },
+    onSuccess: (_, variables) => {
+      toast.success('Shipping info updated successfully')
+      queryClient.invalidateQueries({ queryKey: orderKeys.events(variables.orderId) })
+      queryClient.invalidateQueries({ queryKey: orderKeys.detail(variables.orderId) })
+      queryClient.invalidateQueries({ queryKey: orderKeys.admin() })
+    },
+    onError: (error: any) => {
+      toast.error(error.response?.data?.error || 'Failed to update shipping info')
+    },
+  })
+}
+
+// Update delivery status (Admin)
+export function useUpdateDeliveryStatus() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: async ({ orderId, status }: {
+      orderId: string
+      status: string
+    }) => {
+      const response = await apiClient.put(`/admin/orders/${orderId}/delivery`, { status })
+      return response.data
+    },
+    onSuccess: (_, variables) => {
+      toast.success('Delivery status updated successfully')
+      queryClient.invalidateQueries({ queryKey: orderKeys.events(variables.orderId) })
+      queryClient.invalidateQueries({ queryKey: orderKeys.detail(variables.orderId) })
+      queryClient.invalidateQueries({ queryKey: orderKeys.admin() })
+    },
+    onError: (error: any) => {
+      toast.error(error.response?.data?.error || 'Failed to update delivery status')
+    },
   })
 }

@@ -149,7 +149,7 @@ func (h *OrderHandler) GetOrderPublic(c *gin.Context) {
 		"discount_amount":  order.DiscountAmount,
 		"total":            order.Total,
 		"currency":         order.Currency,
-		"notes":            order.Notes,
+		"customer_notes":   order.CustomerNotes,
 		"item_count":       order.ItemCount,
 		"can_be_cancelled": order.CanBeCancelled,
 		"can_be_refunded":  order.CanBeRefunded,
@@ -441,5 +441,142 @@ func (h *OrderHandler) GetOrderBySessionID(c *gin.Context) {
 
 	c.JSON(http.StatusOK, SuccessResponse{
 		Data: order,
+	})
+}
+
+// UpdateShippingInfo handles updating shipping information for an order
+func (h *OrderHandler) UpdateShippingInfo(c *gin.Context) {
+	orderIDStr := c.Param("id")
+	orderID, err := uuid.Parse(orderIDStr)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, ErrorResponse{
+			Error:   "Invalid order ID",
+			Details: err.Error(),
+		})
+		return
+	}
+
+	var req usecases.UpdateShippingInfoRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, ErrorResponse{
+			Error:   "Invalid request body",
+			Details: err.Error(),
+		})
+		return
+	}
+
+	order, err := h.orderUseCase.UpdateShippingInfo(c.Request.Context(), orderID, req)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, ErrorResponse{
+			Error:   "Failed to update shipping info",
+			Details: err.Error(),
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, SuccessResponse{
+		Message: "Shipping info updated successfully",
+		Data:    order,
+	})
+}
+
+// UpdateDeliveryStatus handles updating delivery status for an order
+func (h *OrderHandler) UpdateDeliveryStatus(c *gin.Context) {
+	orderIDStr := c.Param("id")
+	orderID, err := uuid.Parse(orderIDStr)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, ErrorResponse{
+			Error:   "Invalid order ID",
+			Details: err.Error(),
+		})
+		return
+	}
+
+	var req struct {
+		Status entities.OrderStatus `json:"status" binding:"required"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, ErrorResponse{
+			Error:   "Invalid request body",
+			Details: err.Error(),
+		})
+		return
+	}
+
+	order, err := h.orderUseCase.UpdateDeliveryStatus(c.Request.Context(), orderID, req.Status)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, ErrorResponse{
+			Error:   "Failed to update delivery status",
+			Details: err.Error(),
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, SuccessResponse{
+		Message: "Delivery status updated successfully",
+		Data:    order,
+	})
+}
+
+// AddOrderNote handles adding a note to an order
+func (h *OrderHandler) AddOrderNote(c *gin.Context) {
+	orderIDStr := c.Param("id")
+	orderID, err := uuid.Parse(orderIDStr)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, ErrorResponse{
+			Error:   "Invalid order ID",
+			Details: err.Error(),
+		})
+		return
+	}
+
+	var req usecases.AddOrderNoteRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, ErrorResponse{
+			Error:   "Invalid request body",
+			Details: err.Error(),
+		})
+		return
+	}
+
+	if err := h.orderUseCase.AddOrderNote(c.Request.Context(), orderID, req); err != nil {
+		c.JSON(http.StatusInternalServerError, ErrorResponse{
+			Error:   "Failed to add order note",
+			Details: err.Error(),
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, SuccessResponse{
+		Message: "Order note added successfully",
+	})
+}
+
+// GetOrderEvents handles getting order events/timeline
+func (h *OrderHandler) GetOrderEvents(c *gin.Context) {
+	orderIDStr := c.Param("id")
+	orderID, err := uuid.Parse(orderIDStr)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, ErrorResponse{
+			Error:   "Invalid order ID",
+			Details: err.Error(),
+		})
+		return
+	}
+
+	publicOnly := c.Query("public") == "true"
+
+	events, err := h.orderUseCase.GetOrderEvents(c.Request.Context(), orderID, publicOnly)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, ErrorResponse{
+			Error:   "Failed to get order events",
+			Details: err.Error(),
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, SuccessResponse{
+		Message: "Order events retrieved successfully",
+		Data:    events,
 	})
 }

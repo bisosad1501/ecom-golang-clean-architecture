@@ -10,7 +10,8 @@ import { Badge } from '@/components/ui/badge'
 import { Separator } from '@/components/ui/separator'
 import { AnimatedBackground } from '@/components/ui/animated-background'
 import { InvoicePreviewModal } from '@/components/modals/InvoicePreviewModal'
-import { useOrder } from '@/hooks/use-orders'
+import { OrderTimeline } from '@/components/ui/order-timeline'
+import { useOrder, useOrderEvents } from '@/hooks/use-orders'
 import { formatPrice, formatDate, cn } from '@/lib/utils'
 import { toast } from 'sonner'
 
@@ -26,12 +27,22 @@ const getStatusIcon = (status: string) => {
       return <ShieldCheck className="h-5 w-5 text-cyan-300" />
     case 'processing':
       return <Zap className="h-5 w-5 text-blue-300" />
+    case 'ready_to_ship':
+      return <Package className="h-5 w-5 text-orange-300" />
     case 'shipped':
       return <Truck className="h-5 w-5 text-purple-300" />
+    case 'out_for_delivery':
+      return <MapPin className="h-5 w-5 text-indigo-300" />
     case 'delivered':
       return <CheckCircle className="h-5 w-5 text-green-300" />
     case 'cancelled':
       return <XCircle className="h-5 w-5 text-red-300" />
+    case 'refunded':
+      return <RefreshCw className="h-5 w-5 text-gray-300" />
+    case 'returned':
+      return <RefreshCw className="h-5 w-5 text-orange-300" />
+    case 'exchanged':
+      return <RefreshCw className="h-5 w-5 text-blue-300" />
     default:
       return <Package className="h-5 w-5 text-gray-300" />
   }
@@ -45,12 +56,22 @@ const getStatusColor = (status: string) => {
       return 'bg-cyan-500/20 text-cyan-300 border-cyan-500/40 shadow-sm'
     case 'processing':
       return 'bg-blue-500/20 text-blue-300 border-blue-500/40 shadow-sm'
+    case 'ready_to_ship':
+      return 'bg-orange-500/20 text-orange-300 border-orange-500/40 shadow-sm'
     case 'shipped':
       return 'bg-purple-500/20 text-purple-300 border-purple-500/40 shadow-sm'
+    case 'out_for_delivery':
+      return 'bg-indigo-500/20 text-indigo-300 border-indigo-500/40 shadow-sm'
     case 'delivered':
       return 'bg-green-500/20 text-green-300 border-green-500/40 shadow-sm'
     case 'cancelled':
       return 'bg-red-500/20 text-red-300 border-red-500/40 shadow-sm'
+    case 'refunded':
+      return 'bg-gray-500/20 text-gray-300 border-gray-500/40 shadow-sm'
+    case 'returned':
+      return 'bg-orange-500/20 text-orange-300 border-orange-500/40 shadow-sm'
+    case 'exchanged':
+      return 'bg-blue-500/20 text-blue-300 border-blue-500/40 shadow-sm'
     default:
       return 'bg-gray-500/20 text-gray-300 border-gray-500/40 shadow-sm'
   }
@@ -60,6 +81,7 @@ export function OrderDetailPage({ orderId }: Props) {
   const [copiedTrackingId, setCopiedTrackingId] = useState(false)
   const [showInvoiceModal, setShowInvoiceModal] = useState(false)
   const { data: order, isLoading, error } = useOrder(orderId)
+  const { data: events = [] } = useOrderEvents(orderId)
 
   const copyTrackingNumber = () => {
     if (order?.tracking_number) {
@@ -365,7 +387,7 @@ export function OrderDetailPage({ orderId }: Props) {
                 </div>
 
                 {/* Order Notes & Delivery Info */}
-                {(order?.estimated_delivery || order?.notes) && (
+                {(order?.estimated_delivery || order?.customer_notes) && (
                   <div className="mt-6 space-y-3">
                     {order?.estimated_delivery && (
                       <div className="flex items-center gap-3 p-3 bg-green-500/10 border border-green-500/30 rounded-lg">
@@ -377,10 +399,10 @@ export function OrderDetailPage({ orderId }: Props) {
                       </div>
                     )}
 
-                    {order?.notes && (
+                    {order?.customer_notes && (
                       <div className="p-4 bg-blue-500/10 border border-blue-500/30 rounded-lg">
                         <p className="text-blue-300 font-medium mb-2">Order Notes</p>
-                        <p className="text-gray-300 text-sm">{order.notes}</p>
+                        <p className="text-gray-300 text-sm">{order.customer_notes}</p>
                       </div>
                     )}
                   </div>
@@ -515,6 +537,83 @@ export function OrderDetailPage({ orderId }: Props) {
               </CardContent>
             </Card>
 
+            {/* Tracking Information */}
+            {(order?.tracking_number || order?.carrier || order?.shipping_method) && (
+              <Card className={cn(
+                'backdrop-blur-sm border transition-all duration-300',
+                'bg-gradient-to-br from-slate-900/80 via-gray-900/85 to-slate-800/80',
+                'border-gray-700/50 hover:border-[#ff9000]/30 rounded-xl',
+                'shadow-lg shadow-black/40 hover:shadow-[#ff9000]/10'
+              )}>
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-white flex items-center gap-2 text-xl font-semibold">
+                    <Truck className="h-4 w-4 text-[#ff9000]" />
+                    Tracking Information
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="pt-0 space-y-3">
+                  {order?.tracking_number && (
+                    <div className="space-y-2">
+                      <div className="flex justify-between items-center">
+                        <span className="text-gray-400 text-sm">Tracking Number</span>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={copyTrackingNumber}
+                          className="h-auto p-1 text-blue-400 hover:text-blue-300"
+                        >
+                          {copiedTrackingId ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
+                        </Button>
+                      </div>
+                      <div className="text-white font-mono text-sm bg-gray-800/50 p-2 rounded border border-gray-700">
+                        {order.tracking_number}
+                      </div>
+                    </div>
+                  )}
+
+                  {order?.carrier && (
+                    <div className="space-y-1">
+                      <span className="text-gray-400 text-sm">Carrier</span>
+                      <div className="text-white font-medium">{order.carrier}</div>
+                    </div>
+                  )}
+
+                  {order?.shipping_method && (
+                    <div className="space-y-1">
+                      <span className="text-gray-400 text-sm">Shipping Method</span>
+                      <div className="text-white font-medium">{order.shipping_method}</div>
+                    </div>
+                  )}
+
+                  {order?.estimated_delivery && (
+                    <div className="space-y-1">
+                      <span className="text-gray-400 text-sm">Estimated Delivery</span>
+                      <div className="text-white font-medium">{formatDate(order.estimated_delivery)}</div>
+                    </div>
+                  )}
+
+                  {order?.actual_delivery && (
+                    <div className="space-y-1">
+                      <span className="text-gray-400 text-sm">Delivered On</span>
+                      <div className="text-green-400 font-medium">{formatDate(order.actual_delivery)}</div>
+                    </div>
+                  )}
+
+                  {order?.tracking_url && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => window.open(order.tracking_url, '_blank')}
+                      className="w-full border-purple-500/50 text-purple-400 hover:bg-purple-500/10 hover:border-purple-500/70 transition-all duration-300"
+                    >
+                      <MapPin className="h-4 w-4 mr-2" />
+                      Track Package
+                    </Button>
+                  )}
+                </CardContent>
+              </Card>
+            )}
+
             {/* Quick Actions */}
             <Card className={cn(
               'backdrop-blur-sm border transition-all duration-300',
@@ -556,6 +655,15 @@ export function OrderDetailPage({ orderId }: Props) {
                 )}
               </CardContent>
             </Card>
+          </div>
+
+          {/* Order Timeline */}
+          <div className="lg:col-span-2">
+            <OrderTimeline
+              orderId={orderId}
+              events={events}
+              showPrivateEvents={false}
+            />
           </div>
         </div>
       </div>

@@ -233,6 +233,8 @@ func SetupRoutes(
 				orders.GET("/by-session", orderHandler.GetOrderBySessionID)
 				orders.GET("/:id", orderHandler.GetOrder)
 				orders.POST("/:id/cancel", orderHandler.CancelOrder)
+				orders.GET("/:id/events", orderHandler.GetOrderEvents)
+				orders.POST("/:id/notes", orderHandler.AddOrderNote)
 				// orders.GET("/:id/invoice", orderHandler.GetOrderInvoice) // TODO: Implement GetOrderInvoice method
 				// orders.POST("/:id/reorder", orderHandler.ReorderItems) // TODO: Implement ReorderItems method
 			}
@@ -365,6 +367,10 @@ func SetupRoutes(
 				adminOrders.GET("/:id", adminHandler.GetOrderDetails)
 				adminOrders.PUT("/:id/status", adminHandler.UpdateOrderStatus)
 				adminOrders.PATCH("/:id/status", adminHandler.UpdateOrderStatus) // Add PATCH route
+				adminOrders.PUT("/:id/shipping", orderHandler.UpdateShippingInfo)
+				adminOrders.PUT("/:id/delivery", orderHandler.UpdateDeliveryStatus)
+				adminOrders.POST("/:id/notes", orderHandler.AddOrderNote)
+				adminOrders.GET("/:id/events", orderHandler.GetOrderEvents)
 				adminOrders.POST("/:id/refund", adminHandler.ProcessRefund)
 			}
 

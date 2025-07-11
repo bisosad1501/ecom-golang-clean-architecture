@@ -60,6 +60,7 @@ type adminUseCase struct {
 	inventoryRepo repositories.InventoryRepository
 	paymentRepo   repositories.PaymentRepository
 	auditRepo     repositories.AuditRepository
+	orderUseCase  OrderUseCase
 }
 
 // NewAdminUseCase creates a new admin use case
@@ -72,6 +73,7 @@ func NewAdminUseCase(
 	inventoryRepo repositories.InventoryRepository,
 	paymentRepo repositories.PaymentRepository,
 	auditRepo repositories.AuditRepository,
+	orderUseCase OrderUseCase,
 ) AdminUseCase {
 	return &adminUseCase{
 		userRepo:      userRepo,
@@ -82,6 +84,7 @@ func NewAdminUseCase(
 		inventoryRepo: inventoryRepo,
 		paymentRepo:   paymentRepo,
 		auditRepo:     auditRepo,
+		orderUseCase:  orderUseCase,
 	}
 }
 
@@ -1519,14 +1522,9 @@ func (uc *adminUseCase) GetUserActivity(ctx context.Context, userID uuid.UUID, r
 
 // UpdateOrderStatus updates order status
 func (uc *adminUseCase) UpdateOrderStatus(ctx context.Context, orderID uuid.UUID, status entities.OrderStatus) error {
-	// Check if order exists
-	_, err := uc.orderRepo.GetByID(ctx, orderID)
-	if err != nil {
-		return err
-	}
-
-	// Update order status in database
-	return uc.orderRepo.UpdateStatus(ctx, orderID, status)
+	// Use order usecase to update status properly with events
+	_, err := uc.orderUseCase.UpdateOrderStatus(ctx, orderID, status)
+	return err
 }
 
 // GetProducts gets products for admin

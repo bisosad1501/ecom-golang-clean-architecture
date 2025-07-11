@@ -7,6 +7,7 @@ import (
 
 	"ecom-golang-clean-architecture/internal/domain/entities"
 	"ecom-golang-clean-architecture/internal/domain/repositories"
+	"ecom-golang-clean-architecture/internal/domain/services"
 	"ecom-golang-clean-architecture/internal/infrastructure/payment"
 
 	"github.com/google/uuid"
@@ -59,12 +60,13 @@ type PaymentUseCase interface {
 }
 
 type paymentUseCase struct {
-	paymentRepo         repositories.PaymentRepository
-	orderRepo           repositories.OrderRepository
-	userRepo            repositories.UserRepository
-	stripeService       PaymentGatewayService
-	paypalService       PaymentGatewayService
-	notificationUseCase NotificationUseCase
+	paymentRepo             repositories.PaymentRepository
+	orderRepo               repositories.OrderRepository
+	userRepo                repositories.UserRepository
+	stripeService           PaymentGatewayService
+	paypalService           PaymentGatewayService
+	notificationUseCase     NotificationUseCase
+	stockReservationService services.StockReservationService
 }
 
 // NewPaymentUseCase creates a new payment use case
@@ -75,14 +77,16 @@ func NewPaymentUseCase(
 	stripeService PaymentGatewayService,
 	paypalService PaymentGatewayService,
 	notificationUseCase NotificationUseCase,
+	stockReservationService services.StockReservationService,
 ) PaymentUseCase {
 	return &paymentUseCase{
-		paymentRepo:         paymentRepo,
-		orderRepo:           orderRepo,
-		userRepo:            userRepo,
-		stripeService:       stripeService,
-		paypalService:       paypalService,
-		notificationUseCase: notificationUseCase,
+		paymentRepo:             paymentRepo,
+		orderRepo:               orderRepo,
+		userRepo:                userRepo,
+		stripeService:           stripeService,
+		paypalService:           paypalService,
+		notificationUseCase:     notificationUseCase,
+		stockReservationService: stockReservationService,
 	}
 }
 
@@ -548,6 +552,13 @@ func (uc *paymentUseCase) handleCheckoutSessionCompleted(ctx context.Context, ev
 	fmt.Printf("✅ Found order: ID=%s, Number=%s, Status=%s, PaymentStatus=%s\n",
 		order.ID, order.OrderNumber, order.Status, order.PaymentStatus)
 
+	// Confirm stock reservations (convert to actual stock reduction)
+	if err := uc.stockReservationService.ConfirmReservations(ctx, order.ID); err != nil {
+		fmt.Printf("❌ Failed to confirm stock reservations: %v\n", err)
+		return fmt.Errorf("failed to confirm stock reservations: %v", err)
+	}
+	fmt.Printf("✅ Stock reservations confirmed and converted to actual stock reduction\n")
+
 	// Update order payment status
 	oldStatus := order.Status
 	oldPaymentStatus := order.PaymentStatus
@@ -557,6 +568,8 @@ func (uc *paymentUseCase) handleCheckoutSessionCompleted(ctx context.Context, ev
 	if order.Status == entities.OrderStatusPending {
 		order.Status = entities.OrderStatusConfirmed
 	}
+	// Release reservation flags since stock is now actually reduced
+	order.ReleaseReservation()
 	order.UpdatedAt = time.Now()
 
 	if err := uc.orderRepo.Update(ctx, order); err != nil {
@@ -650,7 +663,14 @@ func (uc *paymentUseCase) handlePaymentIntentFailed(ctx context.Context, event *
 		return fmt.Errorf("order not found: %v", err)
 	}
 
+	// Release stock reservations since payment failed
+	if err := uc.stockReservationService.ReleaseReservations(ctx, order.ID); err != nil {
+		fmt.Printf("❌ Failed to release stock reservations for failed payment: %v\n", err)
+		// Continue with order update even if reservation release fails
+	}
+
 	order.PaymentStatus = entities.PaymentStatusFailed
+	order.ReleaseReservation()
 	order.UpdatedAt = time.Now()
 
 	if err := uc.orderRepo.Update(ctx, order); err != nil {

@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"log"
 
 	"ecom-golang-clean-architecture/internal/delivery/http/handlers"
@@ -100,10 +101,18 @@ func main() {
 	shippingRepo := database.NewShippingRepository(db)
 	auditRepo := database.NewAuditRepository(db)
 	warehouseRepo := database.NewWarehouseRepository(db)
+	stockReservationRepo := database.NewStockReservationRepository(db)
+	orderEventRepo := database.NewOrderEventRepository(db)
 
 	// Initialize domain services
 	passwordService := services.NewPasswordService()
 	orderService := services.NewOrderService()
+	stockReservationService := services.NewStockReservationService(
+		stockReservationRepo,
+		productRepo,
+		inventoryRepo,
+	)
+	orderEventService := services.NewOrderEventService(orderEventRepo)
 
 	// Initialize storage service
 	fileStorageConfig := config.LoadFileStorageConfig()
@@ -155,7 +164,11 @@ func main() {
 		productRepo,
 		paymentRepo,
 		inventoryRepo,
+		stockReservationRepo,
+		orderEventRepo,
 		orderService,
+		stockReservationService,
+		orderEventService,
 	)
 
 	fileUseCase := usecases.NewFileUseCase(fileService)
@@ -186,6 +199,7 @@ func main() {
 		paymentRepo, orderRepo, userRepo,
 		stripeService, paypalService,
 		notificationUseCase,
+		stockReservationService,
 	)
 
 	// Initialize shipping use case
@@ -194,6 +208,14 @@ func main() {
 	adminUseCase := usecases.NewAdminUseCase(
 		userRepo, orderRepo, productRepo, reviewRepo,
 		analyticsRepo, inventoryRepo, paymentRepo, auditRepo,
+		orderUseCase,
+	)
+
+	// Initialize stock cleanup use case
+	stockCleanupUseCase := usecases.NewStockCleanupUseCase(
+		stockReservationService,
+		orderRepo,
+		stockReservationRepo,
 	)
 
 	// Initialize JWT service
@@ -250,6 +272,12 @@ func main() {
 		adminHandler,
 		oauthHandler,
 	)
+
+	// Start background cleanup scheduler
+	go func() {
+		ctx := context.Background()
+		usecases.StartCleanupScheduler(ctx, stockCleanupUseCase)
+	}()
 
 	// Start server
 	log.Printf("Starting server on %s", cfg.App.GetAddress())

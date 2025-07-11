@@ -22,15 +22,29 @@ type OrderUseCase interface {
 	UpdateOrderStatus(ctx context.Context, orderID uuid.UUID, status entities.OrderStatus) (*OrderResponse, error)
 	CancelOrder(ctx context.Context, orderID uuid.UUID) (*OrderResponse, error)
 	GetOrders(ctx context.Context, req GetOrdersRequest) ([]*OrderResponse, error)
+
+	// Shipping management
+	UpdateShippingInfo(ctx context.Context, orderID uuid.UUID, req UpdateShippingInfoRequest) (*OrderResponse, error)
+	UpdateDeliveryStatus(ctx context.Context, orderID uuid.UUID, status entities.OrderStatus) (*OrderResponse, error)
+
+	// Order notes management
+	AddOrderNote(ctx context.Context, orderID uuid.UUID, req AddOrderNoteRequest) error
+
+	// Order events
+	GetOrderEvents(ctx context.Context, orderID uuid.UUID, publicOnly bool) ([]*entities.OrderEvent, error)
 }
 
 type orderUseCase struct {
-	orderRepo     repositories.OrderRepository
-	cartRepo      repositories.CartRepository
-	productRepo   repositories.ProductRepository
-	paymentRepo   repositories.PaymentRepository
-	inventoryRepo repositories.InventoryRepository
-	orderService  services.OrderService
+	orderRepo               repositories.OrderRepository
+	cartRepo                repositories.CartRepository
+	productRepo             repositories.ProductRepository
+	paymentRepo             repositories.PaymentRepository
+	inventoryRepo           repositories.InventoryRepository
+	stockReservationRepo    repositories.StockReservationRepository
+	orderEventRepo          repositories.OrderEventRepository
+	orderService            services.OrderService
+	stockReservationService services.StockReservationService
+	orderEventService       services.OrderEventService
 }
 
 // NewOrderUseCase creates a new order use case
@@ -40,15 +54,23 @@ func NewOrderUseCase(
 	productRepo repositories.ProductRepository,
 	paymentRepo repositories.PaymentRepository,
 	inventoryRepo repositories.InventoryRepository,
+	stockReservationRepo repositories.StockReservationRepository,
+	orderEventRepo repositories.OrderEventRepository,
 	orderService services.OrderService,
+	stockReservationService services.StockReservationService,
+	orderEventService services.OrderEventService,
 ) OrderUseCase {
 	return &orderUseCase{
-		orderRepo:     orderRepo,
-		cartRepo:      cartRepo,
-		productRepo:   productRepo,
-		paymentRepo:   paymentRepo,
-		inventoryRepo: inventoryRepo,
-		orderService:  orderService,
+		orderRepo:               orderRepo,
+		cartRepo:                cartRepo,
+		productRepo:             productRepo,
+		paymentRepo:             paymentRepo,
+		inventoryRepo:           inventoryRepo,
+		stockReservationRepo:    stockReservationRepo,
+		orderEventRepo:          orderEventRepo,
+		orderService:            orderService,
+		stockReservationService: stockReservationService,
+		orderEventService:       orderEventService,
 	}
 }
 
@@ -119,27 +141,48 @@ type AddressRequest struct {
 
 // OrderResponse represents order response
 type OrderResponse struct {
-	ID              uuid.UUID              `json:"id"`
-	OrderNumber     string                 `json:"order_number"`
-	User            *UserResponse          `json:"user"`
-	Items           []OrderItemResponse    `json:"items"`
-	Status          entities.OrderStatus   `json:"status"`
-	PaymentStatus   entities.PaymentStatus `json:"payment_status"`
-	Subtotal        float64                `json:"subtotal"`
-	TaxAmount       float64                `json:"tax_amount"`
-	ShippingAmount  float64                `json:"shipping_amount"`
-	DiscountAmount  float64                `json:"discount_amount"`
-	Total           float64                `json:"total"`
-	Currency        string                 `json:"currency"`
-	ShippingAddress *OrderAddressResponse  `json:"shipping_address"`
-	BillingAddress  *OrderAddressResponse  `json:"billing_address"`
-	Notes           string                 `json:"notes"`
-	Payment         *PaymentResponse       `json:"payment"`
-	ItemCount       int                    `json:"item_count"`
-	CanBeCancelled  bool                   `json:"can_be_cancelled"`
-	CanBeRefunded   bool                   `json:"can_be_refunded"`
-	CreatedAt       time.Time              `json:"created_at"`
-	UpdatedAt       time.Time              `json:"updated_at"`
+	ID                   uuid.UUID                  `json:"id"`
+	OrderNumber          string                     `json:"order_number"`
+	User                 *UserResponse              `json:"user"`
+	Items                []OrderItemResponse        `json:"items"`
+	Status               entities.OrderStatus       `json:"status"`
+	FulfillmentStatus    entities.FulfillmentStatus `json:"fulfillment_status"`
+	PaymentStatus        entities.PaymentStatus     `json:"payment_status"`
+	Priority             entities.OrderPriority     `json:"priority"`
+	Source               entities.OrderSource       `json:"source"`
+	CustomerType         entities.CustomerType      `json:"customer_type"`
+	Subtotal             float64                    `json:"subtotal"`
+	TaxAmount            float64                    `json:"tax_amount"`
+	ShippingAmount       float64                    `json:"shipping_amount"`
+	DiscountAmount       float64                    `json:"discount_amount"`
+	TipAmount            float64                    `json:"tip_amount"`
+	Total                float64                    `json:"total"`
+	Currency             string                     `json:"currency"`
+	ShippingAddress      *OrderAddressResponse      `json:"shipping_address"`
+	BillingAddress       *OrderAddressResponse      `json:"billing_address"`
+	ShippingMethod       string                     `json:"shipping_method"`
+	TrackingNumber       string                     `json:"tracking_number"`
+	TrackingURL          string                     `json:"tracking_url"`
+	Carrier              string                     `json:"carrier"`
+	EstimatedDelivery    *time.Time                 `json:"estimated_delivery"`
+	ActualDelivery       *time.Time                 `json:"actual_delivery"`
+	DeliveryInstructions string                     `json:"delivery_instructions"`
+	CustomerNotes        string                     `json:"customer_notes"`
+	AdminNotes           string                     `json:"admin_notes"`
+	IsGift               bool                       `json:"is_gift"`
+	GiftMessage          string                     `json:"gift_message"`
+	GiftWrap             bool                       `json:"gift_wrap"`
+	Payment              *PaymentResponse           `json:"payment"`
+	ItemCount            int                        `json:"item_count"`
+	CanBeCancelled       bool                       `json:"can_be_cancelled"`
+	CanBeRefunded        bool                       `json:"can_be_refunded"`
+	CanBeShipped         bool                       `json:"can_be_shipped"`
+	CanBeDelivered       bool                       `json:"can_be_delivered"`
+	IsShipped            bool                       `json:"is_shipped"`
+	IsDelivered          bool                       `json:"is_delivered"`
+	HasTracking          bool                       `json:"has_tracking"`
+	CreatedAt            time.Time                  `json:"created_at"`
+	UpdatedAt            time.Time                  `json:"updated_at"`
 }
 
 // OrderItemResponse represents order item response
@@ -184,7 +227,7 @@ func (uc *orderUseCase) CreateOrder(ctx context.Context, userID uuid.UUID, req C
 		return nil, err
 	}
 
-	// Check product availability and stock
+	// Check product availability and stock reservation capability
 	for _, item := range cart.Items {
 		product, err := uc.productRepo.GetByID(ctx, item.ProductID)
 		if err != nil {
@@ -195,7 +238,13 @@ func (uc *orderUseCase) CreateOrder(ctx context.Context, userID uuid.UUID, req C
 			return nil, entities.ErrProductNotAvailable
 		}
 
-		if !product.CanReduceStock(item.Quantity) {
+		// Check if we can reserve the stock instead of reducing it immediately
+		canReserve, err := uc.stockReservationService.CanReserveStock(ctx, item.ProductID, item.Quantity)
+		if err != nil {
+			return nil, fmt.Errorf("failed to check stock availability: %w", err)
+		}
+
+		if !canReserve {
 			return nil, entities.ErrInsufficientStock
 		}
 	}
@@ -205,7 +254,7 @@ func (uc *orderUseCase) CreateOrder(ctx context.Context, userID uuid.UUID, req C
 		cart.Items, req.TaxRate, req.ShippingCost, req.DiscountAmount,
 	)
 
-	// Create order
+	// Create order with reservation fields
 	order := &entities.Order{
 		ID:             uuid.New(),
 		OrderNumber:    uc.orderService.GenerateOrderNumber(),
@@ -218,10 +267,17 @@ func (uc *orderUseCase) CreateOrder(ctx context.Context, userID uuid.UUID, req C
 		DiscountAmount: req.DiscountAmount,
 		Total:          total,
 		Currency:       "USD",
-		Notes:          req.Notes,
+		CustomerNotes:  req.Notes,
+		Source:         entities.OrderSourceWeb,
+		CustomerType:   entities.CustomerTypeRegistered,
+		Priority:       entities.OrderPriorityNormal,
 		CreatedAt:      time.Now(),
 		UpdatedAt:      time.Now(),
 	}
+
+	// Set reservation and payment timeouts
+	order.SetReservationTimeout(30) // 30 minutes for stock reservation
+	order.SetPaymentTimeout(24)     // 24 hours for payment
 
 	// Set addresses
 	order.ShippingAddress = &entities.OrderAddress{
@@ -278,26 +334,26 @@ func (uc *orderUseCase) CreateOrder(ctx context.Context, userID uuid.UUID, req C
 		return nil, err
 	}
 
+	// Reserve stock instead of reducing it immediately
+	if err := uc.stockReservationService.ReserveStockForOrder(ctx, order.ID, userID, cart.Items); err != nil {
+		// If reservation fails, delete the order and return error
+		uc.orderRepo.Delete(ctx, order.ID)
+		return nil, fmt.Errorf("failed to reserve stock: %w", err)
+	}
+
+	// Create order created event
+	if err := uc.orderEventService.CreateOrderCreatedEvent(ctx, order, &userID); err != nil {
+		fmt.Printf("Warning: Failed to create order created event: %v\n", err)
+	}
+
+	// Create inventory reserved event
+	if err := uc.orderEventService.CreateInventoryReservedEvent(ctx, order.ID, cart.Items, &userID); err != nil {
+		fmt.Printf("Warning: Failed to create inventory reserved event: %v\n", err)
+	}
+
 	// Note: Payment record will be created during checkout session creation
 	// This allows the payment to have the proper transaction ID from Stripe
-
-	// Reduce product stock using dedicated UpdateStock method to avoid slug conflicts
-	for _, item := range cart.Items {
-		product, err := uc.productRepo.GetByID(ctx, item.ProductID)
-		if err != nil {
-			return nil, fmt.Errorf("failed to get product %s: %w", item.ProductID, err)
-		}
-
-		// Validate stock can be reduced
-		if err := product.ReduceStock(item.Quantity); err != nil {
-			return nil, fmt.Errorf("failed to reduce stock for product %s: %w", product.Name, err)
-		}
-
-		// Use UpdateStock method instead of full Update to avoid slug constraint issues
-		if err := uc.productRepo.UpdateStock(ctx, item.ProductID, product.Stock); err != nil {
-			return nil, fmt.Errorf("failed to update stock for product %s: %w", product.Name, err)
-		}
-	}
+	// Stock will be actually reduced when payment is confirmed via webhook
 
 	// Clear cart
 	uc.cartRepo.ClearCart(ctx, cart.ID)
@@ -426,12 +482,43 @@ func (uc *orderUseCase) UpdateOrderStatus(ctx context.Context, orderID uuid.UUID
 		return nil, entities.ErrOrderNotFound
 	}
 
-	if err := uc.orderRepo.UpdateStatus(ctx, orderID, status); err != nil {
+	oldStatus := order.Status
+
+	// Update fulfillment status based on order status
+	switch status {
+	case entities.OrderStatusConfirmed:
+		order.FulfillmentStatus = entities.FulfillmentStatusPending
+	case entities.OrderStatusProcessing:
+		order.FulfillmentStatus = entities.FulfillmentStatusProcessing
+		order.SetProcessing()
+	case entities.OrderStatusReadyToShip:
+		order.FulfillmentStatus = entities.FulfillmentStatusPacked
+	case entities.OrderStatusShipped:
+		order.FulfillmentStatus = entities.FulfillmentStatusShipped
+	case entities.OrderStatusOutForDelivery:
+		order.FulfillmentStatus = entities.FulfillmentStatusShipped
+	case entities.OrderStatusDelivered:
+		order.FulfillmentStatus = entities.FulfillmentStatusDelivered
+		order.SetDelivered()
+	case entities.OrderStatusCancelled:
+		order.FulfillmentStatus = entities.FulfillmentStatusCancelled
+	case entities.OrderStatusReturned:
+		order.FulfillmentStatus = entities.FulfillmentStatusReturned
+	}
+
+	// Update order status and fulfillment status
+	order.Status = status
+	order.UpdatedAt = time.Now()
+
+	// Save the updated order
+	if err := uc.orderRepo.Update(ctx, order); err != nil {
 		return nil, err
 	}
 
-	order.Status = status
-	order.UpdatedAt = time.Now()
+	// Create status changed event
+	if err := uc.orderEventService.CreateStatusChangedEvent(ctx, orderID, oldStatus, status, nil); err != nil {
+		fmt.Printf("Warning: Failed to create status changed event: %v\n", err)
+	}
 
 	return uc.toOrderResponse(order), nil
 }
@@ -443,17 +530,73 @@ func (uc *orderUseCase) CancelOrder(ctx context.Context, orderID uuid.UUID) (*Or
 		return nil, entities.ErrOrderNotFound
 	}
 
+	// Validate order can be cancelled
 	if !order.CanBeCancelled() {
 		return nil, entities.ErrOrderCannotBeCancelled
 	}
 
-	// Restore product stock
-	for _, item := range order.Items {
-		product, err := uc.productRepo.GetByID(ctx, item.ProductID)
-		if err == nil {
+	// Additional validation for edge cases
+	if order.Status == entities.OrderStatusCancelled {
+		return nil, fmt.Errorf("order is already cancelled")
+	}
+
+	if order.Status == entities.OrderStatusRefunded {
+		return nil, fmt.Errorf("order is already refunded and cannot be cancelled")
+	}
+
+	// Handle stock based on payment status and order state
+	switch {
+	case order.IsPaid() && order.Status == entities.OrderStatusConfirmed:
+		// Order is paid and confirmed - need to restore actual stock
+		fmt.Printf("🔄 Restoring actual stock for paid order %s\n", order.OrderNumber)
+		for _, item := range order.Items {
+			product, err := uc.productRepo.GetByID(ctx, item.ProductID)
+			if err != nil {
+				fmt.Printf("❌ Failed to get product %s for stock restoration: %v\n", item.ProductID, err)
+				continue
+			}
+
 			product.IncreaseStock(item.Quantity)
-			uc.productRepo.Update(ctx, product)
+			if err := uc.productRepo.UpdateStock(ctx, item.ProductID, product.Stock); err != nil {
+				fmt.Printf("❌ Failed to restore stock for product %s: %v\n", product.Name, err)
+				continue
+			}
+			fmt.Printf("✅ Restored %d units of %s\n", item.Quantity, product.Name)
 		}
+
+	case !order.IsPaid() && order.HasInventoryReserved():
+		// Order is not paid but has reservations - release reservations
+		fmt.Printf("🔄 Releasing stock reservations for unpaid order %s\n", order.OrderNumber)
+		if err := uc.stockReservationService.ReleaseReservations(ctx, orderID); err != nil {
+			fmt.Printf("❌ Failed to release stock reservations for order %s: %v\n", orderID, err)
+			// Don't fail the cancellation, but log the error
+		} else {
+			fmt.Printf("✅ Released stock reservations for order %s\n", order.OrderNumber)
+		}
+
+	case !order.IsPaid() && !order.HasInventoryReserved():
+		// Order is not paid and no reservations (possibly expired) - nothing to do
+		fmt.Printf("ℹ️ Order %s has no active reservations to release\n", order.OrderNumber)
+
+	default:
+		fmt.Printf("⚠️ Unexpected order state for cancellation: OrderID=%s, IsPaid=%v, HasReservation=%v, Status=%s\n",
+			orderID, order.IsPaid(), order.HasInventoryReserved(), order.Status)
+	}
+
+	// Release order reservation flags
+	order.ReleaseReservation()
+	if err := uc.orderRepo.Update(ctx, order); err != nil {
+		return nil, fmt.Errorf("failed to update order reservation status: %w", err)
+	}
+
+	// Create cancelled event
+	if err := uc.orderEventService.CreateCancelledEvent(ctx, orderID, "Order cancelled by user", nil); err != nil {
+		fmt.Printf("Warning: Failed to create cancelled event: %v\n", err)
+	}
+
+	// Create inventory released event
+	if err := uc.orderEventService.CreateInventoryReleasedEvent(ctx, orderID, "Order cancelled", nil); err != nil {
+		fmt.Printf("Warning: Failed to create inventory released event: %v\n", err)
 	}
 
 	return uc.UpdateOrderStatus(ctx, orderID, entities.OrderStatusCancelled)
@@ -488,22 +631,43 @@ func (uc *orderUseCase) GetOrders(ctx context.Context, req GetOrdersRequest) ([]
 // toOrderResponse converts order entity to response
 func (uc *orderUseCase) toOrderResponse(order *entities.Order) *OrderResponse {
 	response := &OrderResponse{
-		ID:             order.ID,
-		OrderNumber:    order.OrderNumber,
-		Status:         order.Status,
-		PaymentStatus:  order.PaymentStatus,
-		Subtotal:       order.Subtotal,
-		TaxAmount:      order.TaxAmount,
-		ShippingAmount: order.ShippingAmount,
-		DiscountAmount: order.DiscountAmount,
-		Total:          order.Total,
-		Currency:       order.Currency,
-		Notes:          order.Notes,
-		ItemCount:      order.GetItemCount(),
-		CanBeCancelled: order.CanBeCancelled(),
-		CanBeRefunded:  order.CanBeRefunded(),
-		CreatedAt:      order.CreatedAt,
-		UpdatedAt:      order.UpdatedAt,
+		ID:                   order.ID,
+		OrderNumber:          order.OrderNumber,
+		Status:               order.Status,
+		FulfillmentStatus:    order.FulfillmentStatus,
+		PaymentStatus:        order.PaymentStatus,
+		Priority:             order.Priority,
+		Source:               order.Source,
+		CustomerType:         order.CustomerType,
+		Subtotal:             order.Subtotal,
+		TaxAmount:            order.TaxAmount,
+		ShippingAmount:       order.ShippingAmount,
+		DiscountAmount:       order.DiscountAmount,
+		TipAmount:            order.TipAmount,
+		Total:                order.Total,
+		Currency:             order.Currency,
+		ShippingMethod:       order.ShippingMethod,
+		TrackingNumber:       order.TrackingNumber,
+		TrackingURL:          order.TrackingURL,
+		Carrier:              order.Carrier,
+		EstimatedDelivery:    order.EstimatedDelivery,
+		ActualDelivery:       order.ActualDelivery,
+		DeliveryInstructions: order.DeliveryInstructions,
+		CustomerNotes:        order.CustomerNotes,
+		AdminNotes:           order.AdminNotes,
+		IsGift:               order.IsGift,
+		GiftMessage:          order.GiftMessage,
+		GiftWrap:             order.GiftWrap,
+		ItemCount:            order.GetItemCount(),
+		CanBeCancelled:       order.CanBeCancelled(),
+		CanBeRefunded:        order.CanBeRefunded(),
+		CanBeShipped:         order.CanBeShipped(),
+		CanBeDelivered:       order.CanBeDelivered(),
+		IsShipped:            order.IsShipped(),
+		IsDelivered:          order.IsDelivered(),
+		HasTracking:          order.HasTracking(),
+		CreatedAt:            order.CreatedAt,
+		UpdatedAt:            order.UpdatedAt,
 	}
 
 	// Convert user
@@ -579,4 +743,139 @@ func (uc *orderUseCase) toOrderResponse(order *entities.Order) *OrderResponse {
 	}
 
 	return response
+}
+
+// GetOrderEvents gets order events/timeline
+func (uc *orderUseCase) GetOrderEvents(ctx context.Context, orderID uuid.UUID, publicOnly bool) ([]*entities.OrderEvent, error) {
+	// Verify order exists
+	_, err := uc.orderRepo.GetByID(ctx, orderID)
+	if err != nil {
+		return nil, entities.ErrOrderNotFound
+	}
+
+	return uc.orderEventService.GetOrderEvents(ctx, orderID, publicOnly)
+}
+
+// UpdateShippingInfoRequest represents request to update shipping info
+type UpdateShippingInfoRequest struct {
+	TrackingNumber    string     `json:"tracking_number" binding:"required"`
+	Carrier           string     `json:"carrier" binding:"required"`
+	ShippingMethod    string     `json:"shipping_method"`
+	TrackingURL       string     `json:"tracking_url"`
+	EstimatedDelivery *time.Time `json:"estimated_delivery"`
+}
+
+// UpdateShippingInfo updates shipping information for an order
+func (uc *orderUseCase) UpdateShippingInfo(ctx context.Context, orderID uuid.UUID, req UpdateShippingInfoRequest) (*OrderResponse, error) {
+	order, err := uc.orderRepo.GetByID(ctx, orderID)
+	if err != nil {
+		return nil, entities.ErrOrderNotFound
+	}
+
+	if !order.CanBeShipped() {
+		return nil, fmt.Errorf("order cannot be shipped in current status: %s", order.Status)
+	}
+
+	// Update shipping info
+	order.TrackingNumber = req.TrackingNumber
+	order.Carrier = req.Carrier
+	order.ShippingMethod = req.ShippingMethod
+	order.TrackingURL = req.TrackingURL
+	order.EstimatedDelivery = req.EstimatedDelivery
+	order.SetShipped(req.TrackingNumber, req.Carrier)
+
+	if err := uc.orderRepo.Update(ctx, order); err != nil {
+		return nil, err
+	}
+
+	// Create shipped event
+	if err := uc.orderEventService.CreateShippedEvent(ctx, orderID, req.TrackingNumber, req.Carrier, nil); err != nil {
+		fmt.Printf("Warning: Failed to create shipped event: %v\n", err)
+	}
+
+	return uc.toOrderResponse(order), nil
+}
+
+// UpdateDeliveryStatus updates delivery status for an order
+func (uc *orderUseCase) UpdateDeliveryStatus(ctx context.Context, orderID uuid.UUID, status entities.OrderStatus) (*OrderResponse, error) {
+	order, err := uc.orderRepo.GetByID(ctx, orderID)
+	if err != nil {
+		return nil, entities.ErrOrderNotFound
+	}
+
+	// Validate delivery status
+	if status != entities.OrderStatusOutForDelivery && status != entities.OrderStatusDelivered {
+		return nil, fmt.Errorf("invalid delivery status: %s", status)
+	}
+
+	if status == entities.OrderStatusDelivered && !order.CanBeDelivered() {
+		return nil, fmt.Errorf("order cannot be marked as delivered in current status: %s", order.Status)
+	}
+
+	oldStatus := order.Status
+	order.Status = status
+
+	if status == entities.OrderStatusDelivered {
+		order.SetDelivered()
+	}
+
+	if err := uc.orderRepo.Update(ctx, order); err != nil {
+		return nil, err
+	}
+
+	// Create appropriate event
+	if status == entities.OrderStatusDelivered {
+		if err := uc.orderEventService.CreateDeliveredEvent(ctx, orderID, nil); err != nil {
+			fmt.Printf("Warning: Failed to create delivered event: %v\n", err)
+		}
+	}
+
+	// Create status changed event
+	if err := uc.orderEventService.CreateStatusChangedEvent(ctx, orderID, oldStatus, status, nil); err != nil {
+		fmt.Printf("Warning: Failed to create status changed event: %v\n", err)
+	}
+
+	return uc.toOrderResponse(order), nil
+}
+
+// AddOrderNoteRequest represents request to add order note
+type AddOrderNoteRequest struct {
+	Note     string `json:"note" binding:"required"`
+	IsPublic bool   `json:"is_public"`
+}
+
+// AddOrderNote adds a note to an order (updated signature)
+func (uc *orderUseCase) AddOrderNote(ctx context.Context, orderID uuid.UUID, req AddOrderNoteRequest) error {
+	order, err := uc.orderRepo.GetByID(ctx, orderID)
+	if err != nil {
+		return entities.ErrOrderNotFound
+	}
+
+	// Update order notes
+	if req.IsPublic {
+		if order.CustomerNotes != "" {
+			order.CustomerNotes += "\n" + req.Note
+		} else {
+			order.CustomerNotes = req.Note
+		}
+	} else {
+		if order.AdminNotes != "" {
+			order.AdminNotes += "\n" + req.Note
+		} else {
+			order.AdminNotes = req.Note
+		}
+	}
+
+	order.UpdatedAt = time.Now()
+
+	if err := uc.orderRepo.Update(ctx, order); err != nil {
+		return err
+	}
+
+	// Create note added event
+	if err := uc.orderEventService.CreateNoteAddedEvent(ctx, orderID, req.Note, nil, req.IsPublic); err != nil {
+		fmt.Printf("Warning: Failed to create note added event: %v\n", err)
+	}
+
+	return nil
 }

@@ -23,12 +23,22 @@ const getStatusIcon = (status: string) => {
       return <ShieldCheck className="h-4 w-4 text-cyan-300" />
     case 'processing':
       return <Zap className="h-4 w-4 text-blue-300" />
+    case 'ready_to_ship':
+      return <Package className="h-4 w-4 text-orange-300" />
     case 'shipped':
       return <Truck className="h-4 w-4 text-purple-300" />
+    case 'out_for_delivery':
+      return <Truck className="h-4 w-4 text-indigo-300" />
     case 'delivered':
       return <CheckCircle className="h-4 w-4 text-green-300" />
     case 'cancelled':
       return <XCircle className="h-4 w-4 text-red-300" />
+    case 'refunded':
+      return <XCircle className="h-4 w-4 text-gray-300" />
+    case 'returned':
+      return <XCircle className="h-4 w-4 text-orange-300" />
+    case 'exchanged':
+      return <XCircle className="h-4 w-4 text-blue-300" />
     default:
       return <Package className="h-4 w-4 text-gray-300" />
   }
@@ -42,12 +52,22 @@ const getStatusColor = (status: string) => {
       return 'bg-cyan-500/20 text-cyan-300 border-cyan-500/40 shadow-sm'
     case 'processing':
       return 'bg-blue-500/20 text-blue-300 border-blue-500/40 shadow-sm'
+    case 'ready_to_ship':
+      return 'bg-orange-500/20 text-orange-300 border-orange-500/40 shadow-sm'
     case 'shipped':
       return 'bg-purple-500/20 text-purple-300 border-purple-500/40 shadow-sm'
+    case 'out_for_delivery':
+      return 'bg-indigo-500/20 text-indigo-300 border-indigo-500/40 shadow-sm'
     case 'delivered':
       return 'bg-green-500/20 text-green-300 border-green-500/40 shadow-sm'
     case 'cancelled':
       return 'bg-red-500/20 text-red-300 border-red-500/40 shadow-sm'
+    case 'refunded':
+      return 'bg-gray-500/20 text-gray-300 border-gray-500/40 shadow-sm'
+    case 'returned':
+      return 'bg-orange-500/20 text-orange-300 border-orange-500/40 shadow-sm'
+    case 'exchanged':
+      return 'bg-blue-500/20 text-blue-300 border-blue-500/40 shadow-sm'
     default:
       return 'bg-gray-500/20 text-gray-300 border-gray-500/40 shadow-sm'
   }
