@@ -8,6 +8,7 @@ import (
 
 	"ecom-golang-clean-architecture/internal/domain/entities"
 	"ecom-golang-clean-architecture/internal/domain/repositories"
+	"ecom-golang-clean-architecture/pkg/utils"
 
 	"github.com/google/uuid"
 )
@@ -293,6 +294,25 @@ func (uc *productUseCase) CreateProduct(ctx context.Context, req CreateProductRe
 		return nil, entities.ErrCategoryNotFound
 	}
 
+	// Generate unique slug
+	slug := req.Slug
+	if slug == "" {
+		slug = utils.GenerateSlug(req.Name)
+	}
+
+	// Validate slug format
+	if err := utils.ValidateSlug(slug); err != nil {
+		return nil, fmt.Errorf("invalid slug: %w", err)
+	}
+
+	// Ensure slug is unique
+	baseSlug := slug
+	existingSlugs, err := uc.productRepo.GetExistingSlugs(ctx, baseSlug)
+	if err != nil {
+		return nil, err
+	}
+	slug = utils.GenerateUniqueSlug(baseSlug, existingSlugs)
+
 	// Create product
 	product := &entities.Product{
 		ID:               uuid.New(),
@@ -302,7 +322,7 @@ func (uc *productUseCase) CreateProduct(ctx context.Context, req CreateProductRe
 		SKU:              req.SKU,
 
 		// SEO and Metadata
-		Slug:            req.Slug,
+		Slug:            slug,
 		MetaTitle:       req.MetaTitle,
 		MetaDescription: req.MetaDescription,
 		Keywords:        req.Keywords,
@@ -445,6 +465,19 @@ func (uc *productUseCase) UpdateProduct(ctx context.Context, id uuid.UUID, req U
 		}
 		product.Name = *req.Name
 		hasChanges = true
+
+		// If name changed and no explicit slug provided, regenerate slug
+		if req.Slug == nil && product.Slug == "" {
+			newSlug := utils.GenerateSlug(*req.Name)
+			if err := utils.ValidateSlug(newSlug); err == nil {
+				// Ensure slug is unique
+				baseSlug := newSlug
+				existingSlugs, err := uc.productRepo.GetExistingSlugs(ctx, baseSlug)
+				if err == nil {
+					product.Slug = utils.GenerateUniqueSlug(baseSlug, existingSlugs)
+				}
+			}
+		}
 	}
 
 	if req.Description != nil {
@@ -531,10 +564,33 @@ func (uc *productUseCase) UpdateProduct(ctx context.Context, id uuid.UUID, req U
 	}
 
 	if req.Slug != nil {
-		if *req.Slug == "" {
-			return nil, fmt.Errorf("slug cannot be empty")
+		slug := *req.Slug
+		if slug == "" {
+			// Generate slug from name if not provided
+			slug = utils.GenerateSlug(product.Name)
 		}
-		product.Slug = *req.Slug
+
+		// Validate slug format
+		if err := utils.ValidateSlug(slug); err != nil {
+			return nil, fmt.Errorf("invalid slug: %w", err)
+		}
+
+		// Ensure slug is unique (excluding current product)
+		exists, err := uc.productRepo.ExistsBySlugExcludingID(ctx, slug, product.ID)
+		if err != nil {
+			return nil, err
+		}
+		if exists {
+			// Generate unique slug if conflicts
+			baseSlug := slug
+			existingSlugs, err := uc.productRepo.GetExistingSlugs(ctx, baseSlug)
+			if err != nil {
+				return nil, err
+			}
+			slug = utils.GenerateUniqueSlug(baseSlug, existingSlugs)
+		}
+
+		product.Slug = slug
 		hasChanges = true
 	}
 

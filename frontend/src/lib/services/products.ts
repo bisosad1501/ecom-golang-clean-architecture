@@ -203,25 +203,28 @@ class ProductService {
   }
 
   async createProduct(data: CreateProductRequest): Promise<Product> {
+    // FE: Tự động generate slug nếu chưa có
+    if (!data.slug || validateSlug(data.slug)) {
+      data.slug = generateSlug(data.name)
+    }
+    // FE: Validate lại slug
+    const slugError = validateSlug(data.slug)
+    if (slugError) throw new Error(slugError)
     const response = await apiClient.post<Product>('/admin/products', data)
     return response.data
   }
 
   async updateProduct(id: string, data: UpdateProductRequest): Promise<Product> {
-    console.log('=== ProductService.updateProduct START ===')
-    console.log('Product ID:', id)
-    console.log('Update data:', data)
-    console.log('Update data category_id:', data.category_id)
-    console.log('Update data category_id type:', typeof data.category_id)
-    
+    // FE: Tự động generate slug nếu chưa có
+    if (!data.slug && data.name) {
+      data.slug = generateSlug(data.name as string)
+    }
+    // FE: Validate lại slug nếu có
+    if (data.slug) {
+      const slugError = validateSlug(data.slug)
+      if (slugError) throw new Error(slugError)
+    }
     const response = await apiClient.put<Product>(`/admin/products/${id}`, data)
-    
-    console.log('=== ProductService.updateProduct RESPONSE ===')
-    console.log('Response:', response)
-    console.log('Response data:', response.data)
-    console.log('Response data category:', response.data?.category)
-    console.log('Response data category_id:', response.data?.category_id)
-    
     return response.data
   }
 
@@ -327,3 +330,23 @@ class ProductService {
 }
 
 export const productService = new ProductService()
+
+// Utility: Generate slug from name
+export function generateSlug(name: string): string {
+  if (!name) return ''
+  let slug = name.toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .replace(/--+/g, '-')
+  if (!slug) slug = `product-${Date.now()}`
+  return slug
+}
+
+export function validateSlug(slug: string): string | null {
+  if (!slug) return 'Slug cannot be empty'
+  if (slug.length > 255) return 'Slug too long'
+  if (!/^[a-z0-9-]+$/.test(slug)) return 'Slug can only contain lowercase letters, numbers, and hyphens'
+  if (/^-|-$/.test(slug)) return 'Slug cannot start or end with hyphen'
+  if (/--/.test(slug)) return 'Slug cannot contain consecutive hyphens'
+  return null
+}

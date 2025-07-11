@@ -2,6 +2,7 @@ package usecases
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	"ecom-golang-clean-architecture/internal/domain/entities"
@@ -280,11 +281,22 @@ func (uc *orderUseCase) CreateOrder(ctx context.Context, userID uuid.UUID, req C
 	// Note: Payment record will be created during checkout session creation
 	// This allows the payment to have the proper transaction ID from Stripe
 
-	// Reduce product stock
+	// Reduce product stock using dedicated UpdateStock method to avoid slug conflicts
 	for _, item := range cart.Items {
-		product, _ := uc.productRepo.GetByID(ctx, item.ProductID)
-		product.ReduceStock(item.Quantity)
-		uc.productRepo.Update(ctx, product)
+		product, err := uc.productRepo.GetByID(ctx, item.ProductID)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get product %s: %w", item.ProductID, err)
+		}
+
+		// Validate stock can be reduced
+		if err := product.ReduceStock(item.Quantity); err != nil {
+			return nil, fmt.Errorf("failed to reduce stock for product %s: %w", product.Name, err)
+		}
+
+		// Use UpdateStock method instead of full Update to avoid slug constraint issues
+		if err := uc.productRepo.UpdateStock(ctx, item.ProductID, product.Stock); err != nil {
+			return nil, fmt.Errorf("failed to update stock for product %s: %w", product.Name, err)
+		}
 	}
 
 	// Clear cart

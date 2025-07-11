@@ -314,6 +314,36 @@ func (r *productRepository) ExistsBySKU(ctx context.Context, sku string) (bool, 
 	return count > 0, err
 }
 
+// ExistsBySlug checks if a product exists with the given slug
+func (r *productRepository) ExistsBySlug(ctx context.Context, slug string) (bool, error) {
+	var count int64
+	err := r.db.WithContext(ctx).
+		Model(&entities.Product{}).
+		Where("slug = ?", slug).
+		Count(&count).Error
+	return count > 0, err
+}
+
+// ExistsBySlugExcludingID checks if a product exists with the given slug, excluding a specific ID
+func (r *productRepository) ExistsBySlugExcludingID(ctx context.Context, slug string, excludeID uuid.UUID) (bool, error) {
+	var count int64
+	err := r.db.WithContext(ctx).
+		Model(&entities.Product{}).
+		Where("slug = ? AND id != ?", slug, excludeID).
+		Count(&count).Error
+	return count > 0, err
+}
+
+// GetExistingSlugs gets all existing slugs that start with the given prefix
+func (r *productRepository) GetExistingSlugs(ctx context.Context, prefix string) ([]string, error) {
+	var slugs []string
+	err := r.db.WithContext(ctx).
+		Model(&entities.Product{}).
+		Where("slug LIKE ?", prefix+"%").
+		Pluck("slug", &slugs).Error
+	return slugs, err
+}
+
 // GetFeatured retrieves featured products
 func (r *productRepository) GetFeatured(ctx context.Context, limit int) ([]*entities.Product, error) {
 	var products []*entities.Product
@@ -467,13 +497,6 @@ func (r *productRepository) GetBySlug(ctx context.Context, slug string) (*entiti
 		return nil, err
 	}
 	return &product, nil
-}
-
-// ExistsBySlug checks if a product exists with the given slug
-func (r *productRepository) ExistsBySlug(ctx context.Context, slug string) (bool, error) {
-	var count int64
-	err := r.db.WithContext(ctx).Model(&entities.Product{}).Where("slug = ?", slug).Count(&count).Error
-	return count > 0, err
 }
 
 // SearchAdvanced performs advanced search with multiple filters

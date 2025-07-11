@@ -84,6 +84,8 @@ type ProductRepository interface {
 	// Slug-related methods
 	GetBySlug(ctx context.Context, slug string) (*entities.Product, error)
 	ExistsBySlug(ctx context.Context, slug string) (bool, error)
+	ExistsBySlugExcludingID(ctx context.Context, slug string, excludeID uuid.UUID) (bool, error)
+	GetExistingSlugs(ctx context.Context, prefix string) ([]string, error)
 
 	// Advanced search methods
 	SearchAdvanced(ctx context.Context, params AdvancedSearchParams) ([]*entities.Product, error)
