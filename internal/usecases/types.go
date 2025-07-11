@@ -31,12 +31,12 @@ type ProductResponse struct {
 	CostPrice    *float64 `json:"cost_price"`
 
 	// Sale Pricing
-	SalePrice     *float64   `json:"sale_price"`
-	SaleStartDate *time.Time `json:"sale_start_date"`
-	SaleEndDate   *time.Time `json:"sale_end_date"`
-	CurrentPrice  float64    `json:"current_price"`
-	IsOnSale      bool       `json:"is_on_sale"`
-	SaleDiscount  float64    `json:"sale_discount_percentage"`
+	SalePrice              *float64   `json:"sale_price"`
+	SaleStartDate          *time.Time `json:"sale_start_date"`
+	SaleEndDate            *time.Time `json:"sale_end_date"`
+	CurrentPrice           float64    `json:"current_price"`
+	IsOnSale               bool       `json:"is_on_sale"`
+	SaleDiscountPercentage float64    `json:"sale_discount_percentage"`
 
 	// Inventory
 	Stock             int                  `json:"stock"`

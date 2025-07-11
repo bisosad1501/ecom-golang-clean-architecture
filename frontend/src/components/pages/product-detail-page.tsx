@@ -113,21 +113,21 @@ export function ProductDetailPage({ productId }: ProductDetailPageProps) {
   }
 
   const images = product.images || []
-  
-  // Enhanced pricing logic using new backend fields
-  const currentPrice = (product as any).current_price || (product as any).pricing?.price || (product as any).price || 0
-  const originalPrice = (product as any).price || (product as any).pricing?.price || 0
-  const salePrice = (product as any).sale_price
-  const isOnSale = (product as any).is_on_sale || false
-  const hasDiscount = (product as any).has_discount || isOnSale || false
-  const discountPercentage = (product as any).sale_discount_percentage || 0
-  const stockQuantity = (product as any).stock || (product as any).inventory?.stock_quantity || 0
-  const stockStatus = (product as any).stock_status || 'in_stock'
-  const isLowStock = (product as any).is_low_stock || false
-  const featured = (product as any).featured || false
+
+  // Use backend computed fields directly - no more complex fallback logic
+  const currentPrice = product.current_price || product.price
+  const originalPrice = product.price
+  const salePrice = product.sale_price
+  const isOnSale = product.is_on_sale
+  const hasDiscount = product.has_discount
+  const discountPercentage = product.sale_discount_percentage
+  const stockQuantity = product.stock
+  const stockStatus = product.stock_status
+  const isLowStock = product.is_low_stock
+  const featured = product.featured
 
   const displayPrice = currentPrice
-  const comparePrice = isOnSale ? originalPrice : ((product as any).compare_price || (product as any).pricing?.compare_price)
+  const comparePrice = isOnSale ? originalPrice : product.compare_price
   const isOutOfStock = stockStatus === 'out_of_stock' || stockQuantity <= 0
 
   const handleAddToCart = async () => {

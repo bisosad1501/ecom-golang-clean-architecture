@@ -141,85 +141,134 @@ export interface ProductSeo extends SeoMetadata {
   schema_markup?: Record<string, any>
 }
 
-// Main product interface
+// Main product interface - Updated to match backend ProductResponse structure
 export interface Product extends BaseEntity {
   name: string
   slug: string
   description?: string
   short_description?: string
   sku: string
-  type: ProductType
-  status: ProductStatus
-  visibility: ProductVisibility
+
+  // SEO and Metadata
+  meta_title?: string
+  meta_description?: string
+  keywords?: string
   featured: boolean
-  
+  visibility: ProductVisibility
+
+  // Pricing - Direct fields matching backend
+  price: number
+  compare_price?: number
+  cost_price?: number
+
+  // Sale Pricing - Backend computed fields
+  sale_price?: number
+  sale_start_date?: string
+  sale_end_date?: string
+  current_price: number
+  is_on_sale: boolean
+  sale_discount_percentage: number
+
+  // Inventory - Direct fields matching backend
+  stock: number
+  low_stock_threshold: number
+  track_quantity: boolean
+  allow_backorder: boolean
+  stock_status: StockStatus
+  is_low_stock: boolean
+
+  // Physical Properties
+  weight?: number
+  dimensions?: Dimensions
+
+  // Shipping and Tax
+  requires_shipping: boolean
+  shipping_class?: string
+  tax_class?: string
+  country_of_origin?: string
+
   // Categorization
-  category_id?: string
   category?: Category
-  categories?: Category[]
-  brand_id?: string
   brand?: Brand
-  tags?: string[]
-  
-  // Pricing & Inventory
-  pricing: ProductPricing
-  inventory: ProductInventory
-  
-  // Media
+
+  // Content
   images: Image[]
-  gallery?: Image[]
-  video_url?: string
-  
-  // Variants
-  has_variants: boolean
-  variants?: ProductVariant[]
-  variant_attributes?: ProductAttribute[]
-  
-  // Attributes
+  tags?: Array<{ id: string; name: string; slug: string }>
   attributes: ProductAttributeValue[]
-  custom_fields?: Record<string, any>
-  
-  // Shipping & Physical
-  shipping: ProductShipping
-  
-  // SEO & Marketing
-  seo: ProductSeo
-  
-  // Stats
-  view_count: number
-  sales_count: number
-  rating_average: number
-  rating_count: number
-  review_count: number
-  
+  variants?: ProductVariant[]
+
+  // Status and Type
+  status: ProductStatus
+  product_type: ProductType
+  is_digital: boolean
+  is_available: boolean
+  has_discount: boolean
+  has_variants: boolean
+  main_image?: string
+
+  // Legacy nested structure for backward compatibility (optional)
+  pricing?: ProductPricing
+  inventory?: ProductInventory
+  shipping?: ProductShipping
+  seo?: ProductSeo
+
+  // Stats (optional - may not be in all responses)
+  view_count?: number
+  sales_count?: number
+  rating_average?: number
+  rating_count?: number
+  review_count?: number
+
   // Timestamps
   published_at?: string
   featured_until?: string
-  
+
   // Relations
   related_products?: Product[]
   cross_sell_products?: Product[]
   up_sell_products?: Product[]
 }
 
-// Product list item (simplified for lists)
+// Product list item (simplified for lists) - Updated to match backend
 export interface ProductListItem {
   id: string
   name: string
   slug: string
   sku: string
+
+  // Pricing - Direct backend fields
   price: number
   compare_price?: number
-  image?: Image
+  current_price: number
+  is_on_sale: boolean
+  sale_discount_percentage: number
+  has_discount: boolean
+
+  // Inventory - Direct backend fields
+  stock: number
+  stock_status: StockStatus
+  is_low_stock: boolean
+
+  // Media
+  images?: Image[]
+  main_image?: string
+
+  // Categorization
   category?: Pick<Category, 'id' | 'name' | 'slug'>
   brand?: Pick<Brand, 'id' | 'name' | 'slug'>
+
+  // Status
   status: ProductStatus
-  stock_status: StockStatus
-  stock_quantity: number
-  rating_average: number
-  rating_count: number
   featured: boolean
+  is_available: boolean
+
+  // Stats (optional)
+  rating_average?: number
+  rating_count?: number
+
+  // Timestamps
   created_at: string
+  updated_at: string
 }
 
 // Product search filters

@@ -1,7 +1,7 @@
 'use client'
 
 import { cn } from '@/lib/utils'
-import { formatPrice, formatDiscountPercentage, getPriceInfo } from '@/lib/utils/price'
+import { formatPrice, formatDiscountPercentage, getPriceInfo, getCurrentPrice, getComparePrice } from '@/lib/utils/price'
 import { Product } from '@/types'
 
 interface PriceDisplayProps {
@@ -12,14 +12,16 @@ interface PriceDisplayProps {
   size?: 'sm' | 'md' | 'lg'
 }
 
-export function PriceDisplay({ 
-  product, 
-  className, 
-  showDiscount = true, 
+export function PriceDisplay({
+  product,
+  className,
+  showDiscount = true,
   showOriginalPrice = true,
-  size = 'md' 
+  size = 'md'
 }: PriceDisplayProps) {
   const priceInfo = getPriceInfo(product)
+  const currentPrice = getCurrentPrice(product)
+  const comparePrice = getComparePrice(product)
   
   const sizeClasses = {
     sm: 'text-sm',
@@ -40,21 +42,21 @@ export function PriceDisplay({
         'font-semibold text-green-600',
         sizeClasses[size]
       )}>
-        {formatPrice(priceInfo.price)}
+        {formatPrice(currentPrice)}
       </span>
-      
+
       {/* Original Price (if discount) */}
-      {priceInfo.hasDiscount && showOriginalPrice && priceInfo.comparePrice && (
+      {priceInfo.hasDiscount && showOriginalPrice && comparePrice && (
         <span className={cn(
           'line-through text-gray-500',
           discountSizeClasses[size]
         )}>
-          {formatPrice(priceInfo.comparePrice)}
+          {formatPrice(comparePrice)}
         </span>
       )}
-      
+
       {/* Discount Badge */}
-      {priceInfo.hasDiscount && showDiscount && (
+      {priceInfo.hasDiscount && showDiscount && priceInfo.discountPercentage > 0 && (
         <span className={cn(
           'bg-red-500 text-white px-2 py-1 rounded text-xs font-medium',
           discountSizeClasses[size]
@@ -62,7 +64,7 @@ export function PriceDisplay({
           {formatDiscountPercentage(priceInfo.discountPercentage)}
         </span>
       )}
-      
+
       {/* Availability indicator */}
       {!priceInfo.isAvailable && (
         <span className="text-red-500 text-xs font-medium">

@@ -1214,12 +1214,12 @@ func (uc *productUseCase) toProductResponse(product *entities.Product) *ProductR
 		CostPrice:    product.CostPrice,
 
 		// Sale Pricing
-		SalePrice:     product.SalePrice,
-		SaleStartDate: product.SaleStartDate,
-		SaleEndDate:   product.SaleEndDate,
-		CurrentPrice:  product.GetCurrentPrice(),
-		IsOnSale:      product.IsOnSale(),
-		SaleDiscount:  product.GetSaleDiscountPercentage(),
+		SalePrice:              product.SalePrice,
+		SaleStartDate:          product.SaleStartDate,
+		SaleEndDate:            product.SaleEndDate,
+		CurrentPrice:           product.GetCurrentPrice(),
+		IsOnSale:               product.IsOnSale(),
+		SaleDiscountPercentage: product.GetSaleDiscountPercentage(),
 
 		// Inventory
 		Stock:             product.Stock,
