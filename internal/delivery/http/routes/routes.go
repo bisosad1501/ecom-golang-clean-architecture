@@ -153,6 +153,12 @@ func SetupRoutes(
 			}
 		}
 
+		// Public verification routes (no authentication required)
+		publicVerification := v1.Group("/public/verification")
+		{
+			publicVerification.POST("/email/verify", userHandler.VerifyEmail)
+		}
+
 		// Protected routes (authentication required)
 		protected := v1.Group("")
 		protected.Use(middleware.AuthMiddleware(cfg.JWT.Secret))
@@ -164,6 +170,30 @@ func SetupRoutes(
 				users.PUT("/profile", userHandler.UpdateProfile)
 				users.POST("/change-password", userHandler.ChangePassword)
 				// users.DELETE("/account", userHandler.DeleteAccount) // TODO: Implement DeleteAccount method
+
+				// User preferences routes
+				users.GET("/preferences", userHandler.GetUserPreferences)
+				users.PUT("/preferences", userHandler.UpdateUserPreferences)
+				users.PUT("/preferences/theme", userHandler.UpdateTheme)
+				users.PUT("/preferences/language", userHandler.UpdateLanguage)
+
+				// User verification routes
+				verification := users.Group("/verification")
+				{
+					verification.POST("/email/send", userHandler.SendEmailVerification)
+					verification.POST("/phone/send", userHandler.SendPhoneVerification)
+					verification.POST("/phone/verify", userHandler.VerifyPhone)
+					verification.GET("/status", userHandler.GetVerificationStatus)
+				}
+
+				// User session routes
+				sessions := users.Group("/sessions")
+				{
+					sessions.GET("", userHandler.GetUserSessions)
+					sessions.DELETE("/:session_id", userHandler.InvalidateSession)
+					sessions.DELETE("", userHandler.InvalidateAllSessions)
+				}
+
 				if reviewHandler != nil {
 					users.GET("/:user_id/reviews", reviewHandler.GetUserReviews)
 				}

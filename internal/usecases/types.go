@@ -403,5 +403,15 @@ type DateRangeResponse struct {
 // PaginationResponse represents pagination response
 type PaginationResponse = PaginationInfo
 
+// Pagination represents pagination information
+type Pagination struct {
+	Page       int   `json:"page"`
+	Limit      int   `json:"limit"`
+	Total      int64 `json:"total"`
+	TotalPages int   `json:"total_pages"`
+	HasNext    bool  `json:"has_next"`
+	HasPrev    bool  `json:"has_prev"`
+}
+
 // Note: Notification types are defined in notification_usecase.go to avoid duplication
 // Note: Payment types are defined in payment_usecase.go to avoid duplication

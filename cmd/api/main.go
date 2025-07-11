@@ -57,9 +57,10 @@ func main() {
 	}
 
 	// Run database migrations
-	if err := database.AutoMigrate(db); err != nil {
-		log.Fatal("Failed to run database migrations:", err)
-	}
+	// Temporarily disabled to avoid conflicts with manual migrations
+	// if err := database.AutoMigrate(db); err != nil {
+	// 	log.Fatal("Failed to run database migrations:", err)
+	// }
 
 	// Create database indexes
 	if err := database.CreateIndexes(db); err != nil {
@@ -74,6 +75,11 @@ func main() {
 	// Initialize repositories
 	userRepo := database.NewUserRepository(db)
 	userProfileRepo := database.NewUserProfileRepository(db)
+	userSessionRepo := database.NewUserSessionRepository(db)
+	userLoginHistoryRepo := database.NewUserLoginHistoryRepository(db)
+	userActivityRepo := database.NewUserActivityRepository(db)
+	userPreferencesRepo := database.NewUserPreferencesRepository(db)
+	userVerificationRepo := database.NewUserVerificationRepository(db)
 	productRepo := database.NewProductRepository(db)
 	categoryRepo := database.NewCategoryRepository(db)
 	tagRepo := database.NewTagRepository(db)
@@ -116,6 +122,11 @@ func main() {
 	userUseCase := usecases.NewUserUseCase(
 		userRepo,
 		userProfileRepo,
+		userSessionRepo,
+		userLoginHistoryRepo,
+		userActivityRepo,
+		userPreferencesRepo,
+		userVerificationRepo,
 		passwordService,
 		cfg.JWT.Secret,
 	)

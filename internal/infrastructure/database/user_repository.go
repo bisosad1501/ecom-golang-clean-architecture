@@ -3,9 +3,11 @@ package database
 import (
 	"context"
 	"errors"
+	"time"
 
 	"ecom-golang-clean-architecture/internal/domain/entities"
 	"ecom-golang-clean-architecture/internal/domain/repositories"
+
 	"github.com/google/uuid"
 	"gorm.io/gorm"
 )
@@ -127,7 +129,7 @@ func (r *userRepository) UpdatePassword(ctx context.Context, userID uuid.UUID, h
 		Model(&entities.User{}).
 		Where("id = ?", userID).
 		Update("password", hashedPassword)
-	
+
 	if result.Error != nil {
 		return result.Error
 	}
@@ -143,7 +145,7 @@ func (r *userRepository) SetActive(ctx context.Context, userID uuid.UUID, isActi
 		Model(&entities.User{}).
 		Where("id = ?", userID).
 		Update("is_active", isActive)
-	
+
 	if result.Error != nil {
 		return result.Error
 	}
@@ -170,6 +172,166 @@ func (r *userRepository) CountActiveUsers(ctx context.Context) (int64, error) {
 		Where("is_active = ? AND status = ?", true, entities.UserStatusActive).
 		Count(&count).Error
 	return count, err
+}
+
+// GetUsersWithFilters gets users with filters
+func (r *userRepository) GetUsersWithFilters(ctx context.Context, filters repositories.UserFilters) ([]*entities.User, error) {
+	query := r.db.WithContext(ctx).Model(&entities.User{})
+
+	// Apply filters
+	query = r.applyUserFilters(query, filters)
+
+	// Apply sorting
+	if filters.SortBy != "" {
+		order := filters.SortBy
+		if filters.SortOrder == "desc" {
+			order += " DESC"
+		} else {
+			order += " ASC"
+		}
+		query = query.Order(order)
+	} else {
+		query = query.Order("created_at DESC")
+	}
+
+	// Apply pagination
+	if filters.Limit > 0 {
+		query = query.Limit(filters.Limit)
+	}
+	if filters.Offset > 0 {
+		query = query.Offset(filters.Offset)
+	}
+
+	var users []*entities.User
+	err := query.Find(&users).Error
+	return users, err
+}
+
+// CountUsersWithFilters counts users with filters
+func (r *userRepository) CountUsersWithFilters(ctx context.Context, filters repositories.UserFilters) (int64, error) {
+	query := r.db.WithContext(ctx).Model(&entities.User{})
+	query = r.applyUserFilters(query, filters)
+
+	var count int64
+	err := query.Count(&count).Error
+	return count, err
+}
+
+// UpdateLastLogin updates user's last login timestamp
+func (r *userRepository) UpdateLastLogin(ctx context.Context, userID uuid.UUID) error {
+	now := time.Now()
+	return r.db.WithContext(ctx).Model(&entities.User{}).
+		Where("id = ?", userID).
+		Update("last_login_at", now).Error
+}
+
+// UpdateLastActivity updates user's last activity timestamp
+func (r *userRepository) UpdateLastActivity(ctx context.Context, userID uuid.UUID) error {
+	now := time.Now()
+	return r.db.WithContext(ctx).Model(&entities.User{}).
+		Where("id = ?", userID).
+		Update("last_activity_at", now).Error
+}
+
+// GetUsersByRole gets users by role
+func (r *userRepository) GetUsersByRole(ctx context.Context, role entities.UserRole, limit, offset int) ([]*entities.User, error) {
+	var users []*entities.User
+	err := r.db.WithContext(ctx).
+		Where("role = ?", role).
+		Order("created_at DESC").
+		Limit(limit).
+		Offset(offset).
+		Find(&users).Error
+	return users, err
+}
+
+// GetUsersByStatus gets users by status
+func (r *userRepository) GetUsersByStatus(ctx context.Context, status entities.UserStatus, limit, offset int) ([]*entities.User, error) {
+	var users []*entities.User
+	err := r.db.WithContext(ctx).
+		Where("status = ?", status).
+		Order("created_at DESC").
+		Limit(limit).
+		Offset(offset).
+		Find(&users).Error
+	return users, err
+}
+
+// GetHighValueCustomers gets high value customers
+func (r *userRepository) GetHighValueCustomers(ctx context.Context, limit int) ([]*entities.User, error) {
+	var users []*entities.User
+	err := r.db.WithContext(ctx).
+		Where("total_spent > ? OR total_orders > ?", 1000, 10).
+		Order("total_spent DESC").
+		Limit(limit).
+		Find(&users).Error
+	return users, err
+}
+
+// GetRecentlyRegistered gets recently registered users
+func (r *userRepository) GetRecentlyRegistered(ctx context.Context, limit int) ([]*entities.User, error) {
+	var users []*entities.User
+	err := r.db.WithContext(ctx).
+		Order("created_at DESC").
+		Limit(limit).
+		Find(&users).Error
+	return users, err
+}
+
+// applyUserFilters applies filters to the query
+func (r *userRepository) applyUserFilters(query *gorm.DB, filters repositories.UserFilters) *gorm.DB {
+	if filters.Role != nil {
+		query = query.Where("role = ?", *filters.Role)
+	}
+	if filters.Status != nil {
+		query = query.Where("status = ?", *filters.Status)
+	}
+	if filters.IsActive != nil {
+		query = query.Where("is_active = ?", *filters.IsActive)
+	}
+	if filters.EmailVerified != nil {
+		query = query.Where("email_verified = ?", *filters.EmailVerified)
+	}
+	if filters.PhoneVerified != nil {
+		query = query.Where("phone_verified = ?", *filters.PhoneVerified)
+	}
+	if filters.TwoFactorEnabled != nil {
+		query = query.Where("two_factor_enabled = ?", *filters.TwoFactorEnabled)
+	}
+	if filters.MembershipTier != "" {
+		query = query.Where("membership_tier = ?", filters.MembershipTier)
+	}
+	if filters.MinTotalSpent != nil {
+		query = query.Where("total_spent >= ?", *filters.MinTotalSpent)
+	}
+	if filters.MaxTotalSpent != nil {
+		query = query.Where("total_spent <= ?", *filters.MaxTotalSpent)
+	}
+	if filters.MinTotalOrders != nil {
+		query = query.Where("total_orders >= ?", *filters.MinTotalOrders)
+	}
+	if filters.MaxTotalOrders != nil {
+		query = query.Where("total_orders <= ?", *filters.MaxTotalOrders)
+	}
+	if filters.CreatedFrom != nil {
+		query = query.Where("created_at >= ?", *filters.CreatedFrom)
+	}
+	if filters.CreatedTo != nil {
+		query = query.Where("created_at <= ?", *filters.CreatedTo)
+	}
+	if filters.LastLoginFrom != nil {
+		query = query.Where("last_login_at >= ?", *filters.LastLoginFrom)
+	}
+	if filters.LastLoginTo != nil {
+		query = query.Where("last_login_at <= ?", *filters.LastLoginTo)
+	}
+	if filters.Search != "" {
+		searchPattern := "%" + filters.Search + "%"
+		query = query.Where("first_name ILIKE ? OR last_name ILIKE ? OR email ILIKE ? OR username ILIKE ?",
+			searchPattern, searchPattern, searchPattern, searchPattern)
+	}
+
+	return query
 }
 
 type userProfileRepository struct {
@@ -212,7 +374,7 @@ func (r *userProfileRepository) Delete(ctx context.Context, userID uuid.UUID) er
 	result := r.db.WithContext(ctx).
 		Where("user_id = ?", userID).
 		Delete(&entities.UserProfile{})
-	
+
 	if result.Error != nil {
 		return result.Error
 	}
