@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"strings"
+	"time"
 
 	"ecom-golang-clean-architecture/internal/domain/entities"
 	"ecom-golang-clean-architecture/internal/domain/repositories"
@@ -36,6 +37,27 @@ func (r *productRepository) GetByID(ctx context.Context, id uuid.UUID) (*entitie
 		}).
 		Preload("Tags").
 		Where("id = ?", id).
+		First(&product).Error
+	if err != nil {
+		if err == gorm.ErrRecordNotFound {
+			return nil, entities.ErrProductNotFound
+		}
+		return nil, err
+	}
+	return &product, nil
+}
+
+// GetByIDForUpdate retrieves a product by ID with row-level locking (SELECT FOR UPDATE)
+func (r *productRepository) GetByIDForUpdate(ctx context.Context, id uuid.UUID) (*entities.Product, error) {
+	var product entities.Product
+	err := r.db.WithContext(ctx).Session(&gorm.Session{}).
+		Preload("Category").
+		Preload("Images", func(db *gorm.DB) *gorm.DB {
+			return db.Where("position >= 0").Order("position ASC")
+		}).
+		Preload("Tags").
+		Where("id = ?", id).
+		Set("gorm:query_option", "FOR UPDATE").
 		First(&product).Error
 	if err != nil {
 		if err == gorm.ErrRecordNotFound {
@@ -309,12 +331,27 @@ func (r *productRepository) GetByCategory(ctx context.Context, categoryID uuid.U
 	return products, err
 }
 
-// UpdateStock updates product stock
+// UpdateStock updates product stock and stock status
 func (r *productRepository) UpdateStock(ctx context.Context, productID uuid.UUID, stock int) error {
+	// Get the product first to calculate stock status
+	product, err := r.GetByID(ctx, productID)
+	if err != nil {
+		return err
+	}
+
+	// Update stock and calculate new stock status
+	product.Stock = stock
+	product.UpdateStockStatus()
+
+	// Update both stock and stock_status in database
 	result := r.db.WithContext(ctx).
 		Model(&entities.Product{}).
 		Where("id = ?", productID).
-		Update("stock", stock)
+		Updates(map[string]interface{}{
+			"stock":        stock,
+			"stock_status": product.StockStatus,
+			"updated_at":   time.Now(),
+		})
 
 	if result.Error != nil {
 		return result.Error

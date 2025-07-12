@@ -21,21 +21,66 @@ import { CreateProductRequest } from '@/lib/services/products'
 import { toast } from 'sonner'
 
 const addProductSchema = z.object({
-  name: z.string().min(1, 'Product name is required').max(200, 'Name too long'),
-  description: z.string().min(1, 'Description is required'),
-  short_description: z.string().optional(),
-  sku: z.string().min(1, 'SKU is required').max(100, 'SKU too long'),
-  price: z.number().min(0, 'Price must be positive'),
-  compare_price: z.number().min(0).optional().transform(val => val === 0 ? undefined : val),
-  cost_price: z.number().min(0).optional().transform(val => val === 0 ? undefined : val),
-  stock: z.number().int().min(0, 'Stock must be non-negative'),
+  name: z.string()
+    .min(1, 'Product name is required')
+    .max(200, 'Name too long')
+    .regex(/^[a-zA-Z0-9\s\-_.,()&]+$/, 'Name contains invalid characters'),
+  description: z.string()
+    .min(10, 'Description must be at least 10 characters')
+    .max(5000, 'Description too long'),
+  short_description: z.string()
+    .max(500, 'Short description too long')
+    .optional(),
+  sku: z.string()
+    .min(1, 'SKU is required')
+    .max(100, 'SKU too long')
+    .regex(/^[A-Z0-9\-_]+$/, 'SKU must contain only uppercase letters, numbers, hyphens, and underscores'),
+  price: z.number()
+    .min(0.01, 'Price must be greater than 0')
+    .max(999999.99, 'Price too high'),
+  compare_price: z.number()
+    .min(0)
+    .max(999999.99, 'Compare price too high')
+    .optional()
+    .transform(val => val === 0 ? undefined : val),
+  cost_price: z.number()
+    .min(0)
+    .max(999999.99, 'Cost price too high')
+    .optional()
+    .transform(val => val === 0 ? undefined : val),
+  stock: z.number()
+    .int('Stock must be a whole number')
+    .min(0, 'Stock must be non-negative')
+    .max(999999, 'Stock too high'),
   category_id: z.string().min(1, 'Category is required'),
-  weight: z.number().min(0).optional().transform(val => val === 0 ? undefined : val),
+  weight: z.number()
+    .min(0)
+    .max(999999, 'Weight too high')
+    .optional()
+    .transform(val => val === 0 ? undefined : val),
   length: z.number().min(0).optional().transform(val => val === 0 ? undefined : val),
   width: z.number().min(0).optional().transform(val => val === 0 ? undefined : val),
   height: z.number().min(0).optional().transform(val => val === 0 ? undefined : val),
   status: z.enum(['active', 'draft', 'archived']),
   is_digital: z.boolean(),
+}).refine((data) => {
+  // Compare price should be higher than regular price
+  if (data.compare_price && data.compare_price <= data.price) {
+    return false
+  }
+  return true
+}, {
+  message: "Compare price must be higher than regular price",
+  path: ["compare_price"]
+}).refine((data) => {
+  // Cost price should be lower than regular price
+  if (data.cost_price && data.cost_price >= data.price) {
+    return false
+  }
+  return true
+}, {
+  message: "Cost price should be lower than selling price",
+  path: ["cost_price"]
 })
 
 type AddProductFormData = z.infer<typeof addProductSchema>

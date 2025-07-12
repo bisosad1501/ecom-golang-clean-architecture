@@ -85,10 +85,15 @@ func (r *stockReservationRepository) GetByUserID(ctx context.Context, userID uui
 func (r *stockReservationRepository) GetActiveReservations(ctx context.Context, productID uuid.UUID) ([]*entities.StockReservation, error) {
 	var reservations []*entities.StockReservation
 	err := r.db.WithContext(ctx).
-		Where("product_id = ? AND status = ? AND expires_at > ?", 
+		Where("product_id = ? AND status = ? AND expires_at > ?",
 			productID, entities.ReservationStatusActive, time.Now()).
 		Find(&reservations).Error
 	return reservations, err
+}
+
+// GetActiveReservationsByProduct gets active reservations for a product (alias for consistency)
+func (r *stockReservationRepository) GetActiveReservationsByProduct(ctx context.Context, productID uuid.UUID) ([]*entities.StockReservation, error) {
+	return r.GetActiveReservations(ctx, productID)
 }
 
 // GetExpiredReservations gets expired reservations
@@ -256,4 +261,13 @@ func (r *stockReservationRepository) Count(ctx context.Context, filters reposito
 
 	err := query.Count(&count).Error
 	return count, err
+}
+
+// WithTransaction executes a function within a database transaction
+func (r *stockReservationRepository) WithTransaction(ctx context.Context, fn func(context.Context) error) error {
+	return r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		// Create a new context with the transaction
+		txCtx := context.WithValue(ctx, "tx_repo", &stockReservationRepository{db: tx})
+		return fn(txCtx)
+	})
 }

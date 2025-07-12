@@ -97,6 +97,11 @@ export const useCartStore = create<CartStore>()(
         try {
           set({ isLoading: true, error: null })
 
+          // Validate input
+          if (!productId || quantity <= 0) {
+            throw new Error('Invalid product ID or quantity')
+          }
+
           // Check if user is authenticated
           const { useAuthStore } = await import('@/store/auth')
           const { isAuthenticated } = useAuthStore.getState()
@@ -133,11 +138,27 @@ export const useCartStore = create<CartStore>()(
 
           toast.success('Item added to cart')
         } catch (error: any) {
+          console.error('Failed to add item to cart:', error)
+
+          // Handle specific error types
+          let errorMessage = 'Failed to add item to cart'
+          if (error.code === 'INSUFFICIENT_STOCK') {
+            errorMessage = 'Not enough stock available'
+          } else if (error.code === 'PRODUCT_NOT_FOUND') {
+            errorMessage = 'Product not found'
+          } else if (error.code === 'VALIDATION_ERROR') {
+            errorMessage = error.details?.join(', ') || 'Invalid input'
+          } else if (error.code === 'RATE_LIMITED') {
+            errorMessage = 'Too many requests. Please wait a moment.'
+          } else if (error.message) {
+            errorMessage = error.message
+          }
+
           set({
             isLoading: false,
-            error: error.message || 'Failed to add item to cart',
+            error: errorMessage,
           })
-          toast.error(error.message || 'Failed to add item to cart')
+          toast.error(errorMessage)
           throw error
         }
       },

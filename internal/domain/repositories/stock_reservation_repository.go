@@ -21,7 +21,11 @@ type StockReservationRepository interface {
 	GetByProductID(ctx context.Context, productID uuid.UUID) ([]*entities.StockReservation, error)
 	GetByUserID(ctx context.Context, userID uuid.UUID) ([]*entities.StockReservation, error)
 	GetActiveReservations(ctx context.Context, productID uuid.UUID) ([]*entities.StockReservation, error)
+	GetActiveReservationsByProduct(ctx context.Context, productID uuid.UUID) ([]*entities.StockReservation, error)
 	GetExpiredReservations(ctx context.Context) ([]*entities.StockReservation, error)
+
+	// Transaction support
+	WithTransaction(ctx context.Context, fn func(context.Context) error) error
 	
 	// Stock calculation operations
 	GetTotalReservedStock(ctx context.Context, productID uuid.UUID) (int, error)

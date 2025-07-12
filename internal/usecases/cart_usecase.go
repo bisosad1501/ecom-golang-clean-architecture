@@ -2,6 +2,7 @@ package usecases
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	"ecom-golang-clean-architecture/internal/domain/entities"
@@ -680,6 +681,11 @@ func (uc *cartUseCase) MergeGuestCartWithStrategy(ctx context.Context, userID uu
 		guestCart.SessionID = nil
 		guestCart.UpdateCalculatedFields()
 
+		// Also need to update any stock reservations to point to user instead of session
+		if err := uc.transferGuestReservationsToUser(txCtx, sessionID, userID); err != nil {
+			return nil, pkgErrors.Wrap(err, pkgErrors.ErrCodeInternalError, "Failed to transfer guest reservations to user")
+		}
+
 		if err := txRepo.Update(txCtx, guestCart); err != nil {
 			return nil, pkgErrors.Wrap(err, pkgErrors.ErrCodeInternalError, "Failed to convert guest cart to user cart")
 		}
@@ -925,4 +931,12 @@ func (uc *cartUseCase) CheckMergeConflict(ctx context.Context, userID uuid.UUID,
 	}
 
 	return conflict, nil
+}
+
+// transferGuestReservationsToUser transfers stock reservations from guest session to user
+func (uc *cartUseCase) transferGuestReservationsToUser(ctx context.Context, sessionID string, userID uuid.UUID) error {
+	// This would need to be implemented in stock reservation service
+	// For now, we'll just log it as a TODO
+	fmt.Printf("TODO: Transfer stock reservations from session %s to user %s\n", sessionID, userID)
+	return nil
 }

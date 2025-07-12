@@ -86,24 +86,66 @@ class ApiClient {
       // Handle HTTP errors
       if (!response.ok) {
         const errorMessage = data.error || data.message || `HTTP ${response.status}: ${response.statusText}`
-        
+
         // Handle validation errors
         if (response.status === 400 && data.errors) {
           const error = new Error(errorMessage) as any
           error.code = 'VALIDATION_ERROR'
           error.details = data.errors
+          error.status = response.status
           throw error
         }
-        
+
         // Handle authentication errors
         if (response.status === 401) {
           this.setToken(null) // Clear invalid token
+          // Redirect to login if in browser
+          if (typeof window !== 'undefined') {
+            window.location.href = '/auth/login'
+          }
           const error = new Error('Authentication required') as any
           error.code = 'UNAUTHORIZED'
+          error.status = response.status
           throw error
         }
-        
-        throw new Error(errorMessage)
+
+        // Handle authorization errors
+        if (response.status === 403) {
+          const error = new Error('Access denied') as any
+          error.code = 'FORBIDDEN'
+          error.status = response.status
+          throw error
+        }
+
+        // Handle not found errors
+        if (response.status === 404) {
+          const error = new Error('Resource not found') as any
+          error.code = 'NOT_FOUND'
+          error.status = response.status
+          throw error
+        }
+
+        // Handle rate limiting
+        if (response.status === 429) {
+          const error = new Error('Too many requests. Please try again later.') as any
+          error.code = 'RATE_LIMITED'
+          error.status = response.status
+          throw error
+        }
+
+        // Handle server errors
+        if (response.status >= 500) {
+          const error = new Error('Server error. Please try again later.') as any
+          error.code = 'SERVER_ERROR'
+          error.status = response.status
+          throw error
+        }
+
+        // Generic error
+        const error = new Error(errorMessage) as any
+        error.code = 'API_ERROR'
+        error.status = response.status
+        throw error
       }
 
       return { data: (data.data || data) as T, response }

@@ -368,23 +368,7 @@ func (uc *orderUseCase) createOrderInTransaction(ctx context.Context, tx *gorm.D
 				WithContext("product_name", product.Name)
 		}
 
-		// Create stock reservation for order (atomic operation)
-		reservation := &entities.StockReservation{
-			ID:        uuid.New(),
-			ProductID: item.ProductID,
-			UserID:    &userID,
-			Quantity:  item.Quantity,
-			Type:      entities.ReservationTypeOrder,
-			Status:    entities.ReservationStatusActive,
-			Notes:     fmt.Sprintf("Reserved for order creation - Product: %s", product.Name),
-			CreatedAt: time.Now(),
-			UpdatedAt: time.Now(),
-		}
-
-		// Set expiration (30 minutes for order reservations)
-		reservation.SetExpiration(30)
-
-		// Check if stock can be reserved first
+		// Check if stock can be reserved first (don't create reservation yet)
 		canReserve, err := uc.stockReservationService.CanReserveStock(ctx, item.ProductID, item.Quantity)
 		if err != nil {
 			return nil, pkgErrors.Wrap(err, pkgErrors.ErrCodeInternalError, "Failed to check stock availability")
@@ -397,10 +381,8 @@ func (uc *orderUseCase) createOrderInTransaction(ctx context.Context, tx *gorm.D
 				WithContext("requested_quantity", item.Quantity)
 		}
 
-		// Reserve stock for order
-		if err := uc.stockReservationService.ReserveStockForCart(ctx, reservation); err != nil {
-			return nil, pkgErrors.Wrap(err, pkgErrors.ErrCodeInternalError, "Failed to create stock reservation for order")
-		}
+		// Note: We'll create the actual stock reservations later in ReserveStockForOrder
+		// to avoid double reservation (cart reservation + order reservation)
 	}
 
 	// Calculate totals

@@ -21,6 +21,9 @@ type StockCleanupUseCase interface {
 	// Cleanup expired carts
 	CleanupExpiredCarts(ctx context.Context) error
 
+	// Cleanup expired payment timeouts
+	CleanupExpiredPayments(ctx context.Context) error
+
 	// Run full cleanup process
 	RunCleanup(ctx context.Context) error
 
@@ -163,6 +166,12 @@ func (uc *stockCleanupUseCase) RunCleanup(ctx context.Context) error {
 		hasErrors = true
 	}
 
+	// Cleanup expired payments
+	if err := uc.CleanupExpiredPayments(ctx); err != nil {
+		fmt.Printf("❌ Failed to cleanup expired payments: %v\n", err)
+		hasErrors = true
+	}
+
 	overallDuration := time.Since(overallStart)
 	if hasErrors {
 		fmt.Printf("⚠️ Cleanup process completed with errors in %v\n", overallDuration)
@@ -208,6 +217,63 @@ func (uc *stockCleanupUseCase) CleanupExpiredCarts(ctx context.Context) error {
 		fmt.Printf("⚠️ Cleaned up %d expired carts with %d errors in %v\n", cleanedCount, errorCount, duration)
 	} else {
 		fmt.Printf("✅ Successfully cleaned up %d expired carts in %v\n", cleanedCount, duration)
+	}
+	return nil
+}
+
+// CleanupExpiredPayments cleans up orders with expired payment timeouts
+func (uc *stockCleanupUseCase) CleanupExpiredPayments(ctx context.Context) error {
+	fmt.Printf("🧹 Starting cleanup of expired payment timeouts...\n")
+	startTime := time.Now()
+
+	// Get orders with expired payment timeouts
+	filters := repositories.OrderSearchParams{
+		PaymentStatus: &[]entities.PaymentStatus{entities.PaymentStatusPending}[0],
+		Limit:         1000,
+	}
+	orders, err := uc.orderRepo.Search(ctx, filters)
+	if err != nil {
+		return fmt.Errorf("failed to get pending orders: %w", err)
+	}
+
+	cleanedCount := 0
+	errorCount := 0
+
+	for _, order := range orders {
+		if !order.IsPaymentExpired() {
+			continue // Skip non-expired orders
+		}
+
+		fmt.Printf("🔄 Processing expired payment for order %s (timeout: %v)\n",
+			order.OrderNumber, order.PaymentTimeout)
+
+		// Cancel the order due to payment timeout
+		order.Status = entities.OrderStatusCancelled
+		order.PaymentStatus = entities.PaymentStatusFailed
+		order.ReleaseReservation()
+		order.UpdatedAt = time.Now()
+
+		if err := uc.orderRepo.Update(ctx, order); err != nil {
+			fmt.Printf("❌ Failed to cancel expired order %s: %v\n", order.OrderNumber, err)
+			errorCount++
+			continue
+		}
+
+		// Release stock reservations
+		if err := uc.stockReservationService.ReleaseReservations(ctx, order.ID); err != nil {
+			fmt.Printf("❌ Failed to release reservations for order %s: %v\n", order.OrderNumber, err)
+			// Continue anyway, order is already cancelled
+		}
+
+		cleanedCount++
+		fmt.Printf("✅ Cancelled expired order %s and released reservations\n", order.OrderNumber)
+	}
+
+	duration := time.Since(startTime)
+	if errorCount > 0 {
+		fmt.Printf("⚠️ Cleaned up %d expired payments with %d errors in %v\n", cleanedCount, errorCount, duration)
+	} else {
+		fmt.Printf("✅ Successfully cleaned up %d expired payments in %v\n", cleanedCount, duration)
 	}
 	return nil
 }

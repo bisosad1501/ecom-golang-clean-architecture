@@ -198,31 +198,43 @@ func (s *stockReservationService) CanReserveStock(ctx context.Context, productID
 
 // AtomicReserveStock atomically checks and reserves stock to prevent race conditions
 func (s *stockReservationService) AtomicReserveStock(ctx context.Context, reservation *entities.StockReservation) error {
-	// This should be implemented with database-level locking or transactions
-	// For now, we'll use a simple approach but this needs proper implementation
-	// in the repository layer with SELECT FOR UPDATE or similar mechanisms
-
 	// Validate reservation
 	if reservation.Quantity <= 0 {
 		return fmt.Errorf("reservation quantity must be positive")
 	}
 
-	// Check if stock can be reserved (this should be done atomically in production)
-	canReserve, err := s.CanReserveStock(ctx, reservation.ProductID, reservation.Quantity)
-	if err != nil {
-		return fmt.Errorf("failed to check stock availability: %w", err)
-	}
+	// Use database transaction with row-level locking to prevent race conditions
+	return s.reservationRepo.WithTransaction(ctx, func(txCtx context.Context) error {
+		// Get product with row-level lock (SELECT FOR UPDATE)
+		product, err := s.productRepo.GetByIDForUpdate(txCtx, reservation.ProductID)
+		if err != nil {
+			return fmt.Errorf("failed to get product for stock check: %w", err)
+		}
 
-	if !canReserve {
-		return fmt.Errorf("insufficient stock for product %s: requested %d", reservation.ProductID, reservation.Quantity)
-	}
+		// Calculate available stock (current stock - active reservations)
+		activeReservations, err := s.reservationRepo.GetActiveReservationsByProduct(txCtx, reservation.ProductID)
+		if err != nil {
+			return fmt.Errorf("failed to get active reservations: %w", err)
+		}
 
-	// Create reservation (this should be part of the atomic operation)
-	if err := s.reservationRepo.Create(ctx, reservation); err != nil {
-		return fmt.Errorf("failed to create stock reservation: %w", err)
-	}
+		totalReserved := 0
+		for _, res := range activeReservations {
+			totalReserved += res.Quantity
+		}
 
-	return nil
+		availableStock := product.Stock - totalReserved
+		if availableStock < reservation.Quantity {
+			return fmt.Errorf("insufficient stock for product %s: available %d, requested %d",
+				reservation.ProductID, availableStock, reservation.Quantity)
+		}
+
+		// Create reservation atomically within the same transaction
+		if err := s.reservationRepo.Create(txCtx, reservation); err != nil {
+			return fmt.Errorf("failed to create stock reservation: %w", err)
+		}
+
+		return nil
+	})
 }
 
 // GetAvailableStock gets available stock (actual stock - reserved stock)

@@ -76,35 +76,3 @@ func RequireAuthenticationMiddleware() gin.HandlerFunc {
 		c.Next()
 	}
 }
-
-// FileUploadSecurityMiddleware adds additional security headers and checks
-func FileUploadSecurityMiddleware() gin.HandlerFunc {
-	return func(c *gin.Context) {
-		// Add security headers
-		c.Header("X-Content-Type-Options", "nosniff")
-		c.Header("X-Frame-Options", "DENY")
-		c.Header("X-XSS-Protection", "1; mode=block")
-		
-		// Check content length
-		contentLength := c.Request.ContentLength
-		if contentLength > 10*1024*1024 { // 10MB limit
-			c.JSON(http.StatusRequestEntityTooLarge, gin.H{
-				"error": "File size exceeds maximum allowed size of 10MB",
-			})
-			c.Abort()
-			return
-		}
-		
-		// Check content type
-		contentType := c.GetHeader("Content-Type")
-		if !strings.HasPrefix(contentType, "multipart/form-data") {
-			c.JSON(http.StatusBadRequest, gin.H{
-				"error": "Invalid content type. Expected multipart/form-data",
-			})
-			c.Abort()
-			return
-		}
-		
-		c.Next()
-	}
-}
