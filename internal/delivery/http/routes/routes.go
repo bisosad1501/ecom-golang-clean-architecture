@@ -15,6 +15,7 @@ func SetupRoutes(
 	userHandler *handlers.UserHandler,
 	productHandler *handlers.ProductHandler,
 	categoryHandler *handlers.CategoryHandler,
+	brandHandler *handlers.BrandHandler,
 	cartHandler *handlers.CartHandler,
 	orderHandler *handlers.OrderHandler,
 	fileHandler *handlers.FileHandler,
@@ -89,6 +90,7 @@ func SetupRoutes(
 			products.GET("", productHandler.GetProducts)
 			products.GET("/:id", productHandler.GetProduct)
 			products.GET("/search", productHandler.SearchProducts)
+			products.GET("/filters", productHandler.GetProductFilters)
 			products.GET("/category/:categoryId", productHandler.GetProductsByCategory)
 			products.GET("/featured", productHandler.GetFeaturedProducts)
 			products.GET("/trending", productHandler.GetTrendingProducts)
@@ -109,6 +111,17 @@ func SetupRoutes(
 			categories.GET("/:id/children", categoryHandler.GetCategoryChildren)
 			categories.GET("/:id/path", categoryHandler.GetCategoryPath)
 			categories.GET("/:id/count", categoryHandler.GetCategoryProductCount)
+		}
+
+		// Public brand routes
+		brands := v1.Group("/brands")
+		{
+			brands.GET("", brandHandler.GetBrands)
+			brands.GET("/active", brandHandler.GetActiveBrands)
+			brands.GET("/popular", brandHandler.GetPopularBrands)
+			brands.GET("/search", brandHandler.SearchBrands)
+			brands.GET("/:id", brandHandler.GetBrand)
+			brands.GET("/slug/:slug", brandHandler.GetBrandBySlug)
 		}
 
 		// Public cart routes (guest cart support)
@@ -370,6 +383,14 @@ func SetupRoutes(
 				adminCategories.POST("", categoryHandler.CreateCategory)
 				adminCategories.PUT("/:id", categoryHandler.UpdateCategory)
 				adminCategories.DELETE("/:id", categoryHandler.DeleteCategory)
+			}
+
+			// Admin brand management
+			adminBrands := admin.Group("/brands")
+			{
+				adminBrands.POST("", brandHandler.CreateBrand)
+				adminBrands.PUT("/:id", brandHandler.UpdateBrand)
+				adminBrands.DELETE("/:id", brandHandler.DeleteBrand)
 			}
 
 			// Admin file uploads

@@ -84,6 +84,7 @@ func main() {
 	userVerificationRepo := database.NewUserVerificationRepository(db)
 	productRepo := database.NewProductRepository(db)
 	categoryRepo := database.NewCategoryRepository(db)
+	brandRepo := database.NewBrandRepository(db)
 	tagRepo := database.NewTagRepository(db)
 	imageRepo := database.NewImageRepository(db)
 	cartRepo := database.NewCartRepository(db)
@@ -158,6 +159,10 @@ func main() {
 	categoryUseCase := usecases.NewCategoryUseCase(
 		categoryRepo,
 		fileService,
+	)
+
+	brandUseCase := usecases.NewBrandUseCase(
+		brandRepo,
 	)
 
 	cartUseCase := usecases.NewCartUseCase(
@@ -244,6 +249,7 @@ func main() {
 	userHandler := handlers.NewUserHandler(userUseCase)
 	productHandler := handlers.NewProductHandler(productUseCase)
 	categoryHandler := handlers.NewCategoryHandler(categoryUseCase)
+	brandHandler := handlers.NewBrandHandler(brandUseCase)
 	cartHandler := handlers.NewCartHandler(cartUseCase)
 	orderHandler := handlers.NewOrderHandler(orderUseCase)
 	fileHandler := handlers.NewFileHandler(fileUseCase)
@@ -270,6 +276,7 @@ func main() {
 		userHandler,
 		productHandler,
 		categoryHandler,
+		brandHandler,
 		cartHandler,
 		orderHandler,
 		fileHandler,

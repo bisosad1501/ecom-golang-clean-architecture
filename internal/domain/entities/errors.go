@@ -22,6 +22,10 @@ var (
 	ErrCategoryNotFound = errors.New("category not found")
 	ErrCategoryExists   = errors.New("category already exists")
 
+	// Brand errors
+	ErrBrandNotFound = errors.New("brand not found")
+	ErrBrandExists   = errors.New("brand already exists")
+
 	// Cart errors
 	ErrCartNotFound    = errors.New("cart not found")
 	ErrCartItemNotFound = errors.New("cart item not found")

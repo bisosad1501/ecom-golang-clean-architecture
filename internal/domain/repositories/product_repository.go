@@ -148,6 +148,18 @@ type BrandRepository interface {
 
 	// GetActive retrieves active brands
 	GetActive(ctx context.Context, limit, offset int) ([]*entities.Brand, error)
+
+	// GetPopularBrands retrieves brands ordered by product count
+	GetPopularBrands(ctx context.Context, limit int) ([]*entities.Brand, error)
+
+	// GetBrandsForFiltering retrieves brands for product filtering with counts
+	GetBrandsForFiltering(ctx context.Context, categoryID *uuid.UUID) ([]map[string]interface{}, error)
+
+	// CountByStatus counts brands by status
+	CountByStatus(ctx context.Context, isActive bool) (int64, error)
+
+	// GetTotal gets total number of brands
+	GetTotal(ctx context.Context) (int64, error)
 }
 
 // ProductAttributeRepository defines the interface for product attribute data access

@@ -754,3 +754,42 @@ func (h *ProductHandler) GetRelatedProducts(c *gin.Context) {
 	})
 }
 
+// GetProductFilters handles getting product filters for faceted search
+// @Summary Get product filters
+// @Description Get available filters for products including brands, price range, and attributes
+// @Tags products
+// @Accept json
+// @Produce json
+// @Param category_id query string false "Category ID to filter brands"
+// @Success 200 {object} map[string]interface{}
+// @Router /products/filters [get]
+func (h *ProductHandler) GetProductFilters(c *gin.Context) {
+	categoryIDStr := c.Query("category_id")
+	var categoryID *uuid.UUID
+
+	if categoryIDStr != "" {
+		if id, err := uuid.Parse(categoryIDStr); err == nil {
+			categoryID = &id
+		}
+	}
+
+	// Get brand filters (this would need to be implemented in product use case)
+	// For now, we'll return a basic structure
+	// TODO: Use categoryID to filter brands by category
+	_ = categoryID // Suppress unused variable warning
+
+	filters := map[string]interface{}{
+		"price_range": map[string]interface{}{
+			"min": 0,
+			"max": 10000,
+		},
+		"brands": []map[string]interface{}{},
+		"attributes": []map[string]interface{}{},
+	}
+
+	c.JSON(http.StatusOK, SuccessResponse{
+		Message: "Product filters retrieved successfully",
+		Data:    filters,
+	})
+}
+
