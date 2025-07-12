@@ -118,6 +118,11 @@ func (r *orderRepository) Search(ctx context.Context, params repositories.OrderS
 	query := r.db.WithContext(ctx).
 		Preload("User").
 		Preload("Items").
+		Preload("Items.Product").
+		Preload("Items.Product.Category").
+		Preload("Items.Product.Images", func(db *gorm.DB) *gorm.DB {
+			return db.Where("position >= 0").Order("position ASC")
+		}).
 		Preload("Payment")
 
 	// Apply filters
@@ -217,6 +222,10 @@ func (r *orderRepository) GetByUserID(ctx context.Context, userID uuid.UUID, lim
 	err := r.db.WithContext(ctx).
 		Preload("Items").
 		Preload("Items.Product").
+		Preload("Items.Product.Category").
+		Preload("Items.Product.Images", func(db *gorm.DB) *gorm.DB {
+			return db.Where("position >= 0").Order("position ASC")
+		}).
 		Preload("Payment").
 		Where("user_id = ?", userID).
 		Limit(limit).

@@ -239,3 +239,63 @@ func (r *categoryRepository) GetProductCountByCategory(ctx context.Context, cate
 
 	return count, err
 }
+
+// GetWithProductsOptimized retrieves a category with its products and all relations (optimized)
+func (r *categoryRepository) GetWithProductsOptimized(ctx context.Context, id uuid.UUID, limit, offset int) (*entities.Category, []*entities.Product, error) {
+	// Get category first
+	category, err := r.GetByID(ctx, id)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	// Get products with all relations in one query
+	var products []*entities.Product
+	err = r.db.WithContext(ctx).
+		Preload("Category").
+		Preload("Brand").
+		Preload("Images", func(db *gorm.DB) *gorm.DB {
+			return db.Where("position >= 0").Order("position ASC")
+		}).
+		Preload("Tags").
+		Where("category_id = ? AND status = ?", id, "active").
+		Limit(limit).
+		Offset(offset).
+		Order("created_at DESC").
+		Find(&products).Error
+
+	return category, products, err
+}
+
+// GetCategoriesWithProductCount retrieves categories with product count (optimized)
+func (r *categoryRepository) GetCategoriesWithProductCount(ctx context.Context) ([]*entities.Category, map[uuid.UUID]int64, error) {
+	// Get all categories using List method
+	categories, err := r.List(ctx, 1000, 0) // Get up to 1000 categories
+	if err != nil {
+		return nil, nil, err
+	}
+
+	// Get product counts for all categories in one query
+	type CategoryCount struct {
+		CategoryID uuid.UUID `json:"category_id"`
+		Count      int64     `json:"count"`
+	}
+
+	var counts []CategoryCount
+	err = r.db.WithContext(ctx).
+		Model(&entities.Product{}).
+		Select("category_id, COUNT(*) as count").
+		Where("status = ?", "active").
+		Group("category_id").
+		Scan(&counts).Error
+	if err != nil {
+		return nil, nil, err
+	}
+
+	// Build count map
+	countMap := make(map[uuid.UUID]int64)
+	for _, count := range counts {
+		countMap[count.CategoryID] = count.Count
+	}
+
+	return categories, countMap, nil
+}

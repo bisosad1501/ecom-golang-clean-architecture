@@ -384,9 +384,17 @@ func (r *productRepository) GetFeatured(ctx context.Context, limit int) ([]*enti
 
 // GetRelated retrieves related products
 func (r *productRepository) GetRelated(ctx context.Context, productID uuid.UUID, limit int) ([]*entities.Product, error) {
-	// Get the product to find its category
-	product, err := r.GetByID(ctx, productID)
+	// Get category_id directly without loading full product
+	var categoryID uuid.UUID
+	err := r.db.WithContext(ctx).
+		Model(&entities.Product{}).
+		Select("category_id").
+		Where("id = ?", productID).
+		Scan(&categoryID).Error
 	if err != nil {
+		if err == gorm.ErrRecordNotFound {
+			return nil, entities.ErrProductNotFound
+		}
 		return nil, err
 	}
 
@@ -397,7 +405,7 @@ func (r *productRepository) GetRelated(ctx context.Context, productID uuid.UUID,
 			return db.Where("position >= 0").Order("position ASC")
 		}).
 		Preload("Tags").
-		Where("category_id = ? AND id != ?", product.CategoryID, productID).
+		Where("category_id = ? AND id != ?", categoryID, productID).
 		Limit(limit).
 		Order("RANDOM()").
 		Find(&products).Error
@@ -497,6 +505,28 @@ func (r *productRepository) GetByBrand(ctx context.Context, brandID uuid.UUID, l
 		Offset(offset).
 		Find(&products).Error
 	return products, err
+}
+
+// GetByIDsWithFullDetails retrieves multiple products by IDs with all relations (optimized for bulk operations)
+func (r *productRepository) GetByIDsWithFullDetails(ctx context.Context, ids []uuid.UUID) ([]*entities.Product, error) {
+	if len(ids) == 0 {
+		return []*entities.Product{}, nil
+	}
+
+	var products []*entities.Product
+	err := r.db.WithContext(ctx).
+		Preload("Category").
+		Preload("Brand").
+		Preload("Images", func(db *gorm.DB) *gorm.DB {
+			return db.Where("position >= 0").Order("position ASC")
+		}).
+		Preload("Tags").
+		Where("id IN ?", ids).
+		Find(&products).Error
+	if err != nil {
+		return nil, err
+	}
+	return products, nil
 }
 
 // GetBySlug retrieves a product by slug

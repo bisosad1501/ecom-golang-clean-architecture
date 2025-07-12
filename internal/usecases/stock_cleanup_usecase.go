@@ -18,8 +18,14 @@ type StockCleanupUseCase interface {
 	// Cleanup expired unpaid orders
 	CleanupExpiredOrders(ctx context.Context) error
 
+	// Cleanup expired carts
+	CleanupExpiredCarts(ctx context.Context) error
+
 	// Run full cleanup process
 	RunCleanup(ctx context.Context) error
+
+	// Get cleanup statistics
+	GetCleanupStats(ctx context.Context) (map[string]interface{}, error)
 }
 
 type stockCleanupUseCase struct {
@@ -46,6 +52,7 @@ func NewStockCleanupUseCase(
 
 // CleanupExpiredReservations cleans up expired stock reservations
 func (uc *stockCleanupUseCase) CleanupExpiredReservations(ctx context.Context) error {
+	startTime := time.Now()
 	fmt.Printf("🧹 Starting cleanup of expired stock reservations...\n")
 
 	// Get expired reservations
@@ -66,12 +73,14 @@ func (uc *stockCleanupUseCase) CleanupExpiredReservations(ctx context.Context) e
 		return fmt.Errorf("failed to cleanup expired reservations: %w", err)
 	}
 
-	fmt.Printf("✅ Successfully cleaned up %d expired reservations\n", len(expiredReservations))
+	duration := time.Since(startTime)
+	fmt.Printf("✅ Successfully cleaned up %d expired reservations in %v\n", len(expiredReservations), duration)
 	return nil
 }
 
 // CleanupExpiredOrders cleans up expired unpaid orders
 func (uc *stockCleanupUseCase) CleanupExpiredOrders(ctx context.Context) error {
+	startTime := time.Now()
 	fmt.Printf("🧹 Starting cleanup of expired unpaid orders...\n")
 
 	// Get orders that are pending payment and have expired payment timeout
@@ -87,6 +96,7 @@ func (uc *stockCleanupUseCase) CleanupExpiredOrders(ctx context.Context) error {
 	}
 
 	expiredCount := 0
+	errorCount := 0
 	for _, order := range orders {
 		if order.IsPaymentExpired() {
 			fmt.Printf("🕐 Order %s payment expired, cancelling...\n", order.OrderNumber)
@@ -94,6 +104,7 @@ func (uc *stockCleanupUseCase) CleanupExpiredOrders(ctx context.Context) error {
 			// Release stock reservations
 			if err := uc.stockReservationService.ReleaseReservations(ctx, order.ID); err != nil {
 				fmt.Printf("❌ Failed to release reservations for order %s: %v\n", order.OrderNumber, err)
+				errorCount++
 				continue
 			}
 
@@ -104,6 +115,7 @@ func (uc *stockCleanupUseCase) CleanupExpiredOrders(ctx context.Context) error {
 
 			if err := uc.orderRepo.Update(ctx, order); err != nil {
 				fmt.Printf("❌ Failed to cancel expired order %s: %v\n", order.OrderNumber, err)
+				errorCount++
 				continue
 			}
 
@@ -112,10 +124,13 @@ func (uc *stockCleanupUseCase) CleanupExpiredOrders(ctx context.Context) error {
 		}
 	}
 
+	duration := time.Since(startTime)
 	if expiredCount == 0 {
 		fmt.Printf("✅ No expired orders found\n")
+	} else if errorCount > 0 {
+		fmt.Printf("⚠️ Cancelled %d expired orders with %d errors in %v\n", expiredCount, errorCount, duration)
 	} else {
-		fmt.Printf("✅ Successfully cancelled %d expired orders\n", expiredCount)
+		fmt.Printf("✅ Successfully cancelled %d expired orders in %v\n", expiredCount, duration)
 	}
 
 	return nil
@@ -123,26 +138,44 @@ func (uc *stockCleanupUseCase) CleanupExpiredOrders(ctx context.Context) error {
 
 // RunCleanup runs the full cleanup process
 func (uc *stockCleanupUseCase) RunCleanup(ctx context.Context) error {
+	overallStart := time.Now()
 	fmt.Printf("🚀 Starting full stock cleanup process...\n")
+
+	var hasErrors bool
 
 	// Cleanup expired reservations first
 	if err := uc.CleanupExpiredReservations(ctx); err != nil {
 		fmt.Printf("❌ Failed to cleanup expired reservations: %v\n", err)
-		// Continue with order cleanup even if reservation cleanup fails
+		hasErrors = true
+		// Continue with other cleanups even if reservation cleanup fails
 	}
 
 	// Cleanup expired orders
 	if err := uc.CleanupExpiredOrders(ctx); err != nil {
 		fmt.Printf("❌ Failed to cleanup expired orders: %v\n", err)
-		return err
+		hasErrors = true
+		// Continue with cart cleanup even if order cleanup fails
 	}
 
-	fmt.Printf("🎉 Full cleanup process completed successfully\n")
+	// Cleanup expired carts
+	if err := uc.CleanupExpiredCarts(ctx); err != nil {
+		fmt.Printf("❌ Failed to cleanup expired carts: %v\n", err)
+		hasErrors = true
+	}
+
+	overallDuration := time.Since(overallStart)
+	if hasErrors {
+		fmt.Printf("⚠️ Cleanup process completed with errors in %v\n", overallDuration)
+		return fmt.Errorf("cleanup process completed with errors")
+	}
+
+	fmt.Printf("🎉 Full cleanup process completed successfully in %v\n", overallDuration)
 	return nil
 }
 
 // CleanupExpiredCarts cleans up expired carts
 func (uc *stockCleanupUseCase) CleanupExpiredCarts(ctx context.Context) error {
+	startTime := time.Now()
 	fmt.Printf("🧹 Starting cleanup of expired carts...\n")
 
 	expiredCarts, err := uc.cartRepo.GetExpiredCarts(ctx)
@@ -158,18 +191,66 @@ func (uc *stockCleanupUseCase) CleanupExpiredCarts(ctx context.Context) error {
 	fmt.Printf("🔍 Found %d expired carts\n", len(expiredCarts))
 
 	cleanedCount := 0
+	errorCount := 0
 	for _, cart := range expiredCarts {
 		cart.MarkAsAbandoned()
 		if err := uc.cartRepo.Update(ctx, cart); err != nil {
 			fmt.Printf("❌ Failed to mark cart %s as abandoned: %v\n", cart.ID, err)
+			errorCount++
 			continue
 		}
 		cleanedCount++
 		fmt.Printf("✅ Marked expired cart %s as abandoned\n", cart.ID)
 	}
 
-	fmt.Printf("✅ Successfully cleaned up %d expired carts\n", cleanedCount)
+	duration := time.Since(startTime)
+	if errorCount > 0 {
+		fmt.Printf("⚠️ Cleaned up %d expired carts with %d errors in %v\n", cleanedCount, errorCount, duration)
+	} else {
+		fmt.Printf("✅ Successfully cleaned up %d expired carts in %v\n", cleanedCount, duration)
+	}
 	return nil
+}
+
+// GetCleanupStats returns statistics about items that need cleanup
+func (uc *stockCleanupUseCase) GetCleanupStats(ctx context.Context) (map[string]interface{}, error) {
+	stats := make(map[string]interface{})
+
+	// Get expired reservations count
+	expiredReservations, err := uc.stockReservationRepo.GetExpiredReservations(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get expired reservations: %w", err)
+	}
+	stats["expired_reservations"] = len(expiredReservations)
+
+	// Get expired carts count
+	expiredCarts, err := uc.cartRepo.GetExpiredCarts(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get expired carts: %w", err)
+	}
+	stats["expired_carts"] = len(expiredCarts)
+
+	// Get pending orders that might be expired
+	filters := repositories.OrderSearchParams{
+		Status:        &[]entities.OrderStatus{entities.OrderStatusPending}[0],
+		PaymentStatus: &[]entities.PaymentStatus{entities.PaymentStatusPending}[0],
+		Limit:         1000,
+	}
+	orders, err := uc.orderRepo.Search(ctx, filters)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get pending orders: %w", err)
+	}
+
+	expiredOrderCount := 0
+	for _, order := range orders {
+		if order.IsPaymentExpired() {
+			expiredOrderCount++
+		}
+	}
+	stats["expired_orders"] = expiredOrderCount
+	stats["total_pending_orders"] = len(orders)
+
+	return stats, nil
 }
 
 // StartCleanupScheduler starts a background scheduler for cleanup tasks
@@ -178,6 +259,11 @@ func StartCleanupScheduler(ctx context.Context, cleanupUseCase StockCleanupUseCa
 	defer ticker.Stop()
 
 	fmt.Printf("📅 Starting cleanup scheduler (every 5 minutes)...\n")
+
+	// Run initial cleanup
+	if err := cleanupUseCase.RunCleanup(ctx); err != nil {
+		fmt.Printf("❌ Initial cleanup failed: %v\n", err)
+	}
 
 	for {
 		select {

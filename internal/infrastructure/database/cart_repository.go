@@ -121,6 +121,63 @@ func (r *cartRepository) GetBySessionID(ctx context.Context, sessionID string) (
 	return &cart, nil
 }
 
+// GetBySessionIDForUpdate retrieves a cart by session ID with row-level locking
+func (r *cartRepository) GetBySessionIDForUpdate(ctx context.Context, sessionID string) (*entities.Cart, error) {
+	var cart entities.Cart
+	err := r.db.WithContext(ctx).
+		Preload("Items").
+		Preload("Items.Product").
+		Preload("Items.Product.Category").
+		Preload("Items.Product.Images").
+		Where("session_id = ? AND status = ?", sessionID, "active").
+		Set("gorm:query_option", "FOR UPDATE").
+		First(&cart).Error
+	if err != nil {
+		if err == gorm.ErrRecordNotFound {
+			return nil, entities.ErrCartNotFound
+		}
+		return nil, err
+	}
+	return &cart, nil
+}
+
+// GetByUserIDForUpdate retrieves a cart by user ID with row-level locking
+func (r *cartRepository) GetByUserIDForUpdate(ctx context.Context, userID uuid.UUID) (*entities.Cart, error) {
+	var cart entities.Cart
+	err := r.db.WithContext(ctx).
+		Preload("Items").
+		Preload("Items.Product").
+		Preload("Items.Product.Category").
+		Preload("Items.Product.Images").
+		Where("user_id = ? AND status = ?", userID, "active").
+		Set("gorm:query_option", "FOR UPDATE").
+		First(&cart).Error
+	if err != nil {
+		if err == gorm.ErrRecordNotFound {
+			return nil, entities.ErrCartNotFound
+		}
+		return nil, err
+	}
+	return &cart, nil
+}
+
+// WithTransaction executes a function within a database transaction
+func (r *cartRepository) WithTransaction(ctx context.Context, fn func(ctx context.Context) (interface{}, error)) (interface{}, error) {
+	var result interface{}
+	err := r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		// Create a new repository instance with the transaction
+		txRepo := &cartRepository{db: tx}
+
+		// Create a new context with the transaction repository
+		txCtx := context.WithValue(ctx, "tx_repo", txRepo)
+
+		var err error
+		result, err = fn(txCtx)
+		return err
+	})
+	return result, err
+}
+
 // Update updates an existing cart
 func (r *cartRepository) Update(ctx context.Context, cart *entities.Cart) error {
 	// Calculated fields are updated by updateCartCalculatedFields after item operations

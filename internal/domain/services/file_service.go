@@ -38,13 +38,15 @@ type FileService interface {
 type fileService struct {
 	storageProvider storage.StorageProvider
 	fileRepo        repositories.FileRepository
+	securityService FileSecurityService
 }
 
 // NewFileService tạo file service mới
-func NewFileService(storageProvider storage.StorageProvider, fileRepo repositories.FileRepository) FileService {
+func NewFileService(storageProvider storage.StorageProvider, fileRepo repositories.FileRepository, securityService FileSecurityService) FileService {
 	return &fileService{
 		storageProvider: storageProvider,
 		fileRepo:        fileRepo,
+		securityService: securityService,
 	}
 }
 
@@ -53,10 +55,15 @@ func (fs *fileService) UploadFile(ctx context.Context, req *entities.FileUploadR
 	if !ok {
 		return nil, fmt.Errorf("invalid file type")
 	}
-	
+
 	header, ok := req.Header.(*multipart.FileHeader)
 	if !ok {
 		return nil, fmt.Errorf("invalid file header type")
+	}
+
+	// Perform security validation
+	if err := fs.securityService.ValidateFileContent(file, header); err != nil {
+		return nil, fmt.Errorf("file security validation failed: %w", err)
 	}
 
 	// Generate unique filename

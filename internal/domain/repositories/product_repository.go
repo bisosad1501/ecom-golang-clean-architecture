@@ -33,6 +33,9 @@ type ProductRepository interface {
 	// GetByIDs retrieves multiple products by IDs (bulk operation)
 	GetByIDs(ctx context.Context, ids []uuid.UUID) ([]*entities.Product, error)
 
+	// GetByIDsWithFullDetails retrieves multiple products by IDs with all relations (optimized for bulk operations)
+	GetByIDsWithFullDetails(ctx context.Context, ids []uuid.UUID) ([]*entities.Product, error)
+
 	// GetBySKU retrieves a product by SKU
 	GetBySKU(ctx context.Context, sku string) (*entities.Product, error)
 
@@ -220,4 +223,8 @@ type CategoryRepository interface {
 
 	// GetProductCountByCategory returns product count for each category (including descendants)
 	GetProductCountByCategory(ctx context.Context, categoryID uuid.UUID) (int64, error)
+
+	// Optimized bulk operations
+	GetWithProductsOptimized(ctx context.Context, id uuid.UUID, limit, offset int) (*entities.Category, []*entities.Product, error)
+	GetCategoriesWithProductCount(ctx context.Context) ([]*entities.Category, map[uuid.UUID]int64, error)
 }

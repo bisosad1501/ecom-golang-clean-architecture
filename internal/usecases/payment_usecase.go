@@ -8,9 +8,11 @@ import (
 	"ecom-golang-clean-architecture/internal/domain/entities"
 	"ecom-golang-clean-architecture/internal/domain/repositories"
 	"ecom-golang-clean-architecture/internal/domain/services"
+	"ecom-golang-clean-architecture/internal/infrastructure/database"
 	"ecom-golang-clean-architecture/internal/infrastructure/payment"
 
 	"github.com/google/uuid"
+	"gorm.io/gorm"
 )
 
 // PaymentGatewayService defines the interface for payment gateway services
@@ -67,6 +69,8 @@ type paymentUseCase struct {
 	paypalService           PaymentGatewayService
 	notificationUseCase     NotificationUseCase
 	stockReservationService services.StockReservationService
+	orderEventService       services.OrderEventService
+	txManager               *database.TransactionManager
 }
 
 // NewPaymentUseCase creates a new payment use case
@@ -78,6 +82,8 @@ func NewPaymentUseCase(
 	paypalService PaymentGatewayService,
 	notificationUseCase NotificationUseCase,
 	stockReservationService services.StockReservationService,
+	orderEventService services.OrderEventService,
+	txManager *database.TransactionManager,
 ) PaymentUseCase {
 	return &paymentUseCase{
 		paymentRepo:             paymentRepo,
@@ -87,6 +93,8 @@ func NewPaymentUseCase(
 		paypalService:           paypalService,
 		notificationUseCase:     notificationUseCase,
 		stockReservationService: stockReservationService,
+		orderEventService:       orderEventService,
+		txManager:               txManager,
 	}
 }
 
@@ -530,6 +538,14 @@ func (uc *paymentUseCase) handleCheckoutSessionCompleted(ctx context.Context, ev
 
 	fmt.Printf("🔍 Looking for payment with session ID: %s\n", sessionID)
 
+	// Execute payment confirmation in a transaction
+	return uc.txManager.WithTransaction(ctx, func(tx *gorm.DB) error {
+		return uc.confirmPaymentInTransaction(ctx, sessionID)
+	})
+}
+
+// confirmPaymentInTransaction handles payment confirmation within a transaction
+func (uc *paymentUseCase) confirmPaymentInTransaction(ctx context.Context, sessionID string) error {
 	// Find payment by session ID (stored in external_id)
 	payment, err := uc.paymentRepo.GetByExternalID(ctx, sessionID)
 	if err != nil {
@@ -538,6 +554,12 @@ func (uc *paymentUseCase) handleCheckoutSessionCompleted(ctx context.Context, ev
 	}
 
 	fmt.Printf("✅ Found payment: ID=%s, OrderID=%s, Status=%s\n", payment.ID, payment.OrderID, payment.Status)
+
+	// Check if payment is already processed
+	if payment.Status == entities.PaymentStatusPaid {
+		fmt.Printf("ℹ️ Payment already processed, skipping\n")
+		return nil
+	}
 
 	// Update payment status to paid
 	payment.MarkAsProcessed(sessionID)
@@ -548,7 +570,7 @@ func (uc *paymentUseCase) handleCheckoutSessionCompleted(ctx context.Context, ev
 
 	fmt.Printf("✅ Payment status updated to: %s\n", payment.Status)
 
-	// Update order status and payment status
+	// Get order details
 	order, err := uc.orderRepo.GetByID(ctx, payment.OrderID)
 	if err != nil {
 		fmt.Printf("❌ Order not found: %v\n", err)
@@ -586,16 +608,38 @@ func (uc *paymentUseCase) handleCheckoutSessionCompleted(ctx context.Context, ev
 	fmt.Printf("✅ Order updated: Status %s→%s, PaymentStatus %s→%s\n",
 		oldStatus, order.Status, oldPaymentStatus, order.PaymentStatus)
 
-	// Send payment confirmation notification
-	if uc.notificationUseCase != nil {
-		if err := uc.notificationUseCase.NotifyPaymentReceived(ctx, payment.ID); err != nil {
-			fmt.Printf("❌ Failed to send payment notification: %v\n", err)
+	// Create payment received event within transaction
+	if uc.orderEventService != nil {
+		if err := uc.orderEventService.CreatePaymentReceivedEvent(ctx, order.ID, payment.Amount, string(payment.Method), &order.UserID); err != nil {
+			fmt.Printf("❌ Failed to create payment received event: %v\n", err)
+			// Don't fail the transaction for event creation
 		} else {
-			fmt.Printf("✅ Payment notification sent\n")
+			fmt.Printf("✅ Payment received event created\n")
+		}
+
+		// Create status changed event if status changed
+		if oldStatus != order.Status {
+			if err := uc.orderEventService.CreateStatusChangedEvent(ctx, order.ID, oldStatus, order.Status, &order.UserID); err != nil {
+				fmt.Printf("❌ Failed to create status changed event: %v\n", err)
+				// Don't fail the transaction for event creation
+			} else {
+				fmt.Printf("✅ Status changed event created\n")
+			}
 		}
 	}
 
-	fmt.Printf("🎉 Webhook processing completed successfully\n")
+	// Send payment confirmation notification (async after transaction)
+	go func() {
+		if uc.notificationUseCase != nil {
+			if err := uc.notificationUseCase.NotifyPaymentReceived(context.Background(), payment.ID); err != nil {
+				fmt.Printf("❌ Failed to send payment notification: %v\n", err)
+			} else {
+				fmt.Printf("✅ Payment notification sent\n")
+			}
+		}
+	}()
+
+	fmt.Printf("🎉 Payment confirmation transaction completed successfully\n")
 	return nil
 }
 

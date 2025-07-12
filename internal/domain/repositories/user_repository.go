@@ -63,6 +63,9 @@ type UserRepository interface {
 	GetUsersByStatus(ctx context.Context, status entities.UserStatus, limit, offset int) ([]*entities.User, error)
 	GetHighValueCustomers(ctx context.Context, limit int) ([]*entities.User, error)
 	GetRecentlyRegistered(ctx context.Context, limit int) ([]*entities.User, error)
+
+	// Optimized bulk operations
+	GetUsersWithOrderStats(ctx context.Context, limit, offset int) ([]*entities.User, map[uuid.UUID]*entities.UserOrderStats, error)
 }
 
 // UserFilters represents filters for user queries

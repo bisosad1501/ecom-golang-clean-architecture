@@ -359,3 +359,9 @@ func (uv *UserVerification) MarkAsVerified() {
 	uv.VerifiedAt = &now
 	uv.UpdatedAt = now
 }
+
+// UserOrderStats represents user order statistics (for optimization)
+type UserOrderStats struct {
+	TotalOrders int64   `json:"total_orders"`
+	TotalSpent  float64 `json:"total_spent"`
+}

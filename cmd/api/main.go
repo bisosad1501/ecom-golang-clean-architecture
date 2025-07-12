@@ -57,11 +57,12 @@ func main() {
 		log.Fatal("Failed to connect to database:", err)
 	}
 
-	// Run database migrations
-	// Temporarily disabled to avoid conflicts with manual migrations
-	// if err := database.AutoMigrate(db); err != nil {
-	// 	log.Fatal("Failed to run database migrations:", err)
-	// }
+	// Run database migrations using Migration Manager
+	migrationManager := database.NewMigrationManager(db)
+	ctx := context.Background()
+	if err := migrationManager.RunMigrations(ctx); err != nil {
+		log.Fatal("Failed to run database migrations:", err)
+	}
 
 	// Create database indexes
 	if err := database.CreateIndexes(db); err != nil {
@@ -128,7 +129,10 @@ func main() {
 		log.Fatal("Failed to initialize storage provider:", err2)
 	}
 
-	fileService := services.NewFileService(storageProvider, fileRepo)
+	// Initialize file security service
+	fileSecurityService := services.NewFileSecurityService()
+
+	fileService := services.NewFileService(storageProvider, fileRepo, fileSecurityService)
 
 	// Initialize use cases
 	userUseCase := usecases.NewUserUseCase(
@@ -205,6 +209,8 @@ func main() {
 		stripeService, paypalService,
 		notificationUseCase,
 		stockReservationService,
+		orderEventService,
+		txManager,
 	)
 
 	// Initialize shipping use case
@@ -250,8 +256,9 @@ func main() {
 	addressHandler := handlers.NewAddressHandler(addressUseCase)
 	paymentHandler := handlers.NewPaymentHandler(paymentUseCase)
 	shippingHandler := handlers.NewShippingHandler(shippingUseCase)
-	adminHandler := handlers.NewAdminHandler(adminUseCase)
+	adminHandler := handlers.NewAdminHandler(adminUseCase, stockCleanupUseCase)
 	oauthHandler := handlers.NewOAuthHandler(oauthUseCase)
+	migrationHandler := handlers.NewMigrationHandler(db)
 
 	// Initialize Gin router
 	router := gin.New()
@@ -277,6 +284,7 @@ func main() {
 		shippingHandler,
 		adminHandler,
 		oauthHandler,
+		migrationHandler,
 	)
 
 	// Start background cleanup scheduler

@@ -652,22 +652,30 @@ func (uc *cartUseCase) MergeGuestCart(ctx context.Context, userID uuid.UUID, ses
 
 // MergeGuestCartWithStrategy merges guest cart with user cart using specified strategy
 func (uc *cartUseCase) MergeGuestCartWithStrategy(ctx context.Context, userID uuid.UUID, sessionID string, strategy MergeStrategy) (*CartResponse, error) {
-	// Get guest cart
-	guestCart, err := uc.cartRepo.GetBySessionID(ctx, sessionID)
-	if err != nil {
-		// No guest cart to merge, just return user cart
-		return uc.GetCart(ctx, userID)
-	}
+	// Use transaction to prevent race conditions
+	result, err := uc.cartRepo.WithTransaction(ctx, func(txCtx context.Context) (interface{}, error) {
+		// Get transaction repository from context
+		txRepo, ok := txCtx.Value("tx_repo").(repositories.CartRepository)
+		if !ok {
+			txRepo = uc.cartRepo // fallback to original repo
+		}
 
-	// Get user cart
-	userCart, err := uc.cartRepo.GetByUserID(ctx, userID)
+		// Get guest cart with row-level locking
+		guestCart, err := txRepo.GetBySessionIDForUpdate(txCtx, sessionID)
+		if err != nil {
+			// No guest cart to merge, just return user cart
+			return uc.getCartWithRepo(txCtx, txRepo, userID)
+		}
+
+	// Get user cart with row-level locking
+	userCart, err := txRepo.GetByUserIDForUpdate(txCtx, userID)
 	if err != nil {
 		// No user cart exists, convert guest cart to user cart
 		guestCart.UserID = &userID
 		guestCart.SessionID = nil
 		guestCart.UpdateCalculatedFields()
 
-		if err := uc.cartRepo.Update(ctx, guestCart); err != nil {
+		if err := txRepo.Update(txCtx, guestCart); err != nil {
 			return nil, pkgErrors.Wrap(err, pkgErrors.ErrCodeInternalError, "Failed to convert guest cart to user cart")
 		}
 
@@ -679,7 +687,7 @@ func (uc *cartUseCase) MergeGuestCartWithStrategy(ctx context.Context, userID uu
 	case MergeStrategyKeepUser:
 		// Keep user cart, mark guest cart as abandoned
 		guestCart.MarkAsAbandoned()
-		if err := uc.cartRepo.Update(ctx, guestCart); err != nil {
+		if err := txRepo.Update(txCtx, guestCart); err != nil {
 			return nil, pkgErrors.Wrap(err, pkgErrors.ErrCodeInternalError, "Failed to mark guest cart as abandoned")
 		}
 		return uc.toCartResponse(userCart), nil
@@ -687,7 +695,7 @@ func (uc *cartUseCase) MergeGuestCartWithStrategy(ctx context.Context, userID uu
 	case MergeStrategyReplace:
 		// Replace user cart with guest cart
 		// Clear user cart items first
-		if err := uc.cartRepo.ClearCart(ctx, userCart.ID); err != nil {
+		if err := txRepo.ClearCart(txCtx, userCart.ID); err != nil {
 			return nil, pkgErrors.Wrap(err, pkgErrors.ErrCodeInternalError, "Failed to clear user cart")
 		}
 
@@ -703,29 +711,36 @@ func (uc *cartUseCase) MergeGuestCartWithStrategy(ctx context.Context, userID uu
 				UpdatedAt: time.Now(),
 			}
 
-			if err := uc.cartRepo.AddItem(ctx, userCart.ID, newItem); err != nil {
+			if err := txRepo.AddItem(txCtx, userCart.ID, newItem); err != nil {
 				return nil, pkgErrors.Wrap(err, pkgErrors.ErrCodeInternalError, "Failed to replace cart item")
 			}
 		}
 
 		// Mark guest cart as converted
 		guestCart.MarkAsConverted()
-		if err := uc.cartRepo.Update(ctx, guestCart); err != nil {
+		if err := txRepo.Update(txCtx, guestCart); err != nil {
 			return nil, pkgErrors.Wrap(err, pkgErrors.ErrCodeInternalError, "Failed to mark guest cart as converted")
 		}
 
 	case MergeStrategyMerge, MergeStrategyAuto:
 		// Merge guest cart items into user cart (existing logic)
-		return uc.mergeCartItems(ctx, userCart, guestCart)
+		return uc.mergeCartItemsWithRepo(txCtx, txRepo, userCart, guestCart)
 	}
 
 	// Get updated user cart
-	updatedUserCart, err := uc.cartRepo.GetByID(ctx, userCart.ID)
+	updatedUserCart, err := txRepo.GetByID(txCtx, userCart.ID)
 	if err != nil {
 		return nil, pkgErrors.Wrap(err, pkgErrors.ErrCodeCartNotFound, "Failed to get updated user cart")
 	}
 
 	return uc.toCartResponse(updatedUserCart), nil
+})
+
+	if err != nil {
+		return nil, err
+	}
+
+	return result.(*CartResponse), nil
 }
 
 // mergeCartItems merges guest cart items into user cart
@@ -768,6 +783,62 @@ func (uc *cartUseCase) mergeCartItems(ctx context.Context, userCart, guestCart *
 
 	// Get updated user cart
 	updatedUserCart, err := uc.cartRepo.GetByID(ctx, userCart.ID)
+	if err != nil {
+		return nil, pkgErrors.Wrap(err, pkgErrors.ErrCodeCartNotFound, "Failed to get updated user cart")
+	}
+
+	return uc.toCartResponse(updatedUserCart), nil
+}
+
+// getCartWithRepo gets cart using specific repository (for transaction support)
+func (uc *cartUseCase) getCartWithRepo(ctx context.Context, repo repositories.CartRepository, userID uuid.UUID) (*CartResponse, error) {
+	cart, err := repo.GetByUserID(ctx, userID)
+	if err != nil {
+		return nil, pkgErrors.Wrap(err, pkgErrors.ErrCodeCartNotFound, "Cart not found")
+	}
+	return uc.toCartResponse(cart), nil
+}
+
+// mergeCartItemsWithRepo merges guest cart items into user cart using specific repository
+func (uc *cartUseCase) mergeCartItemsWithRepo(ctx context.Context, repo repositories.CartRepository, userCart, guestCart *entities.Cart) (*CartResponse, error) {
+	// Merge guest cart items into user cart
+	for _, guestItem := range guestCart.Items {
+		existingItem := userCart.GetItem(guestItem.ProductID)
+		if existingItem != nil {
+			// Update quantity and price
+			existingItem.Quantity += guestItem.Quantity
+			existingItem.Price = guestItem.Price // Use latest price
+			existingItem.UpdatedAt = time.Now()
+
+			if err := repo.UpdateItem(ctx, existingItem); err != nil {
+				return nil, pkgErrors.Wrap(err, pkgErrors.ErrCodeInternalError, "Failed to merge cart item")
+			}
+		} else {
+			// Add new item to user cart
+			newItem := &entities.CartItem{
+				ID:        uuid.New(),
+				CartID:    userCart.ID,
+				ProductID: guestItem.ProductID,
+				Quantity:  guestItem.Quantity,
+				Price:     guestItem.Price,
+				CreatedAt: time.Now(),
+				UpdatedAt: time.Now(),
+			}
+
+			if err := repo.AddItem(ctx, userCart.ID, newItem); err != nil {
+				return nil, pkgErrors.Wrap(err, pkgErrors.ErrCodeInternalError, "Failed to add merged cart item")
+			}
+		}
+	}
+
+	// Mark guest cart as converted
+	guestCart.MarkAsConverted()
+	if err := repo.Update(ctx, guestCart); err != nil {
+		return nil, pkgErrors.Wrap(err, pkgErrors.ErrCodeInternalError, "Failed to mark guest cart as converted")
+	}
+
+	// Get updated user cart
+	updatedUserCart, err := repo.GetByID(ctx, userCart.ID)
 	if err != nil {
 		return nil, pkgErrors.Wrap(err, pkgErrors.ErrCodeCartNotFound, "Failed to get updated user cart")
 	}

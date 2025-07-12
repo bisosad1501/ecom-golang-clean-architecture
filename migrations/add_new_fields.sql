@@ -11,6 +11,10 @@ ALTER TABLE carts ADD COLUMN IF NOT EXISTS item_count INTEGER DEFAULT 0;
 ALTER TABLE carts ADD COLUMN IF NOT EXISTS currency TEXT DEFAULT 'USD';
 ALTER TABLE carts ADD COLUMN IF NOT EXISTS notes TEXT;
 
+-- Fix stock_reservations table for guest cart support
+ALTER TABLE stock_reservations ADD COLUMN IF NOT EXISTS session_id TEXT;
+ALTER TABLE stock_reservations ALTER COLUMN user_id DROP NOT NULL;
+
 -- Add new fields to payments table
 ALTER TABLE payments ADD COLUMN IF NOT EXISTS payment_intent_id TEXT;
 ALTER TABLE payments ADD COLUMN IF NOT EXISTS gateway TEXT DEFAULT 'stripe';
@@ -36,6 +40,9 @@ CREATE INDEX IF NOT EXISTS idx_payments_gateway ON payments(gateway);
 
 CREATE INDEX IF NOT EXISTS idx_orders_version ON orders(version);
 CREATE INDEX IF NOT EXISTS idx_orders_last_modified_by ON orders(last_modified_by);
+
+-- Add missing indexes for stock_reservations
+CREATE INDEX IF NOT EXISTS idx_stock_reservations_session_id ON stock_reservations(session_id);
 
 -- Update existing carts to have default values
 UPDATE carts SET 

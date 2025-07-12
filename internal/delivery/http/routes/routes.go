@@ -29,6 +29,7 @@ func SetupRoutes(
 	shippingHandler *handlers.ShippingHandler,
 	adminHandler *handlers.AdminHandler,
 	oauthHandler *handlers.OAuthHandler,
+	migrationHandler *handlers.MigrationHandler,
 ) {
 	// Apply global middleware
 	router.Use(middleware.CORSMiddleware(&cfg.CORS))
@@ -110,8 +111,11 @@ func SetupRoutes(
 			// as they check for session ID when no auth token is present
 		}
 
-		// Public file upload routes (no authentication required)
+		// Public file upload routes (requires authentication, with strict rate limiting)
 		publicUpload := v1.Group("/public/upload")
+		publicUpload.Use(middleware.PublicUploadRateLimitMiddleware())
+		publicUpload.Use(middleware.PublicUploadAuthMiddleware(cfg.JWT.Secret))
+		publicUpload.Use(middleware.FileUploadSecurityMiddleware())
 		{
 			publicUpload.POST("/image", fileHandler.UploadImagePublic)
 			publicUpload.POST("/document", fileHandler.UploadDocumentPublic)
@@ -210,6 +214,8 @@ func SetupRoutes(
 
 			// Upload routes (authenticated users)
 			upload := protected.Group("/upload")
+			upload.Use(middleware.UploadRateLimitMiddleware())
+			upload.Use(middleware.FileUploadSecurityMiddleware())
 			{
 				upload.POST("/image", fileHandler.UploadImage)
 				upload.POST("/document", fileHandler.UploadDocument)
@@ -358,6 +364,8 @@ func SetupRoutes(
 
 			// Admin file uploads
 			adminUpload := admin.Group("/upload")
+			adminUpload.Use(middleware.UploadRateLimitMiddleware())
+			adminUpload.Use(middleware.FileUploadSecurityMiddleware())
 			{
 				adminUpload.POST("/image", fileHandler.UploadImageAdmin)
 				adminUpload.POST("/document", fileHandler.UploadDocumentAdmin)
@@ -445,6 +453,16 @@ func SetupRoutes(
 				system.GET("/logs", adminHandler.GetSystemLogs)
 				system.GET("/audit", adminHandler.GetAuditLogs)
 				system.POST("/backup", adminHandler.BackupDatabase)
+				system.GET("/cleanup/stats", adminHandler.GetCleanupStats)
+				system.POST("/cleanup/trigger", adminHandler.TriggerCleanup)
+			}
+
+			// Migration management routes
+			migrations := admin.Group("/migrations")
+			{
+				migrations.GET("/status", migrationHandler.GetMigrationStatus)
+				migrations.POST("/run", migrationHandler.RunMigrations)
+				migrations.POST("/rollback", migrationHandler.RollbackMigration)
 			}
 		}
 

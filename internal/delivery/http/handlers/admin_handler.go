@@ -15,13 +15,15 @@ import (
 
 // AdminHandler handles admin-related HTTP requests
 type AdminHandler struct {
-	adminUseCase usecases.AdminUseCase
+	adminUseCase        usecases.AdminUseCase
+	stockCleanupUseCase usecases.StockCleanupUseCase
 }
 
 // NewAdminHandler creates a new admin handler
-func NewAdminHandler(adminUseCase usecases.AdminUseCase) *AdminHandler {
+func NewAdminHandler(adminUseCase usecases.AdminUseCase, stockCleanupUseCase usecases.StockCleanupUseCase) *AdminHandler {
 	return &AdminHandler{
-		adminUseCase: adminUseCase,
+		adminUseCase:        adminUseCase,
+		stockCleanupUseCase: stockCleanupUseCase,
 	}
 }
 
@@ -704,5 +706,38 @@ func (h *AdminHandler) ReplyToReview(c *gin.Context) {
 
 	c.JSON(http.StatusOK, SuccessResponse{
 		Message: "Reply added successfully",
+	})
+}
+
+// GetCleanupStats returns cleanup statistics
+func (h *AdminHandler) GetCleanupStats(c *gin.Context) {
+	stats, err := h.stockCleanupUseCase.GetCleanupStats(c.Request.Context())
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, ErrorResponse{
+			Error:   "Failed to get cleanup statistics",
+			Details: err.Error(),
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, SuccessResponse{
+		Message: "Cleanup statistics retrieved successfully",
+		Data:    stats,
+	})
+}
+
+// TriggerCleanup manually triggers cleanup process
+func (h *AdminHandler) TriggerCleanup(c *gin.Context) {
+	err := h.stockCleanupUseCase.RunCleanup(c.Request.Context())
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, ErrorResponse{
+			Error:   "Failed to run cleanup process",
+			Details: err.Error(),
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, SuccessResponse{
+		Message: "Cleanup process completed successfully",
 	})
 }

@@ -484,6 +484,40 @@ func (r *reviewRepository) GetReviewStats(ctx context.Context, productID uuid.UU
 	}, nil
 }
 
+// GetByProductIDsWithUser retrieves reviews for multiple products with user data (bulk operation)
+func (r *reviewRepository) GetByProductIDsWithUser(ctx context.Context, productIDs []uuid.UUID, limit int) ([]*entities.Review, error) {
+	if len(productIDs) == 0 {
+		return []*entities.Review{}, nil
+	}
+
+	var reviews []*entities.Review
+	err := r.db.WithContext(ctx).
+		Preload("User").
+		Preload("Product").
+		Where("product_id IN ? AND status = ?", productIDs, entities.ReviewStatusApproved).
+		Order("created_at DESC").
+		Limit(limit).
+		Find(&reviews).Error
+	return reviews, err
+}
+
+// GetRecentReviewsWithUser retrieves recent reviews with user data (optimized)
+func (r *reviewRepository) GetRecentReviewsWithUser(ctx context.Context, limit int) ([]*entities.Review, error) {
+	var reviews []*entities.Review
+	err := r.db.WithContext(ctx).
+		Preload("User").
+		Preload("Product").
+		Preload("Product.Category").
+		Preload("Product.Images", func(db *gorm.DB) *gorm.DB {
+			return db.Where("position >= 0").Order("position ASC").Limit(1)
+		}).
+		Where("status = ?", entities.ReviewStatusApproved).
+		Order("created_at DESC").
+		Limit(limit).
+		Find(&reviews).Error
+	return reviews, err
+}
+
 // GetUserReviewForProduct gets user's review for a product
 func (r *reviewRepository) GetUserReviewForProduct(ctx context.Context, userID, productID uuid.UUID) (*entities.Review, error) {
 	var review entities.Review

@@ -621,9 +621,6 @@ func (uc *productUseCase) UpdateProduct(ctx context.Context, id uuid.UUID, req U
 
 	// Handle Sale Pricing
 	if req.SalePrice != nil {
-		if *req.SalePrice < 0 {
-			return nil, fmt.Errorf("sale price cannot be negative")
-		}
 		product.SalePrice = req.SalePrice
 		hasChanges = true
 	}
@@ -636,6 +633,13 @@ func (uc *productUseCase) UpdateProduct(ctx context.Context, id uuid.UUID, req U
 	if req.SaleEndDate != nil {
 		product.SaleEndDate = req.SaleEndDate
 		hasChanges = true
+	}
+
+	// Validate sale pricing business rules after all sale fields are updated
+	if hasChanges && (req.SalePrice != nil || req.SaleStartDate != nil || req.SaleEndDate != nil) {
+		if err := product.ValidateSalePricing(); err != nil {
+			return nil, fmt.Errorf("sale pricing validation failed: %w", err)
+		}
 	}
 
 	// Handle Inventory Management
@@ -867,9 +871,6 @@ func (uc *productUseCase) PatchProduct(ctx context.Context, id uuid.UUID, req Pa
 
 	// Handle Sale Pricing
 	if req.SalePrice != nil {
-		if *req.SalePrice < 0 {
-			return nil, fmt.Errorf("sale price cannot be negative")
-		}
 		product.SalePrice = req.SalePrice
 		hasChanges = true
 	}
@@ -882,6 +883,13 @@ func (uc *productUseCase) PatchProduct(ctx context.Context, id uuid.UUID, req Pa
 	if req.SaleEndDate != nil {
 		product.SaleEndDate = req.SaleEndDate
 		hasChanges = true
+	}
+
+	// Validate sale pricing business rules after all sale fields are updated
+	if hasChanges && (req.SalePrice != nil || req.SaleStartDate != nil || req.SaleEndDate != nil) {
+		if err := product.ValidateSalePricing(); err != nil {
+			return nil, fmt.Errorf("sale pricing validation failed: %w", err)
+		}
 	}
 
 	// Handle Inventory Management

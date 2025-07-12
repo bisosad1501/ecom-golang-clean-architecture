@@ -347,6 +347,69 @@ func (r *userRepository) applyUserFilters(query *gorm.DB, filters repositories.U
 	return query
 }
 
+// GetUsersWithOrderStats retrieves users with their order statistics (optimized)
+func (r *userRepository) GetUsersWithOrderStats(ctx context.Context, limit, offset int) ([]*entities.User, map[uuid.UUID]*entities.UserOrderStats, error) {
+	// Get users
+	var users []*entities.User
+	err := r.db.WithContext(ctx).
+		Limit(limit).
+		Offset(offset).
+		Order("created_at DESC").
+		Find(&users).Error
+	if err != nil {
+		return nil, nil, err
+	}
+
+	if len(users) == 0 {
+		return users, make(map[uuid.UUID]*entities.UserOrderStats), nil
+	}
+
+	// Extract user IDs
+	userIDs := make([]uuid.UUID, len(users))
+	for i, user := range users {
+		userIDs[i] = user.ID
+	}
+
+	// Get order statistics for all users in one query
+	type OrderStats struct {
+		UserID      uuid.UUID `json:"user_id"`
+		TotalOrders int64     `json:"total_orders"`
+		TotalSpent  float64   `json:"total_spent"`
+	}
+
+	var stats []OrderStats
+	err = r.db.WithContext(ctx).
+		Model(&entities.Order{}).
+		Select("user_id, COUNT(*) as total_orders, COALESCE(SUM(total), 0) as total_spent").
+		Where("user_id IN ? AND status != ?", userIDs, entities.OrderStatusCancelled).
+		Group("user_id").
+		Scan(&stats).Error
+	if err != nil {
+		return nil, nil, err
+	}
+
+	// Build stats map
+	statsMap := make(map[uuid.UUID]*entities.UserOrderStats)
+	for _, stat := range stats {
+		statsMap[stat.UserID] = &entities.UserOrderStats{
+			TotalOrders: stat.TotalOrders,
+			TotalSpent:  stat.TotalSpent,
+		}
+	}
+
+	// Fill in zero stats for users with no orders
+	for _, user := range users {
+		if _, exists := statsMap[user.ID]; !exists {
+			statsMap[user.ID] = &entities.UserOrderStats{
+				TotalOrders: 0,
+				TotalSpent:  0,
+			}
+		}
+	}
+
+	return users, statsMap, nil
+}
+
 type userProfileRepository struct {
 	db *gorm.DB
 }

@@ -393,18 +393,16 @@ func (uc *orderUseCase) createOrderInTransaction(ctx context.Context, tx *gorm.D
 		return nil, pkgErrors.Wrap(err, pkgErrors.ErrCodeInternalError, "Failed to clear cart")
 	}
 
-	// Create events (these can fail without rolling back the transaction)
-	go func() {
-		// Create order created event
-		if err := uc.orderEventService.CreateOrderCreatedEvent(context.Background(), order, &userID); err != nil {
-			fmt.Printf("Warning: Failed to create order created event: %v\n", err)
-		}
+	// Create events within transaction to ensure consistency
+	if err := uc.orderEventService.CreateOrderCreatedEvent(ctx, order, &userID); err != nil {
+		// Log warning but don't fail the transaction for event creation
+		fmt.Printf("Warning: Failed to create order created event: %v\n", err)
+	}
 
-		// Create inventory reserved event
-		if err := uc.orderEventService.CreateInventoryReservedEvent(context.Background(), order.ID, cart.Items, &userID); err != nil {
-			fmt.Printf("Warning: Failed to create inventory reserved event: %v\n", err)
-		}
-	}()
+	if err := uc.orderEventService.CreateInventoryReservedEvent(ctx, order.ID, cart.Items, &userID); err != nil {
+		// Log warning but don't fail the transaction for event creation
+		fmt.Printf("Warning: Failed to create inventory reserved event: %v\n", err)
+	}
 
 	// Get created order with relations
 	createdOrder, err := uc.orderRepo.GetByID(ctx, order.ID)

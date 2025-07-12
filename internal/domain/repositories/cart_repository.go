@@ -22,6 +22,15 @@ type CartRepository interface {
 	// GetBySessionID retrieves a cart by session ID (for guest users)
 	GetBySessionID(ctx context.Context, sessionID string) (*entities.Cart, error)
 
+	// GetBySessionIDForUpdate retrieves a cart by session ID with row-level locking
+	GetBySessionIDForUpdate(ctx context.Context, sessionID string) (*entities.Cart, error)
+
+	// GetByUserIDForUpdate retrieves a cart by user ID with row-level locking
+	GetByUserIDForUpdate(ctx context.Context, userID uuid.UUID) (*entities.Cart, error)
+
+	// WithTransaction executes a function within a database transaction
+	WithTransaction(ctx context.Context, fn func(ctx context.Context) (interface{}, error)) (interface{}, error)
+
 	// Update updates an existing cart
 	Update(ctx context.Context, cart *entities.Cart) error
 

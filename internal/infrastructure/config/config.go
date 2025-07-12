@@ -123,7 +123,7 @@ func Load() (*Config, error) {
 			DB:       getEnvAsInt("REDIS_DB", 0),
 		},
 		JWT: JWTConfig{
-			Secret:      getEnv("JWT_SECRET", "your-super-secret-jwt-key"),
+			Secret:      getEnvOrPanic("JWT_SECRET", "JWT_SECRET is required for security"),
 			ExpireHours: getEnvAsInt("JWT_EXPIRE_HOURS", 24),
 		},
 		Email: EmailConfig{
@@ -150,7 +150,7 @@ func Load() (*Config, error) {
 			Format: getEnv("LOG_FORMAT", "json"),
 		},
 		CORS: CORSConfig{
-			AllowedOrigins: getEnvAsSlice("CORS_ALLOWED_ORIGINS", []string{"*"}),
+			AllowedOrigins: getEnvAsSlice("CORS_ALLOWED_ORIGINS", []string{"http://localhost:3000", "http://localhost:8080"}),
 			AllowedMethods: getEnvAsSlice("CORS_ALLOWED_METHODS", []string{"GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"}),
 			AllowedHeaders: getEnvAsSlice("CORS_ALLOWED_HEADERS", []string{"Content-Type", "Authorization", "X-Session-ID"}),
 		},
@@ -201,6 +201,13 @@ func getEnv(key, defaultValue string) string {
 		return value
 	}
 	return defaultValue
+}
+
+func getEnvOrPanic(key, message string) string {
+	if value := os.Getenv(key); value != "" {
+		return value
+	}
+	panic(message + ": " + key + " environment variable is required")
 }
 
 func getEnvAsInt(key string, defaultValue int) int {

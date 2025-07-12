@@ -47,6 +47,10 @@ type ReviewRepository interface {
 	GetRatingDistribution(ctx context.Context, productID uuid.UUID) (map[int]int, error)
 	GetReviewStats(ctx context.Context, productID uuid.UUID) (*entities.ReviewSummary, error)
 	CountReviewsByStatus(ctx context.Context, status entities.ReviewStatus) (int64, error)
+
+	// Optimized bulk operations
+	GetByProductIDsWithUser(ctx context.Context, productIDs []uuid.UUID, limit int) ([]*entities.Review, error)
+	GetRecentReviewsWithUser(ctx context.Context, limit int) ([]*entities.Review, error)
 }
 
 // ReviewVoteRepository defines the interface for review vote data access

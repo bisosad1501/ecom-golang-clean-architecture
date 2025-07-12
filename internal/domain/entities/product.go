@@ -1,6 +1,7 @@
 package entities
 
 import (
+	"fmt"
 	"time"
 
 	"github.com/google/uuid"
@@ -430,6 +431,31 @@ func (p *Product) IncreaseStock(quantity int) error {
 
 	// Update stock status based on new stock level
 	p.UpdateStockStatus()
+
+	return nil
+}
+
+// ValidateSalePricing validates sale pricing business rules
+func (p *Product) ValidateSalePricing() error {
+	// If sale price is set, validate business rules
+	if p.SalePrice != nil {
+		// Sale price must be less than regular price
+		if *p.SalePrice >= p.Price {
+			return fmt.Errorf("sale price must be less than regular price")
+		}
+
+		// Sale price must be positive
+		if *p.SalePrice <= 0 {
+			return fmt.Errorf("sale price must be greater than 0")
+		}
+
+		// If both start and end dates are set, start must be before end
+		if p.SaleStartDate != nil && p.SaleEndDate != nil {
+			if p.SaleStartDate.After(*p.SaleEndDate) {
+				return fmt.Errorf("sale start date must be before sale end date")
+			}
+		}
+	}
 
 	return nil
 }
