@@ -311,7 +311,9 @@ func (uc *paymentUseCase) ProcessPayment(ctx context.Context, req ProcessPayment
 
 	if err != nil {
 		payment.MarkAsFailed(err.Error())
-		uc.paymentRepo.Update(ctx, payment)
+		if err := uc.paymentRepo.Update(ctx, payment); err != nil {
+			return nil, err
+		}
 		return nil, err
 	}
 
@@ -322,11 +324,15 @@ func (uc *paymentUseCase) ProcessPayment(ctx context.Context, req ProcessPayment
 
 		// Update order payment status
 		order.PaymentStatus = entities.PaymentStatusPaid
-		uc.orderRepo.Update(ctx, order)
+		if err := uc.orderRepo.Update(ctx, order); err != nil {
+			return nil, err
+		}
 
 		// Send payment confirmation notification
 		if uc.notificationUseCase != nil {
-			uc.notificationUseCase.NotifyPaymentReceived(ctx, payment.ID)
+			if err := uc.notificationUseCase.NotifyPaymentReceived(ctx, payment.ID); err != nil {
+				return nil, err
+			}
 		}
 	} else {
 		payment.MarkAsFailed(gatewayResp.Message)

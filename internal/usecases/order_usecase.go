@@ -891,13 +891,13 @@ func (uc *orderUseCase) UpdateDeliveryStatus(ctx context.Context, orderID uuid.U
 	// Create appropriate event
 	if status == entities.OrderStatusDelivered {
 		if err := uc.orderEventService.CreateDeliveredEvent(ctx, orderID, nil); err != nil {
-			fmt.Printf("Warning: Failed to create delivered event: %v\n", err)
+			return nil, err
 		}
 	}
 
 	// Create status changed event
 	if err := uc.orderEventService.CreateStatusChangedEvent(ctx, orderID, oldStatus, status, nil); err != nil {
-		fmt.Printf("Warning: Failed to create status changed event: %v\n", err)
+		return nil, err
 	}
 
 	return uc.toOrderResponse(order), nil
@@ -939,7 +939,7 @@ func (uc *orderUseCase) AddOrderNote(ctx context.Context, orderID uuid.UUID, req
 
 	// Create note added event
 	if err := uc.orderEventService.CreateNoteAddedEvent(ctx, orderID, req.Note, nil, req.IsPublic); err != nil {
-		fmt.Printf("Warning: Failed to create note added event: %v\n", err)
+		return err
 	}
 
 	return nil

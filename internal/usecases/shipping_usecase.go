@@ -6,6 +6,7 @@ import (
 
 	"ecom-golang-clean-architecture/internal/domain/entities"
 	"ecom-golang-clean-architecture/internal/domain/repositories"
+
 	"github.com/google/uuid"
 )
 
@@ -14,13 +15,13 @@ type ShippingUseCase interface {
 	// Shipping Methods
 	GetShippingMethods(ctx context.Context, req GetShippingMethodsRequest) ([]*ShippingMethodResponse, error)
 	CalculateShippingCost(ctx context.Context, req CalculateShippingRequest) (*ShippingCostResponse, error)
-	
+
 	// Shipments
 	CreateShipment(ctx context.Context, req CreateShipmentRequest) (*ShipmentResponse, error)
 	GetShipment(ctx context.Context, shipmentID uuid.UUID) (*ShipmentResponse, error)
 	UpdateShipmentStatus(ctx context.Context, shipmentID uuid.UUID, status entities.ShipmentStatus) (*ShipmentResponse, error)
 	TrackShipment(ctx context.Context, trackingNumber string) (*ShipmentTrackingResponse, error)
-	
+
 	// Returns
 	CreateReturn(ctx context.Context, req CreateReturnRequest) (*ReturnResponse, error)
 	GetReturn(ctx context.Context, returnID uuid.UUID) (*ReturnResponse, error)
@@ -57,18 +58,18 @@ type CalculateShippingRequest struct {
 }
 
 type CreateShipmentRequest struct {
-	OrderID         uuid.UUID `json:"order_id" validate:"required"`
-	ShippingMethod  uuid.UUID `json:"shipping_method_id" validate:"required"`
-	TrackingNumber  string    `json:"tracking_number"`
-	Carrier         string    `json:"carrier" validate:"required"`
+	OrderID           uuid.UUID  `json:"order_id" validate:"required"`
+	ShippingMethod    uuid.UUID  `json:"shipping_method_id" validate:"required"`
+	TrackingNumber    string     `json:"tracking_number"`
+	Carrier           string     `json:"carrier" validate:"required"`
 	EstimatedDelivery *time.Time `json:"estimated_delivery"`
 }
 
 type CreateReturnRequest struct {
-	OrderID     uuid.UUID                `json:"order_id" validate:"required"`
-	Items       []ReturnItemRequest      `json:"items" validate:"required,dive"`
-	Reason      entities.ReturnReason    `json:"reason" validate:"required"`
-	Description string                   `json:"description"`
+	OrderID     uuid.UUID             `json:"order_id" validate:"required"`
+	Items       []ReturnItemRequest   `json:"items" validate:"required,dive"`
+	Reason      entities.ReturnReason `json:"reason" validate:"required"`
+	Description string                `json:"description"`
 }
 
 type ReturnItemRequest struct {
@@ -96,17 +97,17 @@ type ShippingCostResponse struct {
 }
 
 type ShipmentResponse struct {
-	ID                uuid.UUID                    `json:"id"`
-	OrderID           uuid.UUID                    `json:"order_id"`
-	TrackingNumber    string                       `json:"tracking_number"`
-	Carrier           string                       `json:"carrier"`
-	Status            entities.ShipmentStatus      `json:"status"`
-	ShippedAt         *time.Time                   `json:"shipped_at"`
-	ActualDelivery    *time.Time                   `json:"actual_delivery"`
-	EstimatedDelivery *time.Time                   `json:"estimated_delivery"`
-	TrackingEvents    []ShipmentTrackingEvent      `json:"tracking_events"`
-	CreatedAt         time.Time                    `json:"created_at"`
-	UpdatedAt         time.Time                    `json:"updated_at"`
+	ID                uuid.UUID               `json:"id"`
+	OrderID           uuid.UUID               `json:"order_id"`
+	TrackingNumber    string                  `json:"tracking_number"`
+	Carrier           string                  `json:"carrier"`
+	Status            entities.ShipmentStatus `json:"status"`
+	ShippedAt         *time.Time              `json:"shipped_at"`
+	ActualDelivery    *time.Time              `json:"actual_delivery"`
+	EstimatedDelivery *time.Time              `json:"estimated_delivery"`
+	TrackingEvents    []ShipmentTrackingEvent `json:"tracking_events"`
+	CreatedAt         time.Time               `json:"created_at"`
+	UpdatedAt         time.Time               `json:"updated_at"`
 }
 
 type ShipmentTrackingEvent struct {
@@ -118,30 +119,30 @@ type ShipmentTrackingEvent struct {
 }
 
 type ShipmentTrackingResponse struct {
-	TrackingNumber string                  `json:"tracking_number"`
-	Status         entities.ShipmentStatus `json:"status"`
-	Events         []ShipmentTrackingEvent `json:"events"`
-	EstimatedDelivery *time.Time           `json:"estimated_delivery"`
+	TrackingNumber    string                  `json:"tracking_number"`
+	Status            entities.ShipmentStatus `json:"status"`
+	Events            []ShipmentTrackingEvent `json:"events"`
+	EstimatedDelivery *time.Time              `json:"estimated_delivery"`
 }
 
 type ReturnResponse struct {
-	ID          uuid.UUID               `json:"id"`
-	OrderID     uuid.UUID               `json:"order_id"`
-	Status      entities.ReturnStatus   `json:"status"`
-	Reason      entities.ReturnReason   `json:"reason"`
-	Description string                  `json:"description"`
-	Items       []ReturnItemResponse    `json:"items"`
-	RefundAmount float64                `json:"refund_amount"`
-	CreatedAt   time.Time               `json:"created_at"`
-	UpdatedAt   time.Time               `json:"updated_at"`
+	ID           uuid.UUID             `json:"id"`
+	OrderID      uuid.UUID             `json:"order_id"`
+	Status       entities.ReturnStatus `json:"status"`
+	Reason       entities.ReturnReason `json:"reason"`
+	Description  string                `json:"description"`
+	Items        []ReturnItemResponse  `json:"items"`
+	RefundAmount float64               `json:"refund_amount"`
+	CreatedAt    time.Time             `json:"created_at"`
+	UpdatedAt    time.Time             `json:"updated_at"`
 }
 
 type ReturnItemResponse struct {
-	ID          uuid.UUID `json:"id"`
-	ProductID   uuid.UUID `json:"product_id"`
-	ProductName string    `json:"product_name"`
-	Quantity    int       `json:"quantity"`
-	RefundAmount float64  `json:"refund_amount"`
+	ID           uuid.UUID `json:"id"`
+	ProductID    uuid.UUID `json:"product_id"`
+	ProductName  string    `json:"product_name"`
+	Quantity     int       `json:"quantity"`
+	RefundAmount float64   `json:"refund_amount"`
 }
 
 // GetShippingMethods gets available shipping methods
@@ -229,7 +230,9 @@ func (uc *shippingUseCase) CreateShipment(ctx context.Context, req CreateShipmen
 	}
 
 	// Update order status to shipped
-	uc.orderRepo.UpdateStatus(ctx, order.ID, entities.OrderStatusShipped)
+	if err := uc.orderRepo.UpdateStatus(ctx, order.ID, entities.OrderStatusShipped); err != nil {
+		// handle hoặc log lỗi nếu cần
+	}
 
 	return uc.toShipmentResponse(shipment), nil
 }
@@ -259,7 +262,9 @@ func (uc *shippingUseCase) UpdateShipmentStatus(ctx context.Context, shipmentID 
 		now := time.Now()
 		shipment.ActualDelivery = &now
 		// Update order status
-		uc.orderRepo.UpdateStatus(ctx, shipment.OrderID, entities.OrderStatusDelivered)
+		if err := uc.orderRepo.UpdateStatus(ctx, shipment.OrderID, entities.OrderStatusDelivered); err != nil {
+			// handle hoặc log lỗi nếu cần
+		}
 	}
 
 	if err := uc.shippingRepo.UpdateShipment(ctx, shipment); err != nil {
@@ -389,22 +394,22 @@ func (uc *shippingUseCase) toReturnResponse(returnEntity *entities.Return) *Retu
 	items := make([]ReturnItemResponse, len(returnEntity.Items))
 	for i, item := range returnEntity.Items {
 		items[i] = ReturnItemResponse{
-			ID:          item.ID,
-			ProductID:   item.ProductID,
-			Quantity:    item.Quantity,
+			ID:           item.ID,
+			ProductID:    item.ProductID,
+			Quantity:     item.Quantity,
 			RefundAmount: item.RefundAmount,
 		}
 	}
 
 	return &ReturnResponse{
-		ID:          returnEntity.ID,
-		OrderID:     returnEntity.OrderID,
-		Status:      returnEntity.Status,
-		Reason:      returnEntity.Reason,
-		Description: returnEntity.Description,
-		Items:       items,
+		ID:           returnEntity.ID,
+		OrderID:      returnEntity.OrderID,
+		Status:       returnEntity.Status,
+		Reason:       returnEntity.Reason,
+		Description:  returnEntity.Description,
+		Items:        items,
 		RefundAmount: returnEntity.RefundAmount,
-		CreatedAt:   returnEntity.CreatedAt,
-		UpdatedAt:   returnEntity.UpdatedAt,
+		CreatedAt:    returnEntity.CreatedAt,
+		UpdatedAt:    returnEntity.UpdatedAt,
 	}
 }

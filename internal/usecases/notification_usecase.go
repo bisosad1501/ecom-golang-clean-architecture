@@ -8,6 +8,7 @@ import (
 
 	"ecom-golang-clean-architecture/internal/domain/entities"
 	"ecom-golang-clean-architecture/internal/domain/repositories"
+
 	"github.com/google/uuid"
 )
 
@@ -98,152 +99,152 @@ type PushService interface {
 
 // Request/Response types
 type CreateNotificationRequest struct {
-	UserID        *uuid.UUID                   `json:"user_id,omitempty"`
-	Type          entities.NotificationType    `json:"type" validate:"required"`
+	UserID        *uuid.UUID                    `json:"user_id,omitempty"`
+	Type          entities.NotificationType     `json:"type" validate:"required"`
 	Category      entities.NotificationCategory `json:"category" validate:"required"`
 	Priority      entities.NotificationPriority `json:"priority"`
-	Title         string                       `json:"title" validate:"required"`
-	Message       string                       `json:"message" validate:"required"`
-	Data          map[string]interface{}       `json:"data,omitempty"`
-	Recipient     string                       `json:"recipient,omitempty"`
-	Subject       string                       `json:"subject,omitempty"`
-	Template      string                       `json:"template,omitempty"`
-	ReferenceType string                       `json:"reference_type,omitempty"`
-	ReferenceID   *uuid.UUID                   `json:"reference_id,omitempty"`
-	ScheduledAt   *time.Time                   `json:"scheduled_at,omitempty"`
+	Title         string                        `json:"title" validate:"required"`
+	Message       string                        `json:"message" validate:"required"`
+	Data          map[string]interface{}        `json:"data,omitempty"`
+	Recipient     string                        `json:"recipient,omitempty"`
+	Subject       string                        `json:"subject,omitempty"`
+	Template      string                        `json:"template,omitempty"`
+	ReferenceType string                        `json:"reference_type,omitempty"`
+	ReferenceID   *uuid.UUID                    `json:"reference_id,omitempty"`
+	ScheduledAt   *time.Time                    `json:"scheduled_at,omitempty"`
 }
 
 type UpdateNotificationRequest struct {
-	Status    *entities.NotificationStatus `json:"status,omitempty"`
-	Title     *string                      `json:"title,omitempty"`
-	Message   *string                      `json:"message,omitempty"`
-	Data      map[string]interface{}       `json:"data,omitempty"`
-	Subject   *string                      `json:"subject,omitempty"`
-	Template  *string                      `json:"template,omitempty"`
+	Status   *entities.NotificationStatus `json:"status,omitempty"`
+	Title    *string                      `json:"title,omitempty"`
+	Message  *string                      `json:"message,omitempty"`
+	Data     map[string]interface{}       `json:"data,omitempty"`
+	Subject  *string                      `json:"subject,omitempty"`
+	Template *string                      `json:"template,omitempty"`
 }
 
 type ListNotificationsRequest struct {
-	UserID        *uuid.UUID                   `json:"user_id,omitempty"`
-	Type          *entities.NotificationType   `json:"type,omitempty"`
+	UserID        *uuid.UUID                     `json:"user_id,omitempty"`
+	Type          *entities.NotificationType     `json:"type,omitempty"`
 	Category      *entities.NotificationCategory `json:"category,omitempty"`
-	Status        *entities.NotificationStatus `json:"status,omitempty"`
+	Status        *entities.NotificationStatus   `json:"status,omitempty"`
 	Priority      *entities.NotificationPriority `json:"priority,omitempty"`
-	ReferenceType *string                      `json:"reference_type,omitempty"`
-	ReferenceID   *uuid.UUID                   `json:"reference_id,omitempty"`
-	DateFrom      *time.Time                   `json:"date_from,omitempty"`
-	DateTo        *time.Time                   `json:"date_to,omitempty"`
-	SortBy        string                       `json:"sort_by,omitempty" validate:"omitempty,oneof=created_at priority status"`
-	SortOrder     string                       `json:"sort_order,omitempty" validate:"omitempty,oneof=asc desc"`
-	Limit         int                          `json:"limit" validate:"min=1,max=100"`
-	Offset        int                          `json:"offset" validate:"min=0"`
+	ReferenceType *string                        `json:"reference_type,omitempty"`
+	ReferenceID   *uuid.UUID                     `json:"reference_id,omitempty"`
+	DateFrom      *time.Time                     `json:"date_from,omitempty"`
+	DateTo        *time.Time                     `json:"date_to,omitempty"`
+	SortBy        string                         `json:"sort_by,omitempty" validate:"omitempty,oneof=created_at priority status"`
+	SortOrder     string                         `json:"sort_order,omitempty" validate:"omitempty,oneof=asc desc"`
+	Limit         int                            `json:"limit" validate:"min=1,max=100"`
+	Offset        int                            `json:"offset" validate:"min=0"`
 }
 
 type GetUserNotificationsRequest struct {
-	Type      *entities.NotificationType    `json:"type,omitempty"`
+	Type      *entities.NotificationType     `json:"type,omitempty"`
 	Category  *entities.NotificationCategory `json:"category,omitempty"`
-	Status    *entities.NotificationStatus  `json:"status,omitempty"`
-	IsRead    *bool                         `json:"is_read,omitempty"`
-	SortBy    string                        `json:"sort_by,omitempty" validate:"omitempty,oneof=created_at priority"`
-	SortOrder string                        `json:"sort_order,omitempty" validate:"omitempty,oneof=asc desc"`
-	Limit     int                           `json:"limit" validate:"min=1,max=100"`
-	Offset    int                           `json:"offset" validate:"min=0"`
+	Status    *entities.NotificationStatus   `json:"status,omitempty"`
+	IsRead    *bool                          `json:"is_read,omitempty"`
+	SortBy    string                         `json:"sort_by,omitempty" validate:"omitempty,oneof=created_at priority"`
+	SortOrder string                         `json:"sort_order,omitempty" validate:"omitempty,oneof=asc desc"`
+	Limit     int                            `json:"limit" validate:"min=1,max=100"`
+	Offset    int                            `json:"offset" validate:"min=0"`
 }
 
 type CreateTemplateRequest struct {
-	Name        string                       `json:"name" validate:"required"`
-	Type        entities.NotificationType    `json:"type" validate:"required"`
+	Name        string                        `json:"name" validate:"required"`
+	Type        entities.NotificationType     `json:"type" validate:"required"`
 	Category    entities.NotificationCategory `json:"category" validate:"required"`
-	Subject     string                       `json:"subject,omitempty"`
-	Body        string                       `json:"body" validate:"required"`
-	Variables   []string                     `json:"variables,omitempty"`
-	IsActive    bool                         `json:"is_active"`
-	IsDefault   bool                         `json:"is_default"`
-	Language    string                       `json:"language"`
-	Description string                       `json:"description,omitempty"`
-	CreatedBy   uuid.UUID                    `json:"created_by" validate:"required"`
+	Subject     string                        `json:"subject,omitempty"`
+	Body        string                        `json:"body" validate:"required"`
+	Variables   []string                      `json:"variables,omitempty"`
+	IsActive    bool                          `json:"is_active"`
+	IsDefault   bool                          `json:"is_default"`
+	Language    string                        `json:"language"`
+	Description string                        `json:"description,omitempty"`
+	CreatedBy   uuid.UUID                     `json:"created_by" validate:"required"`
 }
 
 type UpdateTemplateRequest struct {
-	Name        *string                      `json:"name,omitempty"`
-	Subject     *string                      `json:"subject,omitempty"`
-	Body        *string                      `json:"body,omitempty"`
-	Variables   []string                     `json:"variables,omitempty"`
-	IsActive    *bool                        `json:"is_active,omitempty"`
-	IsDefault   *bool                        `json:"is_default,omitempty"`
-	Language    *string                      `json:"language,omitempty"`
-	Description *string                      `json:"description,omitempty"`
+	Name        *string  `json:"name,omitempty"`
+	Subject     *string  `json:"subject,omitempty"`
+	Body        *string  `json:"body,omitempty"`
+	Variables   []string `json:"variables,omitempty"`
+	IsActive    *bool    `json:"is_active,omitempty"`
+	IsDefault   *bool    `json:"is_default,omitempty"`
+	Language    *string  `json:"language,omitempty"`
+	Description *string  `json:"description,omitempty"`
 }
 
 type ListTemplatesRequest struct {
-	Type      *entities.NotificationType    `json:"type,omitempty"`
+	Type      *entities.NotificationType     `json:"type,omitempty"`
 	Category  *entities.NotificationCategory `json:"category,omitempty"`
-	IsActive  *bool                         `json:"is_active,omitempty"`
-	Language  *string                       `json:"language,omitempty"`
-	SortBy    string                        `json:"sort_by,omitempty" validate:"omitempty,oneof=name created_at"`
-	SortOrder string                        `json:"sort_order,omitempty" validate:"omitempty,oneof=asc desc"`
-	Limit     int                           `json:"limit" validate:"min=1,max=100"`
-	Offset    int                           `json:"offset" validate:"min=0"`
+	IsActive  *bool                          `json:"is_active,omitempty"`
+	Language  *string                        `json:"language,omitempty"`
+	SortBy    string                         `json:"sort_by,omitempty" validate:"omitempty,oneof=name created_at"`
+	SortOrder string                         `json:"sort_order,omitempty" validate:"omitempty,oneof=asc desc"`
+	Limit     int                            `json:"limit" validate:"min=1,max=100"`
+	Offset    int                            `json:"offset" validate:"min=0"`
 }
 
 type UpdatePreferencesRequest struct {
-	EmailEnabled          *bool   `json:"email_enabled,omitempty"`
-	EmailOrderUpdates     *bool   `json:"email_order_updates,omitempty"`
-	EmailPaymentUpdates   *bool   `json:"email_payment_updates,omitempty"`
-	EmailShippingUpdates  *bool   `json:"email_shipping_updates,omitempty"`
-	EmailPromotions       *bool   `json:"email_promotions,omitempty"`
-	EmailNewsletter       *bool   `json:"email_newsletter,omitempty"`
-	EmailReviewReminders  *bool   `json:"email_review_reminders,omitempty"`
-	SMSEnabled            *bool   `json:"sms_enabled,omitempty"`
-	SMSOrderUpdates       *bool   `json:"sms_order_updates,omitempty"`
-	SMSPaymentUpdates     *bool   `json:"sms_payment_updates,omitempty"`
-	SMSShippingUpdates    *bool   `json:"sms_shipping_updates,omitempty"`
-	SMSSecurityAlerts     *bool   `json:"sms_security_alerts,omitempty"`
-	PushEnabled           *bool   `json:"push_enabled,omitempty"`
-	PushOrderUpdates      *bool   `json:"push_order_updates,omitempty"`
-	PushPaymentUpdates    *bool   `json:"push_payment_updates,omitempty"`
-	PushShippingUpdates   *bool   `json:"push_shipping_updates,omitempty"`
-	PushPromotions        *bool   `json:"push_promotions,omitempty"`
-	PushReviewReminders   *bool   `json:"push_review_reminders,omitempty"`
-	InAppEnabled          *bool   `json:"in_app_enabled,omitempty"`
-	InAppOrderUpdates     *bool   `json:"in_app_order_updates,omitempty"`
-	InAppPaymentUpdates   *bool   `json:"in_app_payment_updates,omitempty"`
-	InAppShippingUpdates  *bool   `json:"in_app_shipping_updates,omitempty"`
-	InAppPromotions       *bool   `json:"in_app_promotions,omitempty"`
-	InAppSystemUpdates    *bool   `json:"in_app_system_updates,omitempty"`
-	DigestFrequency       *string `json:"digest_frequency,omitempty"`
-	QuietHoursStart       *string `json:"quiet_hours_start,omitempty"`
-	QuietHoursEnd         *string `json:"quiet_hours_end,omitempty"`
-	Timezone              *string `json:"timezone,omitempty"`
+	EmailEnabled         *bool   `json:"email_enabled,omitempty"`
+	EmailOrderUpdates    *bool   `json:"email_order_updates,omitempty"`
+	EmailPaymentUpdates  *bool   `json:"email_payment_updates,omitempty"`
+	EmailShippingUpdates *bool   `json:"email_shipping_updates,omitempty"`
+	EmailPromotions      *bool   `json:"email_promotions,omitempty"`
+	EmailNewsletter      *bool   `json:"email_newsletter,omitempty"`
+	EmailReviewReminders *bool   `json:"email_review_reminders,omitempty"`
+	SMSEnabled           *bool   `json:"sms_enabled,omitempty"`
+	SMSOrderUpdates      *bool   `json:"sms_order_updates,omitempty"`
+	SMSPaymentUpdates    *bool   `json:"sms_payment_updates,omitempty"`
+	SMSShippingUpdates   *bool   `json:"sms_shipping_updates,omitempty"`
+	SMSSecurityAlerts    *bool   `json:"sms_security_alerts,omitempty"`
+	PushEnabled          *bool   `json:"push_enabled,omitempty"`
+	PushOrderUpdates     *bool   `json:"push_order_updates,omitempty"`
+	PushPaymentUpdates   *bool   `json:"push_payment_updates,omitempty"`
+	PushShippingUpdates  *bool   `json:"push_shipping_updates,omitempty"`
+	PushPromotions       *bool   `json:"push_promotions,omitempty"`
+	PushReviewReminders  *bool   `json:"push_review_reminders,omitempty"`
+	InAppEnabled         *bool   `json:"in_app_enabled,omitempty"`
+	InAppOrderUpdates    *bool   `json:"in_app_order_updates,omitempty"`
+	InAppPaymentUpdates  *bool   `json:"in_app_payment_updates,omitempty"`
+	InAppShippingUpdates *bool   `json:"in_app_shipping_updates,omitempty"`
+	InAppPromotions      *bool   `json:"in_app_promotions,omitempty"`
+	InAppSystemUpdates   *bool   `json:"in_app_system_updates,omitempty"`
+	DigestFrequency      *string `json:"digest_frequency,omitempty"`
+	QuietHoursStart      *string `json:"quiet_hours_start,omitempty"`
+	QuietHoursEnd        *string `json:"quiet_hours_end,omitempty"`
+	Timezone             *string `json:"timezone,omitempty"`
 }
 
 // Response types
 type NotificationResponse struct {
-	ID            uuid.UUID                    `json:"id"`
-	UserID        *uuid.UUID                   `json:"user_id"`
-	Type          entities.NotificationType    `json:"type"`
+	ID            uuid.UUID                     `json:"id"`
+	UserID        *uuid.UUID                    `json:"user_id"`
+	Type          entities.NotificationType     `json:"type"`
 	Category      entities.NotificationCategory `json:"category"`
 	Priority      entities.NotificationPriority `json:"priority"`
-	Status        entities.NotificationStatus  `json:"status"`
-	Title         string                       `json:"title"`
-	Message       string                       `json:"message"`
-	Data          map[string]interface{}       `json:"data,omitempty"`
-	Recipient     string                       `json:"recipient"`
-	Subject       string                       `json:"subject"`
-	Template      string                       `json:"template"`
-	ReferenceType string                       `json:"reference_type"`
-	ReferenceID   *uuid.UUID                   `json:"reference_id"`
-	ScheduledAt   *time.Time                   `json:"scheduled_at"`
-	SentAt        *time.Time                   `json:"sent_at"`
-	DeliveredAt   *time.Time                   `json:"delivered_at"`
-	ReadAt        *time.Time                   `json:"read_at"`
-	RetryCount    int                          `json:"retry_count"`
-	MaxRetries    int                          `json:"max_retries"`
-	NextRetryAt   *time.Time                   `json:"next_retry_at"`
-	ErrorMessage  string                       `json:"error_message"`
-	ErrorCode     string                       `json:"error_code"`
-	IsRead        bool                         `json:"is_read"`
-	CreatedAt     time.Time                    `json:"created_at"`
-	UpdatedAt     time.Time                    `json:"updated_at"`
+	Status        entities.NotificationStatus   `json:"status"`
+	Title         string                        `json:"title"`
+	Message       string                        `json:"message"`
+	Data          map[string]interface{}        `json:"data,omitempty"`
+	Recipient     string                        `json:"recipient"`
+	Subject       string                        `json:"subject"`
+	Template      string                        `json:"template"`
+	ReferenceType string                        `json:"reference_type"`
+	ReferenceID   *uuid.UUID                    `json:"reference_id"`
+	ScheduledAt   *time.Time                    `json:"scheduled_at"`
+	SentAt        *time.Time                    `json:"sent_at"`
+	DeliveredAt   *time.Time                    `json:"delivered_at"`
+	ReadAt        *time.Time                    `json:"read_at"`
+	RetryCount    int                           `json:"retry_count"`
+	MaxRetries    int                           `json:"max_retries"`
+	NextRetryAt   *time.Time                    `json:"next_retry_at"`
+	ErrorMessage  string                        `json:"error_message"`
+	ErrorCode     string                        `json:"error_code"`
+	IsRead        bool                          `json:"is_read"`
+	CreatedAt     time.Time                     `json:"created_at"`
+	UpdatedAt     time.Time                     `json:"updated_at"`
 }
 
 type NotificationsListResponse struct {
@@ -254,20 +255,20 @@ type NotificationsListResponse struct {
 }
 
 type TemplateResponse struct {
-	ID          uuid.UUID                    `json:"id"`
-	Name        string                       `json:"name"`
-	Type        entities.NotificationType    `json:"type"`
+	ID          uuid.UUID                     `json:"id"`
+	Name        string                        `json:"name"`
+	Type        entities.NotificationType     `json:"type"`
 	Category    entities.NotificationCategory `json:"category"`
-	Subject     string                       `json:"subject"`
-	Body        string                       `json:"body"`
-	Variables   []string                     `json:"variables"`
-	IsActive    bool                         `json:"is_active"`
-	IsDefault   bool                         `json:"is_default"`
-	Language    string                       `json:"language"`
-	Description string                       `json:"description"`
-	CreatedBy   uuid.UUID                    `json:"created_by"`
-	CreatedAt   time.Time                    `json:"created_at"`
-	UpdatedAt   time.Time                    `json:"updated_at"`
+	Subject     string                        `json:"subject"`
+	Body        string                        `json:"body"`
+	Variables   []string                      `json:"variables"`
+	IsActive    bool                          `json:"is_active"`
+	IsDefault   bool                          `json:"is_default"`
+	Language    string                        `json:"language"`
+	Description string                        `json:"description"`
+	CreatedBy   uuid.UUID                     `json:"created_by"`
+	CreatedAt   time.Time                     `json:"created_at"`
+	UpdatedAt   time.Time                     `json:"updated_at"`
 }
 
 type TemplatesListResponse struct {
@@ -277,38 +278,38 @@ type TemplatesListResponse struct {
 }
 
 type PreferencesResponse struct {
-	ID                    uuid.UUID `json:"id"`
-	UserID                uuid.UUID `json:"user_id"`
-	EmailEnabled          bool      `json:"email_enabled"`
-	EmailOrderUpdates     bool      `json:"email_order_updates"`
-	EmailPaymentUpdates   bool      `json:"email_payment_updates"`
-	EmailShippingUpdates  bool      `json:"email_shipping_updates"`
-	EmailPromotions       bool      `json:"email_promotions"`
-	EmailNewsletter       bool      `json:"email_newsletter"`
-	EmailReviewReminders  bool      `json:"email_review_reminders"`
-	SMSEnabled            bool      `json:"sms_enabled"`
-	SMSOrderUpdates       bool      `json:"sms_order_updates"`
-	SMSPaymentUpdates     bool      `json:"sms_payment_updates"`
-	SMSShippingUpdates    bool      `json:"sms_shipping_updates"`
-	SMSSecurityAlerts     bool      `json:"sms_security_alerts"`
-	PushEnabled           bool      `json:"push_enabled"`
-	PushOrderUpdates      bool      `json:"push_order_updates"`
-	PushPaymentUpdates    bool      `json:"push_payment_updates"`
-	PushShippingUpdates   bool      `json:"push_shipping_updates"`
-	PushPromotions        bool      `json:"push_promotions"`
-	PushReviewReminders   bool      `json:"push_review_reminders"`
-	InAppEnabled          bool      `json:"in_app_enabled"`
-	InAppOrderUpdates     bool      `json:"in_app_order_updates"`
-	InAppPaymentUpdates   bool      `json:"in_app_payment_updates"`
-	InAppShippingUpdates  bool      `json:"in_app_shipping_updates"`
-	InAppPromotions       bool      `json:"in_app_promotions"`
-	InAppSystemUpdates    bool      `json:"in_app_system_updates"`
-	DigestFrequency       string    `json:"digest_frequency"`
-	QuietHoursStart       string    `json:"quiet_hours_start"`
-	QuietHoursEnd         string    `json:"quiet_hours_end"`
-	Timezone              string    `json:"timezone"`
-	CreatedAt             time.Time `json:"created_at"`
-	UpdatedAt             time.Time `json:"updated_at"`
+	ID                   uuid.UUID `json:"id"`
+	UserID               uuid.UUID `json:"user_id"`
+	EmailEnabled         bool      `json:"email_enabled"`
+	EmailOrderUpdates    bool      `json:"email_order_updates"`
+	EmailPaymentUpdates  bool      `json:"email_payment_updates"`
+	EmailShippingUpdates bool      `json:"email_shipping_updates"`
+	EmailPromotions      bool      `json:"email_promotions"`
+	EmailNewsletter      bool      `json:"email_newsletter"`
+	EmailReviewReminders bool      `json:"email_review_reminders"`
+	SMSEnabled           bool      `json:"sms_enabled"`
+	SMSOrderUpdates      bool      `json:"sms_order_updates"`
+	SMSPaymentUpdates    bool      `json:"sms_payment_updates"`
+	SMSShippingUpdates   bool      `json:"sms_shipping_updates"`
+	SMSSecurityAlerts    bool      `json:"sms_security_alerts"`
+	PushEnabled          bool      `json:"push_enabled"`
+	PushOrderUpdates     bool      `json:"push_order_updates"`
+	PushPaymentUpdates   bool      `json:"push_payment_updates"`
+	PushShippingUpdates  bool      `json:"push_shipping_updates"`
+	PushPromotions       bool      `json:"push_promotions"`
+	PushReviewReminders  bool      `json:"push_review_reminders"`
+	InAppEnabled         bool      `json:"in_app_enabled"`
+	InAppOrderUpdates    bool      `json:"in_app_order_updates"`
+	InAppPaymentUpdates  bool      `json:"in_app_payment_updates"`
+	InAppShippingUpdates bool      `json:"in_app_shipping_updates"`
+	InAppPromotions      bool      `json:"in_app_promotions"`
+	InAppSystemUpdates   bool      `json:"in_app_system_updates"`
+	DigestFrequency      string    `json:"digest_frequency"`
+	QuietHoursStart      string    `json:"quiet_hours_start"`
+	QuietHoursEnd        string    `json:"quiet_hours_end"`
+	Timezone             string    `json:"timezone"`
+	CreatedAt            time.Time `json:"created_at"`
+	UpdatedAt            time.Time `json:"updated_at"`
 }
 
 // CreateNotification creates a new notification
@@ -351,7 +352,7 @@ func (uc *notificationUseCase) CreateNotification(ctx context.Context, req Creat
 	// Queue for immediate sending if not scheduled
 	if req.ScheduledAt == nil {
 		if err := uc.QueueNotification(ctx, notification, nil); err != nil {
-			// Log error but don't fail notification creation
+			return nil, err
 		}
 	}
 
@@ -457,8 +458,8 @@ func (uc *notificationUseCase) ListNotifications(ctx context.Context, req ListNo
 
 	return &NotificationsListResponse{
 		Notifications: responses,
-		Total:        total,
-		Pagination: NewPaginationInfo(req.Offset, req.Limit, total),
+		Total:         total,
+		Pagination:    NewPaginationInfo(req.Offset, req.Limit, total),
 	}, nil
 }
 
@@ -495,9 +496,9 @@ func (uc *notificationUseCase) GetUserNotifications(ctx context.Context, userID 
 
 	return &NotificationsListResponse{
 		Notifications: responses,
-		Total:        total,
-		UnreadCount:  unreadCount,
-		Pagination: NewPaginationInfo(req.Offset, req.Limit, total),
+		Total:         total,
+		UnreadCount:   unreadCount,
+		Pagination:    NewPaginationInfo(req.Offset, req.Limit, total),
 	}, nil
 }
 
@@ -631,7 +632,7 @@ func (uc *notificationUseCase) ListTemplates(ctx context.Context, req ListTempla
 	var filtered []*entities.NotificationTemplate
 	for _, template := range templates {
 		include := true
-		
+
 		if req.Type != nil && template.Type != *req.Type {
 			include = false
 		}
@@ -640,7 +641,7 @@ func (uc *notificationUseCase) ListTemplates(ctx context.Context, req ListTempla
 			include = false
 		}
 		// Skip Language filter since it's not in the entity
-		
+
 		if include {
 			filtered = append(filtered, template)
 		}
@@ -665,8 +666,8 @@ func (uc *notificationUseCase) ListTemplates(ctx context.Context, req ListTempla
 	}
 
 	return &TemplatesListResponse{
-		Templates: responses,
-		Total:     total,
+		Templates:  responses,
+		Total:      total,
 		Pagination: NewPaginationInfo(req.Offset, req.Limit, total),
 	}, nil
 }
@@ -792,56 +793,56 @@ func (uc *notificationUseCase) toNotificationResponse(notification *entities.Not
 
 func (uc *notificationUseCase) toTemplateResponse(template *entities.NotificationTemplate) *TemplateResponse {
 	return &TemplateResponse{
-		ID:        template.ID,
-		Name:      template.Name,
-		Type:      template.Type,
-		Category:  entities.NotificationCategorySystem, // Default, since entity doesn't have Category
-		Subject:   template.Subject,
-		Body:      template.Body,
-		Variables: template.Variables,
-		IsActive:  template.IsActive,
-		IsDefault: false, // Default, since entity doesn't have IsDefault
-		Language:  "en",  // Default, since entity doesn't have Language
-		Description: "", // Default, since entity doesn't have Description
-		CreatedBy: uuid.Nil, // Default, since entity doesn't have CreatedBy
-		CreatedAt: template.CreatedAt,
-		UpdatedAt: template.UpdatedAt,
+		ID:          template.ID,
+		Name:        template.Name,
+		Type:        template.Type,
+		Category:    entities.NotificationCategorySystem, // Default, since entity doesn't have Category
+		Subject:     template.Subject,
+		Body:        template.Body,
+		Variables:   template.Variables,
+		IsActive:    template.IsActive,
+		IsDefault:   false,    // Default, since entity doesn't have IsDefault
+		Language:    "en",     // Default, since entity doesn't have Language
+		Description: "",       // Default, since entity doesn't have Description
+		CreatedBy:   uuid.Nil, // Default, since entity doesn't have CreatedBy
+		CreatedAt:   template.CreatedAt,
+		UpdatedAt:   template.UpdatedAt,
 	}
 }
 
 func (uc *notificationUseCase) toPreferencesResponse(preferences *entities.NotificationPreferences) *PreferencesResponse {
 	return &PreferencesResponse{
-		ID:                    preferences.ID,
-		UserID:                preferences.UserID,
-		EmailEnabled:          preferences.EmailEnabled,
-		EmailOrderUpdates:     preferences.OrderUpdates,
-		EmailPaymentUpdates:   preferences.OrderUpdates, // Map to closest available field
-		EmailShippingUpdates:  preferences.OrderUpdates, // Map to closest available field
-		EmailPromotions:       preferences.PromotionalEmails,
-		EmailNewsletter:       preferences.NewsletterEnabled,
-		EmailReviewReminders:  preferences.OrderUpdates, // Map to closest available field
-		SMSEnabled:            preferences.SMSEnabled,
-		SMSOrderUpdates:       preferences.OrderUpdates,
-		SMSPaymentUpdates:     preferences.OrderUpdates,
-		SMSShippingUpdates:    preferences.OrderUpdates,
-		SMSSecurityAlerts:     preferences.SecurityAlerts,
-		PushEnabled:           preferences.PushEnabled,
-		PushOrderUpdates:      preferences.OrderUpdates,
-		PushPaymentUpdates:    preferences.OrderUpdates,
-		PushShippingUpdates:   preferences.OrderUpdates,
-		PushPromotions:        preferences.PromotionalEmails,
-		PushReviewReminders:   preferences.OrderUpdates,
-		InAppEnabled:          preferences.InAppEnabled,
-		InAppOrderUpdates:     preferences.OrderUpdates,
-		InAppPaymentUpdates:   preferences.OrderUpdates,
-		InAppShippingUpdates:  preferences.OrderUpdates,
-		InAppPromotions:       preferences.PromotionalEmails,
-		InAppSystemUpdates:    preferences.InAppEnabled,
-		DigestFrequency:       "daily", // Default since not in entity
-		QuietHoursStart:       "22:00", // Default since not in entity
-		QuietHoursEnd:         "08:00", // Default since not in entity
-		Timezone:              "UTC",   // Default since not in entity
-		CreatedAt:             preferences.CreatedAt,
-		UpdatedAt:             preferences.UpdatedAt,
+		ID:                   preferences.ID,
+		UserID:               preferences.UserID,
+		EmailEnabled:         preferences.EmailEnabled,
+		EmailOrderUpdates:    preferences.OrderUpdates,
+		EmailPaymentUpdates:  preferences.OrderUpdates, // Map to closest available field
+		EmailShippingUpdates: preferences.OrderUpdates, // Map to closest available field
+		EmailPromotions:      preferences.PromotionalEmails,
+		EmailNewsletter:      preferences.NewsletterEnabled,
+		EmailReviewReminders: preferences.OrderUpdates, // Map to closest available field
+		SMSEnabled:           preferences.SMSEnabled,
+		SMSOrderUpdates:      preferences.OrderUpdates,
+		SMSPaymentUpdates:    preferences.OrderUpdates,
+		SMSShippingUpdates:   preferences.OrderUpdates,
+		SMSSecurityAlerts:    preferences.SecurityAlerts,
+		PushEnabled:          preferences.PushEnabled,
+		PushOrderUpdates:     preferences.OrderUpdates,
+		PushPaymentUpdates:   preferences.OrderUpdates,
+		PushShippingUpdates:  preferences.OrderUpdates,
+		PushPromotions:       preferences.PromotionalEmails,
+		PushReviewReminders:  preferences.OrderUpdates,
+		InAppEnabled:         preferences.InAppEnabled,
+		InAppOrderUpdates:    preferences.OrderUpdates,
+		InAppPaymentUpdates:  preferences.OrderUpdates,
+		InAppShippingUpdates: preferences.OrderUpdates,
+		InAppPromotions:      preferences.PromotionalEmails,
+		InAppSystemUpdates:   preferences.InAppEnabled,
+		DigestFrequency:      "daily", // Default since not in entity
+		QuietHoursStart:      "22:00", // Default since not in entity
+		QuietHoursEnd:        "08:00", // Default since not in entity
+		Timezone:             "UTC",   // Default since not in entity
+		CreatedAt:            preferences.CreatedAt,
+		UpdatedAt:            preferences.UpdatedAt,
 	}
 }
