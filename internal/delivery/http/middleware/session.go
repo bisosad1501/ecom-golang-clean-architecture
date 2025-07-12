@@ -27,8 +27,8 @@ func SessionValidationMiddleware() gin.HandlerFunc {
 			return
 		}
 
-		// Validate session ID format
-		if err := validateSessionID(sessionID); err != nil {
+		// Validate session ID format (relaxed validation)
+		if err := validateSessionIDRelaxed(sessionID); err != nil {
 			c.JSON(http.StatusBadRequest, gin.H{
 				"error":   "Invalid session ID format",
 				"details": err.Error(),
@@ -41,7 +41,7 @@ func SessionValidationMiddleware() gin.HandlerFunc {
 	}
 }
 
-// validateSessionID validates the session ID format
+// validateSessionID validates the session ID format (strict)
 func validateSessionID(sessionID string) error {
 	// Session ID should be 10-128 characters, alphanumeric with hyphens and underscores
 	if len(sessionID) < 10 || len(sessionID) > 128 {
@@ -52,6 +52,22 @@ func validateSessionID(sessionID string) error {
 	validFormat := regexp.MustCompile(`^[a-zA-Z0-9_-]+$`)
 	if !validFormat.MatchString(sessionID) {
 		return fmt.Errorf("session ID can only contain alphanumeric characters, hyphens, and underscores")
+	}
+
+	return nil
+}
+
+// validateSessionIDRelaxed validates the session ID format (relaxed for frontend compatibility)
+func validateSessionIDRelaxed(sessionID string) error {
+	// More relaxed validation - allow 6-256 characters
+	if len(sessionID) < 6 || len(sessionID) > 256 {
+		return fmt.Errorf("session ID must be between 6 and 256 characters")
+	}
+
+	// Allow more characters including dots and special chars that frontend might generate
+	validFormat := regexp.MustCompile(`^[a-zA-Z0-9_.-]+$`)
+	if !validFormat.MatchString(sessionID) {
+		return fmt.Errorf("session ID can only contain alphanumeric characters, hyphens, underscores, and dots")
 	}
 
 	return nil

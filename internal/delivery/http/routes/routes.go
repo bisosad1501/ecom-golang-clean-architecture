@@ -126,12 +126,13 @@ func SetupRoutes(
 
 		// Public cart routes (guest cart support)
 		publicCart := v1.Group("/public/cart")
-		publicCart.Use(middleware.GuestCartMiddleware())
+		publicCart.Use(middleware.SessionValidationMiddleware())
 		{
 			publicCart.GET("", cartHandler.GetCart)
 			publicCart.POST("/items", cartHandler.AddToCart)
-			// Note: Update and remove operations for guest carts can use the same endpoints
-			// as they check for session ID when no auth token is present
+			publicCart.PUT("/items", cartHandler.UpdateCartItem)
+			publicCart.DELETE("/items/:productId", cartHandler.RemoveFromCart)
+			publicCart.DELETE("", cartHandler.ClearCart)
 		}
 
 		// Public file upload routes (requires authentication, with strict rate limiting)

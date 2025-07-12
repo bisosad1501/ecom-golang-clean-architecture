@@ -194,6 +194,20 @@ func (uc *cartUseCase) AddToCart(ctx context.Context, userID uuid.UUID, req AddT
 
 // addToCartInTransaction handles adding item to cart
 func (uc *cartUseCase) addToCartInTransaction(ctx context.Context, userID uuid.UUID, req AddToCartRequest) (*CartResponse, error) {
+	// Validate product exists and is available
+	product, err := uc.productRepo.GetByID(ctx, req.ProductID)
+	if err != nil {
+		return nil, pkgErrors.Wrap(err, pkgErrors.ErrCodeProductNotFound, "Product not found")
+	}
+
+	// Check if product is active and available
+	if product.Status != "active" {
+		return nil, pkgErrors.InvalidInput("Product is not available for purchase")
+	}
+
+	// Use current product price (will be used when adding/updating cart items)
+	_ = product.Price // Suppress unused variable warning
+
 	// Get or create cart
 	cart, err := uc.cartRepo.GetByUserID(ctx, userID)
 	if err != nil {
@@ -243,7 +257,7 @@ func (uc *cartUseCase) addToCartInTransaction(ctx context.Context, userID uuid.U
 	}
 
 	// Get product with current price
-	product, err := uc.productRepo.GetByID(ctx, req.ProductID)
+	product, err = uc.productRepo.GetByID(ctx, req.ProductID)
 	if err != nil {
 		return nil, pkgErrors.ProductNotFound().WithContext("product_id", req.ProductID)
 	}
