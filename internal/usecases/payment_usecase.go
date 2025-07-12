@@ -588,8 +588,11 @@ func (uc *paymentUseCase) handleCheckoutSessionCompleted(ctx context.Context, ev
 
 	// Send payment confirmation notification
 	if uc.notificationUseCase != nil {
-		uc.notificationUseCase.NotifyPaymentReceived(ctx, payment.ID)
-		fmt.Printf("✅ Payment notification sent\n")
+		if err := uc.notificationUseCase.NotifyPaymentReceived(ctx, payment.ID); err != nil {
+			fmt.Printf("❌ Failed to send payment notification: %v\n", err)
+		} else {
+			fmt.Printf("✅ Payment notification sent\n")
+		}
 	}
 
 	fmt.Printf("🎉 Webhook processing completed successfully\n")
@@ -1004,8 +1007,11 @@ func (uc *paymentUseCase) ConfirmPaymentSuccess(ctx context.Context, orderID, us
 
 	// Send payment confirmation notification if available
 	if uc.notificationUseCase != nil {
-		uc.notificationUseCase.NotifyPaymentReceived(ctx, payment.ID)
-		fmt.Printf("✅ Payment notification sent\n")
+		if err := uc.notificationUseCase.NotifyPaymentReceived(ctx, payment.ID); err != nil {
+			fmt.Printf("❌ Failed to send payment notification: %v\n", err)
+		} else {
+			fmt.Printf("✅ Payment notification sent\n")
+		}
 	}
 
 	fmt.Printf("🎉 Fallback payment confirmation completed\n")

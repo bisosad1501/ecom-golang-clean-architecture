@@ -621,7 +621,10 @@ func (uc *orderUseCase) CancelOrder(ctx context.Context, orderID uuid.UUID) (*Or
 				continue
 			}
 
-			product.IncreaseStock(item.Quantity)
+			if err := product.IncreaseStock(item.Quantity); err != nil {
+				fmt.Printf("❌ Failed to increase stock for product %s: %v\n", product.Name, err)
+				continue
+			}
 			if err := uc.productRepo.UpdateStock(ctx, item.ProductID, product.Stock); err != nil {
 				fmt.Printf("❌ Failed to restore stock for product %s: %v\n", product.Name, err)
 				continue
