@@ -126,15 +126,18 @@ export function useRequireRole(roles: string[], redirectTo?: string) {
 }
 
 export function useGuestOnly(redirectTo?: string) {
-  const { isAuthenticated } = useAuthStore()
+  const { isAuthenticated, isLoading, isHydrated } = useAuthStore()
   const router = useRouter()
-  
+
   useEffect(() => {
+    // Don't redirect while loading or before hydration
+    if (isLoading || !isHydrated) return
+
     if (isAuthenticated) {
       const redirectUrl = new URLSearchParams(window.location.search).get('redirect')
       router.push(redirectUrl || redirectTo || '/')
     }
-  }, [isAuthenticated, redirectTo, router])
-  
-  return { isAuthenticated }
+  }, [isAuthenticated, isLoading, isHydrated, redirectTo, router])
+
+  return { isAuthenticated, isLoading: isLoading || !isHydrated }
 }

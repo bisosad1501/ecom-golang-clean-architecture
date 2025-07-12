@@ -91,10 +91,9 @@ export default function CheckoutForm() {
 
   // Fetch cart data when component mounts
   useEffect(() => {
-    if (isAuthenticated) {
-      fetchCart()
-    }
-  }, [fetchCart, isAuthenticated])
+    // Always fetch cart - it will handle guest vs authenticated users
+    fetchCart()
+  }, [fetchCart])
 
   const {
     register,
@@ -299,21 +298,22 @@ export default function CheckoutForm() {
   const tax = cartTotal * 0.08 // 8% tax
   const finalTotal = cartTotal + shippingCost + tax + tipAmount
 
-  if (!isAuthenticated) {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-black via-gray-900 to-black text-white flex items-center justify-center">
-        <Card className="bg-gray-900/50 border-gray-800 p-8">
-          <CardContent className="text-center">
-            <h2 className="text-2xl font-bold mb-4">Please Sign In</h2>
-            <p className="text-gray-400 mb-6">You need to be signed in to checkout</p>
-            <Button onClick={() => router.push('/auth/login')} className="bg-[#ff9000] hover:bg-[#e68100]">
-              Sign In
-            </Button>
-          </CardContent>
-        </Card>
-      </div>
-    )
-  }
+  // Allow guest checkout - remove authentication requirement
+  // if (!isAuthenticated) {
+  //   return (
+  //     <div className="min-h-screen bg-gradient-to-br from-black via-gray-900 to-black text-white flex items-center justify-center">
+  //       <Card className="bg-gray-900/50 border-gray-800 p-8">
+  //         <CardContent className="text-center">
+  //           <h2 className="text-2xl font-bold mb-4">Please Sign In</h2>
+  //           <p className="text-gray-400 mb-6">You need to be signed in to checkout</p>
+  //           <Button onClick={() => router.push('/auth/login')} className="bg-[#ff9000] hover:bg-[#e68100]">
+  //             Sign In
+  //           </Button>
+  //         </CardContent>
+  //       </Card>
+  //     </div>
+  //   )
+  // }
 
   if (!effectiveCart || effectiveCart.items.length === 0) {
     return (

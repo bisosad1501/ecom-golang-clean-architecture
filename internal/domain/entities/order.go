@@ -1,10 +1,23 @@
 package entities
 
 import (
+	"os"
+	"strconv"
 	"time"
 
 	"github.com/google/uuid"
 )
+
+// Get payment timeout (minutes) from env/config
+func getOrderTimeoutMinutes() int {
+	val := os.Getenv("ORDER_PAYMENT_TIMEOUT_MINUTES")
+	if val != "" {
+		if minutes, err := strconv.Atoi(val); err == nil {
+			return minutes
+		}
+	}
+	return 30 // default 30 phút
+}
 
 // OrderStatus represents the status of an order
 type OrderStatus string
@@ -145,8 +158,12 @@ type Order struct {
 
 	// Stock reservation fields
 	InventoryReserved bool       `json:"inventory_reserved" gorm:"default:false"`
-	ReservedUntil     *time.Time `json:"reserved_until"`
-	PaymentTimeout    *time.Time `json:"payment_timeout"`
+	ReservedUntil     *time.Time `json:"reserved_until" gorm:"index"`  // Index for cleanup jobs
+	PaymentTimeout    *time.Time `json:"payment_timeout" gorm:"index"` // Index for cleanup jobs
+
+	// Audit fields
+	Version        int        `json:"version" gorm:"default:1"` // For optimistic locking
+	LastModifiedBy *uuid.UUID `json:"last_modified_by" gorm:"type:uuid"`
 
 	// Relationships
 	Payment     *Payment     `json:"payment" gorm:"foreignKey:OrderID"`
@@ -262,8 +279,11 @@ func (o *Order) CanBeCancelled() bool {
 
 // CanBeRefunded checks if the order can be refunded
 func (o *Order) CanBeRefunded() bool {
+	// Can refund if payment is completed and order is not already refunded/cancelled
 	return o.PaymentStatus == PaymentStatusPaid &&
-		(o.Status == OrderStatusDelivered || o.Status == OrderStatusShipped)
+		o.Status != OrderStatusCancelled &&
+		o.Status != OrderStatusRefunded &&
+		o.Status != OrderStatusReturned
 }
 
 // IsCompleted checks if the order is completed
@@ -309,17 +329,59 @@ func (o *Order) SetReservationTimeout(minutes int) {
 
 // SetPaymentTimeout sets the payment timeout (default 24 hours)
 func (o *Order) SetPaymentTimeout(hours int) {
-	if hours <= 0 {
-		hours = 24 // Default 24 hours
+	minutes := hours
+	if minutes <= 0 {
+		minutes = getOrderTimeoutMinutes()
 	}
-	timeout := time.Now().Add(time.Duration(hours) * time.Hour)
+	timeout := time.Now().Add(time.Duration(minutes) * time.Minute)
 	o.PaymentTimeout = &timeout
+}
+
+// ValidateTimeouts validates and sets default timeouts if not set
+func (o *Order) ValidateTimeouts() {
+	if o.ReservedUntil == nil && o.InventoryReserved {
+		o.SetReservationTimeout(30)
+	}
+	if o.PaymentTimeout == nil && o.Status == OrderStatusPending {
+		o.SetPaymentTimeout(getOrderTimeoutMinutes())
+	}
+}
+
+// IncrementVersion increments the version for optimistic locking
+func (o *Order) IncrementVersion() {
+	o.Version++
+	o.UpdatedAt = time.Now()
 }
 
 // ReleaseReservation releases the inventory reservation
 func (o *Order) ReleaseReservation() {
 	o.InventoryReserved = false
 	o.ReservedUntil = nil
+	// Optionally, update stock here if needed
+}
+
+// Call ValidateTimeouts when creating new order (example constructor)
+func NewOrder(userID uuid.UUID, items []OrderItem) *Order {
+	order := &Order{
+		ID:            uuid.New(),
+		UserID:        userID,
+		Items:         items,
+		Status:        OrderStatusPending,
+		PaymentStatus: PaymentStatusPending,
+		CreatedAt:     time.Now(),
+		UpdatedAt:     time.Now(),
+	}
+	order.ValidateTimeouts()
+	return order
+}
+
+// Notify customer when order is about to expire (pseudo-code, implement in service layer)
+func (o *Order) NotifyPaymentExpiring() {
+	// Example: send email/SMS/push notification
+	// This should be called by a scheduler before o.PaymentTimeout
+	// e.g. if time.Until(*o.PaymentTimeout) < 5*time.Minute {
+	// sendNotification(o.UserID, "Đơn hàng của bạn sắp hết hạn thanh toán!")
+	// }
 }
 
 // GetItemCount returns the total number of items in the order

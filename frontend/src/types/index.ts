@@ -177,9 +177,14 @@ export interface CreateOrderRequest {
 export interface Cart {
   id: string
   user_id?: string
+  session_id?: string  // For guest carts
   items: CartItem[]
+  item_count: number   // Calculated field from backend
   subtotal: number
   total: number
+  status: string       // active, abandoned, converted
+  currency: string     // USD, EUR, etc.
+  expires_at?: string  // Cart expiration time
   created_at: string
   updated_at: string
 }
@@ -254,5 +259,26 @@ export interface RefundRequest {
   reason?: string
 }
 
+// Cart conflict detection types
+export interface ConflictingItem {
+  product_id: string
+  product_name: string
+  user_quantity: number
+  guest_quantity: number
+  user_price: number
+  guest_price: number
+  price_difference: number
+}
 
+export interface CartConflictInfo {
+  has_conflict: boolean
+  user_cart_exists: boolean
+  guest_cart_exists: boolean
+  conflicting_items?: ConflictingItem[]
+  user_cart?: Cart
+  guest_cart?: Cart
+  recommendations?: string[]
+}
 
+// Merge strategy types
+export type MergeStrategy = 'auto' | 'replace' | 'keep_user' | 'merge'

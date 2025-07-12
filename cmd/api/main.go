@@ -159,7 +159,7 @@ func main() {
 	cartUseCase := usecases.NewCartUseCase(
 		cartRepo,
 		productRepo,
-		txManager,
+		stockReservationService, // Pass the stockReservationService
 	)
 
 	orderUseCase := usecases.NewOrderUseCase(
@@ -221,6 +221,7 @@ func main() {
 		stockReservationService,
 		orderRepo,
 		stockReservationRepo,
+		cartRepo, // Pass the cartRepo
 	)
 
 	// Initialize JWT service

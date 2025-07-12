@@ -311,9 +311,13 @@ func (uc *orderUseCase) createOrderInTransaction(ctx context.Context, tx *gorm.D
 		Source:         entities.OrderSourceWeb,
 		CustomerType:   entities.CustomerTypeRegistered,
 		Priority:       entities.OrderPriorityNormal,
+		Version:        1,
 		CreatedAt:      time.Now(),
 		UpdatedAt:      time.Now(),
 	}
+
+	// Set timeouts and validate
+	order.ValidateTimeouts()
 
 	// Set reservation and payment timeouts
 	order.SetReservationTimeout(30) // 30 minutes for stock reservation
@@ -379,7 +383,12 @@ func (uc *orderUseCase) createOrderInTransaction(ctx context.Context, tx *gorm.D
 		return nil, pkgErrors.Wrap(err, pkgErrors.ErrCodeInsufficientStock, "Failed to reserve stock")
 	}
 
-	// Clear cart within transaction
+	// Mark cart as converted and clear items
+	cart.MarkAsConverted()
+	if err := uc.cartRepo.Update(ctx, cart); err != nil {
+		return nil, pkgErrors.Wrap(err, pkgErrors.ErrCodeInternalError, "Failed to update cart status")
+	}
+
 	if err := uc.cartRepo.ClearCart(ctx, cart.ID); err != nil {
 		return nil, pkgErrors.Wrap(err, pkgErrors.ErrCodeInternalError, "Failed to clear cart")
 	}

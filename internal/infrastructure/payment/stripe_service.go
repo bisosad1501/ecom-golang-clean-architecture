@@ -141,6 +141,12 @@ func (s *StripeService) CreateCheckoutSession(ctx context.Context, req CheckoutS
 	// Convert amount to cents (Stripe uses smallest currency unit)
 	amountCents := int64(req.Amount * 100)
 
+	// Ensure description is not empty
+	description := req.Description
+	if description == "" {
+		description = fmt.Sprintf("Payment for Order %s", req.OrderID)
+	}
+
 	params := &stripe.CheckoutSessionParams{
 		PaymentMethodTypes: stripe.StringSlice([]string{
 			"card",
@@ -151,7 +157,7 @@ func (s *StripeService) CreateCheckoutSession(ctx context.Context, req CheckoutS
 					Currency: stripe.String(req.Currency),
 					ProductData: &stripe.CheckoutSessionLineItemPriceDataProductDataParams{
 						Name:        stripe.String("Order Payment"),
-						Description: stripe.String(req.Description),
+						Description: stripe.String(description),
 					},
 					UnitAmount: stripe.Int64(amountCents),
 				},

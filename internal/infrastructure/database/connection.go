@@ -43,10 +43,17 @@ func NewConnection(cfg *config.DatabaseConfig) (*gorm.DB, error) {
 		return nil, fmt.Errorf("failed to get underlying sql.DB: %w", err)
 	}
 
-	// Configure connection pool
-	sqlDB.SetMaxIdleConns(10)
-	sqlDB.SetMaxOpenConns(100)
-	sqlDB.SetConnMaxLifetime(time.Hour)
+	// Configure optimized connection pool
+	sqlDB.SetMaxIdleConns(25)                // Increased from 10
+	sqlDB.SetMaxOpenConns(200)               // Increased from 100
+	sqlDB.SetConnMaxLifetime(30 * time.Minute) // Reduced from 1 hour
+	sqlDB.SetConnMaxIdleTime(5 * time.Minute)  // Added idle timeout
+
+	// Enable query logging for slow queries in development
+	// Note: Add environment check when config supports it
+	// if cfg.Environment == "development" {
+	//     db = db.Debug()
+	// }
 
 	// Test connection
 	if err := sqlDB.Ping(); err != nil {
@@ -229,6 +236,20 @@ func CreateIndexes(db *gorm.DB) error {
 	db.Exec("CREATE INDEX IF NOT EXISTS idx_payments_transaction_id ON payments(transaction_id)")
 	db.Exec("CREATE INDEX IF NOT EXISTS idx_payments_status ON payments(status)")
 	db.Exec("CREATE INDEX IF NOT EXISTS idx_payments_method ON payments(method)")
+
+	// New indexes for existing entities with new fields
+	// Cart indexes (if new fields exist)
+	db.Exec("CREATE INDEX IF NOT EXISTS idx_carts_status ON carts(status)")
+	db.Exec("CREATE INDEX IF NOT EXISTS idx_carts_expires_at ON carts(expires_at)")
+
+	// Payment indexes (if new fields exist)
+	db.Exec("CREATE INDEX IF NOT EXISTS idx_payments_payment_intent_id ON payments(payment_intent_id)")
+	db.Exec("CREATE INDEX IF NOT EXISTS idx_payments_gateway ON payments(gateway)")
+
+	// Order indexes for new fields (if they exist)
+	db.Exec("CREATE INDEX IF NOT EXISTS idx_orders_reserved_until ON orders(reserved_until)")
+	db.Exec("CREATE INDEX IF NOT EXISTS idx_orders_payment_timeout ON orders(payment_timeout)")
+	db.Exec("CREATE INDEX IF NOT EXISTS idx_orders_version ON orders(version)")
 
 	log.Println("Database indexes created successfully")
 	return nil

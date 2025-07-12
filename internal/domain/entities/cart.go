@@ -1,19 +1,37 @@
 package entities
 
 import (
+	"fmt"
 	"time"
 
 	"github.com/google/uuid"
 )
 
+
+
 // Cart represents a shopping cart
 type Cart struct {
 	ID        uuid.UUID  `json:"id" gorm:"type:uuid;primary_key;default:gen_random_uuid()"`
-	UserID    uuid.UUID  `json:"user_id" gorm:"type:uuid;not null;index"`
-	User      User       `json:"user" gorm:"foreignKey:UserID"`
+	UserID    *uuid.UUID `json:"user_id" gorm:"type:uuid;index"` // Nullable for guest carts
+	User      *User      `json:"user,omitempty" gorm:"foreignKey:UserID"`
+	SessionID *string    `json:"session_id" gorm:"index"` // For guest users
 	Items     []CartItem `json:"items" gorm:"foreignKey:CartID"`
-	CreatedAt time.Time  `json:"created_at" gorm:"autoCreateTime"`
-	UpdatedAt time.Time  `json:"updated_at" gorm:"autoUpdateTime"`
+
+	// Calculated fields (stored for performance)
+	Subtotal  float64 `json:"subtotal" gorm:"default:0"`
+	Total     float64 `json:"total" gorm:"default:0"`
+	ItemCount int     `json:"item_count" gorm:"default:0"`
+
+	// Cart lifecycle
+	Status    string     `json:"status" gorm:"default:'active'"`
+	ExpiresAt *time.Time `json:"expires_at" gorm:"index"` // For cart abandonment
+
+	// Metadata
+	Currency string `json:"currency" gorm:"default:'USD'"`
+	Notes    string `json:"notes" gorm:"type:text"`
+
+	CreatedAt time.Time `json:"created_at" gorm:"autoCreateTime"`
+	UpdatedAt time.Time `json:"updated_at" gorm:"autoUpdateTime"`
 }
 
 // TableName returns the table name for Cart entity
@@ -55,6 +73,90 @@ func (c *Cart) GetItemCount() int {
 	}
 	return count
 }
+
+// UpdateCalculatedFields updates the calculated fields (subtotal, total, item_count)
+func (c *Cart) UpdateCalculatedFields() {
+	newSubtotal := c.GetTotal()
+	newItemCount := c.GetItemCount()
+	newTotal := newSubtotal // Can add tax, shipping later
+
+	// Only update if values have changed to avoid unnecessary database writes
+	if c.Subtotal != newSubtotal || c.ItemCount != newItemCount || c.Total != newTotal {
+		c.Subtotal = newSubtotal
+		c.Total = newTotal
+		c.ItemCount = newItemCount
+		c.UpdatedAt = time.Now()
+	}
+}
+
+// UpdateCalculatedFieldsForce forces update of calculated fields regardless of changes
+func (c *Cart) UpdateCalculatedFieldsForce() {
+	c.Subtotal = c.GetTotal()
+	c.Total = c.Subtotal // Can add tax, shipping later
+	c.ItemCount = c.GetItemCount()
+	c.UpdatedAt = time.Now()
+}
+
+// SetExpiration sets cart expiration (default 7 days for logged in, 1 day for guest)
+func (c *Cart) SetExpiration() {
+	var hours int
+	if c.UserID != nil {
+		hours = 24 * 7 // 7 days for logged in users
+	} else {
+		hours = 24 // 1 day for guest users
+	}
+	expiry := time.Now().Add(time.Duration(hours) * time.Hour)
+	c.ExpiresAt = &expiry
+}
+
+// IsExpired checks if the cart has expired
+func (c *Cart) IsExpired() bool {
+	if c.ExpiresAt == nil {
+		return false
+	}
+	return time.Now().After(*c.ExpiresAt)
+}
+
+// MarkAsAbandoned marks the cart as abandoned
+func (c *Cart) MarkAsAbandoned() {
+	c.Status = "abandoned"
+	c.UpdatedAt = time.Now()
+}
+
+// MarkAsConverted marks the cart as converted to order
+func (c *Cart) MarkAsConverted() {
+	c.Status = "converted"
+	c.UpdatedAt = time.Now()
+}
+
+// Validate validates cart data
+func (c *Cart) Validate() error {
+	if c.UserID == nil && (c.SessionID == nil || *c.SessionID == "") {
+		return fmt.Errorf("cart must have either user_id or session_id")
+	}
+
+	if c.Currency == "" {
+		c.Currency = "USD"
+	}
+
+	if c.Status == "" {
+		c.Status = "active"
+	}
+
+	return nil
+}
+
+// IsGuest checks if this is a guest cart
+func (c *Cart) IsGuest() bool {
+	return c.UserID == nil && c.SessionID != nil
+}
+
+// IsUserCart checks if this is a user cart
+func (c *Cart) IsUserCart() bool {
+	return c.UserID != nil
+}
+
+
 
 // IsEmpty checks if the cart is empty
 func (c *Cart) IsEmpty() bool {
@@ -99,7 +201,7 @@ func (c *Cart) AddItem(productID uuid.UUID, quantity int, price float64) {
 		}
 		c.Items = append(c.Items, newItem)
 	}
-	c.UpdatedAt = time.Now()
+	c.UpdateCalculatedFields()
 }
 
 // RemoveItem removes an item from the cart
@@ -107,7 +209,7 @@ func (c *Cart) RemoveItem(productID uuid.UUID) {
 	for i, item := range c.Items {
 		if item.ProductID == productID {
 			c.Items = append(c.Items[:i], c.Items[i+1:]...)
-			c.UpdatedAt = time.Now()
+			c.UpdateCalculatedFields()
 			break
 		}
 	}
@@ -121,7 +223,7 @@ func (c *Cart) UpdateItemQuantity(productID uuid.UUID, quantity int) {
 		} else {
 			item.Quantity = quantity
 			item.UpdatedAt = time.Now()
-			c.UpdatedAt = time.Now()
+			c.UpdateCalculatedFields()
 		}
 	}
 }
@@ -129,7 +231,7 @@ func (c *Cart) UpdateItemQuantity(productID uuid.UUID, quantity int) {
 // Clear removes all items from the cart
 func (c *Cart) Clear() {
 	c.Items = []CartItem{}
-	c.UpdatedAt = time.Now()
+	c.UpdateCalculatedFields()
 }
 
 // GetSubtotal calculates the subtotal for a cart item

@@ -719,11 +719,26 @@ func (uc *paymentUseCase) CreateCheckoutSession(ctx context.Context, req CreateC
 	metadata["order_id"] = req.OrderID.String()
 	metadata["order_number"] = order.OrderNumber
 
+	// Use order currency if request currency is empty
+	currency := req.Currency
+	if currency == "" {
+		currency = order.Currency
+	}
+	if currency == "" {
+		currency = "USD" // Default fallback
+	}
+
+	// Ensure description is not empty
+	description := req.Description
+	if description == "" {
+		description = fmt.Sprintf("Payment for Order %s", order.OrderNumber)
+	}
+
 	// Create checkout session request
 	checkoutReq := CheckoutSessionRequest{
-		Amount:      req.Amount,
-		Currency:    req.Currency,
-		Description: req.Description,
+		Amount:      order.Total, // Use order total instead of request amount
+		Currency:    currency,
+		Description: description,
 		OrderID:     req.OrderID.String(),
 		SuccessURL:  req.SuccessURL,
 		CancelURL:   req.CancelURL,
@@ -756,9 +771,12 @@ func (uc *paymentUseCase) CreateCheckoutSession(ctx context.Context, req CreateC
 	// Check if payment record already exists for this order
 	existingPayment, err := uc.paymentRepo.GetByOrderID(ctx, req.OrderID)
 	if err == nil && existingPayment != nil {
-		// Update existing payment record with session ID
+		// Update existing payment record with session ID and correct values
 		existingPayment.TransactionID = checkoutResp.SessionID
 		existingPayment.ExternalID = checkoutResp.SessionID
+		existingPayment.Amount = order.Total
+		existingPayment.Currency = currency
+		existingPayment.Gateway = "stripe"
 		existingPayment.UpdatedAt = time.Now()
 
 		if err := uc.paymentRepo.Update(ctx, existingPayment); err != nil {
@@ -773,12 +791,13 @@ func (uc *paymentUseCase) CreateCheckoutSession(ctx context.Context, req CreateC
 			ID:            uuid.New(),
 			OrderID:       req.OrderID,
 			UserID:        order.UserID,
-			Amount:        req.Amount,
-			Currency:      req.Currency,
+			Amount:        order.Total, // Use order total
+			Currency:      currency,    // Use resolved currency
 			Method:        entities.PaymentMethodStripe,
 			Status:        entities.PaymentStatusPending,
 			TransactionID: checkoutResp.SessionID,
 			ExternalID:    checkoutResp.SessionID,
+			Gateway:       "stripe",
 			CreatedAt:     time.Now(),
 			UpdatedAt:     time.Now(),
 		}

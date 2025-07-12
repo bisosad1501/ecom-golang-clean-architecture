@@ -2,9 +2,11 @@ package database
 
 import (
 	"context"
+	"time"
 
 	"ecom-golang-clean-architecture/internal/domain/entities"
 	"ecom-golang-clean-architecture/internal/domain/repositories"
+
 	"github.com/google/uuid"
 	"gorm.io/gorm"
 )
@@ -16,6 +18,37 @@ type cartRepository struct {
 // NewCartRepository creates a new cart repository
 func NewCartRepository(db *gorm.DB) repositories.CartRepository {
 	return &cartRepository{db: db}
+}
+
+// updateCartCalculatedFields efficiently updates cart calculated fields using SQL
+func (r *cartRepository) updateCartCalculatedFields(ctx context.Context, tx *gorm.DB, cartID uuid.UUID) error {
+	// Calculate values using SQL aggregation for better performance
+	var result struct {
+		Subtotal  float64
+		ItemCount int
+	}
+
+	err := tx.WithContext(ctx).
+		Table("cart_items ci").
+		Select("COALESCE(SUM(ci.quantity * ci.price), 0) as subtotal, COALESCE(SUM(ci.quantity), 0) as item_count").
+		Where("ci.cart_id = ?", cartID).
+		Scan(&result).Error
+
+	if err != nil {
+		return err
+	}
+
+	// Update cart with calculated values only if they changed
+	return tx.WithContext(ctx).
+		Model(&entities.Cart{}).
+		Where("id = ?", cartID).
+		Where("subtotal != ? OR total != ? OR item_count != ?", result.Subtotal, result.Subtotal, result.ItemCount).
+		Updates(map[string]interface{}{
+			"subtotal":   result.Subtotal,
+			"total":      result.Subtotal, // Can add tax, shipping later
+			"item_count": result.ItemCount,
+			"updated_at": time.Now(),
+		}).Error
 }
 
 // Create creates a new cart
@@ -50,7 +83,7 @@ func (r *cartRepository) GetByUserID(ctx context.Context, userID uuid.UUID) (*en
 		Preload("Items.Product").
 		Preload("Items.Product.Category").
 		Preload("Items.Product.Images").
-		Where("user_id = ?", userID).
+		Where("user_id = ? AND status = ?", userID, "active").
 		First(&cart).Error
 	if err != nil {
 		if err == gorm.ErrRecordNotFound {
@@ -58,11 +91,40 @@ func (r *cartRepository) GetByUserID(ctx context.Context, userID uuid.UUID) (*en
 		}
 		return nil, err
 	}
+
+	// Calculated fields are updated by updateCartCalculatedFields after item operations
+	// No need to call UpdateCalculatedFields here as it's done by the SQL aggregation
+
+	return &cart, nil
+}
+
+// GetBySessionID retrieves a cart by session ID (for guest users)
+func (r *cartRepository) GetBySessionID(ctx context.Context, sessionID string) (*entities.Cart, error) {
+	var cart entities.Cart
+	err := r.db.WithContext(ctx).
+		Preload("Items").
+		Preload("Items.Product").
+		Preload("Items.Product.Category").
+		Preload("Items.Product.Images").
+		Where("session_id = ? AND status = ?", sessionID, "active").
+		First(&cart).Error
+	if err != nil {
+		if err == gorm.ErrRecordNotFound {
+			return nil, entities.ErrCartNotFound
+		}
+		return nil, err
+	}
+
+	// Calculated fields are updated by updateCartCalculatedFields after item operations
+	// No need to call UpdateCalculatedFields here as it's done by the SQL aggregation
+
 	return &cart, nil
 }
 
 // Update updates an existing cart
 func (r *cartRepository) Update(ctx context.Context, cart *entities.Cart) error {
+	// Calculated fields are updated by updateCartCalculatedFields after item operations
+	// No need to call UpdateCalculatedFields here as it's done by the SQL aggregation
 	return r.db.WithContext(ctx).Save(cart).Error
 }
 
@@ -81,27 +143,50 @@ func (r *cartRepository) Delete(ctx context.Context, id uuid.UUID) error {
 // AddItem adds an item to the cart
 func (r *cartRepository) AddItem(ctx context.Context, cartID uuid.UUID, item *entities.CartItem) error {
 	item.CartID = cartID
-	return r.db.WithContext(ctx).Create(item).Error
+
+	// Use transaction to ensure consistency
+	return r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		// Create the item
+		if err := tx.Create(item).Error; err != nil {
+			return err
+		}
+
+		// Update cart calculated fields efficiently
+		return r.updateCartCalculatedFields(ctx, tx, cartID)
+	})
 }
 
 // UpdateItem updates a cart item
 func (r *cartRepository) UpdateItem(ctx context.Context, item *entities.CartItem) error {
-	return r.db.WithContext(ctx).Save(item).Error
+	// Use transaction to ensure consistency
+	return r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		// Update the item
+		if err := tx.Save(item).Error; err != nil {
+			return err
+		}
+
+		// Update cart calculated fields efficiently
+		return r.updateCartCalculatedFields(ctx, tx, item.CartID)
+	})
 }
 
 // RemoveItem removes an item from the cart
 func (r *cartRepository) RemoveItem(ctx context.Context, cartID, productID uuid.UUID) error {
-	result := r.db.WithContext(ctx).
-		Where("cart_id = ? AND product_id = ?", cartID, productID).
-		Delete(&entities.CartItem{})
-	
-	if result.Error != nil {
-		return result.Error
-	}
-	if result.RowsAffected == 0 {
-		return entities.ErrCartItemNotFound
-	}
-	return nil
+	// Use transaction to ensure consistency
+	return r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		result := tx.Where("cart_id = ? AND product_id = ?", cartID, productID).
+			Delete(&entities.CartItem{})
+
+		if result.Error != nil {
+			return result.Error
+		}
+		if result.RowsAffected == 0 {
+			return entities.ErrCartItemNotFound
+		}
+
+		// Update cart calculated fields efficiently
+		return r.updateCartCalculatedFields(ctx, tx, cartID)
+	})
 }
 
 // GetItem retrieves a cart item
@@ -144,4 +229,18 @@ func (r *cartRepository) RemoveItemsByProductID(ctx context.Context, productID u
 	return r.db.WithContext(ctx).
 		Where("product_id = ?", productID).
 		Delete(&entities.CartItem{}).Error
+}
+
+// GetExpiredCarts retrieves all expired carts
+func (r *cartRepository) GetExpiredCarts(ctx context.Context) ([]*entities.Cart, error) {
+	var carts []*entities.Cart
+	err := r.db.WithContext(ctx).
+		Preload("Items").
+		Preload("Items.Product").
+		Where("status = ? AND expires_at < ?", "active", time.Now()).
+		Find(&carts).Error
+	if err != nil {
+		return nil, err
+	}
+	return carts, nil
 }

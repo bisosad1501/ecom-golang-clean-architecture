@@ -35,7 +35,7 @@ RUN mkdir -p /app/uploads
 COPY --from=builder /app/main .
 
 # Copy configuration files
-COPY --from=builder /app/.env.example .env
+COPY --from=builder /app/.env .env
 
 # Expose port
 EXPOSE 8080

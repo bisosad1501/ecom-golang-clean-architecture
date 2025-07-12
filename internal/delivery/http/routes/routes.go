@@ -101,6 +101,15 @@ func SetupRoutes(
 			categories.GET("/:id/count", categoryHandler.GetCategoryProductCount)
 		}
 
+		// Public cart routes (guest cart support)
+		publicCart := v1.Group("/public/cart")
+		{
+			publicCart.GET("", cartHandler.GetCart)
+			publicCart.POST("/items", cartHandler.AddToCart)
+			// Note: Update and remove operations for guest carts can use the same endpoints
+			// as they check for session ID when no auth token is present
+		}
+
 		// Public file upload routes (no authentication required)
 		publicUpload := v1.Group("/public/upload")
 		{
@@ -222,6 +231,8 @@ func SetupRoutes(
 				cart.PUT("/items", cartHandler.UpdateCartItem)
 				cart.DELETE("/items/:productId", cartHandler.RemoveFromCart)
 				cart.DELETE("", cartHandler.ClearCart)
+				cart.POST("/merge", cartHandler.MergeGuestCart)
+				cart.POST("/check-conflict", cartHandler.CheckCartConflict)
 				// cart.POST("/sync", cartHandler.SyncCart) // TODO: Implement SyncCart method
 			}
 

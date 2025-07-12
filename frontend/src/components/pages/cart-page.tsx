@@ -10,7 +10,8 @@ import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
 import { Separator } from '@/components/ui/separator'
 import { AnimatedBackground } from '@/components/ui/animated-background'
-import { useCartStore, getCartTotal, getCartItemCount } from '@/store/cart'
+import { useCartStore, getCartTotal, getCartItemCount, getCartSubtotal, isGuestCart } from '@/store/cart'
+import { useAuthStore } from '@/store/auth'
 import { formatPrice, cn } from '@/lib/utils'
 import { toast } from 'sonner'
 import { useProductRatingSummary } from '@/hooks/use-reviews'
@@ -220,7 +221,9 @@ export function CartPage() {
   }, [fetchCart])
 
   const cartTotal = getCartTotal(cart)
+  const cartSubtotal = getCartSubtotal(cart)
   const cartItemCount = getCartItemCount(cart)
+  const isGuest = isGuestCart(cart)
   const shippingCost = cartTotal > 50 ? 0 : 9.99
   const tax = cartTotal * 0.08 // 8% tax
   const finalTotal = cartTotal + shippingCost + tax
@@ -506,7 +509,31 @@ export function CartPage() {
                 <Badge className="bg-white/8 text-gray-300 border-white/15 px-2 py-1 text-xs backdrop-blur-sm font-medium">
                   {cartItemCount} Items
                 </Badge>
+                {isGuest && (
+                  <Badge className="bg-blue-500/20 text-blue-300 border-blue-500/30 px-2 py-1 text-xs backdrop-blur-sm font-medium">
+                    Guest Cart
+                  </Badge>
+                )}
               </div>
+
+              {/* Guest Cart Notice */}
+              {isGuest && (
+                <div className="mt-4 bg-gradient-to-r from-blue-500/20 to-indigo-500/20 border border-blue-500/30 rounded-lg p-3">
+                  <div className="flex items-center gap-3">
+                    <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center">
+                      <AlertCircle className="h-4 w-4 text-white" />
+                    </div>
+                    <div>
+                      <p className="font-semibold text-blue-300 text-sm">Shopping as Guest</p>
+                      <p className="text-xs text-blue-400">
+                        <Link href="/auth/login" className="text-blue-300 hover:text-blue-200 underline">
+                          Sign in
+                        </Link> to save your cart and access order history
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* Action Controls */}
@@ -634,7 +661,7 @@ export function CartPage() {
                       {/* Subtotal - Less prominent */}
                       <div className="flex justify-between items-center text-sm">
                         <span className="text-gray-400">Subtotal ({cartItemCount} items)</span>
-                        <span className="text-gray-300">{formatPrice(cartTotal)}</span>
+                        <span className="text-gray-300">{formatPrice(cartSubtotal)}</span>
                       </div>
 
                       {/* Shipping - Less prominent */}

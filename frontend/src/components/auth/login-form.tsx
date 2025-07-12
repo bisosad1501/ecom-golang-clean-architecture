@@ -10,6 +10,7 @@ import { Eye, EyeOff } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { useAuthStore } from '@/store/auth'
+import { useCartStore, isGuestCart } from '@/store/cart'
 import { LoginRequest } from '@/types'
 import { toast } from 'sonner'
 import { OAuthButtons } from './OAuthButtons'
@@ -27,7 +28,8 @@ type LoginFormData = z.infer<typeof loginSchema>
 export function LoginForm() {
   const router = useRouter()
   const [showPassword, setShowPassword] = useState(false)
-  const { login, isLoading, error, clearError } = useAuthStore()
+  const { login, isLoading, error, clearError, pendingCartConflict } = useAuthStore()
+  const { cart } = useCartStore()
 
   const {
     register,
@@ -46,27 +48,42 @@ export function LoginForm() {
   const onSubmit = async (data: LoginFormData) => {
     try {
       clearError()
-      console.log('Starting login process...')
-      
+      console.log('🚀 [NORMAL LOGIN] Starting login process...')
+      console.log('🚀 [NORMAL LOGIN] Guest session ID:', localStorage.getItem('guest_session_id'))
+
       const user = await login(data as LoginRequest)
-      console.log('Login successful!')
-      console.log('User logged in with role:', user.role)
-      console.log('Full user data:', user)
+      console.log('✅ [NORMAL LOGIN] Login successful!')
+      console.log('✅ [NORMAL LOGIN] User logged in with role:', user.role)
+      console.log('✅ [NORMAL LOGIN] Full user data:', user)
       
-      toast.success('Welcome back!')
+      // Check if there's a pending cart conflict
+      if (pendingCartConflict) {
+        toast.success('Login successful! Please choose how to merge your carts.')
+      } else {
+        toast.success('Welcome back!')
+      }
       
+      // Check for redirect URL from query params
+      const redirectUrl = new URLSearchParams(window.location.search).get('redirect')
+
       // Check admin access using permission system
       const canAccessAdmin = canAccessAdminPanel(user.role)
       console.log('Can access admin panel:', canAccessAdmin)
-      
-      // Redirect based on user role
-      if (canAccessAdmin) {
-        console.log('Redirecting to admin panel at /admin')
-        window.location.href = '/admin' // Force full page navigation for admin
-      } else {
-        console.log('Redirecting to home page')
-        router.replace('/') // Use replace for cleaner history
+
+      // Determine redirect destination
+      let destination = '/'
+      if (redirectUrl) {
+        destination = redirectUrl
+      } else if (canAccessAdmin) {
+        destination = '/admin'
       }
+
+      console.log('Redirecting to:', destination)
+
+      // Use setTimeout to ensure auth state is fully updated before redirect
+      setTimeout(() => {
+        router.replace(destination)
+      }, 100)
       
     } catch (error: any) {
       console.error('Login error:', error)

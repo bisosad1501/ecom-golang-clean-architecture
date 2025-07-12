@@ -10,8 +10,8 @@ import (
 type StockReservationType string
 
 const (
-	ReservationTypeOrder    StockReservationType = "order"
-	ReservationTypeCart     StockReservationType = "cart"
+	ReservationTypeOrder     StockReservationType = "order"
+	ReservationTypeCart      StockReservationType = "cart"
 	ReservationTypePromotion StockReservationType = "promotion"
 )
 
@@ -32,7 +32,8 @@ type StockReservation struct {
 	Product     Product                `json:"product" gorm:"foreignKey:ProductID"`
 	OrderID     *uuid.UUID             `json:"order_id" gorm:"type:uuid;index"`
 	Order       *Order                 `json:"order" gorm:"foreignKey:OrderID"`
-	UserID      uuid.UUID              `json:"user_id" gorm:"type:uuid;not null;index"`
+	UserID      *uuid.UUID             `json:"user_id" gorm:"type:uuid;index"` // Nullable for guest reservations
+	SessionID   *string                `json:"session_id" gorm:"index"`        // For guest reservations
 	User        User                   `json:"user" gorm:"foreignKey:UserID"`
 	Quantity    int                    `json:"quantity" gorm:"not null" validate:"required,gt=0"`
 	Type        StockReservationType   `json:"type" gorm:"not null"`

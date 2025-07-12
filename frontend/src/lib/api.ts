@@ -127,12 +127,18 @@ class ApiClient {
   }
 
   private handleUnauthorized() {
-    // Clear auth data and redirect to login
+    // Clear auth data but don't redirect automatically
+    // Let the auth store handle the redirect logic
     if (typeof window !== 'undefined') {
       localStorage.removeItem(AUTH_TOKEN_KEY)
       localStorage.removeItem('refresh_token')
       localStorage.removeItem('user')
-      window.location.href = '/auth/login'
+
+      // Clear auth store state
+      import('@/store/auth').then(({ useAuthStore }) => {
+        const authStore = useAuthStore.getState()
+        authStore.logout()
+      })
     }
   }
 

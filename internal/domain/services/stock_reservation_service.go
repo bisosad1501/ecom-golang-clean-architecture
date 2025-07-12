@@ -16,6 +16,9 @@ type StockReservationService interface {
 	// Reserve stock for an order
 	ReserveStockForOrder(ctx context.Context, orderID, userID uuid.UUID, items []entities.CartItem) error
 
+	// Reserve stock for a cart
+	ReserveStockForCart(ctx context.Context, reservation *entities.StockReservation) error
+
 	// Confirm reservations (convert to actual stock reduction)
 	ConfirmReservations(ctx context.Context, orderID uuid.UUID) error
 
@@ -33,6 +36,19 @@ type StockReservationService interface {
 
 	// Extend reservation timeout
 	ExtendReservation(ctx context.Context, orderID uuid.UUID, minutes int) error
+
+	// Get reservation statistics
+	GetReservationStats(ctx context.Context, productID uuid.UUID) (*ReservationStats, error)
+}
+
+// ReservationStats represents stock reservation statistics
+type ReservationStats struct {
+	ProductID           uuid.UUID `json:"product_id"`
+	TotalStock          int       `json:"total_stock"`
+	ReservedStock       int       `json:"reserved_stock"`
+	AvailableStock      int       `json:"available_stock"`
+	ActiveReservations  int       `json:"active_reservations"`
+	ExpiredReservations int       `json:"expired_reservations"`
 }
 
 type stockReservationService struct {
@@ -75,7 +91,7 @@ func (s *stockReservationService) ReserveStockForOrder(ctx context.Context, orde
 			ID:        uuid.New(),
 			ProductID: item.ProductID,
 			OrderID:   &orderID,
-			UserID:    userID,
+			UserID:    &userID, // Convert to pointer
 			Quantity:  item.Quantity,
 			Type:      entities.ReservationTypeOrder,
 			Status:    entities.ReservationStatusActive,
@@ -216,6 +232,66 @@ func (s *stockReservationService) ExtendReservation(ctx context.Context, orderID
 				return fmt.Errorf("failed to extend reservation %s: %w", reservation.ID, err)
 			}
 		}
+	}
+
+	return nil
+}
+
+// GetReservationStats gets reservation statistics for a product
+func (s *stockReservationService) GetReservationStats(ctx context.Context, productID uuid.UUID) (*ReservationStats, error) {
+	// Get product
+	product, err := s.productRepo.GetByID(ctx, productID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get product: %w", err)
+	}
+
+	// Get all reservations for this product
+	reservations, err := s.reservationRepo.GetByProductID(ctx, productID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get reservations: %w", err)
+	}
+
+	stats := &ReservationStats{
+		ProductID:           productID,
+		TotalStock:          product.Stock,
+		ReservedStock:       0,
+		ActiveReservations:  0,
+		ExpiredReservations: 0,
+	}
+
+	// Calculate statistics
+	for _, reservation := range reservations {
+		if reservation.IsActive() {
+			stats.ReservedStock += reservation.Quantity
+			stats.ActiveReservations++
+		} else if reservation.IsExpired() {
+			stats.ExpiredReservations++
+		}
+	}
+
+	stats.AvailableStock = stats.TotalStock - stats.ReservedStock
+	if stats.AvailableStock < 0 {
+		stats.AvailableStock = 0
+	}
+
+	return stats, nil
+}
+
+// ReserveStockForCart reserves stock for a cart
+func (s *stockReservationService) ReserveStockForCart(ctx context.Context, reservation *entities.StockReservation) error {
+	// Check if stock can be reserved
+	canReserve, err := s.CanReserveStock(ctx, reservation.ProductID, reservation.Quantity)
+	if err != nil {
+		return fmt.Errorf("failed to check stock availability for product %s: %w", reservation.ProductID, err)
+	}
+
+	if !canReserve {
+		return fmt.Errorf("insufficient stock for product %s: requested %d", reservation.ProductID, reservation.Quantity)
+	}
+
+	// Create reservation
+	if err := s.reservationRepo.Create(ctx, reservation); err != nil {
+		return fmt.Errorf("failed to create stock reservation for cart: %w", err)
 	}
 
 	return nil

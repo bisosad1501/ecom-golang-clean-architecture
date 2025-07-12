@@ -1,7 +1,29 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 import { apiClient } from '@/lib/api'
-import { Cart, CartItem, Product, ApiResponse } from '@/types'
+import { Cart, CartItem, Product, ApiResponse, CartConflictInfo, MergeStrategy } from '@/types'
+import { toast } from 'sonner'
+
+// Generate or get session ID for guest users
+const getSessionId = (): string => {
+  if (typeof window === 'undefined') return ''
+
+  let sessionId = localStorage.getItem('guest_session_id')
+  if (!sessionId) {
+    sessionId = `guest-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
+    localStorage.setItem('guest_session_id', sessionId)
+  }
+  return sessionId
+}
+
+// Clear guest session when user logs in
+const clearGuestSession = () => {
+  if (typeof window !== 'undefined') {
+    localStorage.removeItem('guest_session_id')
+  }
+}
+
+// Types are now imported from @/types
 
 interface CartState {
   cart: Cart | null
@@ -16,6 +38,8 @@ interface CartActions {
   removeItem: (itemId: string) => Promise<void>
   clearCart: () => Promise<void>
   clearCartLocal: () => void  // Clear cart from local state only (for logout)
+  mergeGuestCart: (strategy?: MergeStrategy) => Promise<void>  // Merge guest cart when user logs in
+  checkMergeConflict: () => Promise<CartConflictInfo | null>  // Check merge conflicts
   clearError: () => void
 }
 
@@ -33,22 +57,25 @@ export const useCartStore = create<CartStore>()(
       fetchCart: async () => {
         try {
           set({ isLoading: true, error: null })
-          
+
           // Check if user is authenticated
           const { useAuthStore } = await import('@/store/auth')
           const { isAuthenticated } = useAuthStore.getState()
-          
-          if (!isAuthenticated) {
-            // Clear cart if not authenticated
-            set({
-              cart: null,
-              isLoading: false,
-              error: null,
-            })
-            return
-          }
 
-          const response = await apiClient.get<ApiResponse<Cart>>('/cart')
+          let response: any
+
+          if (isAuthenticated) {
+            // Authenticated user - use protected endpoint
+            response = await apiClient.get<ApiResponse<Cart>>('/cart')
+          } else {
+            // Guest user - use public endpoint with session ID
+            const sessionId = getSessionId()
+            response = await apiClient.get<ApiResponse<Cart>>('/public/cart', {
+              headers: {
+                'X-Session-ID': sessionId
+              }
+            })
+          }
 
           // Handle response format - check if data is nested
           const cart = response.data?.data || response.data
@@ -70,10 +97,30 @@ export const useCartStore = create<CartStore>()(
         try {
           set({ isLoading: true, error: null })
 
-          const response = await apiClient.post<ApiResponse<Cart>>('/cart/items', {
-            product_id: productId,
-            quantity,
-          })
+          // Check if user is authenticated
+          const { useAuthStore } = await import('@/store/auth')
+          const { isAuthenticated } = useAuthStore.getState()
+
+          let response: any
+
+          if (isAuthenticated) {
+            // Authenticated user - use protected endpoint
+            response = await apiClient.post<ApiResponse<Cart>>('/cart/items', {
+              product_id: productId,
+              quantity,
+            })
+          } else {
+            // Guest user - use public endpoint with session ID
+            const sessionId = getSessionId()
+            response = await apiClient.post<ApiResponse<Cart>>('/public/cart/items', {
+              product_id: productId,
+              quantity,
+            }, {
+              headers: {
+                'X-Session-ID': sessionId
+              }
+            })
+          }
 
           // Handle response format - check if data is nested
           const cart = response.data?.data || response.data
@@ -83,11 +130,14 @@ export const useCartStore = create<CartStore>()(
             isLoading: false,
             error: null,
           })
+
+          toast.success('Item added to cart')
         } catch (error: any) {
           set({
             isLoading: false,
             error: error.message || 'Failed to add item to cart',
           })
+          toast.error(error.message || 'Failed to add item to cart')
           throw error
         }
       },
@@ -204,6 +254,63 @@ export const useCartStore = create<CartStore>()(
         })
       },
 
+      mergeGuestCart: async (strategy: MergeStrategy = 'auto') => {
+        try {
+          const sessionId = localStorage.getItem('guest_session_id')
+          if (!sessionId) {
+            // No guest cart to merge
+            return
+          }
+
+          set({ isLoading: true, error: null })
+
+          // Call merge API with strategy
+          const response = await apiClient.post<ApiResponse<Cart>>('/cart/merge', {
+            session_id: sessionId,
+            strategy: strategy
+          })
+
+          // Handle response format - check if data is nested
+          const cart = response.data?.data || response.data
+
+          set({
+            cart,
+            isLoading: false,
+            error: null,
+          })
+
+          // Clear guest session after successful merge
+          clearGuestSession()
+
+          // Don't show toast here - let the calling component handle it
+        } catch (error: any) {
+          set({
+            isLoading: false,
+            error: error.message || 'Failed to merge guest cart',
+          })
+          // Don't throw error for merge failure - just log it
+          console.error('Failed to merge guest cart:', error)
+        }
+      },
+
+      checkMergeConflict: async (): Promise<CartConflictInfo | null> => {
+        try {
+          const sessionId = localStorage.getItem('guest_session_id')
+          if (!sessionId) {
+            return null
+          }
+
+          const response = await apiClient.post<ApiResponse<CartConflictInfo>>('/cart/check-conflict', {
+            session_id: sessionId
+          })
+
+          return response.data?.data || response.data
+        } catch (error: any) {
+          console.error('Failed to check merge conflict:', error)
+          return null
+        }
+      },
+
       clearError: () => set({ error: null }),
     }),
     {
@@ -234,18 +341,29 @@ export const useCartStore = create<CartStore>()(
 
 // Helper functions
 export const getCartItemCount = (cart: Cart | null): number => {
-  return cart?.items?.length || 0
+  // Use calculated field from backend if available, fallback to items length
+  return cart?.item_count ?? cart?.items?.length ?? 0
 }
 
 export const getCartTotal = (cart: Cart | null): number => {
-  return cart?.total || 0
+  // Use calculated field from backend if available
+  return cart?.total ?? 0
+}
+
+export const getCartSubtotal = (cart: Cart | null): number => {
+  // Use calculated field from backend if available
+  return cart?.subtotal ?? 0
 }
 
 export const isProductInCart = (cart: Cart | null, productId: string): boolean => {
-  return cart?.items.some(item => item.product_id === productId) || false
+  return cart?.items.some(item => item.product_id === productId || item.product?.id === productId) || false
 }
 
 export const getCartItemQuantity = (cart: Cart | null, productId: string): number => {
-  const item = cart?.items.find(item => item.product_id === productId)
+  const item = cart?.items.find(item => item.product_id === productId || item.product?.id === productId)
   return item?.quantity || 0
+}
+
+export const isGuestCart = (cart: Cart | null): boolean => {
+  return cart?.session_id != null && cart?.user_id === '00000000-0000-0000-0000-000000000000'
 }

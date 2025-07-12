@@ -158,6 +158,11 @@ export const apiClient = new ApiClient(API_BASE_URL)
 
 // Authentication API functions
 export const authApi = {
+  oauthLogin: async (data: import('@/types/auth').OAuthLoginRequest): Promise<AuthResponse> => {
+    const response = await apiClient.post<any>(`/auth/oauth/${data.provider}`, data)
+    const authData = response.data.data || response.data
+    return authData
+  },
   login: async (credentials: LoginRequest): Promise<AuthResponse> => {
     const response = await apiClient.post<any>('/auth/login', credentials)
     console.log('authApi.login - Raw response:', response)

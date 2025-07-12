@@ -39,18 +39,17 @@ export function Header() {
   const [isShoppingMode, setIsShoppingMode] = useState(true) // Toggle between admin and shopping mode
   const userMenuRef = useRef<HTMLDivElement>(null)
 
-  const { user, isAuthenticated, logout, refreshUser } = useAuthStore()
+  const { user, isAuthenticated, logout, refreshUser, pendingCartConflict } = useAuthStore()
   const { cart, fetchCart } = useCartStore()
 
   const cartItemCount = getCartItemCount(cart)
   const visibleNavItems = getVisibleNavItems(user?.role || null)
   const isAdmin = user?.role === 'admin'
 
-  // Fetch cart when user authentication state changes
+  // Fetch cart when component mounts or authentication state changes
   useEffect(() => {
-    if (isAuthenticated) {
-      fetchCart()
-    }
+    // Always fetch cart - it will handle guest vs authenticated users
+    fetchCart()
   }, [isAuthenticated, fetchCart])
 
   // Close user menu when clicking outside
@@ -232,7 +231,7 @@ export function Header() {
               )}
             </RequireAuth>
 
-            {/* Enhanced Cart with preview - Show for all authenticated users or admin in shopping mode */}
+            {/* Enhanced Cart with preview - Show for all users (guest and authenticated) or admin in shopping mode */}
             {(!isAdmin || isShoppingMode) && (
               <div className="relative group">
                 <Button
@@ -249,6 +248,9 @@ export function Header() {
                     >
                       {cartItemCount}
                     </Badge>
+                  )}
+                  {pendingCartConflict && (
+                    <div className="absolute -top-1 -left-1 w-3 h-3 bg-red-500 rounded-full animate-pulse border border-white"></div>
                   )}
                 </Button>
 
