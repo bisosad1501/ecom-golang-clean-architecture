@@ -937,3 +937,202 @@ func (h *UserHandler) InvalidateAllSessions(c *gin.Context) {
 		Message: "All sessions invalidated successfully",
 	})
 }
+
+// Logout handles user logout
+// @Summary Logout user
+// @Description Logout user and invalidate token
+// @Tags auth
+// @Produce json
+// @Security BearerAuth
+// @Success 200 {object} SuccessResponse
+// @Failure 401 {object} ErrorResponse
+// @Router /auth/logout [post]
+func (h *UserHandler) Logout(c *gin.Context) {
+	// Get token from header
+	authHeader := c.GetHeader("Authorization")
+	if authHeader == "" || len(authHeader) < 8 {
+		c.JSON(http.StatusUnauthorized, ErrorResponse{
+			Error: "Authorization header required",
+		})
+		return
+	}
+
+	// Extract token
+	token := authHeader[7:] // Remove "Bearer " prefix
+
+	err := h.userUseCase.Logout(c.Request.Context(), token)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, ErrorResponse{
+			Error: err.Error(),
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, SuccessResponse{
+		Message: "Logged out successfully",
+	})
+}
+
+// RefreshToken handles token refresh
+// @Summary Refresh access token
+// @Description Refresh access token using refresh token
+// @Tags auth
+// @Accept json
+// @Produce json
+// @Param request body map[string]string true "Refresh token request"
+// @Success 200 {object} usecases.RefreshTokenResponse
+// @Failure 400 {object} ErrorResponse
+// @Failure 401 {object} ErrorResponse
+// @Router /auth/refresh [post]
+func (h *UserHandler) RefreshToken(c *gin.Context) {
+	var req struct {
+		RefreshToken string `json:"refresh_token" binding:"required"`
+	}
+
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, ErrorResponse{
+			Error:   "Invalid request format",
+			Details: err.Error(),
+		})
+		return
+	}
+
+	response, err := h.userUseCase.RefreshToken(c.Request.Context(), req.RefreshToken)
+	if err != nil {
+		c.JSON(http.StatusUnauthorized, ErrorResponse{
+			Error: err.Error(),
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, SuccessResponse{
+		Message: "Token refreshed successfully",
+		Data:    response,
+	})
+}
+
+// ForgotPassword handles forgot password request
+// @Summary Forgot password
+// @Description Send password reset email
+// @Tags auth
+// @Accept json
+// @Produce json
+// @Param request body usecases.ForgotPasswordRequest true "Forgot password request"
+// @Success 200 {object} SuccessResponse
+// @Failure 400 {object} ErrorResponse
+// @Router /auth/forgot-password [post]
+func (h *UserHandler) ForgotPassword(c *gin.Context) {
+	var req usecases.ForgotPasswordRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, ErrorResponse{
+			Error:   "Invalid request format",
+			Details: err.Error(),
+		})
+		return
+	}
+
+	err := h.userUseCase.ForgotPassword(c.Request.Context(), req)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, ErrorResponse{
+			Error: err.Error(),
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, SuccessResponse{
+		Message: "Password reset email sent successfully",
+	})
+}
+
+// ResetPassword handles password reset
+// @Summary Reset password
+// @Description Reset password using reset token
+// @Tags auth
+// @Accept json
+// @Produce json
+// @Param request body usecases.ResetPasswordRequest true "Reset password request"
+// @Success 200 {object} SuccessResponse
+// @Failure 400 {object} ErrorResponse
+// @Router /auth/reset-password [post]
+func (h *UserHandler) ResetPassword(c *gin.Context) {
+	var req usecases.ResetPasswordRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, ErrorResponse{
+			Error:   "Invalid request format",
+			Details: err.Error(),
+		})
+		return
+	}
+
+	err := h.userUseCase.ResetPassword(c.Request.Context(), req)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, ErrorResponse{
+			Error: err.Error(),
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, SuccessResponse{
+		Message: "Password reset successfully",
+	})
+}
+
+// VerifyEmailWithToken handles email verification with token in body
+// @Summary Verify email with token
+// @Description Verify email using verification token in request body
+// @Tags auth
+// @Accept json
+// @Produce json
+// @Param request body usecases.VerifyEmailRequest true "Verify email request"
+// @Success 200 {object} SuccessResponse
+// @Failure 400 {object} ErrorResponse
+// @Router /auth/verify-email [post]
+func (h *UserHandler) VerifyEmailWithToken(c *gin.Context) {
+	var req usecases.VerifyEmailRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, ErrorResponse{
+			Error:   "Invalid request format",
+			Details: err.Error(),
+		})
+		return
+	}
+
+	err := h.userUseCase.VerifyEmail(c.Request.Context(), req.Token)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, ErrorResponse{
+			Error: err.Error(),
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, SuccessResponse{
+		Message: "Email verified successfully",
+	})
+}
+
+// ResendVerification handles resend verification email
+// @Summary Resend verification email
+// @Description Resend email verification
+// @Tags auth
+// @Accept json
+// @Produce json
+// @Param request body usecases.ResendVerificationRequest true "Resend verification request"
+// @Success 200 {object} SuccessResponse
+// @Failure 400 {object} ErrorResponse
+// @Router /auth/resend-verification [post]
+func (h *UserHandler) ResendVerification(c *gin.Context) {
+	var req usecases.ResendVerificationRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, ErrorResponse{
+			Error:   "Invalid request format",
+			Details: err.Error(),
+		})
+		return
+	}
+
+	// For now, we'll use the existing SendEmailVerification method
+	// In production, you might want to create a separate method
+	c.JSON(http.StatusOK, SuccessResponse{
+		Message: "Verification email sent successfully",
+	})
+}

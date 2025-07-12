@@ -11,7 +11,6 @@ require (
 	github.com/stripe/stripe-go/v76 v76.25.0
 	golang.org/x/crypto v0.39.0
 	golang.org/x/oauth2 v0.30.0
-	golang.org/x/time v0.12.0
 	gorm.io/driver/postgres v1.6.0
 	gorm.io/gorm v1.30.0
 )

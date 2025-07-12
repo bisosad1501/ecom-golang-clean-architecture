@@ -60,6 +60,12 @@ func SetupRoutes(
 		{
 			auth.POST("/register", userHandler.Register)
 			auth.POST("/login", userHandler.Login)
+			auth.POST("/logout", userHandler.Logout)
+			auth.POST("/refresh", userHandler.RefreshToken)
+			auth.POST("/forgot-password", userHandler.ForgotPassword)
+			auth.POST("/reset-password", userHandler.ResetPassword)
+			auth.POST("/verify-email", userHandler.VerifyEmailWithToken)
+			auth.POST("/resend-verification", userHandler.ResendVerification)
 
 			// OAuth routes
 			if oauthHandler != nil {

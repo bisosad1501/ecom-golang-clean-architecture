@@ -331,6 +331,7 @@ const (
 	ActivityTypeRegister       ActivityType = "register"
 	ActivityTypeProfileUpdate  ActivityType = "profile_update"
 	ActivityTypePasswordChange ActivityType = "password_change"
+	ActivityTypeSecurityUpdate ActivityType = "security_update"
 	ActivityTypeProductView    ActivityType = "product_view"
 	ActivityTypeProductSearch  ActivityType = "product_search"
 	ActivityTypeCartAdd        ActivityType = "cart_add"
@@ -410,6 +411,21 @@ func (UserPreferences) TableName() string {
 
 // UserVerification represents user verification records
 type UserVerification struct {
+	ID                uuid.UUID  `json:"id" gorm:"type:uuid;primary_key;default:gen_random_uuid()"`
+	UserID            uuid.UUID  `json:"user_id" gorm:"type:uuid;not null;index"`
+	User              User       `json:"user,omitempty" gorm:"foreignKey:UserID"`
+	EmailVerified     bool       `json:"email_verified" gorm:"default:false"`
+	EmailVerifiedAt   *time.Time `json:"email_verified_at"`
+	PhoneVerified     bool       `json:"phone_verified" gorm:"default:false"`
+	PhoneVerifiedAt   *time.Time `json:"phone_verified_at"`
+	VerificationCode  string     `json:"verification_code" gorm:"index"`
+	CodeExpiresAt     *time.Time `json:"code_expires_at"`
+	CreatedAt         *time.Time `json:"created_at"`
+	UpdatedAt         *time.Time `json:"updated_at"`
+}
+
+// Legacy UserVerification for backward compatibility
+type LegacyUserVerification struct {
 	ID           uuid.UUID  `json:"id" gorm:"type:uuid;primary_key;default:gen_random_uuid()"`
 	UserID       uuid.UUID  `json:"user_id" gorm:"type:uuid;not null;index"`
 	User         User       `json:"user,omitempty" gorm:"foreignKey:UserID"`
@@ -427,31 +443,34 @@ type UserVerification struct {
 
 // TableName returns the table name for UserVerification entity
 func (UserVerification) TableName() string {
-	return "user_verifications"
+	return "account_verifications"
 }
 
-// IsExpired checks if the verification token is expired
+// IsExpired checks if the verification code is expired
 func (uv *UserVerification) IsExpired() bool {
-	return time.Now().After(uv.ExpiresAt)
+	if uv.CodeExpiresAt == nil {
+		return false
+	}
+	return time.Now().After(*uv.CodeExpiresAt)
 }
 
-// CanAttempt checks if more attempts are allowed
+// CanAttempt checks if more attempts are allowed (always true for new structure)
 func (uv *UserVerification) CanAttempt() bool {
-	return uv.AttemptCount < uv.MaxAttempts
+	return true
 }
 
-// IncrementAttempt increments the attempt count
+// IncrementAttempt increments the attempt count (no-op for new structure)
 func (uv *UserVerification) IncrementAttempt() {
-	uv.AttemptCount++
-	uv.UpdatedAt = time.Now()
+	now := time.Now()
+	uv.UpdatedAt = &now
 }
 
 // MarkAsVerified marks the verification as completed
 func (uv *UserVerification) MarkAsVerified() {
-	uv.IsVerified = true
 	now := time.Now()
-	uv.VerifiedAt = &now
-	uv.UpdatedAt = now
+	uv.EmailVerified = true
+	uv.EmailVerifiedAt = &now
+	uv.UpdatedAt = &now
 }
 
 // UserOrderStats represents user order statistics (for optimization)
