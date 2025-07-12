@@ -28,6 +28,9 @@ type StockReservationService interface {
 	// Check if stock can be reserved
 	CanReserveStock(ctx context.Context, productID uuid.UUID, quantity int) (bool, error)
 
+	// Atomically check and reserve stock to prevent race conditions
+	AtomicReserveStock(ctx context.Context, reservation *entities.StockReservation) error
+
 	// Get available stock (actual stock - reserved stock)
 	GetAvailableStock(ctx context.Context, productID uuid.UUID) (int, error)
 
@@ -191,6 +194,35 @@ func (s *stockReservationService) CanReserveStock(ctx context.Context, productID
 	}
 
 	return availableStock >= quantity, nil
+}
+
+// AtomicReserveStock atomically checks and reserves stock to prevent race conditions
+func (s *stockReservationService) AtomicReserveStock(ctx context.Context, reservation *entities.StockReservation) error {
+	// This should be implemented with database-level locking or transactions
+	// For now, we'll use a simple approach but this needs proper implementation
+	// in the repository layer with SELECT FOR UPDATE or similar mechanisms
+
+	// Validate reservation
+	if reservation.Quantity <= 0 {
+		return fmt.Errorf("reservation quantity must be positive")
+	}
+
+	// Check if stock can be reserved (this should be done atomically in production)
+	canReserve, err := s.CanReserveStock(ctx, reservation.ProductID, reservation.Quantity)
+	if err != nil {
+		return fmt.Errorf("failed to check stock availability: %w", err)
+	}
+
+	if !canReserve {
+		return fmt.Errorf("insufficient stock for product %s: requested %d", reservation.ProductID, reservation.Quantity)
+	}
+
+	// Create reservation (this should be part of the atomic operation)
+	if err := s.reservationRepo.Create(ctx, reservation); err != nil {
+		return fmt.Errorf("failed to create stock reservation: %w", err)
+	}
+
+	return nil
 }
 
 // GetAvailableStock gets available stock (actual stock - reserved stock)

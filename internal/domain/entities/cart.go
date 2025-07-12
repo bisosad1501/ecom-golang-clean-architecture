@@ -135,12 +135,59 @@ func (c *Cart) Validate() error {
 		return fmt.Errorf("cart must have either user_id or session_id")
 	}
 
+	// Validate that cart doesn't have both UserID and SessionID
+	if c.UserID != nil && c.SessionID != nil && *c.SessionID != "" {
+		return fmt.Errorf("cart cannot have both user_id and session_id")
+	}
+
+	// Validate SessionID format if present
+	if c.SessionID != nil && *c.SessionID != "" {
+		if len(*c.SessionID) < 10 || len(*c.SessionID) > 128 {
+			return fmt.Errorf("session_id must be between 10 and 128 characters")
+		}
+	}
+
+	// Validate currency
 	if c.Currency == "" {
 		c.Currency = "USD"
 	}
+	validCurrencies := []string{"USD", "EUR", "GBP", "JPY", "VND"}
+	isValidCurrency := false
+	for _, currency := range validCurrencies {
+		if c.Currency == currency {
+			isValidCurrency = true
+			break
+		}
+	}
+	if !isValidCurrency {
+		return fmt.Errorf("invalid currency: %s", c.Currency)
+	}
 
+	// Validate status
 	if c.Status == "" {
 		c.Status = "active"
+	}
+	validStatuses := []string{"active", "abandoned", "converted", "expired"}
+	isValidStatus := false
+	for _, status := range validStatuses {
+		if c.Status == status {
+			isValidStatus = true
+			break
+		}
+	}
+	if !isValidStatus {
+		return fmt.Errorf("invalid status: %s", c.Status)
+	}
+
+	// Validate calculated fields are non-negative
+	if c.Subtotal < 0 {
+		return fmt.Errorf("subtotal cannot be negative")
+	}
+	if c.Total < 0 {
+		return fmt.Errorf("total cannot be negative")
+	}
+	if c.ItemCount < 0 {
+		return fmt.Errorf("item_count cannot be negative")
 	}
 
 	return nil

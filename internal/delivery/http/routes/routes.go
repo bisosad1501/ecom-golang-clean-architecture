@@ -32,11 +32,14 @@ func SetupRoutes(
 	migrationHandler *handlers.MigrationHandler,
 ) {
 	// Apply global middleware
+	router.Use(middleware.SecurityHeadersMiddleware())
+	router.Use(middleware.RequestSizeLimitMiddleware(10 << 20)) // 10MB limit
 	router.Use(middleware.CORSMiddleware(&cfg.CORS))
 	router.Use(middleware.LoggingMiddleware())
 	router.Use(middleware.RequestIDMiddleware())
 	router.Use(middleware.ErrorHandlerMiddleware())
 	router.Use(middleware.ValidationMiddleware())
+	router.Use(middleware.SessionValidationMiddleware())
 
 	// Serve static files for uploads
 	router.Static("/uploads", "./uploads")
@@ -104,6 +107,7 @@ func SetupRoutes(
 
 		// Public cart routes (guest cart support)
 		publicCart := v1.Group("/public/cart")
+		publicCart.Use(middleware.GuestCartMiddleware())
 		{
 			publicCart.GET("", cartHandler.GetCart)
 			publicCart.POST("/items", cartHandler.AddToCart)

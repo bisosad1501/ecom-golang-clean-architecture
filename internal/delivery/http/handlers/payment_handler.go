@@ -1,7 +1,6 @@
 package handlers
 
 import (
-	"fmt"
 	"net/http"
 
 	"ecom-golang-clean-architecture/internal/usecases"
@@ -271,7 +270,22 @@ func (h *PaymentHandler) SetDefaultPaymentMethod(c *gin.Context) {
 // HandleWebhook handles payment webhooks
 func (h *PaymentHandler) HandleWebhook(c *gin.Context) {
 	provider := c.Param("provider")
-	fmt.Printf("🔔 Received webhook from provider: %s\n", provider)
+
+	// Validate provider
+	validProviders := []string{"stripe", "paypal"}
+	isValidProvider := false
+	for _, validProvider := range validProviders {
+		if provider == validProvider {
+			isValidProvider = true
+			break
+		}
+	}
+	if !isValidProvider {
+		c.JSON(http.StatusBadRequest, ErrorResponse{
+			Error: "Invalid payment provider",
+		})
+		return
+	}
 
 	// Get signature header based on provider
 	var signature string
@@ -280,38 +294,58 @@ func (h *PaymentHandler) HandleWebhook(c *gin.Context) {
 		signature = c.GetHeader("Stripe-Signature")
 	case "paypal":
 		signature = c.GetHeader("PAYPAL-TRANSMISSION-SIG")
-	default:
-		signature = c.GetHeader("X-Signature")
 	}
 
-	if len(signature) > 50 {
-		fmt.Printf("🔐 Signature header: %s...\n", signature[:50])
-	} else {
-		fmt.Printf("🔐 Signature header: %s\n", signature)
+	// Validate signature is present
+	if signature == "" {
+		c.JSON(http.StatusBadRequest, ErrorResponse{
+			Error: "Missing webhook signature",
+		})
+		return
+	}
+
+	// Validate signature format
+	if len(signature) < 10 || len(signature) > 1000 {
+		c.JSON(http.StatusBadRequest, ErrorResponse{
+			Error: "Invalid signature format",
+		})
+		return
 	}
 
 	payload, err := c.GetRawData()
 	if err != nil {
-		fmt.Printf("❌ Failed to read webhook payload: %v\n", err)
 		c.JSON(http.StatusBadRequest, ErrorResponse{
-			Error:   "Failed to read webhook payload",
-			Details: err.Error(),
+			Error: "Failed to read webhook payload",
 		})
 		return
 	}
 
-	fmt.Printf("📦 Payload size: %d bytes\n", len(payload))
+	// Validate payload size
+	if len(payload) == 0 {
+		c.JSON(http.StatusBadRequest, ErrorResponse{
+			Error: "Empty webhook payload",
+		})
+		return
+	}
 
+	if len(payload) > 1024*1024 { // 1MB limit
+		c.JSON(http.StatusBadRequest, ErrorResponse{
+			Error: "Webhook payload too large",
+		})
+		return
+	}
+
+	// Process webhook
 	if err := h.paymentUseCase.HandleWebhook(c.Request.Context(), provider, payload, signature); err != nil {
-		// Log error but return 200 to prevent webhook retries for invalid events
-		fmt.Printf("❌ Webhook processing error: %v\n", err)
-		c.JSON(http.StatusOK, SuccessResponse{
-			Message: "Webhook received",
+		// For security, don't expose internal error details
+		// Log the actual error internally but return generic message
+		// TODO: Add proper logging here
+		c.JSON(http.StatusBadRequest, ErrorResponse{
+			Error: "Webhook processing failed",
 		})
 		return
 	}
 
-	fmt.Printf("✅ Webhook processed successfully\n")
 	c.JSON(http.StatusOK, SuccessResponse{
 		Message: "Webhook processed successfully",
 	})

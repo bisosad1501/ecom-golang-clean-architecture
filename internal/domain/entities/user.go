@@ -1,6 +1,8 @@
 package entities
 
 import (
+	"fmt"
+	"regexp"
 	"time"
 
 	"github.com/google/uuid"
@@ -152,6 +154,98 @@ func (u *User) UpdateLastActivity() {
 func (u *User) UpdateLastLogin() {
 	now := time.Now()
 	u.LastLoginAt = &now
+}
+
+// Validate validates user data
+func (u *User) Validate() error {
+	// Validate required fields
+	if u.Email == "" {
+		return fmt.Errorf("email is required")
+	}
+	if u.FirstName == "" {
+		return fmt.Errorf("first name is required")
+	}
+	if u.LastName == "" {
+		return fmt.Errorf("last name is required")
+	}
+
+	// Validate email format
+	emailRegex := `^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$`
+	if matched, _ := regexp.MatchString(emailRegex, u.Email); !matched {
+		return fmt.Errorf("invalid email format")
+	}
+
+	// Validate password for non-OAuth users
+	if !u.IsOAuthUser && u.Password == "" {
+		return fmt.Errorf("password is required for non-OAuth users")
+	}
+
+	// Validate phone format if provided
+	if u.Phone != "" {
+		phoneRegex := `^\+?[1-9]\d{1,14}$` // Basic international phone format
+		if matched, _ := regexp.MatchString(phoneRegex, u.Phone); !matched {
+			return fmt.Errorf("invalid phone format")
+		}
+	}
+
+	// Validate role
+	validRoles := []UserRole{UserRoleCustomer, UserRoleModerator, UserRoleAdmin}
+	isValidRole := false
+	for _, role := range validRoles {
+		if u.Role == role {
+			isValidRole = true
+			break
+		}
+	}
+	if !isValidRole {
+		return fmt.Errorf("invalid user role: %s", u.Role)
+	}
+
+	// Validate currency
+	if u.Currency != "" {
+		validCurrencies := []string{"USD", "EUR", "GBP", "JPY", "VND"}
+		isValidCurrency := false
+		for _, currency := range validCurrencies {
+			if u.Currency == currency {
+				isValidCurrency = true
+				break
+			}
+		}
+		if !isValidCurrency {
+			return fmt.Errorf("invalid currency: %s", u.Currency)
+		}
+	}
+
+	// Validate membership tier
+	if u.MembershipTier != "" {
+		validTiers := []string{"bronze", "silver", "gold", "platinum", "diamond"}
+		isValidTier := false
+		for _, tier := range validTiers {
+			if u.MembershipTier == tier {
+				isValidTier = true
+				break
+			}
+		}
+		if !isValidTier {
+			return fmt.Errorf("invalid membership tier: %s", u.MembershipTier)
+		}
+	}
+
+	// Validate metrics are non-negative
+	if u.TotalOrders < 0 {
+		return fmt.Errorf("total orders cannot be negative")
+	}
+	if u.TotalSpent < 0 {
+		return fmt.Errorf("total spent cannot be negative")
+	}
+	if u.LoyaltyPoints < 0 {
+		return fmt.Errorf("loyalty points cannot be negative")
+	}
+	if u.SecurityScore < 0 || u.SecurityScore > 100 {
+		return fmt.Errorf("security score must be between 0 and 100")
+	}
+
+	return nil
 }
 
 // UserProfile represents additional user profile information

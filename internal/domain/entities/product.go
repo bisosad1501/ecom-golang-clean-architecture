@@ -435,6 +435,57 @@ func (p *Product) IncreaseStock(quantity int) error {
 	return nil
 }
 
+// Validate validates all product business rules
+func (p *Product) Validate() error {
+	// Validate required fields
+	if p.Name == "" {
+		return fmt.Errorf("product name is required")
+	}
+	if p.SKU == "" {
+		return fmt.Errorf("product SKU is required")
+	}
+	if p.Price <= 0 {
+		return fmt.Errorf("product price must be greater than 0")
+	}
+
+	// Validate compare price
+	if p.ComparePrice != nil && *p.ComparePrice <= p.Price {
+		return fmt.Errorf("compare price must be greater than regular price")
+	}
+
+	// Validate cost price
+	if p.CostPrice != nil && *p.CostPrice < 0 {
+		return fmt.Errorf("cost price cannot be negative")
+	}
+
+	// Validate stock
+	if p.Stock < 0 {
+		return fmt.Errorf("stock cannot be negative")
+	}
+	if p.LowStockThreshold < 0 {
+		return fmt.Errorf("low stock threshold cannot be negative")
+	}
+
+	// Validate weight
+	if p.Weight != nil && *p.Weight <= 0 {
+		return fmt.Errorf("weight must be greater than 0")
+	}
+
+	// Validate dimensions
+	if p.Dimensions != nil {
+		if p.Dimensions.Length <= 0 || p.Dimensions.Width <= 0 || p.Dimensions.Height <= 0 {
+			return fmt.Errorf("all dimensions must be greater than 0")
+		}
+	}
+
+	// Validate sale pricing
+	if err := p.ValidateSalePricing(); err != nil {
+		return err
+	}
+
+	return nil
+}
+
 // ValidateSalePricing validates sale pricing business rules
 func (p *Product) ValidateSalePricing() error {
 	// If sale price is set, validate business rules

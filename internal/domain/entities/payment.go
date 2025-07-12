@@ -14,6 +14,8 @@ const (
 	PaymentMethodDebitCard  PaymentMethod = "debit_card"
 	PaymentMethodPayPal     PaymentMethod = "paypal"
 	PaymentMethodStripe     PaymentMethod = "stripe"
+	PaymentMethodApplePay   PaymentMethod = "apple_pay"
+	PaymentMethodGooglePay  PaymentMethod = "google_pay"
 	PaymentMethodBankTransfer PaymentMethod = "bank_transfer"
 	PaymentMethodCash       PaymentMethod = "cash"
 )

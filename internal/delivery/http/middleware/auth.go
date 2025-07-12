@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"net/http"
 	"strings"
+	"time"
 
 	"ecom-golang-clean-architecture/internal/domain/entities"
 	"github.com/gin-gonic/gin"
@@ -51,11 +52,100 @@ func AuthMiddleware(jwtSecret string) gin.HandlerFunc {
 			return
 		}
 
-		// Extract claims
+		// Extract and validate claims
 		if claims, ok := token.Claims.(jwt.MapClaims); ok {
-			c.Set("user_id", claims["user_id"])
-			c.Set("email", claims["email"])
-			c.Set("role", claims["role"])
+			// Check expiration
+			if exp, ok := claims["exp"].(float64); ok {
+				if time.Now().Unix() > int64(exp) {
+					c.JSON(http.StatusUnauthorized, gin.H{
+						"error": "Token has expired",
+					})
+					c.Abort()
+					return
+				}
+			} else {
+				c.JSON(http.StatusUnauthorized, gin.H{
+					"error": "Token missing expiration",
+				})
+				c.Abort()
+				return
+			}
+
+			// Validate required claims
+			userID, hasUserID := claims["user_id"]
+			email, hasEmail := claims["email"]
+			role, hasRole := claims["role"]
+
+			if !hasUserID || !hasEmail || !hasRole {
+				c.JSON(http.StatusUnauthorized, gin.H{
+					"error": "Token missing required claims",
+				})
+				c.Abort()
+				return
+			}
+
+			// Validate user_id format
+			if userIDStr, ok := userID.(string); ok {
+				if len(userIDStr) == 0 {
+					c.JSON(http.StatusUnauthorized, gin.H{
+						"error": "Invalid user ID in token",
+					})
+					c.Abort()
+					return
+				}
+			} else {
+				c.JSON(http.StatusUnauthorized, gin.H{
+					"error": "Invalid user ID format in token",
+				})
+				c.Abort()
+				return
+			}
+
+			// Validate email format
+			if emailStr, ok := email.(string); ok {
+				if len(emailStr) == 0 || !strings.Contains(emailStr, "@") {
+					c.JSON(http.StatusUnauthorized, gin.H{
+						"error": "Invalid email in token",
+					})
+					c.Abort()
+					return
+				}
+			} else {
+				c.JSON(http.StatusUnauthorized, gin.H{
+					"error": "Invalid email format in token",
+				})
+				c.Abort()
+				return
+			}
+
+			// Validate role
+			if roleStr, ok := role.(string); ok {
+				validRoles := []string{string(entities.UserRoleCustomer), string(entities.UserRoleModerator), string(entities.UserRoleAdmin)}
+				isValidRole := false
+				for _, validRole := range validRoles {
+					if roleStr == validRole {
+						isValidRole = true
+						break
+					}
+				}
+				if !isValidRole {
+					c.JSON(http.StatusUnauthorized, gin.H{
+						"error": "Invalid role in token",
+					})
+					c.Abort()
+					return
+				}
+			} else {
+				c.JSON(http.StatusUnauthorized, gin.H{
+					"error": "Invalid role format in token",
+				})
+				c.Abort()
+				return
+			}
+
+			c.Set("user_id", userID)
+			c.Set("email", email)
+			c.Set("role", role)
 		} else {
 			c.JSON(http.StatusUnauthorized, gin.H{
 				"error": "Invalid token claims",

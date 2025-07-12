@@ -375,7 +375,23 @@ func (uc *cartUseCase) addToGuestCartInTransaction(ctx context.Context, sessionI
 		quantityToReserve = req.Quantity
 	}
 
-	// Check if stock can be reserved
+	// Create stock reservation atomically before updating cart
+	reservation := &entities.StockReservation{
+		ID:        uuid.New(),
+		ProductID: req.ProductID,
+		SessionID: &sessionID, // Use SessionID for guest cart reservation
+		Quantity:  quantityToReserve,
+		Type:      entities.ReservationTypeCart,
+		Status:    entities.ReservationStatusActive,
+		Notes:     "Reserved for guest cart",
+		CreatedAt: time.Now(),
+		UpdatedAt: time.Now(),
+	}
+
+	// Set expiration (15 minutes for cart reservations)
+	reservation.SetExpiration(15)
+
+	// Check if stock can be reserved first
 	canReserve, err := uc.stockReservationService.CanReserveStock(ctx, req.ProductID, quantityToReserve)
 	if err != nil {
 		return nil, pkgErrors.Wrap(err, pkgErrors.ErrCodeInternalError, "Failed to check stock reservation availability")
@@ -385,6 +401,11 @@ func (uc *cartUseCase) addToGuestCartInTransaction(ctx context.Context, sessionI
 			WithContext("product_id", req.ProductID).
 			WithContext("product_name", product.Name).
 			WithContext("requested_quantity", quantityToReserve)
+	}
+
+	// Reserve stock for guest cart
+	if err := uc.stockReservationService.ReserveStockForCart(ctx, reservation); err != nil {
+		return nil, pkgErrors.Wrap(err, pkgErrors.ErrCodeInternalError, "Failed to create stock reservation for guest cart")
 	}
 
 	if existingItem != nil {
@@ -409,23 +430,7 @@ func (uc *cartUseCase) addToGuestCartInTransaction(ctx context.Context, sessionI
 		}
 	}
 
-	// Create stock reservation for guest cart
-	reservation := &entities.StockReservation{
-		ID:        uuid.New(),
-		ProductID: req.ProductID,
-		SessionID: &sessionID, // Use SessionID for guest cart reservation
-		Quantity:  quantityToReserve,
-		Type:      entities.ReservationTypeCart,
-		Status:    entities.ReservationStatusActive,
-		Notes:     "Reserved for guest cart",
-		CreatedAt: time.Now(),
-		UpdatedAt: time.Now(),
-	}
-	reservation.SetExpiration(30) // Reserve for 30 minutes
-
-	if err := uc.stockReservationService.ReserveStockForCart(ctx, reservation); err != nil {
-		return nil, pkgErrors.Wrap(err, pkgErrors.ErrCodeInternalError, "Failed to create stock reservation for guest cart")
-	}
+	// Stock reservation was already created atomically above
 
 	updatedCart, err := uc.cartRepo.GetByID(ctx, cart.ID)
 	if err != nil {

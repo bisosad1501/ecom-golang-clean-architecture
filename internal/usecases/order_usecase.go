@@ -3,6 +3,7 @@ package usecases
 import (
 	"context"
 	"fmt"
+	"regexp"
 	"time"
 
 	"ecom-golang-clean-architecture/internal/domain/entities"
@@ -228,8 +229,106 @@ func (uc *orderUseCase) CreateOrder(ctx context.Context, userID uuid.UUID, req C
 	return result.(*OrderResponse), nil
 }
 
+// validateCreateOrderRequest validates the create order request
+func (uc *orderUseCase) validateCreateOrderRequest(req CreateOrderRequest) error {
+	// Validate shipping address
+	if err := uc.validateAddress(req.ShippingAddress, "shipping"); err != nil {
+		return fmt.Errorf("invalid shipping address: %w", err)
+	}
+
+	// Validate billing address if provided
+	if req.BillingAddress != nil {
+		if err := uc.validateAddress(*req.BillingAddress, "billing"); err != nil {
+			return fmt.Errorf("invalid billing address: %w", err)
+		}
+	}
+
+	// Validate payment method
+	validPaymentMethods := []entities.PaymentMethod{
+		entities.PaymentMethodCreditCard,
+		entities.PaymentMethodDebitCard,
+		entities.PaymentMethodPayPal,
+		entities.PaymentMethodStripe,
+		entities.PaymentMethodApplePay,
+		entities.PaymentMethodGooglePay,
+	}
+	isValidPaymentMethod := false
+	for _, method := range validPaymentMethods {
+		if req.PaymentMethod == method {
+			isValidPaymentMethod = true
+			break
+		}
+	}
+	if !isValidPaymentMethod {
+		return fmt.Errorf("invalid payment method: %s", req.PaymentMethod)
+	}
+
+	// Validate financial amounts
+	if req.TaxRate < 0 || req.TaxRate > 1 {
+		return fmt.Errorf("tax rate must be between 0 and 1")
+	}
+	if req.ShippingCost < 0 {
+		return fmt.Errorf("shipping cost cannot be negative")
+	}
+	if req.DiscountAmount < 0 {
+		return fmt.Errorf("discount amount cannot be negative")
+	}
+
+	return nil
+}
+
+// validateAddress validates address data
+func (uc *orderUseCase) validateAddress(addr AddressRequest, addressType string) error {
+	if addr.FirstName == "" {
+		return fmt.Errorf("%s address first name is required", addressType)
+	}
+	if addr.LastName == "" {
+		return fmt.Errorf("%s address last name is required", addressType)
+	}
+	if addr.Address1 == "" {
+		return fmt.Errorf("%s address line 1 is required", addressType)
+	}
+	if addr.City == "" {
+		return fmt.Errorf("%s address city is required", addressType)
+	}
+	if addr.State == "" {
+		return fmt.Errorf("%s address state is required", addressType)
+	}
+	if addr.ZipCode == "" {
+		return fmt.Errorf("%s address zip code is required", addressType)
+	}
+	if addr.Country == "" {
+		return fmt.Errorf("%s address country is required", addressType)
+	}
+
+	// Validate zip code format (basic validation)
+	if len(addr.ZipCode) < 3 || len(addr.ZipCode) > 10 {
+		return fmt.Errorf("%s address zip code must be between 3 and 10 characters", addressType)
+	}
+
+	// Validate country code (basic validation)
+	if len(addr.Country) < 2 || len(addr.Country) > 3 {
+		return fmt.Errorf("%s address country must be 2-3 character country code", addressType)
+	}
+
+	// Validate phone format if provided
+	if addr.Phone != "" {
+		phoneRegex := `^\+?[1-9]\d{1,14}$`
+		if matched, _ := regexp.MatchString(phoneRegex, addr.Phone); !matched {
+			return fmt.Errorf("%s address phone format is invalid", addressType)
+		}
+	}
+
+	return nil
+}
+
 // createOrderInTransaction handles order creation within a transaction
 func (uc *orderUseCase) createOrderInTransaction(ctx context.Context, tx *gorm.DB, userID uuid.UUID, req CreateOrderRequest) (*OrderResponse, error) {
+	// Validate request data
+	if err := uc.validateCreateOrderRequest(req); err != nil {
+		return nil, pkgErrors.Wrap(err, pkgErrors.ErrCodeInvalidInput, "Invalid order request")
+	}
+
 	// Get user's cart
 	cart, err := uc.cartRepo.GetByUserID(ctx, userID)
 	if err != nil {
@@ -269,7 +368,23 @@ func (uc *orderUseCase) createOrderInTransaction(ctx context.Context, tx *gorm.D
 				WithContext("product_name", product.Name)
 		}
 
-		// Check if we can reserve the stock
+		// Create stock reservation for order (atomic operation)
+		reservation := &entities.StockReservation{
+			ID:        uuid.New(),
+			ProductID: item.ProductID,
+			UserID:    &userID,
+			Quantity:  item.Quantity,
+			Type:      entities.ReservationTypeOrder,
+			Status:    entities.ReservationStatusActive,
+			Notes:     fmt.Sprintf("Reserved for order creation - Product: %s", product.Name),
+			CreatedAt: time.Now(),
+			UpdatedAt: time.Now(),
+		}
+
+		// Set expiration (30 minutes for order reservations)
+		reservation.SetExpiration(30)
+
+		// Check if stock can be reserved first
 		canReserve, err := uc.stockReservationService.CanReserveStock(ctx, item.ProductID, item.Quantity)
 		if err != nil {
 			return nil, pkgErrors.Wrap(err, pkgErrors.ErrCodeInternalError, "Failed to check stock availability")
@@ -280,6 +395,11 @@ func (uc *orderUseCase) createOrderInTransaction(ctx context.Context, tx *gorm.D
 				WithContext("product_id", item.ProductID).
 				WithContext("product_name", product.Name).
 				WithContext("requested_quantity", item.Quantity)
+		}
+
+		// Reserve stock for order
+		if err := uc.stockReservationService.ReserveStockForCart(ctx, reservation); err != nil {
+			return nil, pkgErrors.Wrap(err, pkgErrors.ErrCodeInternalError, "Failed to create stock reservation for order")
 		}
 	}
 
