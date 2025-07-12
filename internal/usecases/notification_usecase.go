@@ -758,7 +758,9 @@ func (uc *notificationUseCase) NotifyReviewRequest(ctx context.Context, orderID 
 func (uc *notificationUseCase) toNotificationResponse(notification *entities.Notification) *NotificationResponse {
 	var data map[string]interface{}
 	if notification.Data != "" {
-		json.Unmarshal([]byte(notification.Data), &data)
+		if err := json.Unmarshal([]byte(notification.Data), &data); err != nil {
+			// Có thể log hoặc bỏ qua nếu không cần thiết
+		}
 	}
 
 	return &NotificationResponse{

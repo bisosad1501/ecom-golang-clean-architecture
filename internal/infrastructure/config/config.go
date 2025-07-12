@@ -96,7 +96,9 @@ type CORSConfig struct {
 // Load loads configuration from environment variables
 func Load() (*Config, error) {
 	// Load .env file if it exists
-	godotenv.Load()
+	if err := godotenv.Load(); err != nil {
+		// Có thể log hoặc bỏ qua nếu không cần thiết
+	}
 
 	config := &Config{
 		App: AppConfig{
