@@ -42,30 +42,36 @@ export const OAuthCallback: React.FC<OAuthCallbackProps> = ({ provider }) => {
           // Token received from backend redirect
           console.log('Processing token from fragment...');
           setStatus('loading');
-          
+
           // We need to get user info with this token
           // Set token in API client first
           const { apiClient } = await import('../../lib/api-client');
           apiClient.setToken(token);
-          
-          // Get user profile to complete login (correct endpoint)
+
+          // Get user profile to complete login
           const userResponse = await apiClient.get('/users/profile');
-          
-          // Store authentication data (userResponse.data contains the actual user data)
-          setAuthData(token, userResponse.data as any);
-          
+
+          // ApiClient already extracts the data field
+          const userData = userResponse.data;
+
+          // Store authentication data
+          setAuthData(token, userData as any);
+
           setStatus('success');
-          
+
+          // Mark OAuth as successful
+          sessionStorage.setItem('oauth_success', 'true');
+
           // Clear URL fragment
           window.history.replaceState(null, '', window.location.pathname);
-          
+
           // Redirect to homepage or intended page
           const redirectTo = sessionStorage.getItem('oauth_redirect') || '/';
           sessionStorage.removeItem('oauth_redirect');
-          
+
           setTimeout(() => {
             router.push(redirectTo);
-          }, 1500);
+          }, 500);
           
           return; // Exit early, don't try fallback
         }
@@ -94,31 +100,51 @@ export const OAuthCallback: React.FC<OAuthCallbackProps> = ({ provider }) => {
 
           setStatus('success');
 
+          // Mark OAuth as successful
+          sessionStorage.setItem('oauth_success', 'true');
+
           // Redirect to homepage or intended page
           const redirectTo = sessionStorage.getItem('oauth_redirect') || '/';
           sessionStorage.removeItem('oauth_redirect');
-          
+
           setTimeout(() => {
             router.push(redirectTo);
-          }, 1500);
+          }, 500);
         } else {
           // Check if user is already authenticated before throwing error
           const { useAuthStore } = await import('../../store/auth');
           const authStore = useAuthStore.getState();
-          
+
           console.log('Auth state check:', authStore);
-          
+
           if (authStore?.isAuthenticated) {
             console.log('User already authenticated, redirecting to home...');
+            setStatus('success');
             // User is already authenticated, just redirect
             setTimeout(() => {
               router.push('/');
             }, 500);
             return;
           }
-          
-          console.warn('No authentication data found in URL');
-          throw new Error('Missing authentication data - no token in fragment and no code/state in query');
+
+          console.warn('No authentication data found in URL - checking for recent OAuth success...');
+
+          // Check if this might be a page refresh after successful OAuth
+          // Sometimes the fragment gets lost on refresh
+          const recentOAuth = sessionStorage.getItem('oauth_success');
+          if (recentOAuth) {
+            console.log('Found recent OAuth success, redirecting to home...');
+            sessionStorage.removeItem('oauth_success');
+            setStatus('success');
+            setTimeout(() => {
+              router.push('/');
+            }, 500);
+            return;
+          }
+
+          // Only throw error if we're sure this is a failed OAuth attempt
+          console.error('No authentication data found in URL and no recent OAuth success');
+          throw new Error('OAuth authentication failed - please try again');
         }
 
       } catch (error) {
@@ -138,10 +164,6 @@ export const OAuthCallback: React.FC<OAuthCallbackProps> = ({ provider }) => {
 
   const getProviderName = () => {
     return provider.charAt(0).toUpperCase() + provider.slice(1);
-  };
-
-  const getProviderColor = () => {
-    return provider === 'google' ? 'text-blue-600' : 'text-blue-800';
   };
 
   const getProviderIcon = () => {

@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"fmt"
 	"net/http"
 	"net/url"
 
@@ -59,8 +60,22 @@ func (h *OAuthHandler) GetFacebookAuthURL(c *gin.Context) {
 func (h *OAuthHandler) GoogleCallback(c *gin.Context) {
 	code := c.Query("code")
 	state := c.Query("state")
+	errorParam := c.Query("error")
+
+	// Log all incoming parameters for debugging
+	fmt.Printf("🔍 Google OAuth Callback - Code: %s, State: %s, Error: %s\n",
+		code, state, errorParam)
+
+	// Check for OAuth provider errors first
+	if errorParam != "" {
+		fmt.Printf("❌ Google OAuth Error: %s\n", errorParam)
+		frontendURL := "http://localhost:3000/auth/google/callback?error=" + url.QueryEscape("OAuth provider error: " + errorParam)
+		c.Redirect(http.StatusTemporaryRedirect, frontendURL)
+		return
+	}
 
 	if code == "" {
+		fmt.Printf("❌ Missing authorization code\n")
 		c.JSON(http.StatusBadRequest, ErrorResponse{
 			Error: "Authorization code is required",
 		})
@@ -68,6 +83,7 @@ func (h *OAuthHandler) GoogleCallback(c *gin.Context) {
 	}
 
 	if state == "" {
+		fmt.Printf("❌ Missing state parameter\n")
 		c.JSON(http.StatusBadRequest, ErrorResponse{
 			Error: "State parameter is required",
 		})
@@ -79,14 +95,17 @@ func (h *OAuthHandler) GoogleCallback(c *gin.Context) {
 		State: state,
 	}
 
+	fmt.Printf("🔄 Processing Google OAuth callback...\n")
 	response, err := h.oauthUseCase.HandleGoogleCallback(c.Request.Context(), req)
 	if err != nil {
+		fmt.Printf("❌ Google OAuth callback error: %v\n", err)
 		// Redirect to frontend with error (URL encode the error message)
 		frontendURL := "http://localhost:3000/auth/google/callback?error=" + url.QueryEscape(err.Error())
 		c.Redirect(http.StatusTemporaryRedirect, frontendURL)
 		return
 	}
 
+	fmt.Printf("✅ Google OAuth callback successful, redirecting with token\n")
 	// Always redirect to frontend callback page with success token
 	// Use URL fragment to pass token (more secure than query params)
 	frontendURL := "http://localhost:3000/auth/google/callback"

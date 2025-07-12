@@ -1,6 +1,6 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
-import { apiClient } from '@/lib/api'
+import { apiClient, cartApi } from '@/lib/api'
 import { Cart, CartItem, Product, ApiResponse, CartConflictInfo, MergeStrategy } from '@/types'
 import { toast } from 'sonner'
 

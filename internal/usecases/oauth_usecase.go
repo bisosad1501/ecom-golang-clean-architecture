@@ -18,6 +18,7 @@ import (
 // JWTService defines JWT service interface
 type JWTService interface {
 	GenerateToken(userID, role string) (string, error)
+	GenerateTokenWithEmail(userID, email, role string) (string, error)
 }
 
 // OAuthUseCase defines OAuth use case interface
@@ -91,21 +92,32 @@ func (uc *oauthUseCase) GetFacebookAuthURL(ctx context.Context) (*OAuthURLRespon
 
 // HandleGoogleCallback handles Google OAuth callback
 func (uc *oauthUseCase) HandleGoogleCallback(ctx context.Context, req *OAuthCallbackRequest) (*LoginResponse, error) {
+	fmt.Printf("🔄 Exchanging Google code for user info...\n")
+
 	// Exchange code for user info
 	userInfo, err := uc.oauthService.ExchangeGoogleCode(ctx, req.Code)
 	if err != nil {
+		fmt.Printf("❌ Failed to exchange Google code: %v\n", err)
 		return nil, fmt.Errorf("failed to exchange Google code: %w", err)
 	}
 
+	fmt.Printf("✅ Got Google user info: %+v\n", userInfo)
+
 	// Find or create user
+	fmt.Printf("🔄 Finding or creating user...\n")
 	user, err := uc.findOrCreateOAuthUser(ctx, userInfo)
 	if err != nil {
+		fmt.Printf("❌ Failed to find or create user: %v\n", err)
 		return nil, fmt.Errorf("failed to find or create user: %w", err)
 	}
 
-	// Generate JWT token
-	token, err := uc.jwtService.GenerateToken(user.ID.String(), string(user.Role))
+	fmt.Printf("✅ User found/created: %s (%s)\n", user.Email, user.ID)
+
+	// Generate JWT token with email claim for OAuth
+	fmt.Printf("🔄 Generating JWT token with email claim...\n")
+	token, err := uc.jwtService.GenerateTokenWithEmail(user.ID.String(), user.Email, string(user.Role))
 	if err != nil {
+		fmt.Printf("❌ Failed to generate token: %v\n", err)
 		return nil, fmt.Errorf("failed to generate token: %w", err)
 	}
 
@@ -129,8 +141,8 @@ func (uc *oauthUseCase) HandleFacebookCallback(ctx context.Context, req *OAuthCa
 		return nil, fmt.Errorf("failed to find or create user: %w", err)
 	}
 
-	// Generate JWT token
-	token, err := uc.jwtService.GenerateToken(user.ID.String(), string(user.Role))
+	// Generate JWT token with email claim for OAuth
+	token, err := uc.jwtService.GenerateTokenWithEmail(user.ID.String(), user.Email, string(user.Role))
 	if err != nil {
 		return nil, fmt.Errorf("failed to generate token: %w", err)
 	}

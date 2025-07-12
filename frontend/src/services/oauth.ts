@@ -111,16 +111,14 @@ export class OAuthService {
    */
   async loginWithGoogle(): Promise<void> {
     try {
-      const response = await this.getGoogleAuthURL();
-      
-      // Validate that we have a URL
-      if (!response || !response.url) {
-        throw new Error('Invalid OAuth URL response from server');
-      }
-      
-      window.location.href = response.url;
+      // Store current page for redirect after login
+      sessionStorage.setItem('oauth_redirect', window.location.pathname);
+
+      // Use direct backend OAuth login endpoint (it will redirect to Google)
+      const backendUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080/api/v1';
+      window.location.href = `${backendUrl}/auth/google/login`;
     } catch (error) {
-      console.error('Failed to get Google OAuth URL:', error);
+      console.error('Failed to initiate Google login:', error);
       throw error;
     }
   }
@@ -130,14 +128,12 @@ export class OAuthService {
    */
   async loginWithFacebook(): Promise<void> {
     try {
-      const response = await this.getFacebookAuthURL();
-      
-      // Validate that we have a URL
-      if (!response || !response.url) {
-        throw new Error('Invalid OAuth URL response from server');
-      }
-      
-      window.location.href = response.url;
+      // Store current page for redirect after login
+      sessionStorage.setItem('oauth_redirect', window.location.pathname);
+
+      // Use direct backend OAuth login endpoint (it will redirect to Facebook)
+      const backendUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080/api/v1';
+      window.location.href = `${backendUrl}/auth/facebook/login`;
     } catch (error) {
       console.error('Failed to get Facebook OAuth URL:', error);
       throw error;

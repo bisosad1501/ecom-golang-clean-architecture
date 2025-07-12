@@ -154,19 +154,16 @@ export const useAuthStore = create<AuthStore>()(
         try {
           set({ isLoading: true, error: null })
 
-          const authResponse = await authApi.register(data)
-          const { user, token } = authResponse
-
-          // Store token in API client
-          apiClient.setToken(token)
+          // Backend register only returns user data, not token
+          const userData = await authApi.register(data)
 
           set({
-            user,
-            token,
-            isAuthenticated: true,
             isLoading: false,
             error: null,
           })
+
+          // Registration successful, but user needs to login separately
+          // or we could auto-login them here by calling login
         } catch (error: any) {
           set({
             isLoading: false,

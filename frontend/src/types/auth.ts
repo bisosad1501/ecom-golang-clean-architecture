@@ -53,14 +53,18 @@ export interface User extends BaseEntity {
   addresses?: Address[]
 }
 
-// Authentication response
+// Authentication response (matches backend LoginResponse)
 export interface AuthResponse {
   user: User
   token: string
-  refresh_token: string
-  expires_at: string
-  expires_in: number
-  token_type: 'Bearer'
+}
+
+// Backend API response wrapper
+export interface ApiResponse<T = any> {
+  message?: string
+  data?: T
+  error?: string
+  details?: string
 }
 
 // Login request
@@ -71,18 +75,20 @@ export interface LoginRequest {
   device_info?: DeviceInfo
 }
 
-// Register request
+// Register request (matches backend RegisterRequest)
 export interface RegisterRequest {
   email: string
   password: string
-  password_confirmation: string
   first_name: string
   last_name: string
-  username?: string
   phone?: string
+}
+
+// Extended register request for frontend forms
+export interface RegisterFormRequest extends RegisterRequest {
+  password_confirmation: string
   terms_accepted: boolean
   marketing_consent?: boolean
-  device_info?: DeviceInfo
 }
 
 // Password reset request

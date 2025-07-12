@@ -30,3 +30,17 @@ func (s *JWTService) GenerateToken(userID, role string) (string, error) {
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
 	return token.SignedString([]byte(s.secret))
 }
+
+// GenerateTokenWithEmail generates a JWT token with email claim for OAuth
+func (s *JWTService) GenerateTokenWithEmail(userID, email, role string) (string, error) {
+	claims := jwt.MapClaims{
+		"user_id": userID,
+		"email":   email,
+		"role":    role,
+		"exp":     time.Now().Add(time.Hour * 24).Unix(), // 24 hours
+		"iat":     time.Now().Unix(),
+	}
+
+	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
+	return token.SignedString([]byte(s.secret))
+}
