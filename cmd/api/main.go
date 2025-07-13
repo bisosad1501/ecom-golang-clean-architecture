@@ -276,7 +276,7 @@ func main() {
 	orderHandler := handlers.NewOrderHandler(orderUseCase)
 	fileHandler := handlers.NewFileHandler(fileUseCase)
 	couponHandler := handlers.NewCouponHandler(couponUseCase)
-	reviewHandler := handlers.NewReviewHandler(reviewUseCase)
+	reviewHandler := handlers.NewReviewHandler(reviewUseCase, fileUseCase)
 	wishlistHandler := handlers.NewWishlistHandler(wishlistUseCase)
 	inventoryHandler := handlers.NewInventoryHandler(inventoryUseCase)
 	notificationHandler := handlers.NewNotificationHandler(notificationUseCase)

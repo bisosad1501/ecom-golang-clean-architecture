@@ -333,7 +333,7 @@ func (r *reviewVoteRepository) UpdateReviewVoteCounts(ctx context.Context, revie
 }
 
 // VoteReview adds or updates a vote for a review
-func (r *reviewVoteRepository) VoteReview(ctx context.Context, userID, reviewID uuid.UUID, voteType entities.ReviewVoteType) error {
+func (r *reviewVoteRepository) VoteReview(ctx context.Context, reviewID, userID uuid.UUID, voteType entities.ReviewVoteType) error {
 	// Check if vote already exists
 	var existingVote entities.ReviewVote
 	err := r.db.WithContext(ctx).

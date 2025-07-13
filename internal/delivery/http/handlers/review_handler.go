@@ -14,26 +14,28 @@ import (
 
 type ReviewHandler struct {
 	reviewUseCase usecases.ReviewUseCase
+	fileUseCase   usecases.FileUseCase
 }
 
 // NewReviewHandler creates a new review handler
-func NewReviewHandler(reviewUseCase usecases.ReviewUseCase) *ReviewHandler {
+func NewReviewHandler(reviewUseCase usecases.ReviewUseCase, fileUseCase usecases.FileUseCase) *ReviewHandler {
 	return &ReviewHandler{
 		reviewUseCase: reviewUseCase,
+		fileUseCase:   fileUseCase,
 	}
 }
 
 // CreateReview creates a new review (supports both JSON and multipart form with images)
 func (h *ReviewHandler) CreateReview(c *gin.Context) {
 	// Get user ID from context (set by auth middleware)
-	userIDStr, exists := c.Get("user_id")
+	userIDInterface, exists := c.Get("user_id")
 	if !exists {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "User not authenticated"})
 		return
 	}
 
-	userID, err := uuid.Parse(userIDStr.(string))
-	if err != nil {
+	userID, ok := userIDInterface.(uuid.UUID)
+	if !ok {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid user ID"})
 		return
 	}
@@ -374,10 +376,25 @@ func (h *ReviewHandler) parseMultipartReviewRequest(c *gin.Context, req *usecase
 	// Handle image files
 	form := c.Request.MultipartForm
 	if files := form.File["images"]; len(files) > 0 {
-		// TODO: Upload images and get URLs
-		// For now, we'll skip image upload in multipart form
-		// Images should be uploaded separately via file upload endpoint
-		req.Images = []string{}
+		// Upload images and get URLs
+		var imageURLs []string
+		for _, fileHeader := range files {
+			file, err := fileHeader.Open()
+			if err != nil {
+				continue // Skip invalid files
+			}
+			defer file.Close()
+
+			// Use file service to upload image
+			if h.fileUseCase != nil {
+				userIDStr := c.GetString("user_id")
+				uploadResp, err := h.fileUseCase.UploadImage(c.Request.Context(), file, fileHeader, entities.FileUploadTypeUser, &userIDStr)
+				if err == nil && uploadResp != nil {
+					imageURLs = append(imageURLs, uploadResp.URL)
+				}
+			}
+		}
+		req.Images = imageURLs
 	}
 
 	return nil
