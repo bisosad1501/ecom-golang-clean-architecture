@@ -179,6 +179,9 @@ func SetupRoutes(
 			// Enhanced category routes
 			categories.GET("/search", categoryHandler.SearchCategories)
 			categories.GET("/filter", categoryHandler.GetCategoriesWithFilters)
+
+			// SEO routes (public access for frontend)
+			categories.GET("/:id/seo", categoryHandler.GetCategorySEO)
 		}
 
 		// Public search routes
@@ -529,6 +532,11 @@ func SetupRoutes(
 				adminCategories.GET("/:id/analytics", categoryHandler.GetCategoryAnalytics)
 				adminCategories.GET("/:id/performance", categoryHandler.GetCategoryPerformanceMetrics)
 				adminCategories.GET("/:id/sales", categoryHandler.GetCategorySalesStats)
+
+				// SEO management
+				adminCategories.PUT("/:id/seo", categoryHandler.UpdateCategorySEO)
+				adminCategories.POST("/:id/seo/generate", categoryHandler.GenerateCategorySEO)
+				adminCategories.GET("/:id/seo/validate", categoryHandler.ValidateCategorySEO)
 			}
 
 			// Admin brand management

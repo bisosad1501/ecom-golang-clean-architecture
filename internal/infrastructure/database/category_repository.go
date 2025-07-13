@@ -655,21 +655,30 @@ func (r *categoryRepository) GetCategoryAnalytics(ctx context.Context, categoryI
 	}
 	analytics.CategoryName = category.Name
 
-	// Get product counts
+	// Get product counts including subcategories
+	categoryIDs, err := r.GetCategoryTree(ctx, categoryID)
+	if err != nil {
+		return nil, err
+	}
+
 	var productCount, activeProducts, inactiveProducts int64
-	r.db.WithContext(ctx).Model(&entities.Product{}).Where("category_id = ?", categoryID).Count(&productCount)
-	r.db.WithContext(ctx).Model(&entities.Product{}).Where("category_id = ? AND is_active = ?", categoryID, true).Count(&activeProducts)
-	inactiveProducts = productCount - activeProducts
+	if len(categoryIDs) > 0 {
+		r.db.WithContext(ctx).Model(&entities.Product{}).Where("category_id IN ?", categoryIDs).Count(&productCount)
+		r.db.WithContext(ctx).Model(&entities.Product{}).Where("category_id IN ? AND status = ?", categoryIDs, "active").Count(&activeProducts)
+		inactiveProducts = productCount - activeProducts
+	}
 
 	analytics.ProductCount = productCount
 	analytics.ActiveProducts = activeProducts
 	analytics.InactiveProducts = inactiveProducts
 
-	// Calculate average price
+	// Calculate average price from all products in category hierarchy
 	var avgPrice float64
-	r.db.WithContext(ctx).Model(&entities.Product{}).
-		Where("category_id = ? AND is_active = ?", categoryID, true).
-		Select("AVG(price)").Scan(&avgPrice)
+	if len(categoryIDs) > 0 {
+		r.db.WithContext(ctx).Model(&entities.Product{}).
+			Where("category_id IN ? AND status = ?", categoryIDs, "active").
+			Select("AVG(price)").Scan(&avgPrice)
+	}
 	analytics.AveragePrice = avgPrice
 
 	// Get sales data (mock data for now - would integrate with actual order system)
@@ -680,7 +689,7 @@ func (r *categoryRepository) GetCategoryAnalytics(ctx context.Context, categoryI
 	return analytics, nil
 }
 
-// GetTopCategories returns top performing categories
+// GetTopCategories returns top performing categories with hierarchy support
 func (r *categoryRepository) GetTopCategories(ctx context.Context, limit int, sortBy string) ([]*repositories.CategoryStats, error) {
 	var categories []*entities.Category
 	err := r.db.WithContext(ctx).Limit(limit).Find(&categories).Error
@@ -690,15 +699,24 @@ func (r *categoryRepository) GetTopCategories(ctx context.Context, limit int, so
 
 	var stats []*repositories.CategoryStats
 	for _, category := range categories {
-		// Get product count
-		var productCount int64
-		r.db.WithContext(ctx).Model(&entities.Product{}).Where("category_id = ?", category.ID).Count(&productCount)
+		// Get product count including subcategories
+		productCount, err := r.GetProductCount(ctx, category.ID, true)
+		if err != nil {
+			continue // Skip this category if error
+		}
 
-		// Calculate average price
+		// Calculate average price from all products in category hierarchy
+		categoryIDs, err := r.GetCategoryTree(ctx, category.ID)
+		if err != nil {
+			continue // Skip this category if error
+		}
+
 		var avgPrice float64
-		r.db.WithContext(ctx).Model(&entities.Product{}).
-			Where("category_id = ? AND is_active = ?", category.ID, true).
-			Select("AVG(price)").Scan(&avgPrice)
+		if len(categoryIDs) > 0 {
+			r.db.WithContext(ctx).Model(&entities.Product{}).
+				Where("category_id IN ? AND status = ?", categoryIDs, "active").
+				Select("AVG(price)").Scan(&avgPrice)
+		}
 
 		// Mock sales and revenue data
 		totalSales := productCount * 8
@@ -734,23 +752,32 @@ func (r *categoryRepository) GetCategoryPerformanceMetrics(ctx context.Context, 
 		CategoryName: category.Name,
 	}
 
-	// Get product counts
+	// Get product counts including subcategories
+	categoryIDs, err := r.GetCategoryTree(ctx, categoryID)
+	if err != nil {
+		return nil, err
+	}
+
 	var productCount, activeProductCount int64
-	r.db.WithContext(ctx).Model(&entities.Product{}).Where("category_id = ?", categoryID).Count(&productCount)
-	r.db.WithContext(ctx).Model(&entities.Product{}).Where("category_id = ? AND is_active = ?", categoryID, true).Count(&activeProductCount)
+	if len(categoryIDs) > 0 {
+		r.db.WithContext(ctx).Model(&entities.Product{}).Where("category_id IN ?", categoryIDs).Count(&productCount)
+		r.db.WithContext(ctx).Model(&entities.Product{}).Where("category_id IN ? AND status = ?", categoryIDs, "active").Count(&activeProductCount)
+	}
 
 	metrics.ProductCount = productCount
 	metrics.ActiveProductCount = activeProductCount
 
-	// Calculate average price and inventory value
+	// Calculate average price and inventory value from all products in category hierarchy
 	var avgPrice, totalValue float64
-	r.db.WithContext(ctx).Model(&entities.Product{}).
-		Where("category_id = ? AND is_active = ?", categoryID, true).
-		Select("AVG(price)").Scan(&avgPrice)
+	if len(categoryIDs) > 0 {
+		r.db.WithContext(ctx).Model(&entities.Product{}).
+			Where("category_id IN ? AND status = ?", categoryIDs, "active").
+			Select("AVG(price)").Scan(&avgPrice)
 
-	r.db.WithContext(ctx).Model(&entities.Product{}).
-		Where("category_id = ? AND is_active = ?", categoryID, true).
-		Select("SUM(price * stock_quantity)").Scan(&totalValue)
+		r.db.WithContext(ctx).Model(&entities.Product{}).
+			Where("category_id IN ? AND status = ?", categoryIDs, "active").
+			Select("SUM(price * stock)").Scan(&totalValue)
+	}
 
 	metrics.AverageProductPrice = avgPrice
 	metrics.TotalInventoryValue = totalValue
@@ -782,15 +809,24 @@ func (r *categoryRepository) GetCategorySalesStats(ctx context.Context, category
 		TimeRange:    timeRange,
 	}
 
-	// Get product count for calculations
-	var productCount int64
-	r.db.WithContext(ctx).Model(&entities.Product{}).Where("category_id = ?", categoryID).Count(&productCount)
+	// Get product count for calculations including subcategories
+	categoryIDs, err := r.GetCategoryTree(ctx, categoryID)
+	if err != nil {
+		return nil, err
+	}
 
-	// Calculate average price
+	var productCount int64
+	if len(categoryIDs) > 0 {
+		r.db.WithContext(ctx).Model(&entities.Product{}).Where("category_id IN ?", categoryIDs).Count(&productCount)
+	}
+
+	// Calculate average price from all products in category hierarchy
 	var avgPrice float64
-	r.db.WithContext(ctx).Model(&entities.Product{}).
-		Where("category_id = ? AND is_active = ?", categoryID, true).
-		Select("AVG(price)").Scan(&avgPrice)
+	if len(categoryIDs) > 0 {
+		r.db.WithContext(ctx).Model(&entities.Product{}).
+			Where("category_id IN ? AND status = ?", categoryIDs, "active").
+			Select("AVG(price)").Scan(&avgPrice)
+	}
 
 	// Mock sales data based on time range
 	multiplier := int64(1)
@@ -818,10 +854,12 @@ func (r *categoryRepository) GetCategorySalesStats(ctx context.Context, category
 		OrderGrowth:   0.10,  // 10% growth
 	}
 
-	// Mock top selling products
+	// Mock top selling products from category hierarchy
 	var products []entities.Product
-	r.db.WithContext(ctx).Where("category_id = ? AND is_active = ?", categoryID, true).
-		Limit(5).Find(&products)
+	if len(categoryIDs) > 0 {
+		r.db.WithContext(ctx).Where("category_id IN ? AND status = ?", categoryIDs, "active").
+			Limit(5).Find(&products)
+	}
 
 	for _, product := range products {
 		productSales := repositories.ProductSales{

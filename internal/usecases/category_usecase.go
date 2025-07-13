@@ -50,6 +50,12 @@ type CategoryUseCase interface {
 	GetTopCategories(ctx context.Context, req GetTopCategoriesRequest) (*TopCategoriesResponse, error)
 	GetCategoryPerformanceMetrics(ctx context.Context, categoryID uuid.UUID) (*CategoryPerformanceResponse, error)
 	GetCategorySalesStats(ctx context.Context, req GetCategorySalesStatsRequest) (*CategorySalesStatsResponse, error)
+
+	// SEO operations
+	UpdateCategorySEO(ctx context.Context, categoryID uuid.UUID, req CategorySEORequest) (*CategoryResponse, error)
+	GetCategorySEO(ctx context.Context, categoryID uuid.UUID) (*CategorySEOResponse, error)
+	GenerateCategorySEO(ctx context.Context, categoryID uuid.UUID) (*CategorySEOResponse, error)
+	ValidateCategorySEO(ctx context.Context, categoryID uuid.UUID) (*CategorySEOValidationResponse, error)
 }
 
 type categoryUseCase struct {
@@ -76,6 +82,9 @@ type CreateCategoryRequest struct {
 	ParentID    *uuid.UUID `json:"parent_id"`
 	IsActive    bool       `json:"is_active"`
 	SortOrder   int        `json:"sort_order"`
+
+	// SEO fields
+	SEO *CategorySEORequest `json:"seo,omitempty"`
 }
 
 // UpdateCategoryRequest represents update category request
@@ -87,6 +96,24 @@ type UpdateCategoryRequest struct {
 	ParentID    *uuid.UUID `json:"parent_id"`
 	IsActive    *bool      `json:"is_active"`
 	SortOrder   *int       `json:"sort_order"`
+
+	// SEO fields
+	SEO *CategorySEORequest `json:"seo,omitempty"`
+}
+
+// CategorySEORequest represents category SEO metadata request
+type CategorySEORequest struct {
+	MetaTitle          *string `json:"meta_title,omitempty"`
+	MetaDescription    *string `json:"meta_description,omitempty"`
+	MetaKeywords       *string `json:"meta_keywords,omitempty"`
+	CanonicalURL       *string `json:"canonical_url,omitempty"`
+	OGTitle            *string `json:"og_title,omitempty"`
+	OGDescription      *string `json:"og_description,omitempty"`
+	OGImage            *string `json:"og_image,omitempty"`
+	TwitterTitle       *string `json:"twitter_title,omitempty"`
+	TwitterDescription *string `json:"twitter_description,omitempty"`
+	TwitterImage       *string `json:"twitter_image,omitempty"`
+	SchemaMarkup       *string `json:"schema_markup,omitempty"`
 }
 
 // GetCategoriesRequest represents get categories request
@@ -123,6 +150,48 @@ type CategoryResponse struct {
 	Path        string             `json:"path"`
 	CreatedAt   time.Time          `json:"created_at"`
 	UpdatedAt   time.Time          `json:"updated_at"`
+
+	// SEO fields
+	SEO *CategorySEOResponse `json:"seo,omitempty"`
+}
+
+// CategorySEOResponse represents category SEO metadata
+type CategorySEOResponse struct {
+	MetaTitle          string `json:"meta_title,omitempty"`
+	MetaDescription    string `json:"meta_description,omitempty"`
+	MetaKeywords       string `json:"meta_keywords,omitempty"`
+	CanonicalURL       string `json:"canonical_url,omitempty"`
+	OGTitle            string `json:"og_title,omitempty"`
+	OGDescription      string `json:"og_description,omitempty"`
+	OGImage            string `json:"og_image,omitempty"`
+	TwitterTitle       string `json:"twitter_title,omitempty"`
+	TwitterDescription string `json:"twitter_description,omitempty"`
+	TwitterImage       string `json:"twitter_image,omitempty"`
+	SchemaMarkup       string `json:"schema_markup,omitempty"`
+}
+
+// CategorySEOValidationResponse represents category SEO validation response
+type CategorySEOValidationResponse struct {
+	IsValid    bool                    `json:"is_valid"`
+	Score      int                     `json:"score"` // SEO score out of 100
+	Issues     []CategorySEOIssue      `json:"issues"`
+	Suggestions []CategorySEOSuggestion `json:"suggestions"`
+}
+
+// CategorySEOIssue represents an SEO issue
+type CategorySEOIssue struct {
+	Field       string `json:"field"`
+	Issue       string `json:"issue"`
+	Severity    string `json:"severity"` // "error", "warning", "info"
+	Description string `json:"description"`
+}
+
+// CategorySEOSuggestion represents an SEO suggestion
+type CategorySEOSuggestion struct {
+	Field       string `json:"field"`
+	Suggestion  string `json:"suggestion"`
+	Impact      string `json:"impact"` // "high", "medium", "low"
+	Description string `json:"description"`
 }
 
 // CategoryLandingPageResponse represents category landing page response
@@ -653,6 +722,26 @@ func (uc *categoryUseCase) toCategoryResponse(category *entities.Category) *Cate
 			Path:        category.Parent.GetPath(),
 			CreatedAt:   category.Parent.CreatedAt,
 			UpdatedAt:   category.Parent.UpdatedAt,
+		}
+	}
+
+	// Add SEO data if available
+	if category.MetaTitle != "" || category.MetaDescription != "" || category.MetaKeywords != "" ||
+		category.CanonicalURL != "" || category.OGTitle != "" || category.OGDescription != "" ||
+		category.OGImage != "" || category.TwitterTitle != "" || category.TwitterDescription != "" ||
+		category.TwitterImage != "" || category.SchemaMarkup != "" {
+		response.SEO = &CategorySEOResponse{
+			MetaTitle:          category.MetaTitle,
+			MetaDescription:    category.MetaDescription,
+			MetaKeywords:       category.MetaKeywords,
+			CanonicalURL:       category.CanonicalURL,
+			OGTitle:            category.OGTitle,
+			OGDescription:      category.OGDescription,
+			OGImage:            category.OGImage,
+			TwitterTitle:       category.TwitterTitle,
+			TwitterDescription: category.TwitterDescription,
+			TwitterImage:       category.TwitterImage,
+			SchemaMarkup:       category.SchemaMarkup,
 		}
 	}
 
@@ -1368,5 +1457,311 @@ func (uc *categoryUseCase) GetCategorySalesStats(ctx context.Context, req GetCat
 
 	return &CategorySalesStatsResponse{
 		Stats: stats,
+	}, nil
+}
+
+// UpdateCategorySEO updates SEO metadata for a category
+func (uc *categoryUseCase) UpdateCategorySEO(ctx context.Context, categoryID uuid.UUID, req CategorySEORequest) (*CategoryResponse, error) {
+	// Get existing category
+	category, err := uc.categoryRepo.GetByID(ctx, categoryID)
+	if err != nil {
+		return nil, entities.ErrCategoryNotFound
+	}
+
+	// Update SEO fields
+	if req.MetaTitle != nil {
+		category.MetaTitle = *req.MetaTitle
+	}
+	if req.MetaDescription != nil {
+		category.MetaDescription = *req.MetaDescription
+	}
+	if req.MetaKeywords != nil {
+		category.MetaKeywords = *req.MetaKeywords
+	}
+	if req.CanonicalURL != nil {
+		category.CanonicalURL = *req.CanonicalURL
+	}
+	if req.OGTitle != nil {
+		category.OGTitle = *req.OGTitle
+	}
+	if req.OGDescription != nil {
+		category.OGDescription = *req.OGDescription
+	}
+	if req.OGImage != nil {
+		category.OGImage = *req.OGImage
+	}
+	if req.TwitterTitle != nil {
+		category.TwitterTitle = *req.TwitterTitle
+	}
+	if req.TwitterDescription != nil {
+		category.TwitterDescription = *req.TwitterDescription
+	}
+	if req.TwitterImage != nil {
+		category.TwitterImage = *req.TwitterImage
+	}
+	if req.SchemaMarkup != nil {
+		category.SchemaMarkup = *req.SchemaMarkup
+	}
+
+	// Update category
+	err = uc.categoryRepo.Update(ctx, category)
+	if err != nil {
+		return nil, err
+	}
+
+	return uc.toCategoryResponse(category), nil
+}
+
+// GetCategorySEO gets SEO metadata for a category
+func (uc *categoryUseCase) GetCategorySEO(ctx context.Context, categoryID uuid.UUID) (*CategorySEOResponse, error) {
+	category, err := uc.categoryRepo.GetByID(ctx, categoryID)
+	if err != nil {
+		return nil, entities.ErrCategoryNotFound
+	}
+
+	return &CategorySEOResponse{
+		MetaTitle:          category.MetaTitle,
+		MetaDescription:    category.MetaDescription,
+		MetaKeywords:       category.MetaKeywords,
+		CanonicalURL:       category.CanonicalURL,
+		OGTitle:            category.OGTitle,
+		OGDescription:      category.OGDescription,
+		OGImage:            category.OGImage,
+		TwitterTitle:       category.TwitterTitle,
+		TwitterDescription: category.TwitterDescription,
+		TwitterImage:       category.TwitterImage,
+		SchemaMarkup:       category.SchemaMarkup,
+	}, nil
+}
+
+// GenerateCategorySEO automatically generates SEO metadata for a category
+func (uc *categoryUseCase) GenerateCategorySEO(ctx context.Context, categoryID uuid.UUID) (*CategorySEOResponse, error) {
+	category, err := uc.categoryRepo.GetByID(ctx, categoryID)
+	if err != nil {
+		return nil, entities.ErrCategoryNotFound
+	}
+
+	// Generate SEO metadata based on category data
+	seo := &CategorySEOResponse{}
+
+	// Generate meta title
+	if category.MetaTitle == "" {
+		seo.MetaTitle = category.Name + " - Shop Online"
+		if len(seo.MetaTitle) > 60 {
+			seo.MetaTitle = category.Name
+		}
+	} else {
+		seo.MetaTitle = category.MetaTitle
+	}
+
+	// Generate meta description
+	if category.MetaDescription == "" {
+		if category.Description != "" {
+			seo.MetaDescription = category.Description
+			if len(seo.MetaDescription) > 160 {
+				seo.MetaDescription = seo.MetaDescription[:157] + "..."
+			}
+		} else {
+			seo.MetaDescription = "Shop " + category.Name + " products online. Find the best deals and latest products in " + category.Name + " category."
+		}
+	} else {
+		seo.MetaDescription = category.MetaDescription
+	}
+
+	// Generate meta keywords
+	if category.MetaKeywords == "" {
+		seo.MetaKeywords = category.Name + ", shop " + category.Name + ", buy " + category.Name + " online"
+	} else {
+		seo.MetaKeywords = category.MetaKeywords
+	}
+
+	// Generate Open Graph data
+	if category.OGTitle == "" {
+		seo.OGTitle = seo.MetaTitle
+	} else {
+		seo.OGTitle = category.OGTitle
+	}
+
+	if category.OGDescription == "" {
+		seo.OGDescription = seo.MetaDescription
+	} else {
+		seo.OGDescription = category.OGDescription
+	}
+
+	if category.OGImage == "" && category.Image != "" {
+		seo.OGImage = category.Image
+	} else {
+		seo.OGImage = category.OGImage
+	}
+
+	// Generate Twitter Card data
+	if category.TwitterTitle == "" {
+		seo.TwitterTitle = seo.MetaTitle
+	} else {
+		seo.TwitterTitle = category.TwitterTitle
+	}
+
+	if category.TwitterDescription == "" {
+		seo.TwitterDescription = seo.MetaDescription
+	} else {
+		seo.TwitterDescription = category.TwitterDescription
+	}
+
+	if category.TwitterImage == "" && category.Image != "" {
+		seo.TwitterImage = category.Image
+	} else {
+		seo.TwitterImage = category.TwitterImage
+	}
+
+	// Generate canonical URL
+	if category.CanonicalURL == "" {
+		seo.CanonicalURL = "/categories/" + category.Slug
+	} else {
+		seo.CanonicalURL = category.CanonicalURL
+	}
+
+	return seo, nil
+}
+
+// ValidateCategorySEO validates SEO metadata for a category
+func (uc *categoryUseCase) ValidateCategorySEO(ctx context.Context, categoryID uuid.UUID) (*CategorySEOValidationResponse, error) {
+	category, err := uc.categoryRepo.GetByID(ctx, categoryID)
+	if err != nil {
+		return nil, entities.ErrCategoryNotFound
+	}
+
+	var issues []CategorySEOIssue
+	var suggestions []CategorySEOSuggestion
+	score := 100
+
+	// Validate meta title
+	if category.MetaTitle == "" {
+		issues = append(issues, CategorySEOIssue{
+			Field:       "meta_title",
+			Issue:       "Missing meta title",
+			Severity:    "error",
+			Description: "Meta title is required for SEO",
+		})
+		suggestions = append(suggestions, CategorySEOSuggestion{
+			Field:       "meta_title",
+			Suggestion:  "Add a descriptive meta title (50-60 characters)",
+			Impact:      "high",
+			Description: "Meta title appears in search results and browser tabs",
+		})
+		score -= 20
+	} else if len(category.MetaTitle) > 60 {
+		issues = append(issues, CategorySEOIssue{
+			Field:       "meta_title",
+			Issue:       "Meta title too long",
+			Severity:    "warning",
+			Description: "Meta title should be under 60 characters",
+		})
+		score -= 10
+	} else if len(category.MetaTitle) < 30 {
+		issues = append(issues, CategorySEOIssue{
+			Field:       "meta_title",
+			Issue:       "Meta title too short",
+			Severity:    "warning",
+			Description: "Meta title should be at least 30 characters",
+		})
+		score -= 5
+	}
+
+	// Validate meta description
+	if category.MetaDescription == "" {
+		issues = append(issues, CategorySEOIssue{
+			Field:       "meta_description",
+			Issue:       "Missing meta description",
+			Severity:    "error",
+			Description: "Meta description is required for SEO",
+		})
+		suggestions = append(suggestions, CategorySEOSuggestion{
+			Field:       "meta_description",
+			Suggestion:  "Add a compelling meta description (150-160 characters)",
+			Impact:      "high",
+			Description: "Meta description appears in search results",
+		})
+		score -= 20
+	} else if len(category.MetaDescription) > 160 {
+		issues = append(issues, CategorySEOIssue{
+			Field:       "meta_description",
+			Issue:       "Meta description too long",
+			Severity:    "warning",
+			Description: "Meta description should be under 160 characters",
+		})
+		score -= 10
+	} else if len(category.MetaDescription) < 120 {
+		issues = append(issues, CategorySEOIssue{
+			Field:       "meta_description",
+			Issue:       "Meta description too short",
+			Severity:    "info",
+			Description: "Meta description could be longer for better SEO",
+		})
+		score -= 5
+	}
+
+	// Validate slug
+	if category.Slug == "" {
+		issues = append(issues, CategorySEOIssue{
+			Field:       "slug",
+			Issue:       "Missing URL slug",
+			Severity:    "error",
+			Description: "URL slug is required for SEO-friendly URLs",
+		})
+		score -= 15
+	}
+
+	// Validate Open Graph data
+	if category.OGTitle == "" {
+		suggestions = append(suggestions, CategorySEOSuggestion{
+			Field:       "og_title",
+			Suggestion:  "Add Open Graph title for social media sharing",
+			Impact:      "medium",
+			Description: "Improves appearance when shared on social media",
+		})
+		score -= 5
+	}
+
+	if category.OGDescription == "" {
+		suggestions = append(suggestions, CategorySEOSuggestion{
+			Field:       "og_description",
+			Suggestion:  "Add Open Graph description for social media sharing",
+			Impact:      "medium",
+			Description: "Improves appearance when shared on social media",
+		})
+		score -= 5
+	}
+
+	if category.OGImage == "" {
+		suggestions = append(suggestions, CategorySEOSuggestion{
+			Field:       "og_image",
+			Suggestion:  "Add Open Graph image for social media sharing",
+			Impact:      "medium",
+			Description: "Improves visual appeal when shared on social media",
+		})
+		score -= 5
+	}
+
+	// Validate canonical URL
+	if category.CanonicalURL == "" {
+		suggestions = append(suggestions, CategorySEOSuggestion{
+			Field:       "canonical_url",
+			Suggestion:  "Add canonical URL to prevent duplicate content issues",
+			Impact:      "medium",
+			Description: "Helps search engines understand the preferred URL",
+		})
+		score -= 5
+	}
+
+	// Ensure score doesn't go below 0
+	if score < 0 {
+		score = 0
+	}
+
+	return &CategorySEOValidationResponse{
+		IsValid:     len(issues) == 0 || (len(issues) > 0 && issues[0].Severity != "error"),
+		Score:       score,
+		Issues:      issues,
+		Suggestions: suggestions,
 	}, nil
 }

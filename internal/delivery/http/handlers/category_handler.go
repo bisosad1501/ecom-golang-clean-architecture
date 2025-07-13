@@ -899,3 +899,154 @@ func (h *CategoryHandler) GetCategorySalesStats(c *gin.Context) {
 		Data: stats,
 	})
 }
+
+// UpdateCategorySEO handles updating SEO metadata for a category
+// @Summary Update category SEO
+// @Description Update SEO metadata for a category (admin only)
+// @Tags categories
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Param id path string true "Category ID"
+// @Param request body usecases.CategorySEORequest true "SEO update request"
+// @Success 200 {object} usecases.CategoryResponse
+// @Failure 400 {object} ErrorResponse
+// @Failure 401 {object} ErrorResponse
+// @Failure 403 {object} ErrorResponse
+// @Failure 404 {object} ErrorResponse
+// @Router /admin/categories/{id}/seo [put]
+func (h *CategoryHandler) UpdateCategorySEO(c *gin.Context) {
+	categoryID, err := uuid.Parse(c.Param("id"))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, ErrorResponse{
+			Error: "Invalid category ID",
+		})
+		return
+	}
+
+	var req usecases.CategorySEORequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, ErrorResponse{
+			Error:   "Invalid request format",
+			Details: err.Error(),
+		})
+		return
+	}
+
+	category, err := h.categoryUseCase.UpdateCategorySEO(c.Request.Context(), categoryID, req)
+	if err != nil {
+		c.JSON(getErrorStatusCode(err), ErrorResponse{
+			Error: err.Error(),
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, SuccessResponse{
+		Data: category,
+	})
+}
+
+// GetCategorySEO handles getting SEO metadata for a category
+// @Summary Get category SEO
+// @Description Get SEO metadata for a category
+// @Tags categories
+// @Accept json
+// @Produce json
+// @Param id path string true "Category ID"
+// @Success 200 {object} usecases.CategorySEOResponse
+// @Failure 400 {object} ErrorResponse
+// @Failure 404 {object} ErrorResponse
+// @Router /categories/{id}/seo [get]
+func (h *CategoryHandler) GetCategorySEO(c *gin.Context) {
+	categoryID, err := uuid.Parse(c.Param("id"))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, ErrorResponse{
+			Error: "Invalid category ID",
+		})
+		return
+	}
+
+	seo, err := h.categoryUseCase.GetCategorySEO(c.Request.Context(), categoryID)
+	if err != nil {
+		c.JSON(getErrorStatusCode(err), ErrorResponse{
+			Error: err.Error(),
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, SuccessResponse{
+		Data: seo,
+	})
+}
+
+// GenerateCategorySEO handles generating SEO metadata for a category
+// @Summary Generate category SEO
+// @Description Auto-generate SEO metadata for a category (admin only)
+// @Tags categories
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Param id path string true "Category ID"
+// @Success 200 {object} usecases.CategorySEOResponse
+// @Failure 400 {object} ErrorResponse
+// @Failure 401 {object} ErrorResponse
+// @Failure 403 {object} ErrorResponse
+// @Failure 404 {object} ErrorResponse
+// @Router /admin/categories/{id}/seo/generate [post]
+func (h *CategoryHandler) GenerateCategorySEO(c *gin.Context) {
+	categoryID, err := uuid.Parse(c.Param("id"))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, ErrorResponse{
+			Error: "Invalid category ID",
+		})
+		return
+	}
+
+	seo, err := h.categoryUseCase.GenerateCategorySEO(c.Request.Context(), categoryID)
+	if err != nil {
+		c.JSON(getErrorStatusCode(err), ErrorResponse{
+			Error: err.Error(),
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, SuccessResponse{
+		Data: seo,
+	})
+}
+
+// ValidateCategorySEO handles validating SEO metadata for a category
+// @Summary Validate category SEO
+// @Description Validate SEO metadata for a category (admin only)
+// @Tags categories
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Param id path string true "Category ID"
+// @Success 200 {object} usecases.CategorySEOValidationResponse
+// @Failure 400 {object} ErrorResponse
+// @Failure 401 {object} ErrorResponse
+// @Failure 403 {object} ErrorResponse
+// @Failure 404 {object} ErrorResponse
+// @Router /admin/categories/{id}/seo/validate [get]
+func (h *CategoryHandler) ValidateCategorySEO(c *gin.Context) {
+	categoryID, err := uuid.Parse(c.Param("id"))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, ErrorResponse{
+			Error: "Invalid category ID",
+		})
+		return
+	}
+
+	validation, err := h.categoryUseCase.ValidateCategorySEO(c.Request.Context(), categoryID)
+	if err != nil {
+		c.JSON(getErrorStatusCode(err), ErrorResponse{
+			Error: err.Error(),
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, SuccessResponse{
+		Data: validation,
+	})
+}
