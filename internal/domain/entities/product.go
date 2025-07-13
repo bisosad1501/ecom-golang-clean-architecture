@@ -201,6 +201,42 @@ func (ProductVariant) TableName() string {
 	return "product_variants"
 }
 
+// ProductComparison represents a product comparison session
+type ProductComparison struct {
+	ID        uuid.UUID `json:"id" gorm:"type:uuid;primary_key;default:gen_random_uuid()"`
+	UserID    *uuid.UUID `json:"user_id" gorm:"type:uuid;index"` // Optional for guest users
+	SessionID string    `json:"session_id" gorm:"index"`         // For guest users
+	Name      string    `json:"name"`                            // Optional comparison name
+	CreatedAt time.Time `json:"created_at" gorm:"autoCreateTime"`
+	UpdatedAt time.Time `json:"updated_at" gorm:"autoUpdateTime"`
+
+	// Relationships
+	Items []ProductComparisonItem `json:"items,omitempty" gorm:"foreignKey:ComparisonID"`
+}
+
+// TableName returns the table name for ProductComparison entity
+func (ProductComparison) TableName() string {
+	return "product_comparisons"
+}
+
+// ProductComparisonItem represents an item in a product comparison
+type ProductComparisonItem struct {
+	ID           uuid.UUID `json:"id" gorm:"type:uuid;primary_key;default:gen_random_uuid()"`
+	ComparisonID uuid.UUID `json:"comparison_id" gorm:"type:uuid;not null;index"`
+	ProductID    uuid.UUID `json:"product_id" gorm:"type:uuid;not null;index"`
+	Position     int       `json:"position" gorm:"default:0"` // Order in comparison
+	CreatedAt    time.Time `json:"created_at" gorm:"autoCreateTime"`
+
+	// Relationships
+	Comparison ProductComparison `json:"comparison,omitempty" gorm:"foreignKey:ComparisonID"`
+	Product    Product           `json:"product,omitempty" gorm:"foreignKey:ProductID"`
+}
+
+// TableName returns the table name for ProductComparisonItem entity
+func (ProductComparisonItem) TableName() string {
+	return "product_comparison_items"
+}
+
 // ProductAttribute represents a product attribute (e.g., Color, Size)
 type ProductAttribute struct {
 	ID          uuid.UUID `json:"id" gorm:"type:uuid;primary_key;default:gen_random_uuid()"`

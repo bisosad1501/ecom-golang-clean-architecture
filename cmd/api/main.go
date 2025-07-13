@@ -249,6 +249,10 @@ func main() {
 	searchRepo := database.NewSearchRepository(db)
 	searchUseCase := usecases.NewSearchUseCase(searchRepo, productRepo)
 
+	// Initialize recommendation repository and use case
+	recommendationRepo := database.NewRecommendationRepository(db)
+	recommendationUseCase := usecases.NewRecommendationUseCase(recommendationRepo, productRepo, userRepo)
+
 	// Initialize handlers
 	userHandler := handlers.NewUserHandler(userUseCase)
 	productHandler := handlers.NewProductHandler(productUseCase)
@@ -270,6 +274,7 @@ func main() {
 	oauthHandler := handlers.NewOAuthHandler(oauthUseCase)
 	migrationHandler := handlers.NewMigrationHandler(db)
 	searchHandler := handlers.NewSearchHandler(searchUseCase)
+	recommendationHandler := handlers.NewRecommendationHandler(recommendationUseCase)
 
 	// Initialize Gin router
 	router := gin.New()
@@ -298,6 +303,7 @@ func main() {
 		oauthHandler,
 		migrationHandler,
 		searchHandler,
+		recommendationHandler,
 	)
 
 	// Start background cleanup scheduler

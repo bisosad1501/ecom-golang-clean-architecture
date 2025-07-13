@@ -32,6 +32,7 @@ func SetupRoutes(
 	oauthHandler *handlers.OAuthHandler,
 	migrationHandler *handlers.MigrationHandler,
 	searchHandler *handlers.SearchHandler,
+	recommendationHandler *handlers.RecommendationHandler,
 ) {
 	// Apply global middleware
 	router.Use(middleware.SecurityHeadersMiddleware())
@@ -101,6 +102,12 @@ func SetupRoutes(
 			}
 			products.GET("/:id/related", productHandler.GetRelatedProducts)
 
+			// Product recommendation routes
+			if recommendationHandler != nil {
+				products.GET("/:id/recommendations", recommendationHandler.GetRelatedProducts)
+				products.GET("/:id/frequently-bought-together", recommendationHandler.GetFrequentlyBoughtTogether)
+			}
+
 			// Search autocomplete and suggestions
 			products.GET("/suggestions", productHandler.GetSearchSuggestions)
 			products.GET("/popular-searches", productHandler.GetPopularSearches)
@@ -140,6 +147,16 @@ func SetupRoutes(
 				search.GET("/popular", searchHandler.GetPopularSearchTerms)
 				search.GET("/autocomplete", searchHandler.GetAutocomplete)
 				search.POST("/record", searchHandler.RecordSearchEvent)
+			}
+		}
+
+		// Public recommendation routes
+		if recommendationHandler != nil {
+			recommendations := v1.Group("/recommendations")
+			{
+				recommendations.GET("", recommendationHandler.GetRecommendations)
+				recommendations.GET("/trending", recommendationHandler.GetTrendingProducts)
+				recommendations.POST("/track", recommendationHandler.TrackInteraction)
 			}
 		}
 
@@ -278,6 +295,14 @@ func SetupRoutes(
 					searchProtected.GET("/filters", searchHandler.GetUserSearchFilters)
 					searchProtected.PUT("/filters/:id", searchHandler.UpdateSearchFilter)
 					searchProtected.DELETE("/filters/:id", searchHandler.DeleteSearchFilter)
+				}
+			}
+
+			// Protected recommendation routes (authentication required)
+			if recommendationHandler != nil {
+				recommendationsProtected := protected.Group("/recommendations")
+				{
+					recommendationsProtected.GET("/personalized", recommendationHandler.GetPersonalizedRecommendations)
 				}
 			}
 
