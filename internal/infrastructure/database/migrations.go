@@ -1,7 +1,11 @@
 package database
 
 import (
+	"fmt"
+	"log"
+
 	"ecom-golang-clean-architecture/internal/domain/entities"
+	"github.com/google/uuid"
 	"gorm.io/gorm"
 )
 
@@ -622,5 +626,248 @@ func migration006Down(db *gorm.DB) error {
 		}
 	}
 
+	return nil
+}
+
+// migration007Up creates inventory records for existing products
+func migration007Up(db *gorm.DB) error {
+	// First, ensure we have a default warehouse
+	var warehouseCount int64
+	if err := db.Model(&entities.Warehouse{}).Count(&warehouseCount).Error; err != nil {
+		return fmt.Errorf("failed to count warehouses: %w", err)
+	}
+
+	var defaultWarehouseID string
+	if warehouseCount == 0 {
+		// Create default warehouse
+		defaultWarehouse := entities.Warehouse{
+			ID:          uuid.New(),
+			Name:        "Main Warehouse",
+			Code:        "MAIN",
+			Description: "Default warehouse created during migration",
+			Address:     "Default Address",
+			City:        "Default City",
+			State:       "Default State",
+			ZipCode:     "00000",
+			Country:     "USA",
+			IsActive:    true,
+			IsDefault:   true,
+		}
+
+		if err := db.Create(&defaultWarehouse).Error; err != nil {
+			return fmt.Errorf("failed to create default warehouse: %w", err)
+		}
+		defaultWarehouseID = defaultWarehouse.ID.String()
+	} else {
+		// Get existing default warehouse or first warehouse
+		var warehouse entities.Warehouse
+		err := db.Where("is_default = ?", true).First(&warehouse).Error
+		if err != nil {
+			// No default warehouse, get first one
+			if err := db.First(&warehouse).Error; err != nil {
+				return fmt.Errorf("failed to get warehouse: %w", err)
+			}
+		}
+		defaultWarehouseID = warehouse.ID.String()
+	}
+
+	// Create inventory records for products that don't have them
+	sql := `
+		INSERT INTO inventories (
+			id, product_id, warehouse_id, quantity_on_hand, quantity_available,
+			quantity_reserved, reorder_level, max_stock_level,
+			min_stock_level, average_cost, last_cost,
+			is_active, created_at, updated_at
+		)
+		SELECT
+			gen_random_uuid(),
+			p.id,
+			'` + defaultWarehouseID + `'::uuid,
+			COALESCE(p.stock, 0),
+			COALESCE(p.stock, 0),
+			0,
+			COALESCE(p.low_stock_threshold, 5),
+			COALESCE(p.low_stock_threshold, 5) * 10,
+			0,
+			0,
+			0,
+			true,
+			NOW(),
+			NOW()
+		FROM products p
+		LEFT JOIN inventories i ON p.id = i.product_id AND i.warehouse_id = '` + defaultWarehouseID + `'::uuid
+		WHERE i.id IS NULL;
+	`
+
+	if err := db.Exec(sql).Error; err != nil {
+		return fmt.Errorf("failed to create inventory records: %w", err)
+	}
+
+	log.Println("✅ Created inventory records for existing products")
+	return nil
+}
+
+// migration007Down removes inventory records created by migration007Up
+func migration007Down(db *gorm.DB) error {
+	// This is a destructive operation - be careful
+	// In production, you might want to backup data first
+
+	// Delete all inventory records (this will cascade to movements and alerts)
+	if err := db.Exec("DELETE FROM inventories").Error; err != nil {
+		return fmt.Errorf("failed to delete inventory records: %w", err)
+	}
+
+	// Optionally delete the default warehouse if it was created by this migration
+	if err := db.Where("code = ? AND description LIKE ?", "MAIN", "%created during migration%").Delete(&entities.Warehouse{}).Error; err != nil {
+		return fmt.Errorf("failed to delete default warehouse: %w", err)
+	}
+
+	log.Println("✅ Removed inventory records and default warehouse")
+	return nil
+}
+
+// migration008Up updates user verification structure and adds user sessions
+func migration008Up(db *gorm.DB) error {
+	log.Println("🔧 Updating user verification structure and adding user sessions...")
+
+	sqls := []string{
+		// Create user_sessions table
+		`CREATE TABLE IF NOT EXISTS user_sessions (
+			id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+			user_id UUID NOT NULL,
+			session_token VARCHAR(255) NOT NULL UNIQUE,
+			device_info TEXT,
+			ip_address INET,
+			user_agent TEXT,
+			location TEXT,
+			is_active BOOLEAN DEFAULT true,
+			last_activity TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
+			expires_at TIMESTAMP WITH TIME ZONE NOT NULL,
+			created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+			updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+		)`,
+
+		// Add indexes for user_sessions
+		"CREATE INDEX IF NOT EXISTS idx_user_sessions_user_id ON user_sessions(user_id)",
+		"CREATE INDEX IF NOT EXISTS idx_user_sessions_session_token ON user_sessions(session_token)",
+		"CREATE INDEX IF NOT EXISTS idx_user_sessions_ip_address ON user_sessions(ip_address)",
+		"CREATE INDEX IF NOT EXISTS idx_user_sessions_last_activity ON user_sessions(last_activity)",
+		"CREATE INDEX IF NOT EXISTS idx_user_sessions_expires_at ON user_sessions(expires_at)",
+
+		// Add foreign key constraint for user_sessions
+		"ALTER TABLE user_sessions ADD CONSTRAINT fk_user_sessions_user_id FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE",
+
+		// Update account_verifications table structure
+		"ALTER TABLE account_verifications ADD COLUMN IF NOT EXISTS verification_type VARCHAR(50) DEFAULT 'email'",
+		"ALTER TABLE account_verifications ADD COLUMN IF NOT EXISTS is_used BOOLEAN DEFAULT false",
+		"ALTER TABLE account_verifications ADD COLUMN IF NOT EXISTS verified_at TIMESTAMP WITH TIME ZONE",
+
+		// Update existing data in account_verifications
+		"UPDATE account_verifications SET verification_type = 'email' WHERE verification_type IS NULL",
+		"UPDATE account_verifications SET is_used = false WHERE is_used IS NULL",
+
+		// Add indexes for updated account_verifications
+		"CREATE INDEX IF NOT EXISTS idx_account_verifications_verification_type ON account_verifications(verification_type)",
+		"CREATE INDEX IF NOT EXISTS idx_account_verifications_verification_code ON account_verifications(verification_code)",
+		"CREATE INDEX IF NOT EXISTS idx_account_verifications_code_expires_at ON account_verifications(code_expires_at)",
+		"CREATE INDEX IF NOT EXISTS idx_account_verifications_is_used ON account_verifications(is_used)",
+
+		// Create user_login_history table if not exists
+		`CREATE TABLE IF NOT EXISTS user_login_history (
+			id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+			user_id UUID,
+			ip_address INET,
+			user_agent TEXT,
+			device_info TEXT,
+			location TEXT,
+			login_type VARCHAR(50) DEFAULT 'password',
+			success BOOLEAN NOT NULL,
+			fail_reason TEXT,
+			created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+		)`,
+
+		// Add indexes for user_login_history
+		"CREATE INDEX IF NOT EXISTS idx_user_login_history_user_id ON user_login_history(user_id)",
+		"CREATE INDEX IF NOT EXISTS idx_user_login_history_success ON user_login_history(success)",
+		"CREATE INDEX IF NOT EXISTS idx_user_login_history_created_at ON user_login_history(created_at)",
+
+		// Add foreign key constraint for user_login_history
+		"ALTER TABLE user_login_history ADD CONSTRAINT fk_user_login_history_user_id FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL",
+
+		// Create user_activity_logs table if not exists
+		`CREATE TABLE IF NOT EXISTS user_activity_logs (
+			id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+			user_id UUID,
+			activity_type VARCHAR(100) NOT NULL,
+			description TEXT,
+			entity_type VARCHAR(100),
+			entity_id UUID,
+			old_values JSONB,
+			new_values JSONB,
+			session_id VARCHAR(255),
+			source VARCHAR(50),
+			page VARCHAR(255),
+			referrer TEXT,
+			metadata JSONB,
+			ip_address INET,
+			user_agent TEXT,
+			created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+		)`,
+
+		// Add indexes for user_activity_logs
+		"CREATE INDEX IF NOT EXISTS idx_user_activity_logs_user_id ON user_activity_logs(user_id)",
+		"CREATE INDEX IF NOT EXISTS idx_user_activity_logs_activity_type ON user_activity_logs(activity_type)",
+		"CREATE INDEX IF NOT EXISTS idx_user_activity_logs_entity_type ON user_activity_logs(entity_type)",
+		"CREATE INDEX IF NOT EXISTS idx_user_activity_logs_created_at ON user_activity_logs(created_at)",
+
+		// Add foreign key constraint for user_activity_logs
+		"ALTER TABLE user_activity_logs ADD CONSTRAINT fk_user_activity_logs_user_id FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL",
+	}
+
+	for _, sql := range sqls {
+		if err := db.Exec(sql).Error; err != nil {
+			return fmt.Errorf("failed to execute SQL: %s, error: %w", sql, err)
+		}
+	}
+
+	log.Println("✅ Updated user verification structure and added user sessions")
+	return nil
+}
+
+// migration008Down reverts user verification structure and removes user sessions
+func migration008Down(db *gorm.DB) error {
+	log.Println("🔧 Reverting user verification structure and removing user sessions...")
+
+	sqls := []string{
+		// Drop foreign key constraints first
+		"ALTER TABLE user_sessions DROP CONSTRAINT IF EXISTS fk_user_sessions_user_id",
+		"ALTER TABLE user_login_history DROP CONSTRAINT IF EXISTS fk_user_login_history_user_id",
+		"ALTER TABLE user_activity_logs DROP CONSTRAINT IF EXISTS fk_user_activity_logs_user_id",
+
+		// Drop tables
+		"DROP TABLE IF EXISTS user_sessions",
+		"DROP TABLE IF EXISTS user_login_history",
+		"DROP TABLE IF EXISTS user_activity_logs",
+
+		// Remove added columns from account_verifications
+		"ALTER TABLE account_verifications DROP COLUMN IF EXISTS verification_type",
+		"ALTER TABLE account_verifications DROP COLUMN IF EXISTS is_used",
+		"ALTER TABLE account_verifications DROP COLUMN IF EXISTS verified_at",
+
+		// Drop indexes
+		"DROP INDEX IF EXISTS idx_account_verifications_verification_type",
+		"DROP INDEX IF EXISTS idx_account_verifications_verification_code",
+		"DROP INDEX IF EXISTS idx_account_verifications_code_expires_at",
+		"DROP INDEX IF EXISTS idx_account_verifications_is_used",
+	}
+
+	for _, sql := range sqls {
+		if err := db.Exec(sql).Error; err != nil {
+			// Log error but continue with other operations
+			log.Printf("Warning: Failed to execute SQL: %s, error: %v", sql, err)
+		}
+	}
+
+	log.Println("✅ Reverted user verification structure and removed user sessions")
 	return nil
 }

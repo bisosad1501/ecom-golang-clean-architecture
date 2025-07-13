@@ -47,8 +47,6 @@ type User struct {
 
 	// Enhanced user fields
 	Username    *string    `json:"username,omitempty" gorm:"index"` // Optional, non-unique display name
-	DateOfBirth *time.Time `json:"date_of_birth"`
-	Gender      string     `json:"gender"`
 	Language    string     `json:"language" gorm:"default:'en'"`
 	Timezone    string     `json:"timezone" gorm:"default:'UTC'"`
 	Currency    string     `json:"currency" gorm:"default:'USD'"`
@@ -554,32 +552,16 @@ type UserVerification struct {
 	ID                uuid.UUID  `json:"id" gorm:"type:uuid;primary_key;default:gen_random_uuid()"`
 	UserID            uuid.UUID  `json:"user_id" gorm:"type:uuid;not null;index"`
 	User              User       `json:"user,omitempty" gorm:"foreignKey:UserID"`
-	EmailVerified     bool       `json:"email_verified" gorm:"default:false"`
-	EmailVerifiedAt   *time.Time `json:"email_verified_at"`
-	PhoneVerified     bool       `json:"phone_verified" gorm:"default:false"`
-	PhoneVerifiedAt   *time.Time `json:"phone_verified_at"`
+	VerificationType  string     `json:"verification_type" gorm:"not null;index"` // email, phone
 	VerificationCode  string     `json:"verification_code" gorm:"index"`
 	CodeExpiresAt     *time.Time `json:"code_expires_at"`
-	CreatedAt         *time.Time `json:"created_at"`
-	UpdatedAt         *time.Time `json:"updated_at"`
+	IsUsed            bool       `json:"is_used" gorm:"default:false"`
+	VerifiedAt        *time.Time `json:"verified_at"`
+	CreatedAt         time.Time  `json:"created_at" gorm:"autoCreateTime"`
+	UpdatedAt         time.Time  `json:"updated_at" gorm:"autoUpdateTime"`
 }
 
-// Legacy UserVerification for backward compatibility
-type LegacyUserVerification struct {
-	ID           uuid.UUID  `json:"id" gorm:"type:uuid;primary_key;default:gen_random_uuid()"`
-	UserID       uuid.UUID  `json:"user_id" gorm:"type:uuid;not null;index"`
-	User         User       `json:"user,omitempty" gorm:"foreignKey:UserID"`
-	Type         string     `json:"type" gorm:"not null;index"` // email, phone, identity
-	Token        string     `json:"token" gorm:"not null;index"`
-	Code         string     `json:"code" gorm:"index"` // For OTP verification
-	IsVerified   bool       `json:"is_verified" gorm:"default:false"`
-	VerifiedAt   *time.Time `json:"verified_at"`
-	ExpiresAt    time.Time  `json:"expires_at" gorm:"index"`
-	AttemptCount int        `json:"attempt_count" gorm:"default:0"`
-	MaxAttempts  int        `json:"max_attempts" gorm:"default:3"`
-	CreatedAt    time.Time  `json:"created_at" gorm:"autoCreateTime"`
-	UpdatedAt    time.Time  `json:"updated_at" gorm:"autoUpdateTime"`
-}
+
 
 // TableName returns the table name for UserVerification entity
 func (UserVerification) TableName() string {
@@ -601,16 +583,15 @@ func (uv *UserVerification) CanAttempt() bool {
 
 // IncrementAttempt increments the attempt count (no-op for new structure)
 func (uv *UserVerification) IncrementAttempt() {
-	now := time.Now()
-	uv.UpdatedAt = &now
+	uv.UpdatedAt = time.Now()
 }
 
 // MarkAsVerified marks the verification as completed
 func (uv *UserVerification) MarkAsVerified() {
 	now := time.Now()
-	uv.EmailVerified = true
-	uv.EmailVerifiedAt = &now
-	uv.UpdatedAt = &now
+	uv.IsUsed = true
+	uv.VerifiedAt = &now
+	uv.UpdatedAt = time.Now()
 }
 
 // UserOrderStats represents user order statistics (for optimization)

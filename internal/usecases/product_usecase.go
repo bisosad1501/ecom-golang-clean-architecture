@@ -168,11 +168,13 @@ type ProductUseCase interface {
 }
 
 type productUseCase struct {
-	productRepo  repositories.ProductRepository
-	categoryRepo repositories.CategoryRepository
-	tagRepo      repositories.TagRepository
-	imageRepo    repositories.ImageRepository
-	cartRepo     repositories.CartRepository
+	productRepo   repositories.ProductRepository
+	categoryRepo  repositories.CategoryRepository
+	tagRepo       repositories.TagRepository
+	imageRepo     repositories.ImageRepository
+	cartRepo      repositories.CartRepository
+	inventoryRepo repositories.InventoryRepository
+	warehouseRepo repositories.WarehouseRepository
 }
 
 // NewProductUseCase creates a new product use case
@@ -182,13 +184,17 @@ func NewProductUseCase(
 	tagRepo repositories.TagRepository,
 	imageRepo repositories.ImageRepository,
 	cartRepo repositories.CartRepository,
+	inventoryRepo repositories.InventoryRepository,
+	warehouseRepo repositories.WarehouseRepository,
 ) ProductUseCase {
 	return &productUseCase{
-		productRepo:  productRepo,
-		categoryRepo: categoryRepo,
-		tagRepo:      tagRepo,
-		imageRepo:    imageRepo,
-		cartRepo:     cartRepo,
+		productRepo:   productRepo,
+		categoryRepo:  categoryRepo,
+		tagRepo:       tagRepo,
+		imageRepo:     imageRepo,
+		cartRepo:      cartRepo,
+		inventoryRepo: inventoryRepo,
+		warehouseRepo: warehouseRepo,
 	}
 }
 
@@ -424,6 +430,13 @@ func (uc *productUseCase) CreateProduct(ctx context.Context, req CreateProductRe
 	// Create product first
 	if err := uc.productRepo.Create(ctx, product); err != nil {
 		return nil, err
+	}
+
+	// Create initial inventory record for default warehouse
+	if err := uc.createInitialInventory(ctx, product); err != nil {
+		// Log error but don't fail product creation
+		// In production, you might want to handle this differently
+		fmt.Printf("Warning: Failed to create initial inventory for product %s: %v\n", product.SKU, err)
 	}
 
 	// Handle tags if provided
@@ -1475,4 +1488,65 @@ func (uc *productUseCase) GetSearchHistory(ctx context.Context, userID uuid.UUID
 	return &SearchHistoryResponse{
 		History: history,
 	}, nil
+}
+
+// createInitialInventory creates initial inventory record for a new product
+func (uc *productUseCase) createInitialInventory(ctx context.Context, product *entities.Product) error {
+	// Get default warehouse
+	warehouses, err := uc.warehouseRepo.GetAll(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to get warehouses: %w", err)
+	}
+
+	var defaultWarehouse *entities.Warehouse
+	for _, warehouse := range warehouses {
+		if warehouse.IsDefault {
+			defaultWarehouse = warehouse
+			break
+		}
+	}
+
+	// If no default warehouse, use the first one or create a default
+	if defaultWarehouse == nil && len(warehouses) > 0 {
+		defaultWarehouse = warehouses[0]
+	}
+
+	// If no warehouses exist, create a default one
+	if defaultWarehouse == nil {
+		defaultWarehouse = &entities.Warehouse{
+			ID:          uuid.New(),
+			Name:        "Main Warehouse",
+			Code:        "MAIN",
+			Description: "Default warehouse",
+			Address:     "Default Address",
+			City:        "Default City",
+			State:       "Default State",
+			ZipCode:     "00000",
+			Country:     "USA",
+			IsActive:    true,
+			IsDefault:   true,
+		}
+
+		if err := uc.warehouseRepo.Create(ctx, defaultWarehouse); err != nil {
+			return fmt.Errorf("failed to create default warehouse: %w", err)
+		}
+	}
+
+	// Create initial inventory record
+	inventory := &entities.Inventory{
+		ID:                uuid.New(),
+		ProductID:         product.ID,
+		WarehouseID:       defaultWarehouse.ID,
+		QuantityOnHand:    product.Stock,
+		QuantityAvailable: product.Stock,
+		QuantityReserved:  0,
+		ReorderLevel:      product.LowStockThreshold,
+		MaxStockLevel:     product.LowStockThreshold * 10, // Default to 10x reorder level
+		MinStockLevel:     0,
+		AverageCost:       0,
+		LastCost:          0,
+		IsActive:          true,
+	}
+
+	return uc.inventoryRepo.Create(ctx, inventory)
 }

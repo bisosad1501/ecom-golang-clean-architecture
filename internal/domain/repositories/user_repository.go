@@ -191,6 +191,7 @@ type UserVerificationRepository interface {
 	Create(ctx context.Context, verification *entities.UserVerification) error
 	GetByID(ctx context.Context, id uuid.UUID) (*entities.UserVerification, error)
 	GetByToken(ctx context.Context, token string) (*entities.UserVerification, error)
+	GetByUserID(ctx context.Context, userID uuid.UUID) (*entities.UserVerification, error)
 	GetByUserIDAndType(ctx context.Context, userID uuid.UUID, verificationType string) (*entities.UserVerification, error)
 	Update(ctx context.Context, verification *entities.UserVerification) error
 	Delete(ctx context.Context, id uuid.UUID) error

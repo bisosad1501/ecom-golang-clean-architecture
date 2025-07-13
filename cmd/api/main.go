@@ -82,6 +82,7 @@ func main() {
 	userActivityRepo := database.NewUserActivityRepository(db)
 	userPreferencesRepo := database.NewUserPreferencesRepository(db)
 	userVerificationRepo := database.NewUserVerificationRepository(db)
+	passwordResetRepo := database.NewPasswordResetRepository(db)
 	productRepo := database.NewProductRepository(db)
 	categoryRepo := database.NewCategoryRepository(db)
 	brandRepo := database.NewBrandRepository(db)
@@ -144,6 +145,7 @@ func main() {
 		userActivityRepo,
 		userPreferencesRepo,
 		userVerificationRepo,
+		passwordResetRepo,
 		passwordService,
 		cfg.JWT.Secret,
 	)
@@ -154,6 +156,8 @@ func main() {
 		tagRepo,
 		imageRepo,
 		cartRepo,
+		inventoryRepo,
+		warehouseRepo,
 	)
 
 	categoryUseCase := usecases.NewCategoryUseCase(

@@ -231,6 +231,18 @@ func getMigrations() []Migration {
 			Up:      migration005Up,
 			Down:    migration005Down,
 		},
+		{
+			Version: "007_sync_inventory_data",
+			Name:    "Create inventory records for existing products",
+			Up:      migration007Up,
+			Down:    migration007Down,
+		},
+		{
+			Version: "008_update_user_verification_and_sessions",
+			Name:    "Update user verification structure and add user sessions",
+			Up:      migration008Up,
+			Down:    migration008Down,
+		},
 		// Temporarily disabled due to product_tags issue
 		// {
 		// 	Version: "006_enhance_search",

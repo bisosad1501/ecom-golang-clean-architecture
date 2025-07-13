@@ -469,7 +469,20 @@ func (r *userVerificationRepository) GetByToken(ctx context.Context, token strin
 // GetByUserIDAndType retrieves a user verification by user ID and type
 func (r *userVerificationRepository) GetByUserIDAndType(ctx context.Context, userID uuid.UUID, verificationType string) (*entities.UserVerification, error) {
 	var verification entities.UserVerification
-	err := r.db.WithContext(ctx).Where("user_id = ? AND type = ? AND is_verified = ? AND expires_at > ?", userID, verificationType, false, time.Now()).First(&verification).Error
+	err := r.db.WithContext(ctx).Where("user_id = ? AND verification_type = ?", userID, verificationType).First(&verification).Error
+	if err != nil {
+		if err == gorm.ErrRecordNotFound {
+			return nil, entities.ErrUserNotFound
+		}
+		return nil, err
+	}
+	return &verification, nil
+}
+
+// GetByUserID retrieves a user verification by user ID (any type)
+func (r *userVerificationRepository) GetByUserID(ctx context.Context, userID uuid.UUID) (*entities.UserVerification, error) {
+	var verification entities.UserVerification
+	err := r.db.WithContext(ctx).Where("user_id = ?", userID).First(&verification).Error
 	if err != nil {
 		if err == gorm.ErrRecordNotFound {
 			return nil, entities.ErrUserNotFound
@@ -502,10 +515,10 @@ func (r *userVerificationRepository) GetActiveVerifications(ctx context.Context,
 // GetByCode retrieves a verification by code and type
 func (r *userVerificationRepository) GetByCode(ctx context.Context, code string, verificationType string) (*entities.UserVerification, error) {
 	var verification entities.UserVerification
-	err := r.db.WithContext(ctx).Where("code = ? AND type = ? AND is_verified = ? AND expires_at > ?", code, verificationType, false, time.Now()).First(&verification).Error
+	err := r.db.WithContext(ctx).Where("verification_code = ? AND verification_type = ? AND is_used = ? AND (code_expires_at IS NULL OR code_expires_at > ?)", code, verificationType, false, time.Now()).First(&verification).Error
 	if err != nil {
 		if err == gorm.ErrRecordNotFound {
-			return nil, entities.ErrUserNotFound
+			return nil, entities.ErrAccountVerificationNotFound
 		}
 		return nil, err
 	}

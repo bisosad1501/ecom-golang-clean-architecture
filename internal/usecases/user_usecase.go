@@ -89,6 +89,7 @@ type userUseCase struct {
 	userActivityRepo     repositories.UserActivityRepository
 	userPreferencesRepo  repositories.UserPreferencesRepository
 	userVerificationRepo repositories.UserVerificationRepository
+	passwordResetRepo    repositories.PasswordResetRepository
 	passwordService      services.PasswordService
 	jwtSecret            string
 }
@@ -102,6 +103,7 @@ func NewUserUseCase(
 	userActivityRepo repositories.UserActivityRepository,
 	userPreferencesRepo repositories.UserPreferencesRepository,
 	userVerificationRepo repositories.UserVerificationRepository,
+	passwordResetRepo repositories.PasswordResetRepository,
 	passwordService services.PasswordService,
 	jwtSecret string,
 ) UserUseCase {
@@ -113,6 +115,7 @@ func NewUserUseCase(
 		userActivityRepo:     userActivityRepo,
 		userPreferencesRepo:  userPreferencesRepo,
 		userVerificationRepo: userVerificationRepo,
+		passwordResetRepo:    passwordResetRepo,
 		passwordService:      passwordService,
 		jwtSecret:            jwtSecret,
 	}
@@ -396,16 +399,22 @@ func (uc *userUseCase) Login(ctx context.Context, req LoginRequest) (*LoginRespo
 	// Get user by email
 	user, err := uc.userRepo.GetByEmail(ctx, req.Email)
 	if err != nil {
+		// Log failed login attempt
+		_ = uc.logLoginAttempt(ctx, req.Email, false, "user not found", "")
 		return nil, entities.ErrInvalidCredentials
 	}
 
 	// Check if user is active
 	if !user.IsActive {
+		// Log failed login attempt
+		_ = uc.logLoginAttempt(ctx, req.Email, false, "user not active", "")
 		return nil, entities.ErrUserNotActive
 	}
 
 	// Check password
 	if err := uc.passwordService.CheckPassword(req.Password, user.Password); err != nil {
+		// Log failed login attempt
+		_ = uc.logLoginAttempt(ctx, req.Email, false, "invalid password", "")
 		return nil, entities.ErrInvalidCredentials
 	}
 
@@ -420,6 +429,38 @@ func (uc *userUseCase) Login(ctx context.Context, req LoginRequest) (*LoginRespo
 	if err != nil {
 		return nil, err
 	}
+
+	// Create user session
+	session := &entities.UserSession{
+		ID:           uuid.New(),
+		UserID:       user.ID,
+		SessionToken: token,
+		DeviceInfo:   "", // TODO: Extract from request
+		IPAddress:    "", // TODO: Extract from request
+		UserAgent:    "", // TODO: Extract from request
+		Location:     "", // TODO: Extract from request
+		IsActive:     true,
+		LastActivity: time.Now(),
+		ExpiresAt:    time.Now().Add(time.Hour * 24),
+		CreatedAt:    time.Now(),
+		UpdatedAt:    time.Now(),
+	}
+
+	// Save session
+	if err := uc.userSessionRepo.Create(ctx, session); err != nil {
+		// Log error but don't fail login
+		fmt.Printf("Failed to create user session: %v\n", err)
+	}
+
+	// Update user last login
+	now := time.Now()
+	user.LastLoginAt = &now
+	user.LastActivityAt = &now
+	user.UpdatedAt = now
+	_ = uc.userRepo.Update(ctx, user)
+
+	// Log successful login attempt
+	_ = uc.logLoginAttempt(ctx, req.Email, true, "", "")
 
 	return &LoginResponse{
 		User:         uc.toUserResponse(user),
@@ -941,8 +982,45 @@ func (uc *userUseCase) SendEmailVerification(ctx context.Context, userID uuid.UU
 	// Generate verification token
 	token := uuid.New().String()
 
-	// TODO: Store verification token in proper table
-	// For now, just log the verification token
+	// Check if verification record already exists for this user (any type)
+	existingVerification, err := uc.userVerificationRepo.GetByUserID(ctx, userID)
+	if err != nil && err != entities.ErrUserNotFound {
+		return fmt.Errorf("failed to check existing verification: %w", err)
+	}
+
+	expiresAt := time.Now().Add(24 * time.Hour)
+
+	if existingVerification != nil {
+		// Update existing verification record for email verification
+		existingVerification.VerificationCode = token
+		existingVerification.CodeExpiresAt = &expiresAt
+		existingVerification.VerificationType = "email"
+		existingVerification.IsUsed = false
+		existingVerification.VerifiedAt = nil
+		existingVerification.UpdatedAt = time.Now()
+
+		if err := uc.userVerificationRepo.Update(ctx, existingVerification); err != nil {
+			return fmt.Errorf("failed to update verification record: %w", err)
+		}
+	} else {
+		// Create new verification record
+		verification := &entities.UserVerification{
+			ID:               uuid.New(),
+			UserID:           userID,
+			VerificationType: "email",
+			VerificationCode: token,
+			CodeExpiresAt:    &expiresAt, // 24 hours expiry
+			IsUsed:           false,
+			CreatedAt:        time.Now(),
+			UpdatedAt:        time.Now(),
+		}
+
+		if err := uc.userVerificationRepo.Create(ctx, verification); err != nil {
+			return fmt.Errorf("failed to create verification record: %w", err)
+		}
+	}
+
+	// Log verification token for testing
 	fmt.Printf("Email verification token for %s: %s\n", user.Email, token)
 	fmt.Printf("Verification link: http://localhost:3000/verify-email?token=%s\n", token)
 
@@ -954,29 +1032,60 @@ func (uc *userUseCase) SendEmailVerification(ctx context.Context, userID uuid.UU
 
 // VerifyEmail verifies email with token
 func (uc *userUseCase) VerifyEmail(ctx context.Context, token string) error {
-	// For now, we'll implement a simple validation
-	// In production, you would validate the token against a proper storage
 	if token == "" {
-		return fmt.Errorf("invalid verification token")
+		return entities.ErrInvalidVerificationCode
 	}
 
-	// For demo purposes, we'll accept any non-empty token
-	// In production, you would:
-	// 1. Validate token exists in verification table
-	// 2. Check if token is not expired
-	// 3. Get user ID from token
-	// 4. Mark user email as verified
+	// Find verification record by token
+	verification, err := uc.userVerificationRepo.GetByCode(ctx, token, "email")
+	if err != nil {
+		return entities.ErrAccountVerificationNotFound
+	}
 
-	// For now, we'll just return success
-	// TODO: Implement proper token validation and email verification
-	fmt.Printf("Email verification requested with token: %s\n", token)
+	// Check if verification is expired
+	if verification.IsExpired() {
+		return entities.ErrVerificationCodeExpired
+	}
+
+	// Check if verification is already used
+	if verification.IsUsed {
+		return fmt.Errorf("verification code already used")
+	}
+
+	// Mark verification as used
+	verification.IsUsed = true
+	verifiedAt := time.Now()
+	verification.VerifiedAt = &verifiedAt
+	verification.UpdatedAt = time.Now()
+
+	if err := uc.userVerificationRepo.Update(ctx, verification); err != nil {
+		return fmt.Errorf("failed to update verification record: %w", err)
+	}
+
+	// Mark user email as verified
+	user, err := uc.userRepo.GetByID(ctx, verification.UserID)
+	if err != nil {
+		return entities.ErrUserNotFound
+	}
+
+	user.EmailVerified = true
+	user.UpdatedAt = time.Now()
+
+	if err := uc.userRepo.Update(ctx, user); err != nil {
+		return fmt.Errorf("failed to update user: %w", err)
+	}
+
+	// Track activity
+	_ = uc.TrackUserActivity(ctx, user.ID, "profile_update", "Email verified", "user", &user.ID, nil)
+
+	fmt.Printf("Email verification successful for user: %s\n", user.Email)
 
 	return nil
 }
 
 // SendPhoneVerification sends phone verification
 func (uc *userUseCase) SendPhoneVerification(ctx context.Context, userID uuid.UUID, phone string) error {
-	_, err := uc.userRepo.GetByID(ctx, userID)
+	user, err := uc.userRepo.GetByID(ctx, userID)
 	if err != nil {
 		return entities.ErrUserNotFound
 	}
@@ -984,8 +1093,54 @@ func (uc *userUseCase) SendPhoneVerification(ctx context.Context, userID uuid.UU
 	// Generate 6-digit OTP code
 	code := fmt.Sprintf("%06d", time.Now().UnixNano()%1000000)
 
-	// TODO: Store verification code in proper table
-	// For now, just log the verification code
+	// Check if verification record already exists for this user (any type)
+	existingVerification, err := uc.userVerificationRepo.GetByUserID(ctx, userID)
+	if err != nil && err != entities.ErrUserNotFound {
+		return fmt.Errorf("failed to check existing verification: %w", err)
+	}
+
+	expiresAt := time.Now().Add(10 * time.Minute)
+
+	if existingVerification != nil {
+		// Update existing verification record for phone verification
+		existingVerification.VerificationCode = code
+		existingVerification.CodeExpiresAt = &expiresAt
+		existingVerification.VerificationType = "phone"
+		existingVerification.IsUsed = false
+		existingVerification.VerifiedAt = nil
+		existingVerification.UpdatedAt = time.Now()
+
+		if err := uc.userVerificationRepo.Update(ctx, existingVerification); err != nil {
+			return fmt.Errorf("failed to update verification record: %w", err)
+		}
+	} else {
+		// Create new verification record
+		verification := &entities.UserVerification{
+			ID:               uuid.New(),
+			UserID:           userID,
+			VerificationType: "phone",
+			VerificationCode: code,
+			CodeExpiresAt:    &expiresAt, // 10 minutes expiry
+			IsUsed:           false,
+			CreatedAt:        time.Now(),
+			UpdatedAt:        time.Now(),
+		}
+
+		if err := uc.userVerificationRepo.Create(ctx, verification); err != nil {
+			return fmt.Errorf("failed to create verification record: %w", err)
+		}
+	}
+
+	// Update user phone if provided
+	if phone != "" && phone != user.Phone {
+		user.Phone = phone
+		user.UpdatedAt = time.Now()
+		if err := uc.userRepo.Update(ctx, user); err != nil {
+			return fmt.Errorf("failed to update user phone: %w", err)
+		}
+	}
+
+	// Log verification code for testing
 	fmt.Printf("Phone verification code for user %s (phone: %s): %s\n", userID, phone, code)
 
 	// Track activity
@@ -996,22 +1151,58 @@ func (uc *userUseCase) SendPhoneVerification(ctx context.Context, userID uuid.UU
 
 // VerifyPhone verifies phone with code
 func (uc *userUseCase) VerifyPhone(ctx context.Context, userID uuid.UUID, code string) error {
-	// For now, we'll implement a simple validation
-	// In production, you would validate the code against a proper storage
 	if code == "" {
-		return fmt.Errorf("invalid verification code")
+		return entities.ErrInvalidVerificationCode
 	}
 
-	// For demo purposes, we'll accept any non-empty code
-	// In production, you would:
-	// 1. Validate code exists in verification table
-	// 2. Check if code is not expired
-	// 3. Check if code belongs to this user
-	// 4. Mark user phone as verified
+	// Find verification record by code and user
+	verification, err := uc.userVerificationRepo.GetByCode(ctx, code, "phone")
+	if err != nil {
+		return entities.ErrAccountVerificationNotFound
+	}
 
-	// For now, we'll just return success
-	// TODO: Implement proper code validation and phone verification
-	fmt.Printf("Phone verification requested for user %s with code: %s\n", userID, code)
+	// Check if verification belongs to this user
+	if verification.UserID != userID {
+		return entities.ErrInvalidVerificationCode
+	}
+
+	// Check if verification is expired
+	if verification.IsExpired() {
+		return entities.ErrVerificationCodeExpired
+	}
+
+	// Check if verification is already used
+	if verification.IsUsed {
+		return fmt.Errorf("verification code already used")
+	}
+
+	// Mark verification as used
+	verification.IsUsed = true
+	verifiedAt := time.Now()
+	verification.VerifiedAt = &verifiedAt
+	verification.UpdatedAt = time.Now()
+
+	if err := uc.userVerificationRepo.Update(ctx, verification); err != nil {
+		return fmt.Errorf("failed to update verification record: %w", err)
+	}
+
+	// Mark user phone as verified
+	user, err := uc.userRepo.GetByID(ctx, userID)
+	if err != nil {
+		return entities.ErrUserNotFound
+	}
+
+	user.PhoneVerified = true
+	user.UpdatedAt = time.Now()
+
+	if err := uc.userRepo.Update(ctx, user); err != nil {
+		return fmt.Errorf("failed to update user: %w", err)
+	}
+
+	// Track activity
+	_ = uc.TrackUserActivity(ctx, userID, "profile_update", "Phone verified", "user", &userID, nil)
+
+	fmt.Printf("Phone verification successful for user: %s\n", userID)
 
 	return nil
 }
@@ -1107,11 +1298,22 @@ func (uc *userUseCase) ForgotPassword(ctx context.Context, req ForgotPasswordReq
 	// Generate password reset token
 	resetToken := uuid.New().String()
 
-	// For now, we'll use a simple approach - store the reset token in user table
-	// In production, you would create a proper password_reset_tokens table
-	// TODO: Send password reset email
-	// In production, you would send an email with the reset link
-	// For now, we'll just log it
+	// Create password reset record
+	expiresAt := time.Now().Add(1 * time.Hour) // 1 hour expiry
+	passwordReset := &entities.PasswordReset{
+		ID:        uuid.New(),
+		UserID:    user.ID,
+		Token:     resetToken,
+		ExpiresAt: expiresAt,
+		UsedAt:    nil,
+		CreatedAt: time.Now(),
+	}
+
+	if err := uc.passwordResetRepo.Create(ctx, passwordReset); err != nil {
+		return fmt.Errorf("failed to create password reset record: %w", err)
+	}
+
+	// Log reset token for testing
 	fmt.Printf("Password reset token for %s: %s\n", user.Email, resetToken)
 	fmt.Printf("Reset link: http://localhost:3000/reset-password?token=%s\n", resetToken)
 
@@ -1120,20 +1322,49 @@ func (uc *userUseCase) ForgotPassword(ctx context.Context, req ForgotPasswordReq
 
 // ResetPassword resets user password using reset token
 func (uc *userUseCase) ResetPassword(ctx context.Context, req ResetPasswordRequest) error {
-	// For now, we'll implement a simple validation
-	// In production, you would validate the token against a proper storage
 	if req.Token == "" {
 		return fmt.Errorf("invalid reset token")
 	}
 
-	// For demo purposes, we'll accept any non-empty token
-	// In production, you would:
-	// 1. Validate token exists in password_reset_tokens table
-	// 2. Check if token is not expired
-	// 3. Get user ID from token
+	// Get password reset record by token
+	passwordReset, err := uc.passwordResetRepo.GetByToken(ctx, req.Token)
+	if err != nil {
+		return fmt.Errorf("invalid reset token")
+	}
 
-	// For now, we'll just return success
-	// TODO: Implement proper token validation and password reset
+	// Check if token is expired
+	if time.Now().After(passwordReset.ExpiresAt) {
+		return fmt.Errorf("reset token has expired")
+	}
+
+	// Check if token is already used
+	if passwordReset.UsedAt != nil {
+		return fmt.Errorf("reset token already used")
+	}
+
+	// Get user
+	user, err := uc.userRepo.GetByID(ctx, passwordReset.UserID)
+	if err != nil {
+		return entities.ErrUserNotFound
+	}
+
+	// Hash new password
+	hashedPassword, err := uc.passwordService.HashPassword(req.NewPassword)
+	if err != nil {
+		return fmt.Errorf("failed to hash password: %w", err)
+	}
+
+	// Update user password
+	if err := uc.userRepo.UpdatePassword(ctx, user.ID, hashedPassword); err != nil {
+		return fmt.Errorf("failed to update password: %w", err)
+	}
+
+	// Mark token as used
+	if err := uc.passwordResetRepo.MarkAsUsed(ctx, req.Token); err != nil {
+		return fmt.Errorf("failed to mark token as used: %w", err)
+	}
+
+	// Log for testing
 	fmt.Printf("Password reset requested with token: %s\n", req.Token)
 	fmt.Printf("New password would be set to: %s\n", req.NewPassword)
 
@@ -1910,4 +2141,28 @@ type DailyActivityData struct {
 type ActionData struct {
 	Action string `json:"action"`
 	Count  int    `json:"count"`
+}
+
+// logLoginAttempt logs a login attempt
+func (uc *userUseCase) logLoginAttempt(ctx context.Context, email string, success bool, failReason string, ipAddress string) error {
+	// Try to get user ID by email
+	var userID uuid.UUID
+	if user, err := uc.userRepo.GetByEmail(ctx, email); err == nil {
+		userID = user.ID
+	}
+
+	loginHistory := &entities.UserLoginHistory{
+		ID:         uuid.New(),
+		UserID:     userID,
+		IPAddress:  ipAddress,
+		UserAgent:  "", // TODO: Extract from request context
+		DeviceInfo: "", // TODO: Extract from request context
+		Location:   "", // TODO: Extract from request context
+		LoginType:  "password",
+		Success:    success,
+		FailReason: failReason,
+		CreatedAt:  time.Now(),
+	}
+
+	return uc.userLoginHistoryRepo.Create(ctx, loginHistory)
 }
