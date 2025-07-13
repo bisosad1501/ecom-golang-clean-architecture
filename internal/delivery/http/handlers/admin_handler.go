@@ -183,6 +183,300 @@ func (h *AdminHandler) UpdateUserRole(c *gin.Context) {
 	})
 }
 
+// BulkUpdateUsers handles bulk user updates
+func (h *AdminHandler) BulkUpdateUsers(c *gin.Context) {
+	var req usecases.BulkUserUpdateRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, ErrorResponse{
+			Error:   "Invalid request body",
+			Details: err.Error(),
+		})
+		return
+	}
+
+	response, err := h.adminUseCase.BulkUpdateUsers(c.Request.Context(), req)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, ErrorResponse{
+			Error:   "Failed to bulk update users",
+			Details: err.Error(),
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, SuccessResponse{
+		Message: "Bulk user update completed",
+		Data:    response,
+	})
+}
+
+// BulkDeleteUsers handles bulk user deletion
+func (h *AdminHandler) BulkDeleteUsers(c *gin.Context) {
+	var req usecases.BulkUserDeleteRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, ErrorResponse{
+			Error:   "Invalid request body",
+			Details: err.Error(),
+		})
+		return
+	}
+
+	response, err := h.adminUseCase.BulkDeleteUsers(c.Request.Context(), req)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, ErrorResponse{
+			Error:   "Failed to bulk delete users",
+			Details: err.Error(),
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, SuccessResponse{
+		Message: "Bulk user deletion completed",
+		Data:    response,
+	})
+}
+
+// BulkActivateUsers handles bulk user activation
+func (h *AdminHandler) BulkActivateUsers(c *gin.Context) {
+	var req usecases.BulkUserActivateRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, ErrorResponse{
+			Error:   "Invalid request body",
+			Details: err.Error(),
+		})
+		return
+	}
+
+	response, err := h.adminUseCase.BulkActivateUsers(c.Request.Context(), req)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, ErrorResponse{
+			Error:   "Failed to bulk activate users",
+			Details: err.Error(),
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, SuccessResponse{
+		Message: "Bulk user activation completed",
+		Data:    response,
+	})
+}
+
+// BulkDeactivateUsers handles bulk user deactivation
+func (h *AdminHandler) BulkDeactivateUsers(c *gin.Context) {
+	var req usecases.BulkUserDeactivateRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, ErrorResponse{
+			Error:   "Invalid request body",
+			Details: err.Error(),
+		})
+		return
+	}
+
+	response, err := h.adminUseCase.BulkDeactivateUsers(c.Request.Context(), req)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, ErrorResponse{
+			Error:   "Failed to bulk deactivate users",
+			Details: err.Error(),
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, SuccessResponse{
+		Message: "Bulk user deactivation completed",
+		Data:    response,
+	})
+}
+
+// BulkUpdateUserRoles handles bulk user role updates
+func (h *AdminHandler) BulkUpdateUserRoles(c *gin.Context) {
+	var req usecases.BulkUserRoleUpdateRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, ErrorResponse{
+			Error:   "Invalid request body",
+			Details: err.Error(),
+		})
+		return
+	}
+
+	response, err := h.adminUseCase.BulkUpdateUserRoles(c.Request.Context(), req)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, ErrorResponse{
+			Error:   "Failed to bulk update user roles",
+			Details: err.Error(),
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, SuccessResponse{
+		Message: "Bulk user role update completed",
+		Data:    response,
+	})
+}
+
+// SendUserNotification handles sending notification to a user
+func (h *AdminHandler) SendUserNotification(c *gin.Context) {
+	var req usecases.UserNotificationRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, ErrorResponse{
+			Error:   "Invalid request body",
+			Details: err.Error(),
+		})
+		return
+	}
+
+	response, err := h.adminUseCase.SendUserNotification(c.Request.Context(), req)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, ErrorResponse{
+			Error:   "Failed to send notification",
+			Details: err.Error(),
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, SuccessResponse{
+		Message: "Notification sent successfully",
+		Data:    response,
+	})
+}
+
+// SendBulkNotification handles sending notifications to multiple users
+func (h *AdminHandler) SendBulkNotification(c *gin.Context) {
+	var req usecases.BulkNotificationRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, ErrorResponse{
+			Error:   "Invalid request body",
+			Details: err.Error(),
+		})
+		return
+	}
+
+	response, err := h.adminUseCase.SendBulkNotification(c.Request.Context(), req)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, ErrorResponse{
+			Error:   "Failed to send bulk notifications",
+			Details: err.Error(),
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, SuccessResponse{
+		Message: "Bulk notifications sent",
+		Data:    response,
+	})
+}
+
+// SendUserEmail handles sending email to a user
+func (h *AdminHandler) SendUserEmail(c *gin.Context) {
+	var req usecases.UserEmailRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, ErrorResponse{
+			Error:   "Invalid request body",
+			Details: err.Error(),
+		})
+		return
+	}
+
+	response, err := h.adminUseCase.SendUserEmail(c.Request.Context(), req)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, ErrorResponse{
+			Error:   "Failed to send email",
+			Details: err.Error(),
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, SuccessResponse{
+		Message: "Email sent successfully",
+		Data:    response,
+	})
+}
+
+// SendBulkEmail handles sending emails to multiple users
+func (h *AdminHandler) SendBulkEmail(c *gin.Context) {
+	var req usecases.BulkEmailRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, ErrorResponse{
+			Error:   "Invalid request body",
+			Details: err.Error(),
+		})
+		return
+	}
+
+	response, err := h.adminUseCase.SendBulkEmail(c.Request.Context(), req)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, ErrorResponse{
+			Error:   "Failed to send bulk emails",
+			Details: err.Error(),
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, SuccessResponse{
+		Message: "Bulk emails sent",
+		Data:    response,
+	})
+}
+
+// CreateAnnouncement handles creating announcements
+func (h *AdminHandler) CreateAnnouncement(c *gin.Context) {
+	var req usecases.AnnouncementRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, ErrorResponse{
+			Error:   "Invalid request body",
+			Details: err.Error(),
+		})
+		return
+	}
+
+	response, err := h.adminUseCase.CreateAnnouncement(c.Request.Context(), req)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, ErrorResponse{
+			Error:   "Failed to create announcement",
+			Details: err.Error(),
+		})
+		return
+	}
+
+	c.JSON(http.StatusCreated, SuccessResponse{
+		Message: "Announcement created successfully",
+		Data:    response,
+	})
+}
+
+// GetUserAuditLogs handles retrieving user audit logs
+func (h *AdminHandler) GetUserAuditLogs(c *gin.Context) {
+	var req usecases.UserAuditLogsRequest
+	if err := c.ShouldBindQuery(&req); err != nil {
+		c.JSON(http.StatusBadRequest, ErrorResponse{
+			Error:   "Invalid query parameters",
+			Details: err.Error(),
+		})
+		return
+	}
+
+	// Set default values
+	if req.Limit == 0 {
+		req.Limit = 20
+	}
+	if req.Offset < 0 {
+		req.Offset = 0
+	}
+
+	response, err := h.adminUseCase.GetUserAuditLogs(c.Request.Context(), req)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, ErrorResponse{
+			Error:   "Failed to get audit logs",
+			Details: err.Error(),
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, SuccessResponse{
+		Message: "Audit logs retrieved successfully",
+		Data:    response,
+	})
+}
+
 // GetUserActivity returns user activity
 func (h *AdminHandler) GetUserActivity(c *gin.Context) {
 	userIDStr := c.Param("user_id")

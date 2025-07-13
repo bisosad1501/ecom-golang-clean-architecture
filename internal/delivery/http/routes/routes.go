@@ -497,6 +497,25 @@ func SetupRoutes(
 				adminUsers.PUT("/:id/status", adminHandler.UpdateUserStatus)
 				adminUsers.PUT("/:id/role", adminHandler.UpdateUserRole)
 				adminUsers.GET("/:id/activity", adminHandler.GetUserActivity)
+
+				// Bulk user operations
+				adminUsers.POST("/bulk/update", adminHandler.BulkUpdateUsers)
+				adminUsers.POST("/bulk/delete", adminHandler.BulkDeleteUsers)
+				adminUsers.POST("/bulk/activate", adminHandler.BulkActivateUsers)
+				adminUsers.POST("/bulk/deactivate", adminHandler.BulkDeactivateUsers)
+				adminUsers.POST("/bulk/roles", adminHandler.BulkUpdateUserRoles)
+
+				// User communication
+				adminUsers.POST("/notification", adminHandler.SendUserNotification)
+				adminUsers.POST("/bulk/notification", adminHandler.SendBulkNotification)
+				adminUsers.POST("/email", adminHandler.SendUserEmail)
+				adminUsers.POST("/bulk/email", adminHandler.SendBulkEmail)
+
+				// User audit logs
+				adminUsers.GET("/audit-logs", adminHandler.GetUserAuditLogs)
+
+				// Announcements
+				adminUsers.POST("/announcements", adminHandler.CreateAnnouncement)
 			}
 
 			// Admin customer management and segmentation

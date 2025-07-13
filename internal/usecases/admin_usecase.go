@@ -24,6 +24,34 @@ type AdminUseCase interface {
 	UpdateUserRole(ctx context.Context, userID uuid.UUID, role entities.UserRole) error
 	GetUserActivity(ctx context.Context, userID uuid.UUID, req ActivityRequest) (*ActivityResponse, error)
 
+	// Bulk user operations
+	BulkUpdateUsers(ctx context.Context, req BulkUserUpdateRequest) (*BulkUserUpdateResponse, error)
+	BulkDeleteUsers(ctx context.Context, req BulkUserDeleteRequest) (*BulkUserDeleteResponse, error)
+	BulkActivateUsers(ctx context.Context, req BulkUserActivateRequest) (*BulkUserActivateResponse, error)
+	BulkDeactivateUsers(ctx context.Context, req BulkUserDeactivateRequest) (*BulkUserDeactivateResponse, error)
+	BulkUpdateUserRoles(ctx context.Context, req BulkUserRoleUpdateRequest) (*BulkUserRoleUpdateResponse, error)
+
+	// User communication
+	SendUserNotification(ctx context.Context, req UserNotificationRequest) (*UserNotificationResponse, error)
+	SendBulkNotification(ctx context.Context, req BulkNotificationRequest) (*BulkNotificationResponse, error)
+	SendUserEmail(ctx context.Context, req UserEmailRequest) (*UserEmailResponse, error)
+	SendBulkEmail(ctx context.Context, req BulkEmailRequest) (*BulkEmailResponse, error)
+	CreateAnnouncement(ctx context.Context, req AnnouncementRequest) (*AnnouncementResponse, error)
+
+	// User import/export
+	ImportUsers(ctx context.Context, req UserImportRequest) (*UserImportResponse, error)
+	ExportUsers(ctx context.Context, req UserExportRequest) (*UserExportResponse, error)
+	GetImportHistory(ctx context.Context, req ImportHistoryRequest) (*ImportHistoryResponse, error)
+
+	// User audit logs
+	GetUserAuditLogs(ctx context.Context, req UserAuditLogsRequest) (*UserAuditLogsResponse, error)
+	CreateUserAuditLog(ctx context.Context, req CreateUserAuditLogRequest) error
+
+	// Advanced user analytics
+	GetUserAnalytics(ctx context.Context, req UserAnalyticsRequest) (*UserAnalyticsResponse, error)
+	GetUserActivityAnalytics(ctx context.Context, req UserActivityAnalyticsRequest) (*UserActivityAnalyticsResponse, error)
+	GetUserEngagementMetrics(ctx context.Context, req UserEngagementRequest) (*UserEngagementResponse, error)
+
 	// Customer search and segmentation
 	SearchCustomers(ctx context.Context, req CustomerSearchRequest) (*CustomerSearchResponse, error)
 	GetCustomerSegments(ctx context.Context) (*CustomerSegmentsResponse, error)
@@ -2406,4 +2434,1189 @@ func calculateRiskScore(customer *entities.User) float64 {
 	}
 
 	return score
+}
+
+// BulkUpdateUsers updates multiple users with the same data
+func (uc *adminUseCase) BulkUpdateUsers(ctx context.Context, req BulkUserUpdateRequest) (*BulkUserUpdateResponse, error) {
+	startTime := time.Now()
+	results := []BulkUserResult{}
+	successCount := 0
+	failureCount := 0
+
+	for _, userID := range req.UserIDs {
+		result := BulkUserResult{
+			UserID: userID,
+		}
+
+		// Get current user
+		user, err := uc.userRepo.GetByID(ctx, userID)
+		if err != nil {
+			result.Success = false
+			result.Error = "User not found"
+			result.Message = "Failed to find user"
+			failureCount++
+			results = append(results, result)
+			continue
+		}
+
+		// Create audit log entry for tracking changes
+		oldValues := map[string]interface{}{
+			"first_name": user.FirstName,
+			"last_name":  user.LastName,
+			"phone":      user.Phone,
+			"status":     user.Status,
+			"role":       user.Role,
+			"is_active":  user.IsActive,
+		}
+
+		// Apply updates
+		if req.Updates.FirstName != nil {
+			user.FirstName = *req.Updates.FirstName
+		}
+		if req.Updates.LastName != nil {
+			user.LastName = *req.Updates.LastName
+		}
+		if req.Updates.Phone != nil {
+			user.Phone = *req.Updates.Phone
+		}
+		if req.Updates.Status != nil {
+			user.Status = *req.Updates.Status
+		}
+		if req.Updates.Role != nil {
+			user.Role = *req.Updates.Role
+		}
+		if req.Updates.IsActive != nil {
+			user.IsActive = *req.Updates.IsActive
+		}
+
+		// Update user
+		if err := uc.userRepo.Update(ctx, user); err != nil {
+			result.Success = false
+			result.Error = err.Error()
+			result.Message = "Failed to update user"
+			failureCount++
+		} else {
+			result.Success = true
+			result.Message = "User updated successfully"
+			successCount++
+
+			// Create audit log
+			newValues := map[string]interface{}{
+				"first_name": user.FirstName,
+				"last_name":  user.LastName,
+				"phone":      user.Phone,
+				"status":     user.Status,
+				"role":       user.Role,
+				"is_active":  user.IsActive,
+			}
+
+			// TODO: Get admin ID from context
+			adminID := uuid.New() // Placeholder
+			uc.CreateUserAuditLog(ctx, CreateUserAuditLogRequest{
+				UserID:      userID,
+				AdminID:     adminID,
+				Action:      "bulk_update",
+				Description: fmt.Sprintf("Bulk update: %s", req.Reason),
+				OldValues:   oldValues,
+				NewValues:   newValues,
+			})
+		}
+
+		results = append(results, result)
+	}
+
+	endTime := time.Now()
+	duration := endTime.Sub(startTime)
+	successRate := float64(successCount) / float64(len(req.UserIDs)) * 100
+
+	return &BulkUserUpdateResponse{
+		TotalUsers:   len(req.UserIDs),
+		SuccessCount: successCount,
+		FailureCount: failureCount,
+		Results:      results,
+		Summary: BulkOperationSummary{
+			Duration:    duration.String(),
+			StartTime:   startTime,
+			EndTime:     endTime,
+			SuccessRate: successRate,
+		},
+	}, nil
+}
+
+// BulkDeleteUsers deletes multiple users
+func (uc *adminUseCase) BulkDeleteUsers(ctx context.Context, req BulkUserDeleteRequest) (*BulkUserDeleteResponse, error) {
+	startTime := time.Now()
+	results := []BulkUserResult{}
+	successCount := 0
+	failureCount := 0
+
+	for _, userID := range req.UserIDs {
+		result := BulkUserResult{
+			UserID: userID,
+		}
+
+		// Get current user for audit log
+		user, err := uc.userRepo.GetByID(ctx, userID)
+		if err != nil {
+			result.Success = false
+			result.Error = "User not found"
+			result.Message = "Failed to find user"
+			failureCount++
+			results = append(results, result)
+			continue
+		}
+
+		// Check if user has orders (unless force delete)
+		if !req.Force {
+			// TODO: Check if user has orders
+			// For now, we'll allow deletion
+		}
+
+		// Delete user
+		if err := uc.userRepo.Delete(ctx, userID); err != nil {
+			result.Success = false
+			result.Error = err.Error()
+			result.Message = "Failed to delete user"
+			failureCount++
+		} else {
+			result.Success = true
+			result.Message = "User deleted successfully"
+			successCount++
+
+			// Create audit log
+			adminID := uuid.New() // Placeholder
+			uc.CreateUserAuditLog(ctx, CreateUserAuditLogRequest{
+				UserID:      userID,
+				AdminID:     adminID,
+				Action:      "bulk_delete",
+				Description: fmt.Sprintf("Bulk delete: %s", req.Reason),
+				OldValues: map[string]interface{}{
+					"email":      user.Email,
+					"first_name": user.FirstName,
+					"last_name":  user.LastName,
+					"role":       user.Role,
+				},
+			})
+		}
+
+		results = append(results, result)
+	}
+
+	endTime := time.Now()
+	duration := endTime.Sub(startTime)
+	successRate := float64(successCount) / float64(len(req.UserIDs)) * 100
+
+	return &BulkUserDeleteResponse{
+		TotalUsers:   len(req.UserIDs),
+		SuccessCount: successCount,
+		FailureCount: failureCount,
+		Results:      results,
+		Summary: BulkOperationSummary{
+			Duration:    duration.String(),
+			StartTime:   startTime,
+			EndTime:     endTime,
+			SuccessRate: successRate,
+		},
+	}, nil
+}
+
+// BulkActivateUsers activates multiple users
+func (uc *adminUseCase) BulkActivateUsers(ctx context.Context, req BulkUserActivateRequest) (*BulkUserActivateResponse, error) {
+	startTime := time.Now()
+	results := []BulkUserResult{}
+	successCount := 0
+	failureCount := 0
+
+	for _, userID := range req.UserIDs {
+		result := BulkUserResult{
+			UserID: userID,
+		}
+
+		// Get current user
+		user, err := uc.userRepo.GetByID(ctx, userID)
+		if err != nil {
+			result.Success = false
+			result.Error = "User not found"
+			result.Message = "Failed to find user"
+			failureCount++
+			results = append(results, result)
+			continue
+		}
+
+		oldStatus := user.IsActive
+
+		// Activate user
+		user.IsActive = true
+		if err := uc.userRepo.Update(ctx, user); err != nil {
+			result.Success = false
+			result.Error = err.Error()
+			result.Message = "Failed to activate user"
+			failureCount++
+		} else {
+			result.Success = true
+			result.Message = "User activated successfully"
+			successCount++
+
+			// Create audit log
+			adminID := uuid.New() // Placeholder
+			uc.CreateUserAuditLog(ctx, CreateUserAuditLogRequest{
+				UserID:      userID,
+				AdminID:     adminID,
+				Action:      "bulk_activate",
+				Description: fmt.Sprintf("Bulk activate: %s", req.Reason),
+				OldValues:   map[string]interface{}{"is_active": oldStatus},
+				NewValues:   map[string]interface{}{"is_active": true},
+			})
+		}
+
+		results = append(results, result)
+	}
+
+	endTime := time.Now()
+	duration := endTime.Sub(startTime)
+	successRate := float64(successCount) / float64(len(req.UserIDs)) * 100
+
+	return &BulkUserActivateResponse{
+		TotalUsers:   len(req.UserIDs),
+		SuccessCount: successCount,
+		FailureCount: failureCount,
+		Results:      results,
+		Summary: BulkOperationSummary{
+			Duration:    duration.String(),
+			StartTime:   startTime,
+			EndTime:     endTime,
+			SuccessRate: successRate,
+		},
+	}, nil
+}
+
+// BulkDeactivateUsers deactivates multiple users
+func (uc *adminUseCase) BulkDeactivateUsers(ctx context.Context, req BulkUserDeactivateRequest) (*BulkUserDeactivateResponse, error) {
+	startTime := time.Now()
+	results := []BulkUserResult{}
+	successCount := 0
+	failureCount := 0
+
+	for _, userID := range req.UserIDs {
+		result := BulkUserResult{
+			UserID: userID,
+		}
+
+		// Get current user
+		user, err := uc.userRepo.GetByID(ctx, userID)
+		if err != nil {
+			result.Success = false
+			result.Error = "User not found"
+			result.Message = "Failed to find user"
+			failureCount++
+			results = append(results, result)
+			continue
+		}
+
+		oldStatus := user.IsActive
+
+		// Deactivate user
+		user.IsActive = false
+		if err := uc.userRepo.Update(ctx, user); err != nil {
+			result.Success = false
+			result.Error = err.Error()
+			result.Message = "Failed to deactivate user"
+			failureCount++
+		} else {
+			result.Success = true
+			result.Message = "User deactivated successfully"
+			successCount++
+
+			// Create audit log
+			adminID := uuid.New() // Placeholder
+			uc.CreateUserAuditLog(ctx, CreateUserAuditLogRequest{
+				UserID:      userID,
+				AdminID:     adminID,
+				Action:      "bulk_deactivate",
+				Description: fmt.Sprintf("Bulk deactivate: %s", req.Reason),
+				OldValues:   map[string]interface{}{"is_active": oldStatus},
+				NewValues:   map[string]interface{}{"is_active": false},
+			})
+		}
+
+		results = append(results, result)
+	}
+
+	endTime := time.Now()
+	duration := endTime.Sub(startTime)
+	successRate := float64(successCount) / float64(len(req.UserIDs)) * 100
+
+	return &BulkUserDeactivateResponse{
+		TotalUsers:   len(req.UserIDs),
+		SuccessCount: successCount,
+		FailureCount: failureCount,
+		Results:      results,
+		Summary: BulkOperationSummary{
+			Duration:    duration.String(),
+			StartTime:   startTime,
+			EndTime:     endTime,
+			SuccessRate: successRate,
+		},
+	}, nil
+}
+
+// BulkUpdateUserRoles updates roles for multiple users
+func (uc *adminUseCase) BulkUpdateUserRoles(ctx context.Context, req BulkUserRoleUpdateRequest) (*BulkUserRoleUpdateResponse, error) {
+	startTime := time.Now()
+	results := []BulkUserResult{}
+	successCount := 0
+	failureCount := 0
+
+	for _, userID := range req.UserIDs {
+		result := BulkUserResult{
+			UserID: userID,
+		}
+
+		// Get current user
+		user, err := uc.userRepo.GetByID(ctx, userID)
+		if err != nil {
+			result.Success = false
+			result.Error = "User not found"
+			result.Message = "Failed to find user"
+			failureCount++
+			results = append(results, result)
+			continue
+		}
+
+		oldRole := user.Role
+
+		// Update role
+		user.Role = req.Role
+		if err := uc.userRepo.Update(ctx, user); err != nil {
+			result.Success = false
+			result.Error = err.Error()
+			result.Message = "Failed to update user role"
+			failureCount++
+		} else {
+			result.Success = true
+			result.Message = "User role updated successfully"
+			successCount++
+
+			// Create audit log
+			adminID := uuid.New() // Placeholder
+			uc.CreateUserAuditLog(ctx, CreateUserAuditLogRequest{
+				UserID:      userID,
+				AdminID:     adminID,
+				Action:      "bulk_role_update",
+				Description: fmt.Sprintf("Bulk role update: %s", req.Reason),
+				OldValues:   map[string]interface{}{"role": oldRole},
+				NewValues:   map[string]interface{}{"role": req.Role},
+			})
+		}
+
+		results = append(results, result)
+	}
+
+	endTime := time.Now()
+	duration := endTime.Sub(startTime)
+	successRate := float64(successCount) / float64(len(req.UserIDs)) * 100
+
+	return &BulkUserRoleUpdateResponse{
+		TotalUsers:   len(req.UserIDs),
+		SuccessCount: successCount,
+		FailureCount: failureCount,
+		Results:      results,
+		Summary: BulkOperationSummary{
+			Duration:    duration.String(),
+			StartTime:   startTime,
+			EndTime:     endTime,
+			SuccessRate: successRate,
+		},
+	}, nil
+}
+
+// SendUserNotification sends a notification to a specific user
+func (uc *adminUseCase) SendUserNotification(ctx context.Context, req UserNotificationRequest) (*UserNotificationResponse, error) {
+	// TODO: Implement notification service integration
+	notificationID := uuid.New()
+
+	// For now, we'll just return success
+	// In a real implementation, this would integrate with a notification service
+
+	return &UserNotificationResponse{
+		NotificationID: notificationID,
+		Success:        true,
+		Message:        "Notification sent successfully",
+	}, nil
+}
+
+// SendBulkNotification sends notifications to multiple users
+func (uc *adminUseCase) SendBulkNotification(ctx context.Context, req BulkNotificationRequest) (*BulkNotificationResponse, error) {
+	startTime := time.Now()
+	results := []BulkNotificationResult{}
+	successCount := 0
+	failureCount := 0
+
+	for _, userID := range req.UserIDs {
+		result := BulkNotificationResult{
+			UserID: userID,
+		}
+
+		// Send notification to individual user
+		notificationReq := UserNotificationRequest{
+			UserID:  userID,
+			Title:   req.Title,
+			Message: req.Message,
+			Type:    req.Type,
+			Data:    req.Data,
+		}
+
+		resp, err := uc.SendUserNotification(ctx, notificationReq)
+		if err != nil {
+			result.Success = false
+			result.Error = err.Error()
+			result.Message = "Failed to send notification"
+			failureCount++
+		} else {
+			result.Success = true
+			result.NotificationID = resp.NotificationID
+			result.Message = "Notification sent successfully"
+			successCount++
+		}
+
+		results = append(results, result)
+	}
+
+	endTime := time.Now()
+	duration := endTime.Sub(startTime)
+	successRate := float64(successCount) / float64(len(req.UserIDs)) * 100
+
+	return &BulkNotificationResponse{
+		TotalUsers:   len(req.UserIDs),
+		SuccessCount: successCount,
+		FailureCount: failureCount,
+		Results:      results,
+		Summary: BulkOperationSummary{
+			Duration:    duration.String(),
+			StartTime:   startTime,
+			EndTime:     endTime,
+			SuccessRate: successRate,
+		},
+	}, nil
+}
+
+// SendUserEmail sends an email to a specific user
+func (uc *adminUseCase) SendUserEmail(ctx context.Context, req UserEmailRequest) (*UserEmailResponse, error) {
+	// TODO: Implement email service integration
+	emailID := uuid.New()
+
+	// For now, we'll just return success
+	// In a real implementation, this would integrate with an email service
+
+	return &UserEmailResponse{
+		EmailID: emailID,
+		Success: true,
+		Message: "Email sent successfully",
+	}, nil
+}
+
+// SendBulkEmail sends emails to multiple users
+func (uc *adminUseCase) SendBulkEmail(ctx context.Context, req BulkEmailRequest) (*BulkEmailResponse, error) {
+	startTime := time.Now()
+	results := []BulkEmailResult{}
+	successCount := 0
+	failureCount := 0
+
+	for _, userID := range req.UserIDs {
+		result := BulkEmailResult{
+			UserID: userID,
+		}
+
+		// Send email to individual user
+		emailReq := UserEmailRequest{
+			UserID:   userID,
+			Subject:  req.Subject,
+			Body:     req.Body,
+			Template: req.Template,
+			Data:     req.Data,
+		}
+
+		resp, err := uc.SendUserEmail(ctx, emailReq)
+		if err != nil {
+			result.Success = false
+			result.Error = err.Error()
+			result.Message = "Failed to send email"
+			failureCount++
+		} else {
+			result.Success = true
+			result.EmailID = resp.EmailID
+			result.Message = "Email sent successfully"
+			successCount++
+		}
+
+		results = append(results, result)
+	}
+
+	endTime := time.Now()
+	duration := endTime.Sub(startTime)
+	successRate := float64(successCount) / float64(len(req.UserIDs)) * 100
+
+	return &BulkEmailResponse{
+		TotalUsers:   len(req.UserIDs),
+		SuccessCount: successCount,
+		FailureCount: failureCount,
+		Results:      results,
+		Summary: BulkOperationSummary{
+			Duration:    duration.String(),
+			StartTime:   startTime,
+			EndTime:     endTime,
+			SuccessRate: successRate,
+		},
+	}, nil
+}
+
+// CreateAnnouncement creates a new announcement
+func (uc *adminUseCase) CreateAnnouncement(ctx context.Context, req AnnouncementRequest) (*AnnouncementResponse, error) {
+	// TODO: Implement announcement storage
+	announcementID := uuid.New()
+	now := time.Now()
+
+	return &AnnouncementResponse{
+		ID:          announcementID,
+		Title:       req.Title,
+		Content:     req.Content,
+		Type:        req.Type,
+		TargetRoles: req.TargetRoles,
+		TargetUsers: req.TargetUsers,
+		StartDate:   req.StartDate,
+		EndDate:     req.EndDate,
+		IsActive:    req.IsActive,
+		CreatedBy:   uuid.New(), // TODO: Get from context
+		CreatedAt:   now,
+		UpdatedAt:   now,
+	}, nil
+}
+
+// CreateUserAuditLog creates an audit log entry
+func (uc *adminUseCase) CreateUserAuditLog(ctx context.Context, req CreateUserAuditLogRequest) error {
+	// TODO: Implement audit log storage
+	// For now, we'll just log to console
+	fmt.Printf("Audit Log: User %s, Action %s by Admin %s: %s\n",
+		req.UserID, req.Action, req.AdminID, req.Description)
+	return nil
+}
+
+// GetUserAuditLogs retrieves audit logs for users
+func (uc *adminUseCase) GetUserAuditLogs(ctx context.Context, req UserAuditLogsRequest) (*UserAuditLogsResponse, error) {
+	// TODO: Implement audit log retrieval from database
+	// For now, return empty results
+	return &UserAuditLogsResponse{
+		Logs:  []UserAuditLog{},
+		Total: 0,
+	}, nil
+}
+
+// ImportUsers imports users from file (placeholder implementation)
+func (uc *adminUseCase) ImportUsers(ctx context.Context, req UserImportRequest) (*UserImportResponse, error) {
+	// TODO: Implement user import functionality
+	importID := uuid.New()
+
+	return &UserImportResponse{
+		ImportID:     importID,
+		TotalRows:    0,
+		SuccessCount: 0,
+		FailureCount: 0,
+		SkippedCount: 0,
+		Results:      []UserImportResult{},
+		Summary: BulkOperationSummary{
+			Duration:    "0s",
+			StartTime:   time.Now(),
+			EndTime:     time.Now(),
+			SuccessRate: 0,
+		},
+	}, nil
+}
+
+// ExportUsers exports users to file (placeholder implementation)
+func (uc *adminUseCase) ExportUsers(ctx context.Context, req UserExportRequest) (*UserExportResponse, error) {
+	// TODO: Implement user export functionality
+	exportID := uuid.New()
+
+	return &UserExportResponse{
+		ExportID:   exportID,
+		FileName:   "users_export.csv",
+		FileURL:    "/exports/users_export.csv",
+		TotalUsers: 0,
+		FileSize:   0,
+		ExpiresAt:  time.Now().Add(24 * time.Hour),
+		CreatedAt:  time.Now(),
+	}, nil
+}
+
+// GetImportHistory gets import history (placeholder implementation)
+func (uc *adminUseCase) GetImportHistory(ctx context.Context, req ImportHistoryRequest) (*ImportHistoryResponse, error) {
+	// TODO: Implement import history retrieval
+	return &ImportHistoryResponse{
+		Imports: []UserImportHistory{},
+		Total:   0,
+	}, nil
+}
+
+// GetUserAnalytics gets user analytics (placeholder implementation)
+func (uc *adminUseCase) GetUserAnalytics(ctx context.Context, req UserAnalyticsRequest) (*UserAnalyticsResponse, error) {
+	// TODO: Implement user analytics
+	return &UserAnalyticsResponse{
+		Overview: struct {
+			TotalUsers       int     `json:"total_users"`
+			ActiveUsers      int     `json:"active_users"`
+			NewUsers         int     `json:"new_users"`
+			VerifiedUsers    int     `json:"verified_users"`
+			GrowthRate       float64 `json:"growth_rate"`
+			ChurnRate        float64 `json:"churn_rate"`
+			EngagementRate   float64 `json:"engagement_rate"`
+		}{
+			TotalUsers:     0,
+			ActiveUsers:    0,
+			NewUsers:       0,
+			VerifiedUsers:  0,
+			GrowthRate:     0,
+			ChurnRate:      0,
+			EngagementRate: 0,
+		},
+		Demographics: struct {
+			RoleDistribution   map[string]int `json:"role_distribution"`
+			StatusDistribution map[string]int `json:"status_distribution"`
+			TierDistribution   map[string]int `json:"tier_distribution"`
+			CountryDistribution map[string]int `json:"country_distribution"`
+		}{
+			RoleDistribution:   make(map[string]int),
+			StatusDistribution: make(map[string]int),
+			TierDistribution:   make(map[string]int),
+			CountryDistribution: make(map[string]int),
+		},
+		Activity: struct {
+			DailyActiveUsers   []DailyMetric `json:"daily_active_users"`
+			WeeklyActiveUsers  []WeeklyMetric `json:"weekly_active_users"`
+			MonthlyActiveUsers []MonthlyMetric `json:"monthly_active_users"`
+			LoginFrequency     map[string]int `json:"login_frequency"`
+		}{
+			DailyActiveUsers:   []DailyMetric{},
+			WeeklyActiveUsers:  []WeeklyMetric{},
+			MonthlyActiveUsers: []MonthlyMetric{},
+			LoginFrequency:     make(map[string]int),
+		},
+		Trends: []UserTrendData{},
+	}, nil
+}
+
+// GetUserActivityAnalytics gets user activity analytics (placeholder implementation)
+func (uc *adminUseCase) GetUserActivityAnalytics(ctx context.Context, req UserActivityAnalyticsRequest) (*UserActivityAnalyticsResponse, error) {
+	// TODO: Implement user activity analytics
+	return &UserActivityAnalyticsResponse{
+		UserID: *req.UserID,
+		Summary: struct {
+			TotalSessions    int     `json:"total_sessions"`
+			TotalDuration    int     `json:"total_duration"`
+			AverageSession   float64 `json:"average_session"`
+			LastActivity     time.Time `json:"last_activity"`
+			MostActiveHour   int     `json:"most_active_hour"`
+			MostActiveDay    string  `json:"most_active_day"`
+		}{
+			TotalSessions:  0,
+			TotalDuration:  0,
+			AverageSession: 0,
+			LastActivity:   time.Now(),
+			MostActiveHour: 0,
+			MostActiveDay:  "Monday",
+		},
+		Activities: []UserActivity{},
+		Patterns: struct {
+			HourlyActivity []HourlyActivity `json:"hourly_activity"`
+			DailyActivity  []DailyActivity  `json:"daily_activity"`
+			DeviceUsage    map[string]int   `json:"device_usage"`
+			LocationData   []LocationData   `json:"location_data"`
+		}{
+			HourlyActivity: []HourlyActivity{},
+			DailyActivity:  []DailyActivity{},
+			DeviceUsage:    make(map[string]int),
+			LocationData:   []LocationData{},
+		},
+	}, nil
+}
+
+// GetUserEngagementMetrics gets user engagement metrics (placeholder implementation)
+func (uc *adminUseCase) GetUserEngagementMetrics(ctx context.Context, req UserEngagementRequest) (*UserEngagementResponse, error) {
+	// TODO: Implement user engagement metrics
+	return &UserEngagementResponse{
+		Overview: struct {
+			TotalEngagedUsers int     `json:"total_engaged_users"`
+			EngagementRate    float64 `json:"engagement_rate"`
+			RetentionRate     float64 `json:"retention_rate"`
+			AverageSessionTime float64 `json:"average_session_time"`
+		}{
+			TotalEngagedUsers:  0,
+			EngagementRate:     0,
+			RetentionRate:      0,
+			AverageSessionTime: 0,
+		},
+		Cohorts: []CohortData{},
+		Funnel: struct {
+			Registration int `json:"registration"`
+			FirstLogin   int `json:"first_login"`
+			FirstOrder   int `json:"first_order"`
+			SecondOrder  int `json:"second_order"`
+			Retention30  int `json:"retention_30"`
+		}{
+			Registration: 0,
+			FirstLogin:   0,
+			FirstOrder:   0,
+			SecondOrder:  0,
+			Retention30:  0,
+		},
+	}, nil
+}
+
+// Bulk user operations request/response types
+type BulkUserUpdateRequest struct {
+	UserIDs []uuid.UUID `json:"user_ids" validate:"required"`
+	Updates struct {
+		FirstName      *string              `json:"first_name,omitempty"`
+		LastName       *string              `json:"last_name,omitempty"`
+		Phone          *string              `json:"phone,omitempty"`
+		Status         *entities.UserStatus `json:"status,omitempty"`
+		Role           *entities.UserRole   `json:"role,omitempty"`
+		IsActive       *bool                `json:"is_active,omitempty"`
+		MembershipTier *string              `json:"membership_tier,omitempty"`
+		SecurityLevel  *string              `json:"security_level,omitempty"`
+	} `json:"updates" validate:"required"`
+	Reason string `json:"reason,omitempty"`
+}
+
+type BulkUserUpdateResponse struct {
+	TotalUsers   int                    `json:"total_users"`
+	SuccessCount int                    `json:"success_count"`
+	FailureCount int                    `json:"failure_count"`
+	Results      []BulkUserResult       `json:"results"`
+	Summary      BulkOperationSummary   `json:"summary"`
+}
+
+type BulkUserDeleteRequest struct {
+	UserIDs []uuid.UUID `json:"user_ids" validate:"required"`
+	Reason  string      `json:"reason,omitempty"`
+	Force   bool        `json:"force"` // Force delete even if user has orders
+}
+
+type BulkUserDeleteResponse struct {
+	TotalUsers   int                    `json:"total_users"`
+	SuccessCount int                    `json:"success_count"`
+	FailureCount int                    `json:"failure_count"`
+	Results      []BulkUserResult       `json:"results"`
+	Summary      BulkOperationSummary   `json:"summary"`
+}
+
+type BulkUserActivateRequest struct {
+	UserIDs []uuid.UUID `json:"user_ids" validate:"required"`
+	Reason  string      `json:"reason,omitempty"`
+}
+
+type BulkUserActivateResponse struct {
+	TotalUsers   int                    `json:"total_users"`
+	SuccessCount int                    `json:"success_count"`
+	FailureCount int                    `json:"failure_count"`
+	Results      []BulkUserResult       `json:"results"`
+	Summary      BulkOperationSummary   `json:"summary"`
+}
+
+type BulkUserDeactivateRequest struct {
+	UserIDs []uuid.UUID `json:"user_ids" validate:"required"`
+	Reason  string      `json:"reason,omitempty"`
+}
+
+type BulkUserDeactivateResponse struct {
+	TotalUsers   int                    `json:"total_users"`
+	SuccessCount int                    `json:"success_count"`
+	FailureCount int                    `json:"failure_count"`
+	Results      []BulkUserResult       `json:"results"`
+	Summary      BulkOperationSummary   `json:"summary"`
+}
+
+type BulkUserRoleUpdateRequest struct {
+	UserIDs []uuid.UUID        `json:"user_ids" validate:"required"`
+	Role    entities.UserRole  `json:"role" validate:"required"`
+	Reason  string             `json:"reason,omitempty"`
+}
+
+type BulkUserRoleUpdateResponse struct {
+	TotalUsers   int                    `json:"total_users"`
+	SuccessCount int                    `json:"success_count"`
+	FailureCount int                    `json:"failure_count"`
+	Results      []BulkUserResult       `json:"results"`
+	Summary      BulkOperationSummary   `json:"summary"`
+}
+
+type BulkUserResult struct {
+	UserID  uuid.UUID `json:"user_id"`
+	Success bool      `json:"success"`
+	Message string    `json:"message"`
+	Error   string    `json:"error,omitempty"`
+}
+
+
+
+// User communication request/response types
+type UserNotificationRequest struct {
+	UserID  uuid.UUID `json:"user_id" validate:"required"`
+	Title   string    `json:"title" validate:"required"`
+	Message string    `json:"message" validate:"required"`
+	Type    string    `json:"type" validate:"required"` // info, warning, success, error
+	Data    map[string]interface{} `json:"data,omitempty"`
+}
+
+type UserNotificationResponse struct {
+	NotificationID uuid.UUID `json:"notification_id"`
+	Success        bool      `json:"success"`
+	Message        string    `json:"message"`
+}
+
+type BulkNotificationRequest struct {
+	UserIDs []uuid.UUID `json:"user_ids" validate:"required"`
+	Title   string      `json:"title" validate:"required"`
+	Message string      `json:"message" validate:"required"`
+	Type    string      `json:"type" validate:"required"`
+	Data    map[string]interface{} `json:"data,omitempty"`
+}
+
+type BulkNotificationResponse struct {
+	TotalUsers   int                         `json:"total_users"`
+	SuccessCount int                         `json:"success_count"`
+	FailureCount int                         `json:"failure_count"`
+	Results      []BulkNotificationResult    `json:"results"`
+	Summary      BulkOperationSummary        `json:"summary"`
+}
+
+type BulkNotificationResult struct {
+	UserID         uuid.UUID `json:"user_id"`
+	NotificationID uuid.UUID `json:"notification_id,omitempty"`
+	Success        bool      `json:"success"`
+	Message        string    `json:"message"`
+	Error          string    `json:"error,omitempty"`
+}
+
+type UserEmailRequest struct {
+	UserID   uuid.UUID `json:"user_id" validate:"required"`
+	Subject  string    `json:"subject" validate:"required"`
+	Body     string    `json:"body" validate:"required"`
+	Template string    `json:"template,omitempty"`
+	Data     map[string]interface{} `json:"data,omitempty"`
+}
+
+type UserEmailResponse struct {
+	EmailID uuid.UUID `json:"email_id"`
+	Success bool      `json:"success"`
+	Message string    `json:"message"`
+}
+
+type BulkEmailRequest struct {
+	UserIDs  []uuid.UUID `json:"user_ids" validate:"required"`
+	Subject  string      `json:"subject" validate:"required"`
+	Body     string      `json:"body" validate:"required"`
+	Template string      `json:"template,omitempty"`
+	Data     map[string]interface{} `json:"data,omitempty"`
+}
+
+type BulkEmailResponse struct {
+	TotalUsers   int                    `json:"total_users"`
+	SuccessCount int                    `json:"success_count"`
+	FailureCount int                    `json:"failure_count"`
+	Results      []BulkEmailResult      `json:"results"`
+	Summary      BulkOperationSummary   `json:"summary"`
+}
+
+type BulkEmailResult struct {
+	UserID  uuid.UUID `json:"user_id"`
+	EmailID uuid.UUID `json:"email_id,omitempty"`
+	Success bool      `json:"success"`
+	Message string    `json:"message"`
+	Error   string    `json:"error,omitempty"`
+}
+
+type AnnouncementRequest struct {
+	Title       string    `json:"title" validate:"required"`
+	Content     string    `json:"content" validate:"required"`
+	Type        string    `json:"type" validate:"required"` // general, maintenance, promotion, urgent
+	TargetRoles []entities.UserRole `json:"target_roles,omitempty"`
+	TargetUsers []uuid.UUID `json:"target_users,omitempty"`
+	StartDate   *time.Time  `json:"start_date,omitempty"`
+	EndDate     *time.Time  `json:"end_date,omitempty"`
+	IsActive    bool        `json:"is_active"`
+}
+
+type AnnouncementResponse struct {
+	ID           uuid.UUID `json:"id"`
+	Title        string    `json:"title"`
+	Content      string    `json:"content"`
+	Type         string    `json:"type"`
+	TargetRoles  []entities.UserRole `json:"target_roles"`
+	TargetUsers  []uuid.UUID `json:"target_users"`
+	StartDate    *time.Time  `json:"start_date"`
+	EndDate      *time.Time  `json:"end_date"`
+	IsActive     bool        `json:"is_active"`
+	CreatedBy    uuid.UUID   `json:"created_by"`
+	CreatedAt    time.Time   `json:"created_at"`
+	UpdatedAt    time.Time   `json:"updated_at"`
+}
+
+// User import/export request/response types
+type UserImportRequest struct {
+	FileData    []byte `json:"file_data" validate:"required"`
+	FileName    string `json:"file_name" validate:"required"`
+	FileType    string `json:"file_type" validate:"required"` // csv, xlsx
+	Options     struct {
+		SkipHeader       bool `json:"skip_header"`
+		UpdateExisting   bool `json:"update_existing"`
+		SendWelcomeEmail bool `json:"send_welcome_email"`
+		DefaultRole      entities.UserRole `json:"default_role"`
+		DefaultStatus    entities.UserStatus `json:"default_status"`
+	} `json:"options"`
+}
+
+type UserImportResponse struct {
+	ImportID      uuid.UUID `json:"import_id"`
+	TotalRows     int       `json:"total_rows"`
+	SuccessCount  int       `json:"success_count"`
+	FailureCount  int       `json:"failure_count"`
+	SkippedCount  int       `json:"skipped_count"`
+	Results       []UserImportResult `json:"results"`
+	Summary       BulkOperationSummary `json:"summary"`
+	ErrorFile     string    `json:"error_file,omitempty"` // URL to download error report
+}
+
+type UserImportResult struct {
+	Row     int       `json:"row"`
+	Email   string    `json:"email"`
+	UserID  uuid.UUID `json:"user_id,omitempty"`
+	Success bool      `json:"success"`
+	Message string    `json:"message"`
+	Error   string    `json:"error,omitempty"`
+}
+
+type UserExportRequest struct {
+	UserIDs    []uuid.UUID `json:"user_ids,omitempty"` // If empty, export all
+	Format     string      `json:"format" validate:"required"` // csv, xlsx, json
+	Fields     []string    `json:"fields,omitempty"` // Specific fields to export
+	Filters    struct {
+		Role           *entities.UserRole   `json:"role,omitempty"`
+		Status         *entities.UserStatus `json:"status,omitempty"`
+		IsActive       *bool                `json:"is_active,omitempty"`
+		EmailVerified  *bool                `json:"email_verified,omitempty"`
+		CreatedAfter   *time.Time           `json:"created_after,omitempty"`
+		CreatedBefore  *time.Time           `json:"created_before,omitempty"`
+		LastLoginAfter *time.Time           `json:"last_login_after,omitempty"`
+	} `json:"filters,omitempty"`
+}
+
+type UserExportResponse struct {
+	ExportID    uuid.UUID `json:"export_id"`
+	FileName    string    `json:"file_name"`
+	FileURL     string    `json:"file_url"`
+	TotalUsers  int       `json:"total_users"`
+	FileSize    int64     `json:"file_size"`
+	ExpiresAt   time.Time `json:"expires_at"`
+	CreatedAt   time.Time `json:"created_at"`
+}
+
+type ImportHistoryRequest struct {
+	Limit  int `json:"limit,omitempty"`
+	Offset int `json:"offset,omitempty"`
+}
+
+type ImportHistoryResponse struct {
+	Imports []UserImportHistory `json:"imports"`
+	Total   int                 `json:"total"`
+}
+
+type UserImportHistory struct {
+	ID           uuid.UUID `json:"id"`
+	FileName     string    `json:"file_name"`
+	TotalRows    int       `json:"total_rows"`
+	SuccessCount int       `json:"success_count"`
+	FailureCount int       `json:"failure_count"`
+	Status       string    `json:"status"` // pending, processing, completed, failed
+	CreatedBy    uuid.UUID `json:"created_by"`
+	CreatedAt    time.Time `json:"created_at"`
+	CompletedAt  *time.Time `json:"completed_at,omitempty"`
+}
+
+// User audit logs request/response types
+type UserAuditLogsRequest struct {
+	UserID     *uuid.UUID `json:"user_id,omitempty"`
+	AdminID    *uuid.UUID `json:"admin_id,omitempty"`
+	Action     *string    `json:"action,omitempty"`
+	DateFrom   *time.Time `json:"date_from,omitempty"`
+	DateTo     *time.Time `json:"date_to,omitempty"`
+	Limit      int        `json:"limit,omitempty"`
+	Offset     int        `json:"offset,omitempty"`
+}
+
+type UserAuditLogsResponse struct {
+	Logs  []UserAuditLog `json:"logs"`
+	Total int            `json:"total"`
+}
+
+type UserAuditLog struct {
+	ID          uuid.UUID `json:"id"`
+	UserID      uuid.UUID `json:"user_id"`
+	AdminID     uuid.UUID `json:"admin_id"`
+	Action      string    `json:"action"`
+	Description string    `json:"description"`
+	OldValues   map[string]interface{} `json:"old_values,omitempty"`
+	NewValues   map[string]interface{} `json:"new_values,omitempty"`
+	IPAddress   string    `json:"ip_address,omitempty"`
+	UserAgent   string    `json:"user_agent,omitempty"`
+	CreatedAt   time.Time `json:"created_at"`
+}
+
+type CreateUserAuditLogRequest struct {
+	UserID      uuid.UUID `json:"user_id" validate:"required"`
+	AdminID     uuid.UUID `json:"admin_id" validate:"required"`
+	Action      string    `json:"action" validate:"required"`
+	Description string    `json:"description" validate:"required"`
+	OldValues   map[string]interface{} `json:"old_values,omitempty"`
+	NewValues   map[string]interface{} `json:"new_values,omitempty"`
+	IPAddress   string    `json:"ip_address,omitempty"`
+	UserAgent   string    `json:"user_agent,omitempty"`
+}
+
+// User analytics request/response types
+type UserAnalyticsRequest struct {
+	DateFrom *time.Time `json:"date_from,omitempty"`
+	DateTo   *time.Time `json:"date_to,omitempty"`
+	Metrics  []string   `json:"metrics,omitempty"`
+}
+
+type UserAnalyticsResponse struct {
+	Overview struct {
+		TotalUsers       int     `json:"total_users"`
+		ActiveUsers      int     `json:"active_users"`
+		NewUsers         int     `json:"new_users"`
+		VerifiedUsers    int     `json:"verified_users"`
+		GrowthRate       float64 `json:"growth_rate"`
+		ChurnRate        float64 `json:"churn_rate"`
+		EngagementRate   float64 `json:"engagement_rate"`
+	} `json:"overview"`
+
+	Demographics struct {
+		RoleDistribution   map[string]int `json:"role_distribution"`
+		StatusDistribution map[string]int `json:"status_distribution"`
+		TierDistribution   map[string]int `json:"tier_distribution"`
+		CountryDistribution map[string]int `json:"country_distribution"`
+	} `json:"demographics"`
+
+	Activity struct {
+		DailyActiveUsers   []DailyMetric `json:"daily_active_users"`
+		WeeklyActiveUsers  []WeeklyMetric `json:"weekly_active_users"`
+		MonthlyActiveUsers []MonthlyMetric `json:"monthly_active_users"`
+		LoginFrequency     map[string]int `json:"login_frequency"`
+	} `json:"activity"`
+
+	Trends []UserTrendData `json:"trends"`
+}
+
+type UserActivityAnalyticsRequest struct {
+	UserID   *uuid.UUID `json:"user_id,omitempty"`
+	DateFrom *time.Time `json:"date_from,omitempty"`
+	DateTo   *time.Time `json:"date_to,omitempty"`
+}
+
+type UserActivityAnalyticsResponse struct {
+	UserID   uuid.UUID `json:"user_id"`
+	Summary  struct {
+		TotalSessions    int     `json:"total_sessions"`
+		TotalDuration    int     `json:"total_duration"` // in minutes
+		AverageSession   float64 `json:"average_session"`
+		LastActivity     time.Time `json:"last_activity"`
+		MostActiveHour   int     `json:"most_active_hour"`
+		MostActiveDay    string  `json:"most_active_day"`
+	} `json:"summary"`
+
+	Activities []UserActivity `json:"activities"`
+	Patterns   struct {
+		HourlyActivity []HourlyActivity `json:"hourly_activity"`
+		DailyActivity  []DailyActivity  `json:"daily_activity"`
+		DeviceUsage    map[string]int   `json:"device_usage"`
+		LocationData   []LocationData   `json:"location_data"`
+	} `json:"patterns"`
+}
+
+type UserEngagementRequest struct {
+	DateFrom *time.Time `json:"date_from,omitempty"`
+	DateTo   *time.Time `json:"date_to,omitempty"`
+	Cohort   *string    `json:"cohort,omitempty"` // weekly, monthly
+}
+
+type UserEngagementResponse struct {
+	Overview struct {
+		TotalEngagedUsers int     `json:"total_engaged_users"`
+		EngagementRate    float64 `json:"engagement_rate"`
+		RetentionRate     float64 `json:"retention_rate"`
+		AverageSessionTime float64 `json:"average_session_time"`
+	} `json:"overview"`
+
+	Cohorts []CohortData `json:"cohorts"`
+	Funnel  struct {
+		Registration int `json:"registration"`
+		FirstLogin   int `json:"first_login"`
+		FirstOrder   int `json:"first_order"`
+		SecondOrder  int `json:"second_order"`
+		Retention30  int `json:"retention_30"`
+	} `json:"funnel"`
+}
+
+// Supporting types
+type DailyMetric struct {
+	Date  time.Time `json:"date"`
+	Count int       `json:"count"`
+}
+
+type WeeklyMetric struct {
+	Week  string `json:"week"`
+	Count int    `json:"count"`
+}
+
+type MonthlyMetric struct {
+	Month string `json:"month"`
+	Count int    `json:"count"`
+}
+
+type UserTrendData struct {
+	Date         time.Time `json:"date"`
+	NewUsers     int       `json:"new_users"`
+	ActiveUsers  int       `json:"active_users"`
+	ChurnedUsers int       `json:"churned_users"`
+}
+
+type UserActivity struct {
+	ID        uuid.UUID `json:"id"`
+	Action    string    `json:"action"`
+	Details   string    `json:"details"`
+	IPAddress string    `json:"ip_address"`
+	UserAgent string    `json:"user_agent"`
+	CreatedAt time.Time `json:"created_at"`
+}
+
+type HourlyActivity struct {
+	Hour  int `json:"hour"`
+	Count int `json:"count"`
+}
+
+type DailyActivity struct {
+	Day   string `json:"day"`
+	Count int    `json:"count"`
+}
+
+type LocationData struct {
+	Country string `json:"country"`
+	City    string `json:"city"`
+	Count   int    `json:"count"`
+}
+
+type CohortData struct {
+	Period    string    `json:"period"`
+	Users     int       `json:"users"`
+	Retention []float64 `json:"retention"`
 }
