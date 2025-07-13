@@ -27,6 +27,9 @@ type CategoryUseCase interface {
 	GetCategoryPath(ctx context.Context, categoryID uuid.UUID) ([]*CategoryResponse, error)
 	GetCategoryProductCount(ctx context.Context, categoryID uuid.UUID) (int64, error)
 
+	// GetCategoryLandingPage gets category landing page data
+	GetCategoryLandingPage(ctx context.Context, req GetCategoryLandingPageRequest) (*CategoryLandingPageResponse, error)
+
 	// Bulk operations
 	BulkCreateCategories(ctx context.Context, req []CreateCategoryRequest) ([]*CategoryResponse, error)
 	BulkUpdateCategories(ctx context.Context, req []BulkUpdateCategoryRequest) ([]*CategoryResponse, error)
@@ -51,13 +54,15 @@ type CategoryUseCase interface {
 
 type categoryUseCase struct {
 	categoryRepo repositories.CategoryRepository
+	productRepo  repositories.ProductRepository
 	fileService  services.FileService
 }
 
 // NewCategoryUseCase creates a new category use case
-func NewCategoryUseCase(categoryRepo repositories.CategoryRepository, fileService services.FileService) CategoryUseCase {
+func NewCategoryUseCase(categoryRepo repositories.CategoryRepository, productRepo repositories.ProductRepository, fileService services.FileService) CategoryUseCase {
 	return &categoryUseCase{
 		categoryRepo: categoryRepo,
+		productRepo:  productRepo,
 		fileService:  fileService,
 	}
 }
@@ -90,6 +95,18 @@ type GetCategoriesRequest struct {
 	Offset int `json:"offset" validate:"min=0"`
 }
 
+// GetCategoryLandingPageRequest represents category landing page request
+type GetCategoryLandingPageRequest struct {
+	CategoryID                 uuid.UUID `json:"category_id"`
+	Page                      int       `json:"page"`
+	Limit                     int       `json:"limit"`
+	SortBy                    string    `json:"sort_by"`
+	SortOrder                 string    `json:"sort_order"`
+	IncludeSubcategoryProducts bool      `json:"include_subcategory_products"`
+	IncludeFeatured           bool      `json:"include_featured"`
+	FeaturedLimit             int       `json:"featured_limit"`
+}
+
 // CategoryResponse represents category response
 type CategoryResponse struct {
 	ID          uuid.UUID          `json:"id"`
@@ -106,6 +123,19 @@ type CategoryResponse struct {
 	Path        string             `json:"path"`
 	CreatedAt   time.Time          `json:"created_at"`
 	UpdatedAt   time.Time          `json:"updated_at"`
+}
+
+// CategoryLandingPageResponse represents category landing page response
+type CategoryLandingPageResponse struct {
+	Category      *CategoryResponse `json:"category"`
+	Breadcrumbs   []*CategoryResponse `json:"breadcrumbs"`
+	Children      []*CategoryResponse `json:"children"`
+	Products      []*ProductResponse `json:"products"`
+	FeaturedProducts []*ProductResponse `json:"featured_products,omitempty"`
+	TotalProducts int64 `json:"total_products"`
+	Page          int   `json:"page"`
+	Limit         int   `json:"limit"`
+	TotalPages    int   `json:"total_pages"`
 }
 
 // BulkUpdateCategoryRequest represents bulk update category request
@@ -486,6 +516,111 @@ func (uc *categoryUseCase) GetCategoryProductCount(ctx context.Context, category
 	return uc.categoryRepo.GetProductCountByCategory(ctx, categoryID)
 }
 
+// GetCategoryLandingPage gets category landing page data
+func (uc *categoryUseCase) GetCategoryLandingPage(ctx context.Context, req GetCategoryLandingPageRequest) (*CategoryLandingPageResponse, error) {
+	// Get the category
+	category, err := uc.categoryRepo.GetByID(ctx, req.CategoryID)
+	if err != nil {
+		return nil, entities.ErrCategoryNotFound
+	}
+
+	// Get breadcrumbs (path from root to current category)
+	breadcrumbCategories, err := uc.categoryRepo.GetCategoryPath(ctx, req.CategoryID)
+	if err != nil {
+		return nil, err
+	}
+
+	breadcrumbs := make([]*CategoryResponse, len(breadcrumbCategories))
+	for i, cat := range breadcrumbCategories {
+		breadcrumbs[i] = uc.toCategoryResponse(cat)
+	}
+
+	// Get children categories
+	childrenCategories, err := uc.categoryRepo.GetChildren(ctx, req.CategoryID)
+	if err != nil {
+		return nil, err
+	}
+
+	children := make([]*CategoryResponse, len(childrenCategories))
+	for i, cat := range childrenCategories {
+		children[i] = uc.toCategoryResponse(cat)
+	}
+
+	// Get products for this category
+	offset := (req.Page - 1) * req.Limit
+	if offset < 0 {
+		offset = 0
+	}
+
+	var products []*entities.Product
+	var totalProducts int64
+
+	if req.IncludeSubcategoryProducts {
+		// For now, just get products from the main category
+		// TODO: Implement multi-category product search including subcategories
+		products, err = uc.productRepo.GetByCategory(ctx, req.CategoryID, req.Limit, offset)
+		if err != nil {
+			return nil, err
+		}
+
+		totalProducts, err = uc.productRepo.CountByCategory(ctx, req.CategoryID)
+		if err != nil {
+			totalProducts = 0
+		}
+	} else {
+		// Get products only from this category
+		products, err = uc.productRepo.GetByCategory(ctx, req.CategoryID, req.Limit, offset)
+		if err != nil {
+			return nil, err
+		}
+
+		totalProducts, err = uc.productRepo.CountByCategory(ctx, req.CategoryID)
+		if err != nil {
+			totalProducts = 0
+		}
+	}
+
+	// Convert products to response format
+	productResponses := make([]*ProductResponse, len(products))
+	for i, product := range products {
+		productResponses[i] = uc.toProductResponse(product)
+	}
+
+	// Get featured products in this category if requested
+	var featuredProductResponses []*ProductResponse
+	if req.IncludeFeatured {
+		featuredLimit := req.FeaturedLimit
+		if featuredLimit <= 0 {
+			featuredLimit = 6 // Default featured products limit
+		}
+
+		featuredProducts, err := uc.productRepo.GetFeaturedByCategory(ctx, req.CategoryID, featuredLimit)
+		if err == nil && len(featuredProducts) > 0 {
+			featuredProductResponses = make([]*ProductResponse, len(featuredProducts))
+			for i, product := range featuredProducts {
+				featuredProductResponses[i] = uc.toProductResponse(product)
+			}
+		}
+	}
+
+	// Calculate pagination
+	totalPages := int((totalProducts + int64(req.Limit) - 1) / int64(req.Limit))
+
+	response := &CategoryLandingPageResponse{
+		Category:         uc.toCategoryResponse(category),
+		Breadcrumbs:      breadcrumbs,
+		Children:         children,
+		Products:         productResponses,
+		FeaturedProducts: featuredProductResponses,
+		TotalProducts:    totalProducts,
+		Page:             req.Page,
+		Limit:            req.Limit,
+		TotalPages:       totalPages,
+	}
+
+	return response, nil
+}
+
 // toCategoryResponse converts category entity to response
 func (uc *categoryUseCase) toCategoryResponse(category *entities.Category) *CategoryResponse {
 	response := &CategoryResponse{
@@ -520,6 +655,81 @@ func (uc *categoryUseCase) toCategoryResponse(category *entities.Category) *Cate
 			UpdatedAt:   category.Parent.UpdatedAt,
 		}
 	}
+
+	return response
+}
+
+// toProductResponse converts product entity to response
+func (uc *categoryUseCase) toProductResponse(product *entities.Product) *ProductResponse {
+	response := &ProductResponse{
+		ID:          product.ID,
+		Name:        product.Name,
+		Description: product.Description,
+		SKU:         product.SKU,
+		Price:       product.Price,
+		SalePrice:   product.SalePrice,
+		ComparePrice: product.ComparePrice,
+		Stock:       product.Stock,
+		Status:      product.Status,
+		Weight:      product.Weight,
+		CreatedAt:   product.CreatedAt,
+		UpdatedAt:   product.UpdatedAt,
+	}
+
+	// Set dimensions
+	if product.Dimensions != nil {
+		response.Dimensions = &DimensionsResponse{
+			Length: product.Dimensions.Length,
+			Width:  product.Dimensions.Width,
+			Height: product.Dimensions.Height,
+		}
+	}
+
+	// Set category
+	if product.CategoryID != uuid.Nil && product.Category.ID != uuid.Nil {
+		response.Category = &ProductCategoryResponse{
+			ID:   product.Category.ID,
+			Name: product.Category.Name,
+			Slug: product.Category.Slug,
+		}
+	}
+
+	// Set brand
+	if product.BrandID != nil && product.Brand != nil {
+		response.Brand = &ProductBrandResponse{
+			ID:   product.Brand.ID,
+			Name: product.Brand.Name,
+			Slug: product.Brand.Slug,
+		}
+	}
+
+	// Set images
+	if len(product.Images) > 0 {
+		response.Images = make([]ProductImageResponse, len(product.Images))
+		for i, img := range product.Images {
+			response.Images[i] = ProductImageResponse{
+				ID:       img.ID,
+				URL:      img.URL,
+				AltText:  img.AltText,
+				Position: img.Position,
+			}
+		}
+		response.MainImage = product.Images[0].URL
+	}
+
+	// Calculate computed fields
+	response.CurrentPrice = product.Price
+	if product.SalePrice != nil && *product.SalePrice > 0 {
+		response.CurrentPrice = *product.SalePrice
+		response.IsOnSale = true
+		if product.Price > 0 {
+			response.SaleDiscountPercentage = ((product.Price - *product.SalePrice) / product.Price) * 100
+		}
+	}
+
+	response.IsLowStock = product.Stock <= product.LowStockThreshold
+	response.IsAvailable = product.Status == entities.ProductStatusActive && product.Stock > 0
+	response.HasDiscount = product.ComparePrice != nil && *product.ComparePrice > product.Price
 
 	return response
 }

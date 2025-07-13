@@ -347,6 +347,65 @@ func (h *CategoryHandler) GetCategoryProductCount(c *gin.Context) {
 	})
 }
 
+// GetCategoryLandingPage handles getting category landing page data
+// @Summary Get category landing page
+// @Description Get category with products, subcategories, featured products, and navigation data
+// @Tags categories
+// @Accept json
+// @Produce json
+// @Param id path string true "Category ID"
+// @Param page query int false "Page number" default(1)
+// @Param limit query int false "Products per page" default(20)
+// @Param sort_by query string false "Sort by field" Enums(name,price,created_at,popularity)
+// @Param sort_order query string false "Sort order" Enums(asc,desc) default(asc)
+// @Param include_subcategory_products query bool false "Include products from subcategories" default(false)
+// @Param include_featured query bool false "Include featured products in category" default(false)
+// @Param featured_limit query int false "Featured products limit" default(6)
+// @Success 200 {object} usecases.CategoryLandingPageResponse
+// @Failure 400 {object} ErrorResponse
+// @Router /categories/{id}/landing [get]
+func (h *CategoryHandler) GetCategoryLandingPage(c *gin.Context) {
+	categoryID, err := uuid.Parse(c.Param("id"))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, ErrorResponse{
+			Error: "Invalid category ID",
+		})
+		return
+	}
+
+	// Parse query parameters
+	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
+	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "20"))
+	sortBy := c.DefaultQuery("sort_by", "name")
+	sortOrder := c.DefaultQuery("sort_order", "asc")
+	includeSubcategoryProducts := c.DefaultQuery("include_subcategory_products", "false") == "true"
+	includeFeatured := c.DefaultQuery("include_featured", "false") == "true"
+	featuredLimit, _ := strconv.Atoi(c.DefaultQuery("featured_limit", "6"))
+
+	req := usecases.GetCategoryLandingPageRequest{
+		CategoryID:                 categoryID,
+		Page:                      page,
+		Limit:                     limit,
+		SortBy:                    sortBy,
+		SortOrder:                 sortOrder,
+		IncludeSubcategoryProducts: includeSubcategoryProducts,
+		IncludeFeatured:           includeFeatured,
+		FeaturedLimit:             featuredLimit,
+	}
+
+	response, err := h.categoryUseCase.GetCategoryLandingPage(c.Request.Context(), req)
+	if err != nil {
+		c.JSON(getErrorStatusCode(err), ErrorResponse{
+			Error: err.Error(),
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, SuccessResponse{
+		Data: response,
+	})
+}
+
 // BulkCreateCategories handles bulk creating categories
 // @Summary Bulk create categories
 // @Description Create multiple categories at once

@@ -311,26 +311,97 @@ func (r *productRepository) Count(ctx context.Context) (int64, error) {
 	return count, err
 }
 
-// CountByCategory returns the number of products in a category
+// CountByCategory returns the number of products in a category (includes subcategories)
 func (r *productRepository) CountByCategory(ctx context.Context, categoryID uuid.UUID) (int64, error) {
+	// Get all descendant categories using recursive CTE
+	categoryQuery := `
+		WITH RECURSIVE category_tree AS (
+			-- Base case: start with the given category
+			SELECT id FROM categories WHERE id = $1 AND is_active = true
+
+			UNION ALL
+
+			-- Recursive case: find all children
+			SELECT c.id FROM categories c
+			INNER JOIN category_tree ct ON c.parent_id = ct.id
+			WHERE c.is_active = true
+		)
+		SELECT id FROM category_tree
+	`
+
+	var categoryIDs []uuid.UUID
+	rows, err := r.db.WithContext(ctx).Raw(categoryQuery, categoryID).Rows()
+	if err != nil {
+		return 0, err
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		var id uuid.UUID
+		if err := rows.Scan(&id); err != nil {
+			return 0, err
+		}
+		categoryIDs = append(categoryIDs, id)
+	}
+
+	if len(categoryIDs) == 0 {
+		return 0, nil
+	}
+
 	var count int64
-	err := r.db.WithContext(ctx).
+	err = r.db.WithContext(ctx).
 		Model(&entities.Product{}).
-		Where("category_id = ?", categoryID).
+		Where("category_id IN ?", categoryIDs).
 		Count(&count).Error
 	return count, err
 }
 
-// GetByCategory retrieves products by category
+// GetByCategory retrieves products by category (includes subcategories)
 func (r *productRepository) GetByCategory(ctx context.Context, categoryID uuid.UUID, limit, offset int) ([]*entities.Product, error) {
+	// Get all descendant categories using recursive CTE
+	categoryQuery := `
+		WITH RECURSIVE category_tree AS (
+			-- Base case: start with the given category
+			SELECT id FROM categories WHERE id = $1 AND is_active = true
+
+			UNION ALL
+
+			-- Recursive case: find all children
+			SELECT c.id FROM categories c
+			INNER JOIN category_tree ct ON c.parent_id = ct.id
+			WHERE c.is_active = true
+		)
+		SELECT id FROM category_tree
+	`
+
+	var categoryIDs []uuid.UUID
+	rows, err := r.db.WithContext(ctx).Raw(categoryQuery, categoryID).Rows()
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		var id uuid.UUID
+		if err := rows.Scan(&id); err != nil {
+			return nil, err
+		}
+		categoryIDs = append(categoryIDs, id)
+	}
+
+	if len(categoryIDs) == 0 {
+		return []*entities.Product{}, nil
+	}
+
 	var products []*entities.Product
-	err := r.db.WithContext(ctx).
+	err = r.db.WithContext(ctx).
 		Preload("Category").
+		Preload("Brand").
 		Preload("Images", func(db *gorm.DB) *gorm.DB {
 			return db.Where("position >= 0").Order("position ASC")
 		}).
 		Preload("Tags").
-		Where("category_id = ?", categoryID).
+		Where("category_id IN ?", categoryIDs).
 		Limit(limit).
 		Offset(offset).
 		Order("created_at DESC").
@@ -414,12 +485,64 @@ func (r *productRepository) GetFeatured(ctx context.Context, limit int) ([]*enti
 	var products []*entities.Product
 	err := r.db.WithContext(ctx).
 		Preload("Category").
+		Preload("Brand").
 		Preload("Images", func(db *gorm.DB) *gorm.DB {
 			return db.Where("position >= 0").Order("position ASC")
 		}).
 		Preload("Tags").
-		// Joins("JOIN product_tags ON products.id = product_tags.id"). // Temporarily disabled
-		// Where("product_tags.slug = ?", "featured"). // Temporarily disabled
+		Where("featured = ? AND status = ?", true, entities.ProductStatusActive).
+		Limit(limit).
+		Order("created_at DESC").
+		Find(&products).Error
+	return products, err
+}
+
+// GetFeaturedByCategory retrieves featured products in a specific category (includes subcategories)
+func (r *productRepository) GetFeaturedByCategory(ctx context.Context, categoryID uuid.UUID, limit int) ([]*entities.Product, error) {
+	// Get all descendant categories using recursive CTE
+	categoryQuery := `
+		WITH RECURSIVE category_tree AS (
+			-- Base case: start with the given category
+			SELECT id FROM categories WHERE id = $1 AND is_active = true
+
+			UNION ALL
+
+			-- Recursive case: find all children
+			SELECT c.id FROM categories c
+			INNER JOIN category_tree ct ON c.parent_id = ct.id
+			WHERE c.is_active = true
+		)
+		SELECT id FROM category_tree
+	`
+
+	var categoryIDs []uuid.UUID
+	rows, err := r.db.WithContext(ctx).Raw(categoryQuery, categoryID).Rows()
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		var id uuid.UUID
+		if err := rows.Scan(&id); err != nil {
+			return nil, err
+		}
+		categoryIDs = append(categoryIDs, id)
+	}
+
+	if len(categoryIDs) == 0 {
+		return []*entities.Product{}, nil
+	}
+
+	var products []*entities.Product
+	err = r.db.WithContext(ctx).
+		Preload("Category").
+		Preload("Brand").
+		Preload("Images", func(db *gorm.DB) *gorm.DB {
+			return db.Where("position >= 0").Order("position ASC")
+		}).
+		Preload("Tags").
+		Where("category_id IN ? AND featured = ? AND status = ?", categoryIDs, true, entities.ProductStatusActive).
 		Limit(limit).
 		Order("created_at DESC").
 		Find(&products).Error

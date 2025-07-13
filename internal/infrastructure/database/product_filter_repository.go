@@ -281,42 +281,114 @@ func (r *productFilterRepository) generateFacets(ctx context.Context, params rep
 	return r.GetFilterFacets(ctx, categoryID)
 }
 
-// getCategoryFacets gets category facets
+// getCategoryFacets gets category facets with hierarchy support
 func (r *productFilterRepository) getCategoryFacets(ctx context.Context, categoryID *uuid.UUID) ([]repositories.FilterCategoryFacet, error) {
 	var facets []repositories.FilterCategoryFacet
 
-	query := `
-		SELECT c.id, c.name, c.slug, COUNT(p.id) as count
-		FROM categories c
-		LEFT JOIN products p ON c.id = p.category_id AND p.status = 'active'
-		WHERE c.is_active = true
-	`
-
-	var args []interface{}
-	if categoryID != nil {
-		query += " AND c.parent_id = ?"
-		args = append(args, *categoryID)
-	} else {
-		query += " AND c.parent_id IS NULL"
+	// First get all categories
+	var categories []struct {
+		ID   uuid.UUID
+		Name string
+		Slug string
 	}
 
-	query += " GROUP BY c.id, c.name, c.slug ORDER BY c.name"
+	categoryQuery := `
+		SELECT id, name, slug
+		FROM categories
+		WHERE is_active = true
+	`
 
-	rows, err := r.db.WithContext(ctx).Raw(query, args...).Rows()
+	var categoryArgs []interface{}
+	if categoryID != nil {
+		categoryQuery += " AND parent_id = ?"
+		categoryArgs = append(categoryArgs, *categoryID)
+	} else {
+		categoryQuery += " AND parent_id IS NULL"
+	}
+
+	categoryQuery += " ORDER BY name"
+
+	rows, err := r.db.WithContext(ctx).Raw(categoryQuery, categoryArgs...).Rows()
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
 
 	for rows.Next() {
-		var facet repositories.FilterCategoryFacet
-		if err := rows.Scan(&facet.ID, &facet.Name, &facet.Slug, &facet.Count); err != nil {
+		var cat struct {
+			ID   uuid.UUID
+			Name string
+			Slug string
+		}
+		if err := rows.Scan(&cat.ID, &cat.Name, &cat.Slug); err != nil {
 			return nil, err
 		}
-		facets = append(facets, facet)
+		categories = append(categories, cat)
+	}
+
+	// Now count products for each category (including subcategories)
+	for _, cat := range categories {
+		count, err := r.countProductsInCategoryHierarchy(ctx, cat.ID)
+		if err != nil {
+			return nil, err
+		}
+
+		facets = append(facets, repositories.FilterCategoryFacet{
+			ID:    cat.ID,
+			Name:  cat.Name,
+			Slug:  cat.Slug,
+			Count: count,
+		})
 	}
 
 	return facets, nil
+}
+
+// countProductsInCategoryHierarchy counts products in a category and all its subcategories
+func (r *productFilterRepository) countProductsInCategoryHierarchy(ctx context.Context, categoryID uuid.UUID) (int, error) {
+	// Get all descendant categories using recursive CTE
+	categoryQuery := `
+		WITH RECURSIVE category_tree AS (
+			-- Base case: start with the given category
+			SELECT id FROM categories WHERE id = $1 AND is_active = true
+
+			UNION ALL
+
+			-- Recursive case: find all children
+			SELECT c.id FROM categories c
+			INNER JOIN category_tree ct ON c.parent_id = ct.id
+			WHERE c.is_active = true
+		)
+		SELECT id FROM category_tree
+	`
+
+	var categoryIDs []uuid.UUID
+	rows, err := r.db.WithContext(ctx).Raw(categoryQuery, categoryID).Rows()
+	if err != nil {
+		return 0, err
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		var id uuid.UUID
+		if err := rows.Scan(&id); err != nil {
+			return 0, err
+		}
+		categoryIDs = append(categoryIDs, id)
+	}
+
+	if len(categoryIDs) == 0 {
+		return 0, nil
+	}
+
+	// Count products in all these categories
+	var count int64
+	err = r.db.WithContext(ctx).
+		Model(&entities.Product{}).
+		Where("category_id IN ? AND status = ?", categoryIDs, entities.ProductStatusActive).
+		Count(&count).Error
+
+	return int(count), err
 }
 
 // getBrandFacets gets brand facets

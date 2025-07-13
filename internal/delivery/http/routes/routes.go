@@ -174,6 +174,7 @@ func SetupRoutes(
 			categories.GET("/:id/children", categoryHandler.GetCategoryChildren)
 			categories.GET("/:id/path", categoryHandler.GetCategoryPath)
 			categories.GET("/:id/count", categoryHandler.GetCategoryProductCount)
+			categories.GET("/:id/landing", categoryHandler.GetCategoryLandingPage)
 
 			// Enhanced category routes
 			categories.GET("/search", categoryHandler.SearchCategories)

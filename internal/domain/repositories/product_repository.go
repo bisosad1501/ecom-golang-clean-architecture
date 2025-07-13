@@ -73,6 +73,9 @@ type ProductRepository interface {
 	// GetFeatured retrieves featured products
 	GetFeatured(ctx context.Context, limit int) ([]*entities.Product, error)
 
+	// GetFeaturedByCategory retrieves featured products in a specific category
+	GetFeaturedByCategory(ctx context.Context, categoryID uuid.UUID, limit int) ([]*entities.Product, error)
+
 	// GetRelated retrieves related products
 	GetRelated(ctx context.Context, productID uuid.UUID, limit int) ([]*entities.Product, error)
 

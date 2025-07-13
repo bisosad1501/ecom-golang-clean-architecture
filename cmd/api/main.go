@@ -158,6 +158,7 @@ func main() {
 
 	categoryUseCase := usecases.NewCategoryUseCase(
 		categoryRepo,
+		productRepo,
 		fileService,
 	)
 
