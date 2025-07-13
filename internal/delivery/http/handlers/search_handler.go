@@ -1148,6 +1148,8 @@ func (h *SearchHandler) EnhancedSearch(c *gin.Context) {
 	})
 }
 
+
+
 // SaveSearchHistory handles saving search history
 // @Summary Save search history
 // @Description Save user search history

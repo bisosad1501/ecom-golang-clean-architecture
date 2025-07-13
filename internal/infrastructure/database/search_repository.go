@@ -2009,3 +2009,126 @@ func (r *searchRepository) CalculateAutocompleteScores(ctx context.Context) erro
 		WHERE is_active = true
 	`).Error
 }
+
+// TrackSearchAnalytics tracks search analytics data
+func (r *searchRepository) TrackSearchAnalytics(ctx context.Context, analytics *entities.EnhancedSearchAnalytics) error {
+	var analyticsID uuid.UUID
+	err := r.db.WithContext(ctx).Raw(`
+		SELECT track_enhanced_search_analytics(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+	`, analytics.Query, analytics.UserID, analytics.SessionID, analytics.IPAddress,
+		analytics.UserAgent, analytics.ResultCount, analytics.ResponseTime,
+		analytics.SearchType, analytics.Filters, analytics.SortBy, analytics.Language).
+		Scan(&analyticsID).Error
+
+	if err != nil {
+		return fmt.Errorf("failed to track search analytics: %w", err)
+	}
+
+	analytics.ID = analyticsID
+	return nil
+}
+
+// TrackSearchClick tracks when user clicks on search result
+func (r *searchRepository) TrackSearchClick(ctx context.Context, analyticsID uuid.UUID, clickPosition int) error {
+	err := r.db.WithContext(ctx).Exec(`
+		SELECT track_enhanced_search_click(?, ?)
+	`, analyticsID, clickPosition).Error
+
+	if err != nil {
+		return fmt.Errorf("failed to track search click: %w", err)
+	}
+
+	return nil
+}
+
+// GetSearchSynonyms retrieves synonyms for query expansion
+func (r *searchRepository) GetSearchSynonyms(ctx context.Context, term string, language string) ([]string, error) {
+	if language == "" {
+		language = "en"
+	}
+
+	var synonyms []string
+	err := r.db.WithContext(ctx).Raw(`
+		SELECT unnest(synonyms) as synonym
+		FROM search_synonyms
+		WHERE (term = ? OR ? = ANY(synonyms))
+		AND language = ?
+		AND is_active = true
+	`, term, term, language).Scan(&synonyms).Error
+
+	return synonyms, err
+}
+
+// calculateRelevanceScore calculates relevance score for search result
+func (r *searchRepository) calculateRelevanceScore(product *entities.Product, query string) float64 {
+	score := 0.0
+
+	// Exact name match
+	if strings.Contains(strings.ToLower(product.Name), strings.ToLower(query)) {
+		score += 3.0
+	}
+
+	// SKU match
+	if strings.Contains(strings.ToLower(product.SKU), strings.ToLower(query)) {
+		score += 2.0
+	}
+
+	// Featured bonus
+	if product.Featured {
+		score += 1.5
+	}
+
+	// Stock bonus
+	if product.Stock > 0 {
+		score += 1.0
+	}
+
+	return score
+}
+
+// determineMatchReason determines why a product matched the search
+func (r *searchRepository) determineMatchReason(product *entities.Product, query string) string {
+	queryLower := strings.ToLower(query)
+
+	if strings.Contains(strings.ToLower(product.Name), queryLower) {
+		return "name_match"
+	}
+	if strings.Contains(strings.ToLower(product.SKU), queryLower) {
+		return "sku_match"
+	}
+	if strings.Contains(strings.ToLower(product.Description), queryLower) {
+		return "description_match"
+	}
+
+	return "full_text_match"
+}
+
+// generateHighlights generates search result highlights
+func (r *searchRepository) generateHighlights(product *entities.Product, query string) []entities.SearchHighlight {
+	var highlights []entities.SearchHighlight
+	queryLower := strings.ToLower(query)
+
+	// Highlight name
+	if strings.Contains(strings.ToLower(product.Name), queryLower) {
+		highlighted := strings.ReplaceAll(product.Name, query, "<mark>"+query+"</mark>")
+		highlights = append(highlights, entities.SearchHighlight{
+			Field:     "name",
+			Fragments: []string{highlighted},
+		})
+	}
+
+	// Highlight description
+	if strings.Contains(strings.ToLower(product.Description), queryLower) {
+		// Simple highlighting - in production, use more sophisticated highlighting
+		highlighted := strings.ReplaceAll(product.Description, query, "<mark>"+query+"</mark>")
+		if len(highlighted) > 200 {
+			highlighted = highlighted[:200] + "..."
+		}
+		highlights = append(highlights, entities.SearchHighlight{
+			Field:     "description",
+			Fragments: []string{highlighted},
+		})
+	}
+
+	return highlights
+}

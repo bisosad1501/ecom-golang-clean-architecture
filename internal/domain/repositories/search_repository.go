@@ -87,6 +87,11 @@ type SearchRepository interface {
 	// Autocomplete Management
 	RebuildAutocompleteIndex(ctx context.Context) error
 	CleanupOldAutocompleteEntries(ctx context.Context, days int) error
+
+	// Enhanced Search Features
+	TrackSearchAnalytics(ctx context.Context, analytics *entities.EnhancedSearchAnalytics) error
+	TrackSearchClick(ctx context.Context, analyticsID uuid.UUID, clickPosition int) error
+	GetSearchSynonyms(ctx context.Context, term string, language string) ([]string, error)
 }
 
 // SearchEventFilters represents filters for search events

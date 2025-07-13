@@ -199,6 +199,62 @@ func (SearchTrend) TableName() string {
 	return "search_trends"
 }
 
+// EnhancedSearchAnalytics represents enhanced search analytics data
+type EnhancedSearchAnalytics struct {
+	ID            uuid.UUID `json:"id" gorm:"type:uuid;primary_key;default:gen_random_uuid()"`
+	Query         string    `json:"query" gorm:"not null;index"`
+	UserID        *uuid.UUID `json:"user_id" gorm:"type:uuid;index"`
+	SessionID     string    `json:"session_id" gorm:"index"`
+	IPAddress     string    `json:"ip_address"`
+	UserAgent     string    `json:"user_agent"`
+	ResultCount   int       `json:"result_count"`
+	ClickedResult bool      `json:"clicked_result" gorm:"default:false"`
+	ClickPosition *int      `json:"click_position"`
+	ResponseTime  int       `json:"response_time_ms"` // in milliseconds
+	SearchType    string    `json:"search_type" gorm:"default:'full_text'"` // full_text, autocomplete, filter
+	Filters       string    `json:"filters" gorm:"type:jsonb"`
+	SortBy        string    `json:"sort_by"`
+	Language      string    `json:"language" gorm:"default:'en'"`
+	CreatedAt     time.Time `json:"created_at" gorm:"autoCreateTime;index"`
+}
+
+// TableName returns the table name for EnhancedSearchAnalytics entity
+func (EnhancedSearchAnalytics) TableName() string {
+	return "enhanced_search_analytics"
+}
+
+
+
+// SearchSynonym represents search synonyms for query expansion
+type SearchSynonym struct {
+	ID        uuid.UUID `json:"id" gorm:"type:uuid;primary_key;default:gen_random_uuid()"`
+	Term      string    `json:"term" gorm:"not null;index"`
+	Synonyms  pq.StringArray `json:"synonyms" gorm:"type:text[];not null"`
+	Language  string    `json:"language" gorm:"default:'en';index"`
+	IsActive  bool      `json:"is_active" gorm:"default:true"`
+	CreatedAt time.Time `json:"created_at" gorm:"autoCreateTime"`
+	UpdatedAt time.Time `json:"updated_at" gorm:"autoUpdateTime"`
+}
+
+// TableName returns the table name for SearchSynonym entity
+func (SearchSynonym) TableName() string {
+	return "search_synonyms"
+}
+
+// SearchHighlight represents highlighted search results
+type SearchHighlight struct {
+	Field     string `json:"field"`
+	Fragments []string `json:"fragments"`
+}
+
+// EnhancedSearchResult represents enhanced search result with highlighting
+type EnhancedSearchResult struct {
+	Product    *Product          `json:"product"`
+	Score      float64          `json:"score"`
+	Highlights []SearchHighlight `json:"highlights"`
+	Reason     string           `json:"reason"` // why this result was returned
+}
+
 // UserSearchPreference represents user search preferences
 type UserSearchPreference struct {
 	ID                uuid.UUID `json:"id" gorm:"type:uuid;primary_key;default:gen_random_uuid()"`

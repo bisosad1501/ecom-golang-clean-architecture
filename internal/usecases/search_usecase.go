@@ -340,7 +340,7 @@ type BrandSuggestionResponse struct {
 	Name string    `json:"name"`
 }
 
-// FullTextSearch performs full-text search
+// FullTextSearch performs full-text search with enhanced analytics
 func (uc *searchUseCase) FullTextSearch(ctx context.Context, req FullTextSearchRequest) (*SearchResponse, error) {
 	startTime := time.Now()
 	
@@ -450,6 +450,26 @@ func (uc *searchUseCase) FullTextSearch(ctx context.Context, req FullTextSearchR
 
 		// Record search analytics for performance tracking
 		uc.searchRepo.RecordSearchAnalytics(ctx, req.Query, int(total))
+
+		// Enhanced analytics tracking
+		analytics := &entities.EnhancedSearchAnalytics{
+			Query:        req.Query,
+			UserID:       req.UserID,
+			SessionID:    req.SessionID,
+			IPAddress:    req.IPAddress,
+			UserAgent:    req.UserAgent,
+			ResultCount:  int(total),
+			ResponseTime: int(time.Since(startTime).Milliseconds()),
+			SearchType:   "full_text",
+			SortBy:       req.SortBy,
+			Language:     "en",
+		}
+
+		// Track enhanced analytics
+		if err := uc.searchRepo.TrackSearchAnalytics(ctx, analytics); err != nil {
+			// Log error but don't fail the search
+			fmt.Printf("Error tracking search analytics: %v\n", err)
+		}
 	}
 	
 	searchTime := time.Since(startTime)
