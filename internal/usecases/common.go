@@ -47,8 +47,4 @@ type TopProductsResponse struct {
 	Total    int64         `json:"total"`
 }
 
-type TopCategoriesResponse struct {
-	Categories []interface{} `json:"categories"`
-	Period     string        `json:"period"`
-	Total      int64         `json:"total"`
-}
+

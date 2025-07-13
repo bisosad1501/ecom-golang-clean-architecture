@@ -2,6 +2,8 @@ package usecases
 
 import (
 	"context"
+	"fmt"
+	"sort"
 	"strings"
 	"time"
 
@@ -24,6 +26,27 @@ type CategoryUseCase interface {
 	GetCategoryChildren(ctx context.Context, parentID uuid.UUID) ([]*CategoryResponse, error)
 	GetCategoryPath(ctx context.Context, categoryID uuid.UUID) ([]*CategoryResponse, error)
 	GetCategoryProductCount(ctx context.Context, categoryID uuid.UUID) (int64, error)
+
+	// Bulk operations
+	BulkCreateCategories(ctx context.Context, req []CreateCategoryRequest) ([]*CategoryResponse, error)
+	BulkUpdateCategories(ctx context.Context, req []BulkUpdateCategoryRequest) ([]*CategoryResponse, error)
+	BulkDeleteCategories(ctx context.Context, ids []uuid.UUID) error
+
+	// Advanced filtering
+	SearchCategories(ctx context.Context, req SearchCategoriesRequest) (*CategoriesListResponse, error)
+	GetCategoriesWithFilters(ctx context.Context, req GetCategoriesWithFiltersRequest) (*CategoriesListResponse, error)
+
+	// Tree operations
+	MoveCategory(ctx context.Context, req MoveCategoryRequest) error
+	ReorderCategories(ctx context.Context, req ReorderCategoriesRequest) error
+	GetCategoryTreeStats(ctx context.Context) (*CategoryTreeStatsResponse, error)
+	ValidateAndRepairTree(ctx context.Context) (*TreeValidationResponse, error)
+
+	// Analytics and statistics
+	GetCategoryAnalytics(ctx context.Context, req GetCategoryAnalyticsRequest) (*CategoryAnalyticsResponse, error)
+	GetTopCategories(ctx context.Context, req GetTopCategoriesRequest) (*TopCategoriesResponse, error)
+	GetCategoryPerformanceMetrics(ctx context.Context, categoryID uuid.UUID) (*CategoryPerformanceResponse, error)
+	GetCategorySalesStats(ctx context.Context, req GetCategorySalesStatsRequest) (*CategorySalesStatsResponse, error)
 }
 
 type categoryUseCase struct {
@@ -83,6 +106,139 @@ type CategoryResponse struct {
 	Path        string             `json:"path"`
 	CreatedAt   time.Time          `json:"created_at"`
 	UpdatedAt   time.Time          `json:"updated_at"`
+}
+
+// BulkUpdateCategoryRequest represents bulk update category request
+type BulkUpdateCategoryRequest struct {
+	ID          uuid.UUID  `json:"id" validate:"required"`
+	Name        string     `json:"name"`
+	Description string     `json:"description"`
+	Slug        string     `json:"slug"`
+	Image       string     `json:"image"`
+	ParentID    *uuid.UUID `json:"parent_id"`
+	IsActive    *bool      `json:"is_active"`
+	SortOrder   *int       `json:"sort_order"`
+}
+
+// SearchCategoriesRequest represents search categories request
+type SearchCategoriesRequest struct {
+	Query  string `json:"query" validate:"required"`
+	Limit  int    `json:"limit"`
+	Offset int    `json:"offset"`
+}
+
+// GetCategoriesWithFiltersRequest represents advanced filtering request
+type GetCategoriesWithFiltersRequest struct {
+	Search    string     `json:"search"`
+	ParentID  *uuid.UUID `json:"parent_id"`
+	IsActive  *bool      `json:"is_active"`
+	HasParent *bool      `json:"has_parent"`
+	Limit     int        `json:"limit"`
+	Offset    int        `json:"offset"`
+	SortBy    string     `json:"sort_by"`    // name, created_at, sort_order
+	SortOrder string     `json:"sort_order"` // asc, desc
+}
+
+// CategoriesListResponse represents paginated categories response
+type CategoriesListResponse struct {
+	Categories []*CategoryResponse `json:"categories"`
+	Total      int64               `json:"total"`
+	Page       int                 `json:"page"`
+	Limit      int                 `json:"limit"`
+	TotalPages int                 `json:"total_pages"`
+}
+
+// MoveCategoryRequest represents move category request
+type MoveCategoryRequest struct {
+	CategoryID    uuid.UUID  `json:"category_id" validate:"required"`
+	NewParentID   *uuid.UUID `json:"new_parent_id"` // null for root level
+	ValidateOnly  bool       `json:"validate_only"` // true to only validate without moving
+}
+
+// ReorderCategoriesRequest represents reorder categories request
+type ReorderCategoriesRequest struct {
+	Categories []CategoryReorderItem `json:"categories" validate:"required"`
+}
+
+// CategoryReorderItem represents a single category reorder item
+type CategoryReorderItem struct {
+	CategoryID uuid.UUID `json:"category_id" validate:"required"`
+	SortOrder  int       `json:"sort_order" validate:"required"`
+}
+
+// CategoryTreeStatsResponse represents category tree statistics
+type CategoryTreeStatsResponse struct {
+	TotalCategories   int                    `json:"total_categories"`
+	RootCategories    int                    `json:"root_categories"`
+	MaxDepth          int                    `json:"max_depth"`
+	AverageDepth      float64                `json:"average_depth"`
+	CategoriesByLevel map[int]int            `json:"categories_by_level"`
+	LargestBranches   []CategoryBranchInfo   `json:"largest_branches"`
+}
+
+// CategoryBranchInfo represents information about a category branch
+type CategoryBranchInfo struct {
+	CategoryID       uuid.UUID `json:"category_id"`
+	CategoryName     string    `json:"category_name"`
+	DescendantCount  int       `json:"descendant_count"`
+	DirectChildren   int       `json:"direct_children"`
+	ProductCount     int64     `json:"product_count"`
+}
+
+// TreeValidationResponse represents tree validation results
+type TreeValidationResponse struct {
+	IsValid           bool                    `json:"is_valid"`
+	Issues            []TreeValidationIssue   `json:"issues"`
+	RepairsPerformed  []string                `json:"repairs_performed"`
+	TotalIssuesFound  int                     `json:"total_issues_found"`
+	TotalRepairs      int                     `json:"total_repairs"`
+}
+
+// TreeValidationIssue represents a tree validation issue
+type TreeValidationIssue struct {
+	Type        string    `json:"type"`        // circular_reference, orphaned_category, invalid_depth
+	CategoryID  uuid.UUID `json:"category_id"`
+	Description string    `json:"description"`
+	Severity    string    `json:"severity"`    // critical, warning, info
+}
+
+// GetCategoryAnalyticsRequest represents get category analytics request
+type GetCategoryAnalyticsRequest struct {
+	CategoryID uuid.UUID `json:"category_id" validate:"required"`
+	TimeRange  string    `json:"time_range"` // 7d, 30d, 90d, 1y
+}
+
+// CategoryAnalyticsResponse represents category analytics response
+type CategoryAnalyticsResponse struct {
+	Analytics *repositories.CategoryAnalytics `json:"analytics"`
+}
+
+// GetTopCategoriesRequest represents get top categories request
+type GetTopCategoriesRequest struct {
+	Limit  int    `json:"limit" validate:"min=1,max=100"`
+	SortBy string `json:"sort_by"` // sales, revenue, products, rating, growth
+}
+
+// TopCategoriesResponse represents top categories response
+type TopCategoriesResponse struct {
+	Categories []*repositories.CategoryStats `json:"categories"`
+	Total      int                           `json:"total"`
+}
+
+// CategoryPerformanceResponse represents category performance response
+type CategoryPerformanceResponse struct {
+	Metrics *repositories.CategoryPerformanceMetrics `json:"metrics"`
+}
+
+// GetCategorySalesStatsRequest represents get category sales stats request
+type GetCategorySalesStatsRequest struct {
+	CategoryID uuid.UUID `json:"category_id" validate:"required"`
+	TimeRange  string    `json:"time_range"` // 7d, 30d, 90d, 1y
+}
+
+// CategorySalesStatsResponse represents category sales stats response
+type CategorySalesStatsResponse struct {
+	Stats *repositories.CategorySalesStats `json:"stats"`
 }
 
 // CreateCategory creates a new category
@@ -391,4 +547,616 @@ func generateSlug(name string) string {
 	slug = strings.ReplaceAll(slug, "&", "and")
 	// Remove special characters (basic implementation)
 	return slug
+}
+
+// BulkCreateCategories creates multiple categories
+func (uc *categoryUseCase) BulkCreateCategories(ctx context.Context, req []CreateCategoryRequest) ([]*CategoryResponse, error) {
+	if len(req) == 0 {
+		return []*CategoryResponse{}, nil
+	}
+
+	var categories []*entities.Category
+
+	for _, r := range req {
+		// Check if slug already exists
+		exists, err := uc.categoryRepo.ExistsBySlug(ctx, r.Slug)
+		if err != nil {
+			return nil, err
+		}
+		if exists {
+			return nil, entities.ErrConflict
+		}
+
+		// Verify parent category exists if provided
+		if r.ParentID != nil {
+			_, err = uc.categoryRepo.GetByID(ctx, *r.ParentID)
+			if err != nil {
+				return nil, entities.ErrCategoryNotFound
+			}
+		}
+
+		// Generate slug if not provided
+		slug := r.Slug
+		if slug == "" {
+			slug = generateSlug(r.Name)
+		}
+
+		category := &entities.Category{
+			ID:          uuid.New(),
+			Name:        r.Name,
+			Description: r.Description,
+			Slug:        slug,
+			Image:       r.Image,
+			ParentID:    r.ParentID,
+			IsActive:    r.IsActive,
+			SortOrder:   r.SortOrder,
+			CreatedAt:   time.Now(),
+			UpdatedAt:   time.Now(),
+		}
+
+		categories = append(categories, category)
+	}
+
+	if err := uc.categoryRepo.BulkCreate(ctx, categories); err != nil {
+		return nil, err
+	}
+
+	var responses []*CategoryResponse
+	for _, category := range categories {
+		responses = append(responses, uc.toCategoryResponse(category))
+	}
+
+	return responses, nil
+}
+
+// BulkUpdateCategories updates multiple categories
+func (uc *categoryUseCase) BulkUpdateCategories(ctx context.Context, req []BulkUpdateCategoryRequest) ([]*CategoryResponse, error) {
+	if len(req) == 0 {
+		return []*CategoryResponse{}, nil
+	}
+
+	var categories []*entities.Category
+
+	for _, r := range req {
+		// Get existing category
+		category, err := uc.categoryRepo.GetByID(ctx, r.ID)
+		if err != nil {
+			return nil, entities.ErrCategoryNotFound
+		}
+
+		// Update fields if provided
+		if r.Name != "" {
+			category.Name = r.Name
+		}
+		if r.Description != "" {
+			category.Description = r.Description
+		}
+		if r.Slug != "" {
+			// Check if new slug already exists (excluding current category)
+			exists, err := uc.categoryRepo.ExistsBySlug(ctx, r.Slug)
+			if err != nil {
+				return nil, err
+			}
+			if exists {
+				// Check if it's the same category
+				existingCategory, err := uc.categoryRepo.GetBySlug(ctx, r.Slug)
+				if err != nil {
+					return nil, err
+				}
+				if existingCategory.ID != category.ID {
+					return nil, entities.ErrConflict
+				}
+			}
+			category.Slug = r.Slug
+		}
+		if r.Image != "" {
+			category.Image = r.Image
+		}
+		if r.ParentID != nil {
+			// Validate hierarchy to prevent circular references
+			if err := uc.categoryRepo.ValidateHierarchy(ctx, category.ID, *r.ParentID); err != nil {
+				return nil, err
+			}
+			category.ParentID = r.ParentID
+		}
+		if r.IsActive != nil {
+			category.IsActive = *r.IsActive
+		}
+		if r.SortOrder != nil {
+			category.SortOrder = *r.SortOrder
+		}
+
+		category.UpdatedAt = time.Now()
+		categories = append(categories, category)
+	}
+
+	if err := uc.categoryRepo.BulkUpdate(ctx, categories); err != nil {
+		return nil, err
+	}
+
+	var responses []*CategoryResponse
+	for _, category := range categories {
+		responses = append(responses, uc.toCategoryResponse(category))
+	}
+
+	return responses, nil
+}
+
+// BulkDeleteCategories deletes multiple categories
+func (uc *categoryUseCase) BulkDeleteCategories(ctx context.Context, ids []uuid.UUID) error {
+	if len(ids) == 0 {
+		return nil
+	}
+
+	// Check if any category has children
+	for _, id := range ids {
+		children, err := uc.categoryRepo.GetChildren(ctx, id)
+		if err != nil {
+			return err
+		}
+		if len(children) > 0 {
+			return entities.ErrCategoryHasChildren
+		}
+
+		// Check if category has products
+		count, err := uc.categoryRepo.GetProductCount(ctx, id, false)
+		if err != nil {
+			return err
+		}
+		if count > 0 {
+			return entities.ErrCategoryHasProducts
+		}
+	}
+
+	return uc.categoryRepo.BulkDelete(ctx, ids)
+}
+
+// SearchCategories searches categories by query
+func (uc *categoryUseCase) SearchCategories(ctx context.Context, req SearchCategoriesRequest) (*CategoriesListResponse, error) {
+	// Set default pagination
+	if req.Limit <= 0 {
+		req.Limit = 20
+	}
+	if req.Limit > 100 {
+		req.Limit = 100
+	}
+
+	categories, err := uc.categoryRepo.Search(ctx, req.Query, req.Limit, req.Offset)
+	if err != nil {
+		return nil, err
+	}
+
+	// Get total count for pagination
+	filters := repositories.CategoryFilters{
+		Search: req.Query,
+		Limit:  req.Limit,
+		Offset: req.Offset,
+	}
+	total, err := uc.categoryRepo.CountWithFilters(ctx, filters)
+	if err != nil {
+		return nil, err
+	}
+
+	var responses []*CategoryResponse
+	for _, category := range categories {
+		responses = append(responses, uc.toCategoryResponse(category))
+	}
+
+	page := (req.Offset / req.Limit) + 1
+	totalPages := int((total + int64(req.Limit) - 1) / int64(req.Limit))
+
+	return &CategoriesListResponse{
+		Categories: responses,
+		Total:      total,
+		Page:       page,
+		Limit:      req.Limit,
+		TotalPages: totalPages,
+	}, nil
+}
+
+// GetCategoriesWithFilters gets categories with advanced filtering
+func (uc *categoryUseCase) GetCategoriesWithFilters(ctx context.Context, req GetCategoriesWithFiltersRequest) (*CategoriesListResponse, error) {
+	// Set default pagination
+	if req.Limit <= 0 {
+		req.Limit = 20
+	}
+	if req.Limit > 100 {
+		req.Limit = 100
+	}
+
+	// Set default sorting
+	if req.SortBy == "" {
+		req.SortBy = "name"
+	}
+	if req.SortOrder == "" {
+		req.SortOrder = "asc"
+	}
+
+	filters := repositories.CategoryFilters{
+		Search:    req.Search,
+		ParentID:  req.ParentID,
+		IsActive:  req.IsActive,
+		HasParent: req.HasParent,
+		Limit:     req.Limit,
+		Offset:    req.Offset,
+		SortBy:    req.SortBy,
+		SortOrder: req.SortOrder,
+	}
+
+	categories, err := uc.categoryRepo.ListWithFilters(ctx, filters)
+	if err != nil {
+		return nil, err
+	}
+
+	total, err := uc.categoryRepo.CountWithFilters(ctx, filters)
+	if err != nil {
+		return nil, err
+	}
+
+	var responses []*CategoryResponse
+	for _, category := range categories {
+		responses = append(responses, uc.toCategoryResponse(category))
+	}
+
+	page := (req.Offset / req.Limit) + 1
+	totalPages := int((total + int64(req.Limit) - 1) / int64(req.Limit))
+
+	return &CategoriesListResponse{
+		Categories: responses,
+		Total:      total,
+		Page:       page,
+		Limit:      req.Limit,
+		TotalPages: totalPages,
+	}, nil
+}
+
+// MoveCategory moves a category to a new parent
+func (uc *categoryUseCase) MoveCategory(ctx context.Context, req MoveCategoryRequest) error {
+	// Validate category exists
+	_, err := uc.categoryRepo.GetByID(ctx, req.CategoryID)
+	if err != nil {
+		return entities.ErrCategoryNotFound
+	}
+
+	// Validate new parent exists if provided
+	if req.NewParentID != nil {
+		_, err = uc.categoryRepo.GetByID(ctx, *req.NewParentID)
+		if err != nil {
+			return entities.ErrCategoryNotFound
+		}
+
+		// Validate hierarchy to prevent circular references
+		if err := uc.categoryRepo.ValidateHierarchy(ctx, req.CategoryID, *req.NewParentID); err != nil {
+			return err
+		}
+	}
+
+	// If validate only, return without making changes
+	if req.ValidateOnly {
+		return nil
+	}
+
+	// Perform the move
+	var newParentID uuid.UUID
+	if req.NewParentID != nil {
+		newParentID = *req.NewParentID
+	}
+
+	return uc.categoryRepo.MoveCategory(ctx, req.CategoryID, newParentID)
+}
+
+// ReorderCategories reorders multiple categories
+func (uc *categoryUseCase) ReorderCategories(ctx context.Context, req ReorderCategoriesRequest) error {
+	if len(req.Categories) == 0 {
+		return nil
+	}
+
+	// Validate all categories exist
+	for _, item := range req.Categories {
+		_, err := uc.categoryRepo.GetByID(ctx, item.CategoryID)
+		if err != nil {
+			return entities.ErrCategoryNotFound
+		}
+	}
+
+	// Convert to repository format
+	var reorderRequests []repositories.CategoryReorderRequest
+	for _, item := range req.Categories {
+		reorderRequests = append(reorderRequests, repositories.CategoryReorderRequest{
+			CategoryID: item.CategoryID,
+			SortOrder:  item.SortOrder,
+		})
+	}
+
+	return uc.categoryRepo.ReorderCategories(ctx, reorderRequests)
+}
+
+// GetCategoryTreeStats returns statistics about the category tree
+func (uc *categoryUseCase) GetCategoryTreeStats(ctx context.Context) (*CategoryTreeStatsResponse, error) {
+	// Get total categories
+	totalCategories, err := uc.categoryRepo.Count(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	// Get root categories count
+	rootCategories, err := uc.categoryRepo.CountWithFilters(ctx, repositories.CategoryFilters{
+		HasParent: &[]bool{false}[0],
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	// Get max depth
+	maxDepth, err := uc.categoryRepo.GetMaxDepth(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	// Get all categories to calculate statistics
+	allCategories, err := uc.categoryRepo.List(ctx, 10000, 0) // Large limit to get all
+	if err != nil {
+		return nil, err
+	}
+
+	// Calculate categories by level
+	categoriesByLevel := make(map[int]int)
+	totalDepth := 0
+
+	for _, category := range allCategories {
+		level := category.GetLevel()
+		categoriesByLevel[level]++
+		totalDepth += level
+	}
+
+	// Calculate average depth
+	averageDepth := 0.0
+	if len(allCategories) > 0 {
+		averageDepth = float64(totalDepth) / float64(len(allCategories))
+	}
+
+	// Get largest branches (top 5 categories with most descendants)
+	largestBranches := []CategoryBranchInfo{}
+	for _, category := range allCategories {
+		children, err := uc.categoryRepo.GetChildren(ctx, category.ID)
+		if err != nil {
+			continue
+		}
+
+		productCount, err := uc.categoryRepo.GetProductCount(ctx, category.ID, true)
+		if err != nil {
+			productCount = 0
+		}
+
+		// Count all descendants
+		descendantCount := uc.countDescendants(ctx, category.ID)
+
+		largestBranches = append(largestBranches, CategoryBranchInfo{
+			CategoryID:      category.ID,
+			CategoryName:    category.Name,
+			DescendantCount: descendantCount,
+			DirectChildren:  len(children),
+			ProductCount:    productCount,
+		})
+	}
+
+	// Sort by descendant count and take top 5
+	sort.Slice(largestBranches, func(i, j int) bool {
+		return largestBranches[i].DescendantCount > largestBranches[j].DescendantCount
+	})
+
+	if len(largestBranches) > 5 {
+		largestBranches = largestBranches[:5]
+	}
+
+	return &CategoryTreeStatsResponse{
+		TotalCategories:   int(totalCategories),
+		RootCategories:    int(rootCategories),
+		MaxDepth:          maxDepth,
+		AverageDepth:      averageDepth,
+		CategoriesByLevel: categoriesByLevel,
+		LargestBranches:   largestBranches,
+	}, nil
+}
+
+// ValidateAndRepairTree validates the category tree and performs repairs if needed
+func (uc *categoryUseCase) ValidateAndRepairTree(ctx context.Context) (*TreeValidationResponse, error) {
+	var issues []TreeValidationIssue
+	var repairsPerformed []string
+
+	// Validate tree integrity
+	err := uc.categoryRepo.ValidateTreeIntegrity(ctx)
+	if err != nil {
+		if err == entities.ErrCircularReference {
+			issues = append(issues, TreeValidationIssue{
+				Type:        "circular_reference",
+				Description: "Circular reference detected in category tree",
+				Severity:    "critical",
+			})
+		}
+	}
+
+	// Check for orphaned categories (categories with non-existent parents)
+	allCategories, err := uc.categoryRepo.List(ctx, 10000, 0) // Large limit to get all
+	if err != nil {
+		return nil, err
+	}
+
+	for _, category := range allCategories {
+		if category.ParentID != nil {
+			_, err := uc.categoryRepo.GetByID(ctx, *category.ParentID)
+			if err != nil {
+				issues = append(issues, TreeValidationIssue{
+					Type:        "orphaned_category",
+					CategoryID:  category.ID,
+					Description: fmt.Sprintf("Category '%s' has non-existent parent", category.Name),
+					Severity:    "warning",
+				})
+			}
+		}
+	}
+
+	// Check for invalid depths
+	maxDepth, err := uc.categoryRepo.GetMaxDepth(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	if maxDepth > 10 { // Assuming max depth of 10 levels
+		issues = append(issues, TreeValidationIssue{
+			Type:        "invalid_depth",
+			Description: fmt.Sprintf("Category tree depth (%d) exceeds recommended maximum (10)", maxDepth),
+			Severity:    "warning",
+		})
+	}
+
+	// Perform repairs if needed
+	if len(issues) > 0 {
+		// Rebuild category paths
+		err = uc.categoryRepo.RebuildCategoryPaths(ctx)
+		if err == nil {
+			repairsPerformed = append(repairsPerformed, "Rebuilt category paths")
+		}
+	}
+
+	return &TreeValidationResponse{
+		IsValid:          len(issues) == 0,
+		Issues:           issues,
+		RepairsPerformed: repairsPerformed,
+		TotalIssuesFound: len(issues),
+		TotalRepairs:     len(repairsPerformed),
+	}, nil
+}
+
+// countDescendants counts all descendants of a category
+func (uc *categoryUseCase) countDescendants(ctx context.Context, categoryID uuid.UUID) int {
+	children, err := uc.categoryRepo.GetChildren(ctx, categoryID)
+	if err != nil {
+		return 0
+	}
+
+	count := len(children)
+	for _, child := range children {
+		count += uc.countDescendants(ctx, child.ID)
+	}
+
+	return count
+}
+
+// GetCategoryAnalytics returns comprehensive analytics for a category
+func (uc *categoryUseCase) GetCategoryAnalytics(ctx context.Context, req GetCategoryAnalyticsRequest) (*CategoryAnalyticsResponse, error) {
+	// Validate category exists
+	_, err := uc.categoryRepo.GetByID(ctx, req.CategoryID)
+	if err != nil {
+		return nil, entities.ErrCategoryNotFound
+	}
+
+	// Set default time range if not provided
+	timeRange := req.TimeRange
+	if timeRange == "" {
+		timeRange = "30d"
+	}
+
+	// Validate time range
+	validRanges := map[string]bool{
+		"7d": true, "30d": true, "90d": true, "1y": true,
+	}
+	if !validRanges[timeRange] {
+		timeRange = "30d"
+	}
+
+	analytics, err := uc.categoryRepo.GetCategoryAnalytics(ctx, req.CategoryID, timeRange)
+	if err != nil {
+		return nil, err
+	}
+
+	return &CategoryAnalyticsResponse{
+		Analytics: analytics,
+	}, nil
+}
+
+// GetTopCategories returns top performing categories
+func (uc *categoryUseCase) GetTopCategories(ctx context.Context, req GetTopCategoriesRequest) (*TopCategoriesResponse, error) {
+	// Set default limit if not provided
+	limit := req.Limit
+	if limit <= 0 {
+		limit = 10
+	}
+	if limit > 100 {
+		limit = 100
+	}
+
+	// Set default sort by if not provided
+	sortBy := req.SortBy
+	if sortBy == "" {
+		sortBy = "sales"
+	}
+
+	// Validate sort by
+	validSortBy := map[string]bool{
+		"sales": true, "revenue": true, "products": true, "rating": true, "growth": true,
+	}
+	if !validSortBy[sortBy] {
+		sortBy = "sales"
+	}
+
+	categories, err := uc.categoryRepo.GetTopCategories(ctx, limit, sortBy)
+	if err != nil {
+		return nil, err
+	}
+
+	return &TopCategoriesResponse{
+		Categories: categories,
+		Total:      len(categories),
+	}, nil
+}
+
+// GetCategoryPerformanceMetrics returns detailed performance metrics for a category
+func (uc *categoryUseCase) GetCategoryPerformanceMetrics(ctx context.Context, categoryID uuid.UUID) (*CategoryPerformanceResponse, error) {
+	// Validate category exists
+	_, err := uc.categoryRepo.GetByID(ctx, categoryID)
+	if err != nil {
+		return nil, entities.ErrCategoryNotFound
+	}
+
+	metrics, err := uc.categoryRepo.GetCategoryPerformanceMetrics(ctx, categoryID)
+	if err != nil {
+		return nil, err
+	}
+
+	return &CategoryPerformanceResponse{
+		Metrics: metrics,
+	}, nil
+}
+
+// GetCategorySalesStats returns sales statistics for a category
+func (uc *categoryUseCase) GetCategorySalesStats(ctx context.Context, req GetCategorySalesStatsRequest) (*CategorySalesStatsResponse, error) {
+	// Validate category exists
+	_, err := uc.categoryRepo.GetByID(ctx, req.CategoryID)
+	if err != nil {
+		return nil, entities.ErrCategoryNotFound
+	}
+
+	// Set default time range if not provided
+	timeRange := req.TimeRange
+	if timeRange == "" {
+		timeRange = "30d"
+	}
+
+	// Validate time range
+	validRanges := map[string]bool{
+		"7d": true, "30d": true, "90d": true, "1y": true,
+	}
+	if !validRanges[timeRange] {
+		timeRange = "30d"
+	}
+
+	stats, err := uc.categoryRepo.GetCategorySalesStats(ctx, req.CategoryID, timeRange)
+	if err != nil {
+		return nil, err
+	}
+
+	return &CategorySalesStatsResponse{
+		Stats: stats,
+	}, nil
 }

@@ -116,7 +116,7 @@ func migration001Down(db *gorm.DB) error {
 		"file_uploads", "stock_reservations", "payments", "order_events", "order_items", "orders",
 		"cart_items", "carts", "product_variant_attributes", "product_attribute_values",
 		"product_attribute_terms", "product_attributes", "product_variants", "brands",
-		"product_tags", "product_images", "products", "categories", "user_profiles", "users",
+		"product_images", "products", "categories", "user_profiles", "users",
 	}
 
 	for _, table := range tables {
@@ -426,6 +426,178 @@ func migration005Down(db *gorm.DB) error {
 		"ALTER TABLE carts DROP COLUMN IF EXISTS last_activity_at",
 		"ALTER TABLE stock_reservations DROP COLUMN IF EXISTS expires_at",
 		"ALTER TABLE orders DROP COLUMN IF EXISTS expires_at",
+	}
+
+	for _, sql := range sqls {
+		if err := db.Exec(sql).Error; err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+// migration006Up enhances full-text search capabilities
+func migration006Up(db *gorm.DB) error {
+	sqls := []string{
+		// Enhanced product search indexes
+		"CREATE INDEX IF NOT EXISTS idx_products_featured ON products(featured)",
+		"CREATE INDEX IF NOT EXISTS idx_products_visibility ON products(visibility)",
+		"CREATE INDEX IF NOT EXISTS idx_products_sku ON products(sku)",
+		"CREATE INDEX IF NOT EXISTS idx_products_sale_price ON products(sale_price)",
+		"CREATE INDEX IF NOT EXISTS idx_products_stock_status ON products(stock_status)",
+
+		// Composite search vector for better full-text search
+		"CREATE INDEX IF NOT EXISTS idx_products_search_vector ON products USING gin(to_tsvector('english', coalesce(name, '') || ' ' || coalesce(description, '') || ' ' || coalesce(short_description, '') || ' ' || coalesce(sku, '') || ' ' || coalesce(keywords, '')))",
+
+		// SKU specific search
+		"CREATE INDEX IF NOT EXISTS idx_products_sku_gin ON products USING gin(to_tsvector('english', sku))",
+
+		// Brand and category search indexes
+		"CREATE INDEX IF NOT EXISTS idx_brands_name_gin ON brands USING gin(to_tsvector('english', name))",
+		"CREATE INDEX IF NOT EXISTS idx_categories_name_gin ON categories USING gin(to_tsvector('english', name))",
+
+		// Tags search (using existing tags table)
+		"CREATE INDEX IF NOT EXISTS idx_tags_name_gin ON tags USING gin(to_tsvector('english', name))",
+
+		// Composite indexes for common filter combinations
+		"CREATE INDEX IF NOT EXISTS idx_products_category_status ON products(category_id, status)",
+		"CREATE INDEX IF NOT EXISTS idx_products_brand_status ON products(brand_id, status)",
+		"CREATE INDEX IF NOT EXISTS idx_products_price_status ON products(price, status)",
+		"CREATE INDEX IF NOT EXISTS idx_products_featured_status ON products(featured, status)",
+
+		// Search events table
+		`CREATE TABLE IF NOT EXISTS search_events (
+			id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+			query TEXT NOT NULL,
+			user_id UUID,
+			results_count INTEGER DEFAULT 0,
+			clicked_product_id UUID,
+			session_id VARCHAR(255),
+			ip_address INET,
+			user_agent TEXT,
+			created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+		)`,
+
+		// Search suggestions table
+		`CREATE TABLE IF NOT EXISTS search_suggestions (
+			id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+			query TEXT NOT NULL UNIQUE,
+			search_count INTEGER DEFAULT 1,
+			is_active BOOLEAN DEFAULT true,
+			created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+			updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+		)`,
+
+		// Popular searches table
+		`CREATE TABLE IF NOT EXISTS popular_searches (
+			id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+			query TEXT NOT NULL,
+			search_count INTEGER DEFAULT 1,
+			period VARCHAR(20) DEFAULT 'daily',
+			date TIMESTAMP WITH TIME ZONE NOT NULL,
+			created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+			updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+			UNIQUE(query, period, date)
+		)`,
+
+		// Search filters table
+		`CREATE TABLE IF NOT EXISTS search_filters (
+			id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+			user_id UUID NOT NULL,
+			name TEXT NOT NULL,
+			query TEXT,
+			filters JSONB,
+			is_default BOOLEAN DEFAULT false,
+			is_public BOOLEAN DEFAULT false,
+			usage_count INTEGER DEFAULT 0,
+			created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+			updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+		)`,
+
+		// Search history table
+		`CREATE TABLE IF NOT EXISTS search_history (
+			id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+			user_id UUID NOT NULL,
+			query TEXT NOT NULL,
+			filters JSONB,
+			created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+		)`,
+
+		// Search events indexes
+		"CREATE INDEX IF NOT EXISTS idx_search_events_query ON search_events(query)",
+		"CREATE INDEX IF NOT EXISTS idx_search_events_user_id ON search_events(user_id)",
+		"CREATE INDEX IF NOT EXISTS idx_search_events_created_at ON search_events(created_at)",
+		"CREATE INDEX IF NOT EXISTS idx_search_events_query_gin ON search_events USING gin(to_tsvector('english', query))",
+
+		// Search suggestions indexes
+		"CREATE INDEX IF NOT EXISTS idx_search_suggestions_query ON search_suggestions(query)",
+		"CREATE INDEX IF NOT EXISTS idx_search_suggestions_search_count ON search_suggestions(search_count)",
+		"CREATE INDEX IF NOT EXISTS idx_search_suggestions_is_active ON search_suggestions(is_active)",
+
+		// Popular searches indexes
+		"CREATE INDEX IF NOT EXISTS idx_popular_searches_query ON popular_searches(query)",
+		"CREATE INDEX IF NOT EXISTS idx_popular_searches_period ON popular_searches(period)",
+		"CREATE INDEX IF NOT EXISTS idx_popular_searches_date ON popular_searches(date)",
+		"CREATE INDEX IF NOT EXISTS idx_popular_searches_search_count ON popular_searches(search_count)",
+
+		// Search filters indexes
+		"CREATE INDEX IF NOT EXISTS idx_search_filters_user_id ON search_filters(user_id)",
+		"CREATE INDEX IF NOT EXISTS idx_search_filters_is_default ON search_filters(is_default)",
+		"CREATE INDEX IF NOT EXISTS idx_search_filters_is_public ON search_filters(is_public)",
+
+		// Search history indexes
+		"CREATE INDEX IF NOT EXISTS idx_search_history_user_id ON search_history(user_id)",
+		"CREATE INDEX IF NOT EXISTS idx_search_history_created_at ON search_history(created_at)",
+	}
+
+	for _, sql := range sqls {
+		if err := db.Exec(sql).Error; err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+// migration006Down removes enhanced search indexes
+func migration006Down(db *gorm.DB) error {
+	sqls := []string{
+		"DROP INDEX IF EXISTS idx_products_featured",
+		"DROP INDEX IF EXISTS idx_products_visibility",
+		"DROP INDEX IF EXISTS idx_products_sku",
+		"DROP INDEX IF EXISTS idx_products_sale_price",
+		"DROP INDEX IF EXISTS idx_products_stock_status",
+		"DROP INDEX IF EXISTS idx_products_search_vector",
+		"DROP INDEX IF EXISTS idx_products_sku_gin",
+		"DROP INDEX IF EXISTS idx_brands_name_gin",
+		"DROP INDEX IF EXISTS idx_categories_name_gin",
+		"DROP INDEX IF EXISTS idx_tags_name_gin",
+		"DROP INDEX IF EXISTS idx_products_category_status",
+		"DROP INDEX IF EXISTS idx_products_brand_status",
+		"DROP INDEX IF EXISTS idx_products_price_status",
+		"DROP INDEX IF EXISTS idx_products_featured_status",
+		"DROP INDEX IF EXISTS idx_search_events_query",
+		"DROP INDEX IF EXISTS idx_search_events_user_id",
+		"DROP INDEX IF EXISTS idx_search_events_created_at",
+		"DROP INDEX IF EXISTS idx_search_events_query_gin",
+		"DROP INDEX IF EXISTS idx_search_suggestions_query",
+		"DROP INDEX IF EXISTS idx_search_suggestions_search_count",
+		"DROP INDEX IF EXISTS idx_search_suggestions_is_active",
+		"DROP INDEX IF EXISTS idx_popular_searches_query",
+		"DROP INDEX IF EXISTS idx_popular_searches_period",
+		"DROP INDEX IF EXISTS idx_popular_searches_date",
+		"DROP INDEX IF EXISTS idx_popular_searches_search_count",
+		"DROP INDEX IF EXISTS idx_search_filters_user_id",
+		"DROP INDEX IF EXISTS idx_search_filters_is_default",
+		"DROP INDEX IF EXISTS idx_search_filters_is_public",
+		"DROP INDEX IF EXISTS idx_search_history_user_id",
+		"DROP INDEX IF EXISTS idx_search_history_created_at",
+		"DROP TABLE IF EXISTS search_history",
+		"DROP TABLE IF EXISTS search_filters",
+		"DROP TABLE IF EXISTS popular_searches",
+		"DROP TABLE IF EXISTS search_suggestions",
+		"DROP TABLE IF EXISTS search_events",
 	}
 
 	for _, sql := range sqls {

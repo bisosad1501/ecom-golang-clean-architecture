@@ -126,6 +126,27 @@ type ProductVariantAttributeRequest struct {
 	TermID      uuid.UUID `json:"term_id" validate:"required"`
 }
 
+// SearchSuggestionsRequest represents search suggestions request
+type SearchSuggestionsRequest struct {
+	Query string `json:"query" validate:"required,min=1"`
+	Limit int    `json:"limit" validate:"min=1,max=50"`
+}
+
+// SearchSuggestionsResponse represents search suggestions response
+type SearchSuggestionsResponse struct {
+	Suggestions *repositories.SearchSuggestions `json:"suggestions"`
+}
+
+// PopularSearchesResponse represents popular searches response
+type PopularSearchesResponse struct {
+	Searches []string `json:"searches"`
+}
+
+// SearchHistoryResponse represents search history response
+type SearchHistoryResponse struct {
+	History []string `json:"history"`
+}
+
 // Response structs are defined in types.go
 
 // ProductUseCase defines product use cases
@@ -139,6 +160,11 @@ type ProductUseCase interface {
 	SearchProducts(ctx context.Context, req SearchProductsRequest) ([]*ProductResponse, error)
 	GetProductsByCategory(ctx context.Context, categoryID uuid.UUID, limit, offset int) ([]*ProductResponse, error)
 	UpdateStock(ctx context.Context, productID uuid.UUID, stock int) error
+
+	// Search autocomplete and suggestions
+	GetSearchSuggestions(ctx context.Context, req SearchSuggestionsRequest) (*SearchSuggestionsResponse, error)
+	GetPopularSearches(ctx context.Context, limit int) (*PopularSearchesResponse, error)
+	GetSearchHistory(ctx context.Context, userID uuid.UUID, limit int) (*SearchHistoryResponse, error)
 }
 
 type productUseCase struct {
@@ -1390,4 +1416,63 @@ func (uc *productUseCase) replaceProductVariants(ctx context.Context, productID 
 	// TODO: Implement full variant management
 	// This is a placeholder for the variant system
 	return nil
+}
+
+// GetSearchSuggestions returns search suggestions based on query
+func (uc *productUseCase) GetSearchSuggestions(ctx context.Context, req SearchSuggestionsRequest) (*SearchSuggestionsResponse, error) {
+	// Set default limit if not provided
+	limit := req.Limit
+	if limit <= 0 {
+		limit = 10
+	}
+	if limit > 50 {
+		limit = 50
+	}
+
+	suggestions, err := uc.productRepo.GetSearchSuggestions(ctx, req.Query, limit)
+	if err != nil {
+		return nil, err
+	}
+
+	return &SearchSuggestionsResponse{
+		Suggestions: suggestions,
+	}, nil
+}
+
+// GetPopularSearches returns popular search queries
+func (uc *productUseCase) GetPopularSearches(ctx context.Context, limit int) (*PopularSearchesResponse, error) {
+	if limit <= 0 {
+		limit = 10
+	}
+	if limit > 50 {
+		limit = 50
+	}
+
+	searches, err := uc.productRepo.GetPopularSearches(ctx, limit)
+	if err != nil {
+		return nil, err
+	}
+
+	return &PopularSearchesResponse{
+		Searches: searches,
+	}, nil
+}
+
+// GetSearchHistory returns search history for a user
+func (uc *productUseCase) GetSearchHistory(ctx context.Context, userID uuid.UUID, limit int) (*SearchHistoryResponse, error) {
+	if limit <= 0 {
+		limit = 10
+	}
+	if limit > 50 {
+		limit = 50
+	}
+
+	history, err := uc.productRepo.GetSearchHistory(ctx, userID, limit)
+	if err != nil {
+		return nil, err
+	}
+
+	return &SearchHistoryResponse{
+		History: history,
+	}, nil
 }

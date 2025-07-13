@@ -19,8 +19,11 @@ var (
 	ErrInvalidProductData  = errors.New("invalid product data")
 
 	// Category errors
-	ErrCategoryNotFound = errors.New("category not found")
-	ErrCategoryExists   = errors.New("category already exists")
+	ErrCategoryNotFound     = errors.New("category not found")
+	ErrCategoryExists       = errors.New("category already exists")
+	ErrCategoryHasChildren  = errors.New("category has children")
+	ErrCategoryHasProducts  = errors.New("category has products")
+	ErrCircularReference    = errors.New("circular reference detected")
 
 	// Brand errors
 	ErrBrandNotFound = errors.New("brand not found")

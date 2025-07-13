@@ -245,6 +245,10 @@ func main() {
 	// Initialize OAuth use case
 	oauthUseCase := usecases.NewOAuthUseCase(userRepo, oauthService, jwtService)
 
+	// Initialize search repository and use case
+	searchRepo := database.NewSearchRepository(db)
+	searchUseCase := usecases.NewSearchUseCase(searchRepo, productRepo)
+
 	// Initialize handlers
 	userHandler := handlers.NewUserHandler(userUseCase)
 	productHandler := handlers.NewProductHandler(productUseCase)
@@ -265,6 +269,7 @@ func main() {
 	adminHandler := handlers.NewAdminHandler(adminUseCase, stockCleanupUseCase)
 	oauthHandler := handlers.NewOAuthHandler(oauthUseCase)
 	migrationHandler := handlers.NewMigrationHandler(db)
+	searchHandler := handlers.NewSearchHandler(searchUseCase)
 
 	// Initialize Gin router
 	router := gin.New()
@@ -292,6 +297,7 @@ func main() {
 		adminHandler,
 		oauthHandler,
 		migrationHandler,
+		searchHandler,
 	)
 
 	// Start background cleanup scheduler

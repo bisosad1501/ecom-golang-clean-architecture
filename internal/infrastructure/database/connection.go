@@ -175,6 +175,13 @@ func AutoMigrate(db *gorm.DB) error {
 		&entities.CategoryAnalytics{},
 		&entities.SearchAnalytics{},
 
+		// Search entities
+		&entities.SearchEvent{},
+		&entities.SearchSuggestion{},
+		&entities.PopularSearch{},
+		&entities.SearchFilter{},
+		&entities.SearchHistory{},
+
 		// Customer Support
 		&entities.SupportTicket{},
 		&entities.TicketMessage{},

@@ -31,6 +31,7 @@ func SetupRoutes(
 	adminHandler *handlers.AdminHandler,
 	oauthHandler *handlers.OAuthHandler,
 	migrationHandler *handlers.MigrationHandler,
+	searchHandler *handlers.SearchHandler,
 ) {
 	// Apply global middleware
 	router.Use(middleware.SecurityHeadersMiddleware())
@@ -99,6 +100,17 @@ func SetupRoutes(
 				products.GET("/:id/rating", reviewHandler.GetProductRating)
 			}
 			products.GET("/:id/related", productHandler.GetRelatedProducts)
+
+			// Search autocomplete and suggestions
+			products.GET("/suggestions", productHandler.GetSearchSuggestions)
+			products.GET("/popular-searches", productHandler.GetPopularSearches)
+
+			// Authenticated routes
+			authProducts := products.Group("")
+			authProducts.Use(middleware.AuthMiddleware(cfg.JWT.Secret))
+			{
+				authProducts.GET("/search-history", productHandler.GetSearchHistory)
+			}
 		}
 
 		// Public category routes
@@ -111,6 +123,24 @@ func SetupRoutes(
 			categories.GET("/:id/children", categoryHandler.GetCategoryChildren)
 			categories.GET("/:id/path", categoryHandler.GetCategoryPath)
 			categories.GET("/:id/count", categoryHandler.GetCategoryProductCount)
+
+			// Enhanced category routes
+			categories.GET("/search", categoryHandler.SearchCategories)
+			categories.GET("/filter", categoryHandler.GetCategoriesWithFilters)
+		}
+
+		// Public search routes
+		if searchHandler != nil {
+			search := v1.Group("/search")
+			{
+				search.GET("", searchHandler.FullTextSearch)
+				search.GET("/enhanced", searchHandler.EnhancedSearch)
+				search.GET("/suggestions", searchHandler.GetSearchSuggestions)
+				search.GET("/facets", searchHandler.GetSearchFacets)
+				search.GET("/popular", searchHandler.GetPopularSearchTerms)
+				search.GET("/autocomplete", searchHandler.GetAutocomplete)
+				search.POST("/record", searchHandler.RecordSearchEvent)
+			}
 		}
 
 		// Public brand routes
@@ -233,6 +263,21 @@ func SetupRoutes(
 
 				if reviewHandler != nil {
 					users.GET("/:user_id/reviews", reviewHandler.GetUserReviews)
+				}
+			}
+
+			// Protected search routes (authentication required)
+			if searchHandler != nil {
+				searchProtected := protected.Group("/search")
+				{
+					searchProtected.POST("/history", searchHandler.SaveSearchHistory)
+					searchProtected.GET("/history", searchHandler.GetUserSearchHistory)
+					searchProtected.DELETE("/history", searchHandler.ClearUserSearchHistory)
+
+					searchProtected.POST("/filters", searchHandler.SaveSearchFilter)
+					searchProtected.GET("/filters", searchHandler.GetUserSearchFilters)
+					searchProtected.PUT("/filters/:id", searchHandler.UpdateSearchFilter)
+					searchProtected.DELETE("/filters/:id", searchHandler.DeleteSearchFilter)
 				}
 			}
 
@@ -384,6 +429,23 @@ func SetupRoutes(
 				adminCategories.POST("", categoryHandler.CreateCategory)
 				adminCategories.PUT("/:id", categoryHandler.UpdateCategory)
 				adminCategories.DELETE("/:id", categoryHandler.DeleteCategory)
+
+				// Bulk operations
+				adminCategories.POST("/bulk", categoryHandler.BulkCreateCategories)
+				adminCategories.PUT("/bulk", categoryHandler.BulkUpdateCategories)
+				adminCategories.DELETE("/bulk", categoryHandler.BulkDeleteCategories)
+
+				// Tree operations
+				adminCategories.POST("/move", categoryHandler.MoveCategory)
+				adminCategories.POST("/reorder", categoryHandler.ReorderCategories)
+				adminCategories.GET("/tree/stats", categoryHandler.GetCategoryTreeStats)
+				adminCategories.POST("/tree/validate", categoryHandler.ValidateAndRepairTree)
+
+				// Analytics and statistics
+				adminCategories.GET("/top", categoryHandler.GetTopCategories)
+				adminCategories.GET("/:id/analytics", categoryHandler.GetCategoryAnalytics)
+				adminCategories.GET("/:id/performance", categoryHandler.GetCategoryPerformanceMetrics)
+				adminCategories.GET("/:id/sales", categoryHandler.GetCategorySalesStats)
 			}
 
 			// Admin brand management
@@ -431,6 +493,15 @@ func SetupRoutes(
 				adminReviews.GET("", adminHandler.ManageReviews)
 				adminReviews.PUT("/:id/status", adminHandler.UpdateReviewStatus)
 				adminReviews.POST("/:id/reply", adminHandler.ReplyToReview)
+			}
+
+			// Admin search management routes
+			if searchHandler != nil {
+				adminSearch := admin.Group("/search")
+				{
+					adminSearch.GET("/analytics", searchHandler.GetSearchAnalytics)
+					adminSearch.GET("/popular", searchHandler.GetPopularSearchTerms)
+				}
 			}
 
 			// Inventory management routes

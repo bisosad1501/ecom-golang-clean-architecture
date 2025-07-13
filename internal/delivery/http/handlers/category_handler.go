@@ -346,3 +346,497 @@ func (h *CategoryHandler) GetCategoryProductCount(c *gin.Context) {
 		},
 	})
 }
+
+// BulkCreateCategories handles bulk creating categories
+// @Summary Bulk create categories
+// @Description Create multiple categories at once
+// @Tags categories
+// @Accept json
+// @Produce json
+// @Param categories body []usecases.CreateCategoryRequest true "Categories to create"
+// @Success 201 {array} usecases.CategoryResponse
+// @Router /admin/categories/bulk [post]
+func (h *CategoryHandler) BulkCreateCategories(c *gin.Context) {
+	var req []usecases.CreateCategoryRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, ErrorResponse{
+			Error: err.Error(),
+		})
+		return
+	}
+
+	categories, err := h.categoryUseCase.BulkCreateCategories(c.Request.Context(), req)
+	if err != nil {
+		c.JSON(getErrorStatusCode(err), ErrorResponse{
+			Error: err.Error(),
+		})
+		return
+	}
+
+	c.JSON(http.StatusCreated, SuccessResponse{
+		Data: categories,
+	})
+}
+
+// BulkUpdateCategories handles bulk updating categories
+// @Summary Bulk update categories
+// @Description Update multiple categories at once
+// @Tags categories
+// @Accept json
+// @Produce json
+// @Param categories body []usecases.BulkUpdateCategoryRequest true "Categories to update"
+// @Success 200 {array} usecases.CategoryResponse
+// @Router /admin/categories/bulk [put]
+func (h *CategoryHandler) BulkUpdateCategories(c *gin.Context) {
+	var req []usecases.BulkUpdateCategoryRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, ErrorResponse{
+			Error: err.Error(),
+		})
+		return
+	}
+
+	categories, err := h.categoryUseCase.BulkUpdateCategories(c.Request.Context(), req)
+	if err != nil {
+		c.JSON(getErrorStatusCode(err), ErrorResponse{
+			Error: err.Error(),
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, SuccessResponse{
+		Data: categories,
+	})
+}
+
+// BulkDeleteCategories handles bulk deleting categories
+// @Summary Bulk delete categories
+// @Description Delete multiple categories at once
+// @Tags categories
+// @Accept json
+// @Produce json
+// @Param request body map[string][]string true "Category IDs to delete"
+// @Success 200 {object} SuccessResponse
+// @Router /admin/categories/bulk [delete]
+func (h *CategoryHandler) BulkDeleteCategories(c *gin.Context) {
+	var req struct {
+		IDs []string `json:"ids" validate:"required"`
+	}
+
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, ErrorResponse{
+			Error: err.Error(),
+		})
+		return
+	}
+
+	var ids []uuid.UUID
+	for _, idStr := range req.IDs {
+		id, err := uuid.Parse(idStr)
+		if err != nil {
+			c.JSON(http.StatusBadRequest, ErrorResponse{
+				Error: "Invalid category ID: " + idStr,
+			})
+			return
+		}
+		ids = append(ids, id)
+	}
+
+	err := h.categoryUseCase.BulkDeleteCategories(c.Request.Context(), ids)
+	if err != nil {
+		c.JSON(getErrorStatusCode(err), ErrorResponse{
+			Error: err.Error(),
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, SuccessResponse{
+		Message: "Categories deleted successfully",
+	})
+}
+
+// SearchCategories handles searching categories
+// @Summary Search categories
+// @Description Search categories by name and description
+// @Tags categories
+// @Accept json
+// @Produce json
+// @Param q query string true "Search query"
+// @Param limit query int false "Limit" default(20)
+// @Param offset query int false "Offset" default(0)
+// @Success 200 {object} usecases.CategoriesListResponse
+// @Router /categories/search [get]
+func (h *CategoryHandler) SearchCategories(c *gin.Context) {
+	query := c.Query("q")
+	if query == "" {
+		c.JSON(http.StatusBadRequest, ErrorResponse{
+			Error: "Search query is required",
+		})
+		return
+	}
+
+	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "20"))
+	offset, _ := strconv.Atoi(c.DefaultQuery("offset", "0"))
+
+	req := usecases.SearchCategoriesRequest{
+		Query:  query,
+		Limit:  limit,
+		Offset: offset,
+	}
+
+	result, err := h.categoryUseCase.SearchCategories(c.Request.Context(), req)
+	if err != nil {
+		c.JSON(getErrorStatusCode(err), ErrorResponse{
+			Error: err.Error(),
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, SuccessResponse{
+		Data: result,
+	})
+}
+
+// GetCategoriesWithFilters handles getting categories with advanced filtering
+// @Summary Get categories with filters
+// @Description Get categories with advanced filtering options
+// @Tags categories
+// @Accept json
+// @Produce json
+// @Param search query string false "Search query"
+// @Param parent_id query string false "Parent category ID"
+// @Param is_active query bool false "Active status"
+// @Param has_parent query bool false "Has parent filter"
+// @Param limit query int false "Limit" default(20)
+// @Param offset query int false "Offset" default(0)
+// @Param sort_by query string false "Sort by field" default(name)
+// @Param sort_order query string false "Sort order" default(asc)
+// @Success 200 {object} usecases.CategoriesListResponse
+// @Router /categories/filter [get]
+func (h *CategoryHandler) GetCategoriesWithFilters(c *gin.Context) {
+	req := usecases.GetCategoriesWithFiltersRequest{
+		Search:    c.Query("search"),
+		SortBy:    c.DefaultQuery("sort_by", "name"),
+		SortOrder: c.DefaultQuery("sort_order", "asc"),
+	}
+
+	// Parse parent_id if provided
+	if parentIDStr := c.Query("parent_id"); parentIDStr != "" {
+		parentID, err := uuid.Parse(parentIDStr)
+		if err != nil {
+			c.JSON(http.StatusBadRequest, ErrorResponse{
+				Error: "Invalid parent_id",
+			})
+			return
+		}
+		req.ParentID = &parentID
+	}
+
+	// Parse is_active if provided
+	if isActiveStr := c.Query("is_active"); isActiveStr != "" {
+		isActive := isActiveStr == "true"
+		req.IsActive = &isActive
+	}
+
+	// Parse has_parent if provided
+	if hasParentStr := c.Query("has_parent"); hasParentStr != "" {
+		hasParent := hasParentStr == "true"
+		req.HasParent = &hasParent
+	}
+
+	// Parse pagination
+	if limitStr := c.Query("limit"); limitStr != "" {
+		if limit, err := strconv.Atoi(limitStr); err == nil {
+			req.Limit = limit
+		}
+	}
+	if offsetStr := c.Query("offset"); offsetStr != "" {
+		if offset, err := strconv.Atoi(offsetStr); err == nil {
+			req.Offset = offset
+		}
+	}
+
+	result, err := h.categoryUseCase.GetCategoriesWithFilters(c.Request.Context(), req)
+	if err != nil {
+		c.JSON(getErrorStatusCode(err), ErrorResponse{
+			Error: err.Error(),
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, SuccessResponse{
+		Data: result,
+	})
+}
+
+// MoveCategory handles moving a category to a new parent
+// @Summary Move category to new parent
+// @Description Move a category to a new parent (admin only)
+// @Tags categories
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Param request body usecases.MoveCategoryRequest true "Move category request"
+// @Success 200 {object} SuccessResponse
+// @Failure 400 {object} ErrorResponse
+// @Failure 401 {object} ErrorResponse
+// @Failure 403 {object} ErrorResponse
+// @Router /admin/categories/move [post]
+func (h *CategoryHandler) MoveCategory(c *gin.Context) {
+	var req usecases.MoveCategoryRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, ErrorResponse{
+			Error:   "Invalid request format",
+			Details: err.Error(),
+		})
+		return
+	}
+
+	err := h.categoryUseCase.MoveCategory(c.Request.Context(), req)
+	if err != nil {
+		c.JSON(getErrorStatusCode(err), ErrorResponse{
+			Error: err.Error(),
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, SuccessResponse{
+		Message: "Category moved successfully",
+	})
+}
+
+// ReorderCategories handles reordering multiple categories
+// @Summary Reorder categories
+// @Description Reorder multiple categories (admin only)
+// @Tags categories
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Param request body usecases.ReorderCategoriesRequest true "Reorder categories request"
+// @Success 200 {object} SuccessResponse
+// @Failure 400 {object} ErrorResponse
+// @Failure 401 {object} ErrorResponse
+// @Failure 403 {object} ErrorResponse
+// @Router /admin/categories/reorder [post]
+func (h *CategoryHandler) ReorderCategories(c *gin.Context) {
+	var req usecases.ReorderCategoriesRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, ErrorResponse{
+			Error:   "Invalid request format",
+			Details: err.Error(),
+		})
+		return
+	}
+
+	err := h.categoryUseCase.ReorderCategories(c.Request.Context(), req)
+	if err != nil {
+		c.JSON(getErrorStatusCode(err), ErrorResponse{
+			Error: err.Error(),
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, SuccessResponse{
+		Message: "Categories reordered successfully",
+	})
+}
+
+// GetCategoryTreeStats handles getting category tree statistics
+// @Summary Get category tree statistics
+// @Description Get statistics about the category tree (admin only)
+// @Tags categories
+// @Produce json
+// @Security BearerAuth
+// @Success 200 {object} usecases.CategoryTreeStatsResponse
+// @Failure 401 {object} ErrorResponse
+// @Failure 403 {object} ErrorResponse
+// @Router /admin/categories/tree/stats [get]
+func (h *CategoryHandler) GetCategoryTreeStats(c *gin.Context) {
+	stats, err := h.categoryUseCase.GetCategoryTreeStats(c.Request.Context())
+	if err != nil {
+		c.JSON(getErrorStatusCode(err), ErrorResponse{
+			Error: err.Error(),
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, SuccessResponse{
+		Data: stats,
+	})
+}
+
+// ValidateAndRepairTree handles validating and repairing the category tree
+// @Summary Validate and repair category tree
+// @Description Validate the category tree integrity and perform repairs if needed (admin only)
+// @Tags categories
+// @Produce json
+// @Security BearerAuth
+// @Success 200 {object} usecases.TreeValidationResponse
+// @Failure 401 {object} ErrorResponse
+// @Failure 403 {object} ErrorResponse
+// @Router /admin/categories/tree/validate [post]
+func (h *CategoryHandler) ValidateAndRepairTree(c *gin.Context) {
+	result, err := h.categoryUseCase.ValidateAndRepairTree(c.Request.Context())
+	if err != nil {
+		c.JSON(getErrorStatusCode(err), ErrorResponse{
+			Error: err.Error(),
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, SuccessResponse{
+		Data: result,
+	})
+}
+
+// GetCategoryAnalytics handles getting comprehensive category analytics
+// @Summary Get category analytics
+// @Description Get comprehensive analytics for a category (admin only)
+// @Tags categories
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Param id path string true "Category ID"
+// @Param time_range query string false "Time range" default(30d)
+// @Success 200 {object} usecases.CategoryAnalyticsResponse
+// @Failure 400 {object} ErrorResponse
+// @Failure 401 {object} ErrorResponse
+// @Failure 403 {object} ErrorResponse
+// @Router /admin/categories/{id}/analytics [get]
+func (h *CategoryHandler) GetCategoryAnalytics(c *gin.Context) {
+	categoryID, err := uuid.Parse(c.Param("id"))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, ErrorResponse{
+			Error: "Invalid category ID",
+		})
+		return
+	}
+
+	req := usecases.GetCategoryAnalyticsRequest{
+		CategoryID: categoryID,
+		TimeRange:  c.DefaultQuery("time_range", "30d"),
+	}
+
+	analytics, err := h.categoryUseCase.GetCategoryAnalytics(c.Request.Context(), req)
+	if err != nil {
+		c.JSON(getErrorStatusCode(err), ErrorResponse{
+			Error: err.Error(),
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, SuccessResponse{
+		Data: analytics,
+	})
+}
+
+// GetTopCategories handles getting top performing categories
+// @Summary Get top categories
+// @Description Get top performing categories (admin only)
+// @Tags categories
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Param limit query int false "Limit" default(10)
+// @Param sort_by query string false "Sort by" default(sales)
+// @Success 200 {object} usecases.TopCategoriesResponse
+// @Failure 401 {object} ErrorResponse
+// @Failure 403 {object} ErrorResponse
+// @Router /admin/categories/top [get]
+func (h *CategoryHandler) GetTopCategories(c *gin.Context) {
+	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "10"))
+	sortBy := c.DefaultQuery("sort_by", "sales")
+
+	req := usecases.GetTopCategoriesRequest{
+		Limit:  limit,
+		SortBy: sortBy,
+	}
+
+	result, err := h.categoryUseCase.GetTopCategories(c.Request.Context(), req)
+	if err != nil {
+		c.JSON(getErrorStatusCode(err), ErrorResponse{
+			Error: err.Error(),
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, SuccessResponse{
+		Data: result,
+	})
+}
+
+// GetCategoryPerformanceMetrics handles getting detailed category performance metrics
+// @Summary Get category performance metrics
+// @Description Get detailed performance metrics for a category (admin only)
+// @Tags categories
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Param id path string true "Category ID"
+// @Success 200 {object} usecases.CategoryPerformanceResponse
+// @Failure 400 {object} ErrorResponse
+// @Failure 401 {object} ErrorResponse
+// @Failure 403 {object} ErrorResponse
+// @Router /admin/categories/{id}/performance [get]
+func (h *CategoryHandler) GetCategoryPerformanceMetrics(c *gin.Context) {
+	categoryID, err := uuid.Parse(c.Param("id"))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, ErrorResponse{
+			Error: "Invalid category ID",
+		})
+		return
+	}
+
+	metrics, err := h.categoryUseCase.GetCategoryPerformanceMetrics(c.Request.Context(), categoryID)
+	if err != nil {
+		c.JSON(getErrorStatusCode(err), ErrorResponse{
+			Error: err.Error(),
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, SuccessResponse{
+		Data: metrics,
+	})
+}
+
+// GetCategorySalesStats handles getting category sales statistics
+// @Summary Get category sales statistics
+// @Description Get sales statistics for a category (admin only)
+// @Tags categories
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Param id path string true "Category ID"
+// @Param time_range query string false "Time range" default(30d)
+// @Success 200 {object} usecases.CategorySalesStatsResponse
+// @Failure 400 {object} ErrorResponse
+// @Failure 401 {object} ErrorResponse
+// @Failure 403 {object} ErrorResponse
+// @Router /admin/categories/{id}/sales [get]
+func (h *CategoryHandler) GetCategorySalesStats(c *gin.Context) {
+	categoryID, err := uuid.Parse(c.Param("id"))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, ErrorResponse{
+			Error: "Invalid category ID",
+		})
+		return
+	}
+
+	req := usecases.GetCategorySalesStatsRequest{
+		CategoryID: categoryID,
+		TimeRange:  c.DefaultQuery("time_range", "30d"),
+	}
+
+	stats, err := h.categoryUseCase.GetCategorySalesStats(c.Request.Context(), req)
+	if err != nil {
+		c.JSON(getErrorStatusCode(err), ErrorResponse{
+			Error: err.Error(),
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, SuccessResponse{
+		Data: stats,
+	})
+}

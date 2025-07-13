@@ -793,3 +793,120 @@ func (h *ProductHandler) GetProductFilters(c *gin.Context) {
 	})
 }
 
+// GetSearchSuggestions handles getting search suggestions
+// @Summary Get search suggestions
+// @Description Get search suggestions based on query
+// @Tags products
+// @Accept json
+// @Produce json
+// @Param q query string true "Search query"
+// @Param limit query int false "Limit" default(10)
+// @Success 200 {object} usecases.SearchSuggestionsResponse
+// @Failure 400 {object} ErrorResponse
+// @Router /products/suggestions [get]
+func (h *ProductHandler) GetSearchSuggestions(c *gin.Context) {
+	query := c.Query("q")
+	if query == "" {
+		c.JSON(http.StatusBadRequest, ErrorResponse{
+			Error: "Query parameter 'q' is required",
+		})
+		return
+	}
+
+	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "10"))
+
+	req := usecases.SearchSuggestionsRequest{
+		Query: query,
+		Limit: limit,
+	}
+
+	suggestions, err := h.productUseCase.GetSearchSuggestions(c.Request.Context(), req)
+	if err != nil {
+		c.JSON(getErrorStatusCode(err), ErrorResponse{
+			Error: err.Error(),
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, SuccessResponse{
+		Data: suggestions,
+	})
+}
+
+// GetPopularSearches handles getting popular searches
+// @Summary Get popular searches
+// @Description Get popular search queries
+// @Tags products
+// @Accept json
+// @Produce json
+// @Param limit query int false "Limit" default(10)
+// @Success 200 {object} usecases.PopularSearchesResponse
+// @Router /products/popular-searches [get]
+func (h *ProductHandler) GetPopularSearches(c *gin.Context) {
+	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "10"))
+
+	searches, err := h.productUseCase.GetPopularSearches(c.Request.Context(), limit)
+	if err != nil {
+		c.JSON(getErrorStatusCode(err), ErrorResponse{
+			Error: err.Error(),
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, SuccessResponse{
+		Data: searches,
+	})
+}
+
+// GetSearchHistory handles getting user search history
+// @Summary Get search history
+// @Description Get search history for authenticated user
+// @Tags products
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Param limit query int false "Limit" default(10)
+// @Success 200 {object} usecases.SearchHistoryResponse
+// @Failure 401 {object} ErrorResponse
+// @Router /products/search-history [get]
+func (h *ProductHandler) GetSearchHistory(c *gin.Context) {
+	// Get user ID from context (set by auth middleware)
+	userIDInterface, exists := c.Get("user_id")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, ErrorResponse{
+			Error: "User not authenticated",
+		})
+		return
+	}
+
+	userIDStr, ok := userIDInterface.(string)
+	if !ok {
+		c.JSON(http.StatusUnauthorized, ErrorResponse{
+			Error: "Invalid user ID format",
+		})
+		return
+	}
+
+	userID, err := uuid.Parse(userIDStr)
+	if err != nil {
+		c.JSON(http.StatusUnauthorized, ErrorResponse{
+			Error: "Invalid user ID",
+		})
+		return
+	}
+
+	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "10"))
+
+	history, err := h.productUseCase.GetSearchHistory(c.Request.Context(), userID, limit)
+	if err != nil {
+		c.JSON(getErrorStatusCode(err), ErrorResponse{
+			Error: err.Error(),
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, SuccessResponse{
+		Data: history,
+	})
+}
+

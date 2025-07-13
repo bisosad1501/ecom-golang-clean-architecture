@@ -215,9 +215,17 @@ func (r *productRepository) Search(ctx context.Context, params repositories.Prod
 		}).
 		Preload("Tags")
 
-	// Apply filters
+	// Apply filters with enhanced full-text search
 	if params.Query != "" {
-		query = query.Where("name ILIKE ? OR description ILIKE ?", "%"+params.Query+"%", "%"+params.Query+"%")
+		// Use PostgreSQL full-text search for better performance and relevance
+		searchVector := "to_tsvector('english', coalesce(name, '') || ' ' || coalesce(description, '') || ' ' || coalesce(short_description, '') || ' ' || coalesce(sku, '') || ' ' || coalesce(keywords, ''))"
+		searchQuery := "plainto_tsquery('english', ?)"
+
+		// Combine full-text search with ILIKE for partial matches
+		query = query.Where(
+			fmt.Sprintf("(%s @@ %s) OR name ILIKE ? OR description ILIKE ? OR sku ILIKE ?", searchVector, searchQuery),
+			params.Query, "%"+params.Query+"%", "%"+params.Query+"%", "%"+params.Query+"%",
+		)
 	}
 
 	// Enhanced category filter with recursive search (includes subcategories)
@@ -273,15 +281,8 @@ func (r *productRepository) Search(ctx context.Context, params repositories.Prod
 		query = query.Where("status = ?", *params.Status)
 	}
 
-	// Apply sorting
-	orderBy := "created_at DESC"
-	if params.SortBy != "" {
-		direction := "ASC"
-		if strings.ToUpper(params.SortOrder) == "DESC" {
-			direction = "DESC"
-		}
-		orderBy = params.SortBy + " " + direction
-	}
+	// Apply sorting with relevance ranking
+	orderBy := r.buildSortOrder(params.SortBy, params.SortOrder, params.Query)
 	query = query.Order(orderBy)
 
 	// Apply pagination
@@ -597,10 +598,17 @@ func (r *productRepository) SearchAdvanced(ctx context.Context, params repositor
 		}).
 		Preload("Tags")
 
-	// Apply filters
+	// Apply filters with enhanced full-text search
 	if params.Query != "" {
-		query = query.Where("name ILIKE ? OR description ILIKE ? OR short_description ILIKE ?",
-			"%"+params.Query+"%", "%"+params.Query+"%", "%"+params.Query+"%")
+		// Use PostgreSQL full-text search for better performance and relevance
+		searchVector := "to_tsvector('english', coalesce(name, '') || ' ' || coalesce(description, '') || ' ' || coalesce(short_description, '') || ' ' || coalesce(sku, '') || ' ' || coalesce(keywords, ''))"
+		searchQuery := "plainto_tsquery('english', ?)"
+
+		// Combine full-text search with ILIKE for partial matches and add relevance ranking
+		query = query.Where(
+			fmt.Sprintf("(%s @@ %s) OR name ILIKE ? OR description ILIKE ? OR short_description ILIKE ? OR sku ILIKE ?", searchVector, searchQuery),
+			params.Query, "%"+params.Query+"%", "%"+params.Query+"%", "%"+params.Query+"%", "%"+params.Query+"%",
+		)
 	}
 
 	if params.CategoryID != nil {
@@ -663,4 +671,199 @@ func (r *productRepository) SearchAdvanced(ctx context.Context, params repositor
 	var products []*entities.Product
 	err := query.Find(&products).Error
 	return products, err
+}
+
+// buildSortOrder builds the sort order clause with relevance ranking
+func (r *productRepository) buildSortOrder(sortBy, sortOrder, searchQuery string) string {
+	direction := "ASC"
+	if strings.ToUpper(sortOrder) == "DESC" {
+		direction = "DESC"
+	}
+
+	switch sortBy {
+	case "relevance":
+		if searchQuery != "" {
+			// Use PostgreSQL's ts_rank for relevance scoring
+			searchVector := "to_tsvector('english', coalesce(name, '') || ' ' || coalesce(description, '') || ' ' || coalesce(short_description, '') || ' ' || coalesce(sku, '') || ' ' || coalesce(keywords, ''))"
+			return fmt.Sprintf("ts_rank(%s, plainto_tsquery('english', '%s')) %s, featured DESC, created_at DESC", searchVector, searchQuery, direction)
+		}
+		return "featured DESC, created_at DESC"
+	case "price":
+		return "price " + direction
+	case "name":
+		return "name " + direction
+	case "created_at":
+		return "created_at " + direction
+	case "rating":
+		// Assuming we have a rating field or calculate it from reviews
+		return "rating " + direction + ", created_at DESC"
+	case "popularity":
+		// Assuming we track view counts or sales
+		return "view_count " + direction + ", created_at DESC"
+	default:
+		return "created_at DESC"
+	}
+}
+
+// GetSearchSuggestions returns search suggestions based on query
+func (r *productRepository) GetSearchSuggestions(ctx context.Context, query string, limit int) (*repositories.SearchSuggestions, error) {
+	suggestions := &repositories.SearchSuggestions{
+		Products:    []repositories.ProductSuggestion{},
+		Categories:  []repositories.CategorySuggestion{},
+		Brands:      []repositories.BrandSuggestion{},
+		Popular:     []string{},
+		Corrections: []string{},
+	}
+
+	if limit <= 0 {
+		limit = 10
+	}
+
+	// Get product suggestions
+	var products []entities.Product
+	err := r.db.WithContext(ctx).
+		Where("name ILIKE ? OR description ILIKE ? OR sku ILIKE ?", "%"+query+"%", "%"+query+"%", "%"+query+"%").
+		Where("status = ?", "active").
+		Limit(limit).
+		Find(&products).Error
+	if err != nil {
+		return nil, err
+	}
+
+	for _, product := range products {
+		// Get category name
+		var category entities.Category
+		r.db.WithContext(ctx).Where("id = ?", product.CategoryID).First(&category)
+
+		// Get first image
+		var image string
+		if len(product.Images) > 0 {
+			image = product.Images[0].URL
+		}
+
+		suggestion := repositories.ProductSuggestion{
+			ID:         product.ID,
+			Name:       product.Name,
+			SKU:        product.SKU,
+			Price:      product.Price,
+			Image:      image,
+			CategoryID: product.CategoryID,
+			Category:   category.Name,
+			Relevance:  calculateRelevance(product.Name, query),
+		}
+		suggestions.Products = append(suggestions.Products, suggestion)
+	}
+
+	// Get category suggestions
+	var categories []entities.Category
+	err = r.db.WithContext(ctx).
+		Where("name ILIKE ? OR description ILIKE ?", "%"+query+"%", "%"+query+"%").
+		Where("is_active = ?", true).
+		Limit(limit/2).
+		Find(&categories).Error
+	if err == nil {
+		for _, category := range categories {
+			// Count products in category
+			var productCount int64
+			r.db.WithContext(ctx).Model(&entities.Product{}).
+				Where("category_id = ? AND status = ?", category.ID, "active").
+				Count(&productCount)
+
+			suggestion := repositories.CategorySuggestion{
+				ID:           category.ID,
+				Name:         category.Name,
+				ProductCount: productCount,
+				Relevance:    calculateRelevance(category.Name, query),
+			}
+			suggestions.Categories = append(suggestions.Categories, suggestion)
+		}
+	}
+
+	// Get popular searches
+	popular, err := r.GetPopularSearches(ctx, 5)
+	if err == nil {
+		suggestions.Popular = popular
+	}
+
+	return suggestions, nil
+}
+
+// GetPopularSearches returns popular search queries
+func (r *productRepository) GetPopularSearches(ctx context.Context, limit int) ([]string, error) {
+	var results []struct {
+		Query string
+		Count int64
+	}
+
+	err := r.db.WithContext(ctx).
+		Table("search_queries").
+		Select("query, COUNT(*) as count").
+		Where("created_at > ?", time.Now().AddDate(0, 0, -30)). // Last 30 days
+		Group("query").
+		Order("count DESC").
+		Limit(limit).
+		Scan(&results).Error
+
+	if err != nil {
+		// Return default popular searches if no data
+		return []string{"laptop", "phone", "headphones", "camera", "watch"}, nil
+	}
+
+	var queries []string
+	for _, result := range results {
+		queries = append(queries, result.Query)
+	}
+
+	return queries, nil
+}
+
+// RecordSearchQuery records a search query for analytics
+func (r *productRepository) RecordSearchQuery(ctx context.Context, query string, userID *uuid.UUID, resultCount int) error {
+	searchQuery := repositories.SearchQuery{
+		ID:          uuid.New(),
+		Query:       query,
+		UserID:      userID,
+		ResultCount: resultCount,
+		CreatedAt:   time.Now(),
+	}
+
+	return r.db.WithContext(ctx).Table("search_queries").Create(&searchQuery).Error
+}
+
+// GetSearchHistory returns search history for a user
+func (r *productRepository) GetSearchHistory(ctx context.Context, userID uuid.UUID, limit int) ([]string, error) {
+	var queries []string
+	err := r.db.WithContext(ctx).
+		Table("search_history").
+		Select("query").
+		Where("user_id = ?", userID).
+		Order("created_at DESC").
+		Limit(limit).
+		Pluck("query", &queries).Error
+
+	return queries, err
+}
+
+// calculateRelevance calculates relevance score between product name and search query
+func calculateRelevance(productName, query string) float64 {
+	productLower := strings.ToLower(productName)
+	queryLower := strings.ToLower(query)
+
+	// Exact match gets highest score
+	if productLower == queryLower {
+		return 1.0
+	}
+
+	// Starts with query gets high score
+	if strings.HasPrefix(productLower, queryLower) {
+		return 0.9
+	}
+
+	// Contains query gets medium score
+	if strings.Contains(productLower, queryLower) {
+		return 0.7
+	}
+
+	// Default relevance
+	return 0.5
 }

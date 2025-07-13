@@ -299,3 +299,540 @@ func (r *categoryRepository) GetCategoriesWithProductCount(ctx context.Context) 
 
 	return categories, countMap, nil
 }
+
+// BulkCreate creates multiple categories
+func (r *categoryRepository) BulkCreate(ctx context.Context, categories []*entities.Category) error {
+	if len(categories) == 0 {
+		return nil
+	}
+	return r.db.WithContext(ctx).Create(categories).Error
+}
+
+// BulkUpdate updates multiple categories
+func (r *categoryRepository) BulkUpdate(ctx context.Context, categories []*entities.Category) error {
+	if len(categories) == 0 {
+		return nil
+	}
+
+	tx := r.db.WithContext(ctx).Begin()
+	defer func() {
+		if r := recover(); r != nil {
+			tx.Rollback()
+		}
+	}()
+
+	for _, category := range categories {
+		if err := tx.Save(category).Error; err != nil {
+			tx.Rollback()
+			return err
+		}
+	}
+
+	return tx.Commit().Error
+}
+
+// BulkDelete deletes multiple categories
+func (r *categoryRepository) BulkDelete(ctx context.Context, ids []uuid.UUID) error {
+	if len(ids) == 0 {
+		return nil
+	}
+	return r.db.WithContext(ctx).Where("id IN ?", ids).Delete(&entities.Category{}).Error
+}
+
+// ListWithFilters retrieves categories with advanced filtering
+func (r *categoryRepository) ListWithFilters(ctx context.Context, filters repositories.CategoryFilters) ([]*entities.Category, error) {
+	var categories []*entities.Category
+
+	query := r.db.WithContext(ctx).Model(&entities.Category{})
+
+	// Apply filters
+	if filters.Search != "" {
+		query = query.Where("name ILIKE ? OR description ILIKE ?", "%"+filters.Search+"%", "%"+filters.Search+"%")
+	}
+
+	if filters.ParentID != nil {
+		query = query.Where("parent_id = ?", *filters.ParentID)
+	}
+
+	if filters.IsActive != nil {
+		query = query.Where("is_active = ?", *filters.IsActive)
+	}
+
+	if filters.HasParent != nil {
+		if *filters.HasParent {
+			query = query.Where("parent_id IS NOT NULL")
+		} else {
+			query = query.Where("parent_id IS NULL")
+		}
+	}
+
+	// Apply sorting
+	sortBy := "name"
+	if filters.SortBy != "" {
+		sortBy = filters.SortBy
+	}
+
+	sortOrder := "ASC"
+	if filters.SortOrder == "desc" {
+		sortOrder = "DESC"
+	}
+
+	query = query.Order(sortBy + " " + sortOrder)
+
+	// Apply pagination
+	if filters.Limit > 0 {
+		query = query.Limit(filters.Limit)
+	}
+	if filters.Offset > 0 {
+		query = query.Offset(filters.Offset)
+	}
+
+	err := query.Find(&categories).Error
+	return categories, err
+}
+
+// CountWithFilters counts categories with advanced filtering
+func (r *categoryRepository) CountWithFilters(ctx context.Context, filters repositories.CategoryFilters) (int64, error) {
+	var count int64
+
+	query := r.db.WithContext(ctx).Model(&entities.Category{})
+
+	// Apply filters (same as ListWithFilters)
+	if filters.Search != "" {
+		query = query.Where("name ILIKE ? OR description ILIKE ?", "%"+filters.Search+"%", "%"+filters.Search+"%")
+	}
+
+	if filters.ParentID != nil {
+		query = query.Where("parent_id = ?", *filters.ParentID)
+	}
+
+	if filters.IsActive != nil {
+		query = query.Where("is_active = ?", *filters.IsActive)
+	}
+
+	if filters.HasParent != nil {
+		if *filters.HasParent {
+			query = query.Where("parent_id IS NOT NULL")
+		} else {
+			query = query.Where("parent_id IS NULL")
+		}
+	}
+
+	err := query.Count(&count).Error
+	return count, err
+}
+
+// Search searches categories by name and description
+func (r *categoryRepository) Search(ctx context.Context, query string, limit, offset int) ([]*entities.Category, error) {
+	var categories []*entities.Category
+
+	err := r.db.WithContext(ctx).
+		Where("name ILIKE ? OR description ILIKE ?", "%"+query+"%", "%"+query+"%").
+		Where("is_active = ?", true).
+		Order("name ASC").
+		Limit(limit).
+		Offset(offset).
+		Find(&categories).Error
+
+	return categories, err
+}
+
+// ValidateHierarchy validates that setting parentID for categoryID won't create circular reference
+func (r *categoryRepository) ValidateHierarchy(ctx context.Context, categoryID, parentID uuid.UUID) error {
+	if categoryID == parentID {
+		return entities.ErrInvalidInput
+	}
+
+	// Check if parentID is a descendant of categoryID
+	descendants, err := r.GetCategoryTree(ctx, categoryID)
+	if err != nil {
+		return err
+	}
+
+	for _, descendantID := range descendants {
+		if descendantID == parentID {
+			return entities.ErrInvalidInput // Would create circular reference
+		}
+	}
+
+	return nil
+}
+
+
+
+// GetProductCount returns product count for a category (with option to include subcategories)
+func (r *categoryRepository) GetProductCount(ctx context.Context, categoryID uuid.UUID, includeSubcategories bool) (int64, error) {
+	var count int64
+
+	if includeSubcategories {
+		// Get all descendant category IDs
+		categoryIDs, err := r.GetCategoryTree(ctx, categoryID)
+		if err != nil {
+			return 0, err
+		}
+
+		err = r.db.WithContext(ctx).
+			Model(&entities.Product{}).
+			Where("category_id IN ? AND status = ?", categoryIDs, "active").
+			Count(&count).Error
+		return count, err
+	} else {
+		// Count only direct products
+		err := r.db.WithContext(ctx).
+			Model(&entities.Product{}).
+			Where("category_id = ? AND status = ?", categoryID, "active").
+			Count(&count).Error
+		return count, err
+	}
+}
+
+// MoveCategory moves a category to a new parent
+func (r *categoryRepository) MoveCategory(ctx context.Context, categoryID, newParentID uuid.UUID) error {
+	// Validate hierarchy to prevent circular references
+	if err := r.ValidateHierarchy(ctx, categoryID, newParentID); err != nil {
+		return err
+	}
+
+	// Update the category's parent
+	err := r.db.WithContext(ctx).
+		Model(&entities.Category{}).
+		Where("id = ?", categoryID).
+		Update("parent_id", newParentID).Error
+
+	if err != nil {
+		return err
+	}
+
+	// Rebuild paths for the moved category and its descendants
+	return r.RebuildCategoryPaths(ctx)
+}
+
+// ReorderCategories reorders multiple categories
+func (r *categoryRepository) ReorderCategories(ctx context.Context, reorderRequests []repositories.CategoryReorderRequest) error {
+	if len(reorderRequests) == 0 {
+		return nil
+	}
+
+	tx := r.db.WithContext(ctx).Begin()
+	defer func() {
+		if r := recover(); r != nil {
+			tx.Rollback()
+		}
+	}()
+
+	for _, req := range reorderRequests {
+		err := tx.Model(&entities.Category{}).
+			Where("id = ?", req.CategoryID).
+			Update("sort_order", req.SortOrder).Error
+		if err != nil {
+			tx.Rollback()
+			return err
+		}
+	}
+
+	return tx.Commit().Error
+}
+
+// GetCategoryDepth returns the depth of a category in the tree
+func (r *categoryRepository) GetCategoryDepth(ctx context.Context, categoryID uuid.UUID) (int, error) {
+	var depth int
+
+	query := `
+		WITH RECURSIVE category_depth AS (
+			-- Base case: start with the given category
+			SELECT id, parent_id, 0 as depth
+			FROM categories
+			WHERE id = $1
+
+			UNION ALL
+
+			-- Recursive case: find parent and increment depth
+			SELECT c.id, c.parent_id, cd.depth + 1
+			FROM categories c
+			INNER JOIN category_depth cd ON c.id = cd.parent_id
+		)
+		SELECT MAX(depth) FROM category_depth
+	`
+
+	err := r.db.WithContext(ctx).Raw(query, categoryID).Scan(&depth).Error
+	return depth, err
+}
+
+// GetMaxDepth returns the maximum depth in the category tree
+func (r *categoryRepository) GetMaxDepth(ctx context.Context) (int, error) {
+	var maxDepth int
+
+	query := `
+		WITH RECURSIVE category_tree AS (
+			-- Base case: root categories
+			SELECT id, parent_id, 0 as depth
+			FROM categories
+			WHERE parent_id IS NULL
+
+			UNION ALL
+
+			-- Recursive case: children
+			SELECT c.id, c.parent_id, ct.depth + 1
+			FROM categories c
+			INNER JOIN category_tree ct ON c.parent_id = ct.id
+		)
+		SELECT COALESCE(MAX(depth), 0) FROM category_tree
+	`
+
+	err := r.db.WithContext(ctx).Raw(query).Scan(&maxDepth).Error
+	return maxDepth, err
+}
+
+// ValidateTreeIntegrity validates the entire category tree for consistency
+func (r *categoryRepository) ValidateTreeIntegrity(ctx context.Context) error {
+	// Check for circular references
+	query := `
+		WITH RECURSIVE category_check AS (
+			SELECT id, parent_id, ARRAY[id] as path
+			FROM categories
+			WHERE parent_id IS NOT NULL
+
+			UNION ALL
+
+			SELECT c.id, c.parent_id, cc.path || c.id
+			FROM categories c
+			INNER JOIN category_check cc ON c.parent_id = cc.id
+			WHERE NOT (c.id = ANY(cc.path))
+		)
+		SELECT COUNT(*) FROM category_check WHERE array_length(path, 1) > 10
+	`
+
+	var circularCount int
+	err := r.db.WithContext(ctx).Raw(query).Scan(&circularCount).Error
+	if err != nil {
+		return err
+	}
+
+	if circularCount > 0 {
+		return entities.ErrCircularReference
+	}
+
+	return nil
+}
+
+// RebuildCategoryPaths rebuilds the path field for all categories
+func (r *categoryRepository) RebuildCategoryPaths(ctx context.Context) error {
+	// Update paths using recursive query
+	query := `
+		WITH RECURSIVE category_paths AS (
+			-- Base case: root categories
+			SELECT id, parent_id, name, name as path, 0 as level
+			FROM categories
+			WHERE parent_id IS NULL
+
+			UNION ALL
+
+			-- Recursive case: children
+			SELECT c.id, c.parent_id, c.name, cp.path || ' > ' || c.name as path, cp.level + 1
+			FROM categories c
+			INNER JOIN category_paths cp ON c.parent_id = cp.id
+		)
+		UPDATE categories
+		SET path = category_paths.path, level = category_paths.level
+		FROM category_paths
+		WHERE categories.id = category_paths.id
+	`
+
+	return r.db.WithContext(ctx).Exec(query).Error
+}
+
+// GetCategoryAnalytics returns comprehensive analytics for a category
+func (r *categoryRepository) GetCategoryAnalytics(ctx context.Context, categoryID uuid.UUID, timeRange string) (*repositories.CategoryAnalytics, error) {
+	analytics := &repositories.CategoryAnalytics{
+		CategoryID: categoryID,
+	}
+
+	// Get category name
+	var category entities.Category
+	err := r.db.WithContext(ctx).Where("id = ?", categoryID).First(&category).Error
+	if err != nil {
+		return nil, err
+	}
+	analytics.CategoryName = category.Name
+
+	// Get product counts
+	var productCount, activeProducts, inactiveProducts int64
+	r.db.WithContext(ctx).Model(&entities.Product{}).Where("category_id = ?", categoryID).Count(&productCount)
+	r.db.WithContext(ctx).Model(&entities.Product{}).Where("category_id = ? AND is_active = ?", categoryID, true).Count(&activeProducts)
+	inactiveProducts = productCount - activeProducts
+
+	analytics.ProductCount = productCount
+	analytics.ActiveProducts = activeProducts
+	analytics.InactiveProducts = inactiveProducts
+
+	// Calculate average price
+	var avgPrice float64
+	r.db.WithContext(ctx).Model(&entities.Product{}).
+		Where("category_id = ? AND is_active = ?", categoryID, true).
+		Select("AVG(price)").Scan(&avgPrice)
+	analytics.AveragePrice = avgPrice
+
+	// Get sales data (mock data for now - would integrate with actual order system)
+	analytics.TotalSales = productCount * 10 // Mock calculation
+	analytics.Revenue = avgPrice * float64(analytics.TotalSales)
+	analytics.ConversionRate = 0.05 // Mock 5% conversion rate
+
+	return analytics, nil
+}
+
+// GetTopCategories returns top performing categories
+func (r *categoryRepository) GetTopCategories(ctx context.Context, limit int, sortBy string) ([]*repositories.CategoryStats, error) {
+	var categories []*entities.Category
+	err := r.db.WithContext(ctx).Limit(limit).Find(&categories).Error
+	if err != nil {
+		return nil, err
+	}
+
+	var stats []*repositories.CategoryStats
+	for _, category := range categories {
+		// Get product count
+		var productCount int64
+		r.db.WithContext(ctx).Model(&entities.Product{}).Where("category_id = ?", category.ID).Count(&productCount)
+
+		// Calculate average price
+		var avgPrice float64
+		r.db.WithContext(ctx).Model(&entities.Product{}).
+			Where("category_id = ? AND is_active = ?", category.ID, true).
+			Select("AVG(price)").Scan(&avgPrice)
+
+		// Mock sales and revenue data
+		totalSales := productCount * 8
+		revenue := avgPrice * float64(totalSales)
+
+		stat := &repositories.CategoryStats{
+			CategoryID:     category.ID,
+			CategoryName:   category.Name,
+			ProductCount:   productCount,
+			TotalSales:     totalSales,
+			Revenue:        revenue,
+			AverageRating:  4.2, // Mock rating
+			ConversionRate: 0.04, // Mock conversion rate
+			GrowthRate:     0.15, // Mock 15% growth
+		}
+		stats = append(stats, stat)
+	}
+
+	return stats, nil
+}
+
+// GetCategoryPerformanceMetrics returns detailed performance metrics for a category
+func (r *categoryRepository) GetCategoryPerformanceMetrics(ctx context.Context, categoryID uuid.UUID) (*repositories.CategoryPerformanceMetrics, error) {
+	// Get category
+	var category entities.Category
+	err := r.db.WithContext(ctx).Where("id = ?", categoryID).First(&category).Error
+	if err != nil {
+		return nil, err
+	}
+
+	metrics := &repositories.CategoryPerformanceMetrics{
+		CategoryID:   categoryID,
+		CategoryName: category.Name,
+	}
+
+	// Get product counts
+	var productCount, activeProductCount int64
+	r.db.WithContext(ctx).Model(&entities.Product{}).Where("category_id = ?", categoryID).Count(&productCount)
+	r.db.WithContext(ctx).Model(&entities.Product{}).Where("category_id = ? AND is_active = ?", categoryID, true).Count(&activeProductCount)
+
+	metrics.ProductCount = productCount
+	metrics.ActiveProductCount = activeProductCount
+
+	// Calculate average price and inventory value
+	var avgPrice, totalValue float64
+	r.db.WithContext(ctx).Model(&entities.Product{}).
+		Where("category_id = ? AND is_active = ?", categoryID, true).
+		Select("AVG(price)").Scan(&avgPrice)
+
+	r.db.WithContext(ctx).Model(&entities.Product{}).
+		Where("category_id = ? AND is_active = ?", categoryID, true).
+		Select("SUM(price * stock_quantity)").Scan(&totalValue)
+
+	metrics.AverageProductPrice = avgPrice
+	metrics.TotalInventoryValue = totalValue
+
+	// Mock stock data (would integrate with inventory system)
+	metrics.LowStockProducts = productCount / 10    // 10% low stock
+	metrics.OutOfStockProducts = productCount / 20  // 5% out of stock
+
+	// Mock review data (would integrate with review system)
+	metrics.AverageRating = 4.3
+	metrics.TotalReviews = productCount * 5
+	metrics.PopularityScore = float64(activeProductCount) * metrics.AverageRating
+
+	return metrics, nil
+}
+
+// GetCategorySalesStats returns sales statistics for a category
+func (r *categoryRepository) GetCategorySalesStats(ctx context.Context, categoryID uuid.UUID, timeRange string) (*repositories.CategorySalesStats, error) {
+	// Get category
+	var category entities.Category
+	err := r.db.WithContext(ctx).Where("id = ?", categoryID).First(&category).Error
+	if err != nil {
+		return nil, err
+	}
+
+	stats := &repositories.CategorySalesStats{
+		CategoryID:   categoryID,
+		CategoryName: category.Name,
+		TimeRange:    timeRange,
+	}
+
+	// Get product count for calculations
+	var productCount int64
+	r.db.WithContext(ctx).Model(&entities.Product{}).Where("category_id = ?", categoryID).Count(&productCount)
+
+	// Calculate average price
+	var avgPrice float64
+	r.db.WithContext(ctx).Model(&entities.Product{}).
+		Where("category_id = ? AND is_active = ?", categoryID, true).
+		Select("AVG(price)").Scan(&avgPrice)
+
+	// Mock sales data based on time range
+	multiplier := int64(1)
+	switch timeRange {
+	case "7d":
+		multiplier = 1
+	case "30d":
+		multiplier = 4
+	case "90d":
+		multiplier = 12
+	case "1y":
+		multiplier = 52
+	default:
+		multiplier = 4 // Default to 30 days
+	}
+
+	stats.TotalSales = productCount * multiplier * 2
+	stats.TotalRevenue = avgPrice * float64(stats.TotalSales)
+	stats.AverageOrderValue = avgPrice * 1.5 // Mock AOV
+
+	// Mock growth metrics
+	stats.GrowthMetrics = repositories.GrowthMetrics{
+		SalesGrowth:   0.12,  // 12% growth
+		RevenueGrowth: 0.15,  // 15% growth
+		OrderGrowth:   0.10,  // 10% growth
+	}
+
+	// Mock top selling products
+	var products []entities.Product
+	r.db.WithContext(ctx).Where("category_id = ? AND is_active = ?", categoryID, true).
+		Limit(5).Find(&products)
+
+	for _, product := range products {
+		productSales := repositories.ProductSales{
+			ProductID:   product.ID,
+			ProductName: product.Name,
+			SKU:         product.SKU,
+			Quantity:    multiplier * 3, // Mock quantity
+			Revenue:     product.Price * float64(multiplier) * 3,
+		}
+		stats.TopSellingProducts = append(stats.TopSellingProducts, productSales)
+	}
+
+	return stats, nil
+}

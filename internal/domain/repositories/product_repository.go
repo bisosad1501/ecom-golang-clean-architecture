@@ -2,6 +2,7 @@ package repositories
 
 import (
 	"context"
+	"time"
 
 	"ecom-golang-clean-architecture/internal/domain/entities"
 
@@ -98,6 +99,12 @@ type ProductRepository interface {
 
 	// Advanced search methods
 	SearchAdvanced(ctx context.Context, params AdvancedSearchParams) ([]*entities.Product, error)
+
+	// Search autocomplete and suggestions
+	GetSearchSuggestions(ctx context.Context, query string, limit int) (*SearchSuggestions, error)
+	GetPopularSearches(ctx context.Context, limit int) ([]string, error)
+	RecordSearchQuery(ctx context.Context, query string, userID *uuid.UUID, resultCount int) error
+	GetSearchHistory(ctx context.Context, userID uuid.UUID, limit int) ([]string, error)
 }
 
 // AdvancedSearchParams represents advanced search parameters
@@ -233,8 +240,36 @@ type CategoryRepository interface {
 	// GetCategoryTree returns all descendant category IDs for a given category (including itself)
 	GetCategoryTree(ctx context.Context, categoryID uuid.UUID) ([]uuid.UUID, error)
 
-	// GetCategoryPath returns the full path from root to the given category
+	// Bulk operations
+	BulkCreate(ctx context.Context, categories []*entities.Category) error
+	BulkUpdate(ctx context.Context, categories []*entities.Category) error
+	BulkDelete(ctx context.Context, ids []uuid.UUID) error
+
+	// Advanced filtering
+	ListWithFilters(ctx context.Context, filters CategoryFilters) ([]*entities.Category, error)
+	CountWithFilters(ctx context.Context, filters CategoryFilters) (int64, error)
+	Search(ctx context.Context, query string, limit, offset int) ([]*entities.Category, error)
+
+	// Validation helpers
+	ValidateHierarchy(ctx context.Context, categoryID, parentID uuid.UUID) error
 	GetCategoryPath(ctx context.Context, categoryID uuid.UUID) ([]*entities.Category, error)
+	GetProductCount(ctx context.Context, categoryID uuid.UUID, includeSubcategories bool) (int64, error)
+
+	// Tree operations
+	MoveCategory(ctx context.Context, categoryID, newParentID uuid.UUID) error
+	ReorderCategories(ctx context.Context, reorderRequests []CategoryReorderRequest) error
+	GetCategoryDepth(ctx context.Context, categoryID uuid.UUID) (int, error)
+	GetMaxDepth(ctx context.Context) (int, error)
+	ValidateTreeIntegrity(ctx context.Context) error
+	RebuildCategoryPaths(ctx context.Context) error
+
+	// Analytics and statistics
+	GetCategoryAnalytics(ctx context.Context, categoryID uuid.UUID, timeRange string) (*CategoryAnalytics, error)
+	GetTopCategories(ctx context.Context, limit int, sortBy string) ([]*CategoryStats, error)
+	GetCategoryPerformanceMetrics(ctx context.Context, categoryID uuid.UUID) (*CategoryPerformanceMetrics, error)
+	GetCategorySalesStats(ctx context.Context, categoryID uuid.UUID, timeRange string) (*CategorySalesStats, error)
+
+
 
 	// GetProductCountByCategory returns product count for each category (including descendants)
 	GetProductCountByCategory(ctx context.Context, categoryID uuid.UUID) (int64, error)
@@ -242,4 +277,174 @@ type CategoryRepository interface {
 	// Optimized bulk operations
 	GetWithProductsOptimized(ctx context.Context, id uuid.UUID, limit, offset int) (*entities.Category, []*entities.Product, error)
 	GetCategoriesWithProductCount(ctx context.Context) ([]*entities.Category, map[uuid.UUID]int64, error)
+}
+
+// CategoryFilters represents filters for category queries
+type CategoryFilters struct {
+	Search    string     `json:"search"`
+	ParentID  *uuid.UUID `json:"parent_id"`
+	IsActive  *bool      `json:"is_active"`
+	Level     *int       `json:"level"`
+	HasParent *bool      `json:"has_parent"`
+	Limit     int        `json:"limit"`
+	Offset    int        `json:"offset"`
+	SortBy    string     `json:"sort_by"`    // name, created_at, sort_order
+	SortOrder string     `json:"sort_order"` // asc, desc
+}
+
+// CategoryReorderRequest represents a category reorder request
+type CategoryReorderRequest struct {
+	CategoryID uuid.UUID `json:"category_id" validate:"required"`
+	SortOrder  int       `json:"sort_order" validate:"required"`
+}
+
+// CategoryAnalytics represents comprehensive category analytics
+type CategoryAnalytics struct {
+	CategoryID       uuid.UUID                 `json:"category_id"`
+	CategoryName     string                    `json:"category_name"`
+	ProductCount     int64                     `json:"product_count"`
+	ActiveProducts   int64                     `json:"active_products"`
+	InactiveProducts int64                     `json:"inactive_products"`
+	TotalViews       int64                     `json:"total_views"`
+	TotalSales       int64                     `json:"total_sales"`
+	Revenue          float64                   `json:"revenue"`
+	AveragePrice     float64                   `json:"average_price"`
+	ConversionRate   float64                   `json:"conversion_rate"`
+	TopProducts      []ProductPerformance      `json:"top_products"`
+	SalesHistory     []SalesDataPoint          `json:"sales_history"`
+	ViewsHistory     []ViewsDataPoint          `json:"views_history"`
+}
+
+// CategoryStats represents category statistics for ranking
+type CategoryStats struct {
+	CategoryID     uuid.UUID `json:"category_id"`
+	CategoryName   string    `json:"category_name"`
+	ProductCount   int64     `json:"product_count"`
+	TotalSales     int64     `json:"total_sales"`
+	Revenue        float64   `json:"revenue"`
+	AverageRating  float64   `json:"average_rating"`
+	ConversionRate float64   `json:"conversion_rate"`
+	GrowthRate     float64   `json:"growth_rate"`
+}
+
+// CategoryPerformanceMetrics represents detailed performance metrics
+type CategoryPerformanceMetrics struct {
+	CategoryID          uuid.UUID `json:"category_id"`
+	CategoryName        string    `json:"category_name"`
+	ProductCount        int64     `json:"product_count"`
+	ActiveProductCount  int64     `json:"active_product_count"`
+	AverageProductPrice float64   `json:"average_product_price"`
+	TotalInventoryValue float64   `json:"total_inventory_value"`
+	LowStockProducts    int64     `json:"low_stock_products"`
+	OutOfStockProducts  int64     `json:"out_of_stock_products"`
+	AverageRating       float64   `json:"average_rating"`
+	TotalReviews        int64     `json:"total_reviews"`
+	PopularityScore     float64   `json:"popularity_score"`
+}
+
+// CategorySalesStats represents sales statistics for a category
+type CategorySalesStats struct {
+	CategoryID      uuid.UUID        `json:"category_id"`
+	CategoryName    string           `json:"category_name"`
+	TimeRange       string           `json:"time_range"`
+	TotalSales      int64            `json:"total_sales"`
+	TotalRevenue    float64          `json:"total_revenue"`
+	AverageOrderValue float64        `json:"average_order_value"`
+	TopSellingProducts []ProductSales `json:"top_selling_products"`
+	SalesByPeriod   []PeriodSales    `json:"sales_by_period"`
+	GrowthMetrics   GrowthMetrics    `json:"growth_metrics"`
+}
+
+// ProductPerformance represents product performance data
+type ProductPerformance struct {
+	ProductID    uuid.UUID `json:"product_id"`
+	ProductName  string    `json:"product_name"`
+	SKU          string    `json:"sku"`
+	Sales        int64     `json:"sales"`
+	Revenue      float64   `json:"revenue"`
+	Views        int64     `json:"views"`
+	Rating       float64   `json:"rating"`
+	ReviewCount  int64     `json:"review_count"`
+}
+
+// ProductSales represents product sales data
+type ProductSales struct {
+	ProductID   uuid.UUID `json:"product_id"`
+	ProductName string    `json:"product_name"`
+	SKU         string    `json:"sku"`
+	Quantity    int64     `json:"quantity"`
+	Revenue     float64   `json:"revenue"`
+}
+
+// SalesDataPoint represents a sales data point over time
+type SalesDataPoint struct {
+	Date     string  `json:"date"`
+	Sales    int64   `json:"sales"`
+	Revenue  float64 `json:"revenue"`
+}
+
+// ViewsDataPoint represents a views data point over time
+type ViewsDataPoint struct {
+	Date  string `json:"date"`
+	Views int64  `json:"views"`
+}
+
+// PeriodSales represents sales data for a specific period
+type PeriodSales struct {
+	Period   string  `json:"period"`
+	Sales    int64   `json:"sales"`
+	Revenue  float64 `json:"revenue"`
+	Orders   int64   `json:"orders"`
+}
+
+// GrowthMetrics represents growth metrics
+type GrowthMetrics struct {
+	SalesGrowth   float64 `json:"sales_growth"`
+	RevenueGrowth float64 `json:"revenue_growth"`
+	OrderGrowth   float64 `json:"order_growth"`
+}
+
+// SearchSuggestions represents search suggestions response
+type SearchSuggestions struct {
+	Products    []ProductSuggestion  `json:"products"`
+	Categories  []CategorySuggestion `json:"categories"`
+	Brands      []BrandSuggestion    `json:"brands"`
+	Popular     []string             `json:"popular"`
+	Corrections []string             `json:"corrections"`
+}
+
+// ProductSuggestion represents a product suggestion
+type ProductSuggestion struct {
+	ID          uuid.UUID `json:"id"`
+	Name        string    `json:"name"`
+	SKU         string    `json:"sku"`
+	Price       float64   `json:"price"`
+	Image       string    `json:"image"`
+	CategoryID  uuid.UUID `json:"category_id"`
+	Category    string    `json:"category"`
+	Relevance   float64   `json:"relevance"`
+}
+
+// CategorySuggestion represents a category suggestion
+type CategorySuggestion struct {
+	ID           uuid.UUID `json:"id"`
+	Name         string    `json:"name"`
+	ProductCount int64     `json:"product_count"`
+	Relevance    float64   `json:"relevance"`
+}
+
+// BrandSuggestion represents a brand suggestion
+type BrandSuggestion struct {
+	Name         string  `json:"name"`
+	ProductCount int64   `json:"product_count"`
+	Relevance    float64 `json:"relevance"`
+}
+
+// SearchQuery represents a search query record
+type SearchQuery struct {
+	ID          uuid.UUID  `json:"id"`
+	Query       string     `json:"query"`
+	UserID      *uuid.UUID `json:"user_id"`
+	ResultCount int        `json:"result_count"`
+	CreatedAt   time.Time  `json:"created_at"`
 }

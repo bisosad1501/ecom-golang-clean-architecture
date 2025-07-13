@@ -231,5 +231,12 @@ func getMigrations() []Migration {
 			Up:      migration005Up,
 			Down:    migration005Down,
 		},
+		// Temporarily disabled due to product_tags issue
+		// {
+		// 	Version: "006_enhance_search",
+		// 	Name:    "Enhance full-text search capabilities",
+		// 	Up:      migration006Up,
+		// 	Down:    migration006Down,
+		// },
 	}
 }
