@@ -182,6 +182,7 @@ func SetupRoutes(
 
 			// SEO routes (public access for frontend)
 			categories.GET("/:id/seo", categoryHandler.GetCategorySEO)
+			categories.GET("/slug/validate", categoryHandler.ValidateSlugAvailability)
 		}
 
 		// Public search routes
@@ -548,6 +549,19 @@ func SetupRoutes(
 				adminCategories.PUT("/:id/seo", categoryHandler.UpdateCategorySEO)
 				adminCategories.POST("/:id/seo/generate", categoryHandler.GenerateCategorySEO)
 				adminCategories.GET("/:id/seo/validate", categoryHandler.ValidateCategorySEO)
+
+				// Enhanced SEO & URL optimization
+				adminCategories.POST("/:id/slug/optimize", categoryHandler.OptimizeSlug)
+				adminCategories.GET("/:id/slug/suggestions", categoryHandler.GenerateSlugSuggestions)
+				adminCategories.GET("/:id/slug/history", categoryHandler.GetSlugHistory)
+				adminCategories.GET("/:id/seo/insights", categoryHandler.GetSEOInsights)
+				adminCategories.GET("/:id/seo/competitor-analysis", categoryHandler.GetSEOCompetitorAnalysis)
+
+				// Bulk SEO operations
+				adminCategories.POST("/seo/bulk-update", categoryHandler.BulkUpdateSEO)
+				adminCategories.POST("/seo/bulk-generate", categoryHandler.BulkGenerateSEO)
+				adminCategories.POST("/seo/bulk-validate", categoryHandler.BulkValidateSEO)
+				adminCategories.GET("/seo/analytics", categoryHandler.GetSEOAnalytics)
 			}
 
 			// Admin brand management

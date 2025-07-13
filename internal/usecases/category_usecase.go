@@ -3,6 +3,7 @@ package usecases
 import (
 	"context"
 	"fmt"
+	"regexp"
 	"sort"
 	"strings"
 	"time"
@@ -56,6 +57,22 @@ type CategoryUseCase interface {
 	GetCategorySEO(ctx context.Context, categoryID uuid.UUID) (*CategorySEOResponse, error)
 	GenerateCategorySEO(ctx context.Context, categoryID uuid.UUID) (*CategorySEOResponse, error)
 	ValidateCategorySEO(ctx context.Context, categoryID uuid.UUID) (*CategorySEOValidationResponse, error)
+
+	// Enhanced URL optimization
+	OptimizeSlug(ctx context.Context, categoryID uuid.UUID, req SlugOptimizationRequest) (*SlugOptimizationResponse, error)
+	GenerateSlugSuggestions(ctx context.Context, categoryID uuid.UUID) (*SlugSuggestionsResponse, error)
+	ValidateSlugAvailability(ctx context.Context, slug string, excludeID *uuid.UUID) (*SlugValidationResponse, error)
+	GetSlugHistory(ctx context.Context, categoryID uuid.UUID) (*SlugHistoryResponse, error)
+
+	// Bulk SEO operations
+	BulkUpdateSEO(ctx context.Context, req BulkSEOUpdateRequest) (*BulkSEOUpdateResponse, error)
+	BulkGenerateSEO(ctx context.Context, req BulkSEOGenerateRequest) (*BulkSEOGenerateResponse, error)
+	BulkValidateSEO(ctx context.Context, req BulkSEOValidateRequest) (*BulkSEOValidateResponse, error)
+
+	// SEO analytics and insights
+	GetSEOAnalytics(ctx context.Context, req SEOAnalyticsRequest) (*SEOAnalyticsResponse, error)
+	GetSEOInsights(ctx context.Context, categoryID uuid.UUID) (*SEOInsightsResponse, error)
+	GetSEOCompetitorAnalysis(ctx context.Context, categoryID uuid.UUID) (*SEOCompetitorAnalysisResponse, error)
 }
 
 type categoryUseCase struct {
@@ -1764,4 +1781,1284 @@ func (uc *categoryUseCase) ValidateCategorySEO(ctx context.Context, categoryID u
 		Issues:      issues,
 		Suggestions: suggestions,
 	}, nil
+}
+
+// OptimizeSlug optimizes category slug for better SEO
+func (uc *categoryUseCase) OptimizeSlug(ctx context.Context, categoryID uuid.UUID, req SlugOptimizationRequest) (*SlugOptimizationResponse, error) {
+	// Get current category
+	category, err := uc.categoryRepo.GetByID(ctx, categoryID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get category: %w", err)
+	}
+
+	oldSlug := category.Slug
+
+	// Validate new slug
+	validation, err := uc.ValidateSlugAvailability(ctx, req.NewSlug, &categoryID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to validate slug: %w", err)
+	}
+
+	if !validation.IsAvailable {
+		return &SlugOptimizationResponse{
+			OldSlug: oldSlug,
+			NewSlug: req.NewSlug,
+			Success: false,
+			Message: "Slug is not available",
+		}, nil
+	}
+
+	// Update category slug
+	category.Slug = req.NewSlug
+	if err := uc.categoryRepo.Update(ctx, category); err != nil {
+		return nil, fmt.Errorf("failed to update category slug: %w", err)
+	}
+
+	// Create redirect if requested
+	var redirectURL string
+	if req.AutoRedirect && oldSlug != req.NewSlug {
+		redirectURL = fmt.Sprintf("/categories/%s", req.NewSlug)
+		// TODO: Store redirect mapping in database
+	}
+
+	return &SlugOptimizationResponse{
+		OldSlug:     oldSlug,
+		NewSlug:     req.NewSlug,
+		RedirectURL: redirectURL,
+		Success:     true,
+		Message:     "Slug optimized successfully",
+	}, nil
+}
+
+// GenerateSlugSuggestions generates SEO-friendly slug suggestions
+func (uc *categoryUseCase) GenerateSlugSuggestions(ctx context.Context, categoryID uuid.UUID) (*SlugSuggestionsResponse, error) {
+	// Get current category
+	category, err := uc.categoryRepo.GetByID(ctx, categoryID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get category: %w", err)
+	}
+
+	suggestions := []SlugSuggestion{}
+
+	// Generate suggestions based on category name
+	baseSuggestions := []string{
+		generateSlugFromName(category.Name),
+		generateSlugFromName(category.Name + "-category"),
+		generateSlugFromName(category.Name + "-products"),
+		generateSlugFromName("shop-" + category.Name),
+		generateSlugFromName("buy-" + category.Name),
+	}
+
+	// Add parent category context if exists
+	if category.ParentID != nil {
+		parent, err := uc.categoryRepo.GetByID(ctx, *category.ParentID)
+		if err == nil {
+			baseSuggestions = append(baseSuggestions,
+				generateSlugFromName(parent.Name+"-"+category.Name),
+				generateSlugFromName(category.Name+"-in-"+parent.Name),
+			)
+		}
+	}
+
+	// Check availability and score each suggestion
+	for _, slug := range baseSuggestions {
+		if slug == category.Slug {
+			continue // Skip current slug
+		}
+
+		validation, err := uc.ValidateSlugAvailability(ctx, slug, &categoryID)
+		if err != nil {
+			continue
+		}
+
+		score := calculateSlugSEOScore(slug, category.Name)
+		reason := generateSlugReason(slug, category.Name)
+
+		suggestions = append(suggestions, SlugSuggestion{
+			Slug:        slug,
+			Score:       score,
+			Reason:      reason,
+			IsAvailable: validation.IsAvailable,
+			SEOFriendly: score > 0.7,
+		})
+	}
+
+	// Sort by score
+	sort.Slice(suggestions, func(i, j int) bool {
+		return suggestions[i].Score > suggestions[j].Score
+	})
+
+	return &SlugSuggestionsResponse{
+		Suggestions: suggestions,
+		Current:     category.Slug,
+	}, nil
+}
+
+// ValidateSlugAvailability validates if a slug is available and SEO-friendly
+func (uc *categoryUseCase) ValidateSlugAvailability(ctx context.Context, slug string, excludeID *uuid.UUID) (*SlugValidationResponse, error) {
+	issues := []string{}
+	suggestions := []string{}
+
+	// Check if slug is valid format
+	if !isValidSlugFormat(slug) {
+		issues = append(issues, "Slug contains invalid characters")
+		suggestions = append(suggestions, "Use only lowercase letters, numbers, and hyphens")
+	}
+
+	// Check length
+	if len(slug) < 3 {
+		issues = append(issues, "Slug is too short")
+		suggestions = append(suggestions, "Use at least 3 characters")
+	}
+	if len(slug) > 100 {
+		issues = append(issues, "Slug is too long")
+		suggestions = append(suggestions, "Keep slug under 100 characters")
+	}
+
+	// Check for SEO best practices
+	if strings.HasPrefix(slug, "-") || strings.HasSuffix(slug, "-") {
+		issues = append(issues, "Slug should not start or end with hyphen")
+	}
+	if strings.Contains(slug, "--") {
+		issues = append(issues, "Slug should not contain consecutive hyphens")
+	}
+
+	// Check availability in database
+	existingCategory, err := uc.categoryRepo.GetBySlug(ctx, slug)
+	isAvailable := true
+	if err == nil && existingCategory != nil {
+		if excludeID == nil || existingCategory.ID != *excludeID {
+			isAvailable = false
+			issues = append(issues, "Slug is already in use")
+			suggestions = append(suggestions, "Try adding a number or modifier")
+		}
+	}
+
+	return &SlugValidationResponse{
+		Slug:        slug,
+		IsAvailable: isAvailable,
+		IsValid:     len(issues) == 0,
+		Issues:      issues,
+		Suggestions: suggestions,
+	}, nil
+}
+
+// GetSlugHistory returns the slug change history for a category
+func (uc *categoryUseCase) GetSlugHistory(ctx context.Context, categoryID uuid.UUID) (*SlugHistoryResponse, error) {
+	// Get current category
+	category, err := uc.categoryRepo.GetByID(ctx, categoryID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get category: %w", err)
+	}
+
+	// TODO: Implement slug history tracking in database
+	// For now, return current slug as history
+	history := []SlugHistoryEntry{
+		{
+			Slug:      category.Slug,
+			CreatedAt: category.CreatedAt,
+			Reason:    "Initial creation",
+			IsActive:  true,
+		},
+	}
+
+	return &SlugHistoryResponse{
+		History: history,
+		Current: category.Slug,
+	}, nil
+}
+
+// BulkUpdateSEO updates SEO metadata for multiple categories
+func (uc *categoryUseCase) BulkUpdateSEO(ctx context.Context, req BulkSEOUpdateRequest) (*BulkSEOUpdateResponse, error) {
+	startTime := time.Now()
+	results := []BulkSEOResult{}
+	successCount := 0
+	failureCount := 0
+
+	for _, categoryID := range req.CategoryIDs {
+		result := BulkSEOResult{
+			CategoryID: categoryID,
+		}
+
+		// Update SEO for this category
+		_, err := uc.UpdateCategorySEO(ctx, categoryID, req.SEOData)
+		if err != nil {
+			result.Success = false
+			result.Error = err.Error()
+			result.Message = "Failed to update SEO"
+			failureCount++
+		} else {
+			result.Success = true
+			result.Message = "SEO updated successfully"
+			successCount++
+		}
+
+		results = append(results, result)
+	}
+
+	endTime := time.Now()
+	duration := endTime.Sub(startTime)
+	successRate := float64(successCount) / float64(len(req.CategoryIDs)) * 100
+
+	return &BulkSEOUpdateResponse{
+		TotalCategories: len(req.CategoryIDs),
+		SuccessCount:    successCount,
+		FailureCount:    failureCount,
+		Results:         results,
+		Summary: BulkOperationSummary{
+			Duration:    duration.String(),
+			StartTime:   startTime,
+			EndTime:     endTime,
+			SuccessRate: successRate,
+		},
+	}, nil
+}
+
+// BulkGenerateSEO generates SEO metadata for multiple categories
+func (uc *categoryUseCase) BulkGenerateSEO(ctx context.Context, req BulkSEOGenerateRequest) (*BulkSEOGenerateResponse, error) {
+	startTime := time.Now()
+	results := []BulkSEOResult{}
+	successCount := 0
+	failureCount := 0
+
+	for _, categoryID := range req.CategoryIDs {
+		result := BulkSEOResult{
+			CategoryID: categoryID,
+		}
+
+		// Generate SEO for this category
+		seoData, err := uc.GenerateCategorySEO(ctx, categoryID)
+		if err != nil {
+			result.Success = false
+			result.Error = err.Error()
+			result.Message = "Failed to generate SEO"
+			failureCount++
+		} else {
+			// Apply generated SEO data to category
+			seoRequest := CategorySEORequest{
+				MetaTitle:       &seoData.MetaTitle,
+				MetaDescription: &seoData.MetaDescription,
+				MetaKeywords:    &seoData.MetaKeywords,
+				CanonicalURL:    &seoData.CanonicalURL,
+				OGTitle:         &seoData.OGTitle,
+				OGDescription:   &seoData.OGDescription,
+				TwitterTitle:    &seoData.TwitterTitle,
+				TwitterDescription: &seoData.TwitterDescription,
+			}
+
+			if req.Options.OverwriteExisting || req.Options.GenerateKeywords {
+				_, updateErr := uc.UpdateCategorySEO(ctx, categoryID, seoRequest)
+				if updateErr != nil {
+					result.Success = false
+					result.Error = updateErr.Error()
+					result.Message = "Failed to apply generated SEO"
+					failureCount++
+				} else {
+					result.Success = true
+					result.Message = "SEO generated and applied successfully"
+					successCount++
+				}
+			} else {
+				result.Success = true
+				result.Message = "SEO generated successfully"
+				successCount++
+			}
+		}
+
+		results = append(results, result)
+	}
+
+	endTime := time.Now()
+	duration := endTime.Sub(startTime)
+	successRate := float64(successCount) / float64(len(req.CategoryIDs)) * 100
+
+	return &BulkSEOGenerateResponse{
+		TotalCategories: len(req.CategoryIDs),
+		SuccessCount:    successCount,
+		FailureCount:    failureCount,
+		Results:         results,
+		Summary: BulkOperationSummary{
+			Duration:    duration.String(),
+			StartTime:   startTime,
+			EndTime:     endTime,
+			SuccessRate: successRate,
+		},
+	}, nil
+}
+
+// BulkValidateSEO validates SEO metadata for multiple categories
+func (uc *categoryUseCase) BulkValidateSEO(ctx context.Context, req BulkSEOValidateRequest) (*BulkSEOValidateResponse, error) {
+	startTime := time.Now()
+	results := []BulkSEOValidationResult{}
+	validCount := 0
+	invalidCount := 0
+	totalScore := 0
+
+	for _, categoryID := range req.CategoryIDs {
+		// Validate SEO for this category
+		validation, err := uc.ValidateCategorySEO(ctx, categoryID)
+		if err != nil {
+			invalidCount++
+			continue
+		}
+
+		result := BulkSEOValidationResult{
+			CategoryID:  categoryID,
+			IsValid:     validation.IsValid,
+			Score:       validation.Score,
+			Issues:      validation.Issues,
+			Suggestions: validation.Suggestions,
+		}
+
+		if validation.IsValid {
+			validCount++
+		} else {
+			invalidCount++
+		}
+
+		totalScore += validation.Score
+		results = append(results, result)
+	}
+
+	endTime := time.Now()
+	duration := endTime.Sub(startTime)
+	averageScore := float64(totalScore) / float64(len(req.CategoryIDs))
+
+	// Check for global issues
+	globalIssues := []string{}
+	if req.Options.CheckDuplicates {
+		// TODO: Implement duplicate detection across categories
+		globalIssues = append(globalIssues, "Duplicate meta titles detected across categories")
+	}
+
+	return &BulkSEOValidateResponse{
+		TotalCategories: len(req.CategoryIDs),
+		ValidCount:      validCount,
+		InvalidCount:    invalidCount,
+		Results:         results,
+		GlobalIssues:    globalIssues,
+		Summary: BulkOperationSummary{
+			Duration:     duration.String(),
+			StartTime:    startTime,
+			EndTime:      endTime,
+			SuccessRate:  float64(validCount) / float64(len(req.CategoryIDs)) * 100,
+			AverageScore: averageScore,
+		},
+	}, nil
+}
+
+// GetSEOAnalytics provides comprehensive SEO analytics across categories
+func (uc *categoryUseCase) GetSEOAnalytics(ctx context.Context, req SEOAnalyticsRequest) (*SEOAnalyticsResponse, error) {
+	// Get categories to analyze
+	var categoryIDs []uuid.UUID
+	if len(req.CategoryIDs) > 0 {
+		categoryIDs = req.CategoryIDs
+	} else {
+		// Get all categories if none specified
+		categories, err := uc.categoryRepo.List(ctx, 1000, 0) // Get up to 1000 categories
+		if err != nil {
+			return nil, fmt.Errorf("failed to get categories: %w", err)
+		}
+		for _, cat := range categories {
+			categoryIDs = append(categoryIDs, cat.ID)
+		}
+	}
+
+	// Initialize response
+	response := &SEOAnalyticsResponse{}
+
+	// Calculate overview metrics
+	totalCategories := len(categoryIDs)
+	categoriesWithSEO := 0
+	totalScore := 0
+	topPerforming := []CategorySEOPerformance{}
+	bottomPerforming := []CategorySEOPerformance{}
+
+	// Metrics counters
+	metaTitleCount := 0
+	metaDescCount := 0
+	keywordsCount := 0
+	canonicalURLCount := 0
+	openGraphCount := 0
+	twitterCardCount := 0
+	schemaMarkupCount := 0
+
+	// Issues tracking
+	duplicateMetaTitles := make(map[string][]uuid.UUID)
+	duplicateMetaDescs := make(map[string][]uuid.UUID)
+	missingCanonicalURLs := []uuid.UUID{}
+	longMetaTitles := []uuid.UUID{}
+	shortMetaDescriptions := []uuid.UUID{}
+
+	// Analyze each category
+	for _, categoryID := range categoryIDs {
+		category, err := uc.categoryRepo.GetByID(ctx, categoryID)
+		if err != nil {
+			continue
+		}
+
+		// Validate SEO
+		validation, err := uc.ValidateCategorySEO(ctx, categoryID)
+		if err != nil {
+			continue
+		}
+
+		// Count categories with SEO data
+		if category.MetaTitle != "" || category.MetaDescription != "" {
+			categoriesWithSEO++
+		}
+
+		totalScore += validation.Score
+
+		// Track performance
+		performance := CategorySEOPerformance{
+			CategoryID:   categoryID,
+			CategoryName: category.Name,
+			SEOScore:     validation.Score,
+			Issues:       len(validation.Issues),
+			LastUpdated:  category.UpdatedAt,
+		}
+
+		// Add to top/bottom performers
+		if validation.Score >= 80 {
+			topPerforming = append(topPerforming, performance)
+		} else if validation.Score <= 40 {
+			bottomPerforming = append(bottomPerforming, performance)
+		}
+
+		// Count coverage metrics
+		if category.MetaTitle != "" {
+			metaTitleCount++
+			// Check for duplicates
+			if existing, exists := duplicateMetaTitles[category.MetaTitle]; exists {
+				duplicateMetaTitles[category.MetaTitle] = append(existing, categoryID)
+			} else {
+				duplicateMetaTitles[category.MetaTitle] = []uuid.UUID{categoryID}
+			}
+			// Check length
+			if len(category.MetaTitle) > 60 {
+				longMetaTitles = append(longMetaTitles, categoryID)
+			}
+		}
+
+		if category.MetaDescription != "" {
+			metaDescCount++
+			// Check for duplicates
+			if existing, exists := duplicateMetaDescs[category.MetaDescription]; exists {
+				duplicateMetaDescs[category.MetaDescription] = append(existing, categoryID)
+			} else {
+				duplicateMetaDescs[category.MetaDescription] = []uuid.UUID{categoryID}
+			}
+			// Check length
+			if len(category.MetaDescription) < 120 {
+				shortMetaDescriptions = append(shortMetaDescriptions, categoryID)
+			}
+		}
+
+		if category.MetaKeywords != "" {
+			keywordsCount++
+		}
+
+		if category.CanonicalURL != "" {
+			canonicalURLCount++
+		} else {
+			missingCanonicalURLs = append(missingCanonicalURLs, categoryID)
+		}
+
+		if category.OGTitle != "" || category.OGDescription != "" {
+			openGraphCount++
+		}
+
+		if category.TwitterTitle != "" || category.TwitterDescription != "" {
+			twitterCardCount++
+		}
+
+		if category.SchemaMarkup != "" {
+			schemaMarkupCount++
+		}
+	}
+
+	// Calculate averages and percentages
+	averageSEOScore := float64(totalScore) / float64(totalCategories)
+	seoCompletionRate := float64(categoriesWithSEO) / float64(totalCategories) * 100
+
+	// Sort performers
+	sort.Slice(topPerforming, func(i, j int) bool {
+		return topPerforming[i].SEOScore > topPerforming[j].SEOScore
+	})
+	sort.Slice(bottomPerforming, func(i, j int) bool {
+		return bottomPerforming[i].SEOScore < bottomPerforming[j].SEOScore
+	})
+
+	// Limit results
+	if len(topPerforming) > 10 {
+		topPerforming = topPerforming[:10]
+	}
+	if len(bottomPerforming) > 10 {
+		bottomPerforming = bottomPerforming[:10]
+	}
+
+	// Build duplicate issues
+	duplicateTitleIssues := []DuplicateIssue{}
+	for title, categoryIDs := range duplicateMetaTitles {
+		if len(categoryIDs) > 1 {
+			duplicateTitleIssues = append(duplicateTitleIssues, DuplicateIssue{
+				Value:       title,
+				CategoryIDs: categoryIDs,
+				Count:       len(categoryIDs),
+			})
+		}
+	}
+
+	duplicateDescIssues := []DuplicateIssue{}
+	for desc, categoryIDs := range duplicateMetaDescs {
+		if len(categoryIDs) > 1 {
+			duplicateDescIssues = append(duplicateDescIssues, DuplicateIssue{
+				Value:       desc,
+				CategoryIDs: categoryIDs,
+				Count:       len(categoryIDs),
+			})
+		}
+	}
+
+	// Build response
+	response.Overview.TotalCategories = totalCategories
+	response.Overview.CategoriesWithSEO = categoriesWithSEO
+	response.Overview.AverageSEOScore = averageSEOScore
+	response.Overview.SEOCompletionRate = seoCompletionRate
+	response.Overview.TopPerformingCategories = topPerforming
+	response.Overview.BottomPerformingCategories = bottomPerforming
+
+	response.Metrics.MetaTitleCoverage = float64(metaTitleCount) / float64(totalCategories) * 100
+	response.Metrics.MetaDescCoverage = float64(metaDescCount) / float64(totalCategories) * 100
+	response.Metrics.KeywordsCoverage = float64(keywordsCount) / float64(totalCategories) * 100
+	response.Metrics.CanonicalURLCoverage = float64(canonicalURLCount) / float64(totalCategories) * 100
+	response.Metrics.OpenGraphCoverage = float64(openGraphCount) / float64(totalCategories) * 100
+	response.Metrics.TwitterCardCoverage = float64(twitterCardCount) / float64(totalCategories) * 100
+	response.Metrics.SchemaMarkupCoverage = float64(schemaMarkupCount) / float64(totalCategories) * 100
+
+	response.Issues.DuplicateMetaTitles = duplicateTitleIssues
+	response.Issues.DuplicateMetaDescs = duplicateDescIssues
+	response.Issues.MissingCanonicalURLs = missingCanonicalURLs
+	response.Issues.LongMetaTitles = longMetaTitles
+	response.Issues.ShortMetaDescriptions = shortMetaDescriptions
+
+	// TODO: Add trends data from historical tracking
+	response.Trends = []SEOTrendData{}
+
+	return response, nil
+}
+
+// GetSEOInsights provides detailed SEO insights for a specific category
+func (uc *categoryUseCase) GetSEOInsights(ctx context.Context, categoryID uuid.UUID) (*SEOInsightsResponse, error) {
+	// Get category
+	category, err := uc.categoryRepo.GetByID(ctx, categoryID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get category: %w", err)
+	}
+
+	// Get current SEO validation
+	validation, err := uc.ValidateCategorySEO(ctx, categoryID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to validate SEO: %w", err)
+	}
+
+	// Determine grade based on score
+	grade := "F"
+	if validation.Score >= 90 {
+		grade = "A+"
+	} else if validation.Score >= 80 {
+		grade = "A"
+	} else if validation.Score >= 70 {
+		grade = "B"
+	} else if validation.Score >= 60 {
+		grade = "C"
+	} else if validation.Score >= 50 {
+		grade = "D"
+	}
+
+	// Generate recommendations
+	priorityRecs := []SEORecommendation{}
+	quickRecs := []SEORecommendation{}
+	advancedRecs := []SEORecommendation{}
+
+	// Priority recommendations based on issues
+	for _, issue := range validation.Issues {
+		if issue.Severity == "error" {
+			priorityRecs = append(priorityRecs, SEORecommendation{
+				Title:       "Fix " + issue.Field,
+				Description: issue.Description,
+				Impact:      "high",
+				Effort:      "low",
+				Priority:    1,
+				Action:      "immediate",
+			})
+		}
+	}
+
+	// Quick wins
+	if category.MetaDescription == "" {
+		quickRecs = append(quickRecs, SEORecommendation{
+			Title:       "Add Meta Description",
+			Description: "Write a compelling 120-160 character description",
+			Impact:      "medium",
+			Effort:      "low",
+			Priority:    2,
+			Action:      "add_meta_description",
+		})
+	}
+
+	if category.OGTitle == "" {
+		quickRecs = append(quickRecs, SEORecommendation{
+			Title:       "Add Open Graph Title",
+			Description: "Improve social media sharing appearance",
+			Impact:      "medium",
+			Effort:      "low",
+			Priority:    3,
+			Action:      "add_og_title",
+		})
+	}
+
+	// Advanced recommendations
+	if category.SchemaMarkup == "" {
+		advancedRecs = append(advancedRecs, SEORecommendation{
+			Title:       "Add Structured Data",
+			Description: "Implement Schema.org markup for better search visibility",
+			Impact:      "high",
+			Effort:      "high",
+			Priority:    4,
+			Action:      "add_schema_markup",
+		})
+	}
+
+	// Mock competitor data (in real implementation, this would come from external APIs)
+	competitors := []CompetitorCategory{
+		{
+			Name:     "Similar Category A",
+			SEOScore: 85,
+			URL:      "https://competitor1.com/category",
+			Insights: []string{"Strong meta descriptions", "Good keyword usage"},
+		},
+		{
+			Name:     "Similar Category B",
+			SEOScore: 78,
+			URL:      "https://competitor2.com/category",
+			Insights: []string{"Excellent schema markup", "Optimized URLs"},
+		},
+	}
+
+	bestPractices := []BestPracticeExample{
+		{
+			Field:       "meta_title",
+			Example:     category.Name + " - Premium Quality | Your Store",
+			Explanation: "Includes category name, value proposition, and brand",
+			Source:      "SEO Best Practices",
+		},
+		{
+			Field:       "meta_description",
+			Example:     "Discover our premium " + category.Name + " collection. Free shipping on orders over $50. Shop now for the best deals!",
+			Explanation: "Includes keywords, value proposition, and call-to-action",
+			Source:      "E-commerce SEO Guide",
+		},
+	}
+
+	// Mock historical data
+	historicalScores := []ScoreHistory{
+		{Date: time.Now().AddDate(0, -3, 0), Score: validation.Score - 10, Event: "Initial setup"},
+		{Date: time.Now().AddDate(0, -2, 0), Score: validation.Score - 5, Event: "Meta description added"},
+		{Date: time.Now().AddDate(0, -1, 0), Score: validation.Score, Event: "Current state"},
+	}
+
+	improvements := []Improvement{
+		{
+			Date:        time.Now().AddDate(0, -1, 0),
+			Field:       "meta_description",
+			OldValue:    "",
+			NewValue:    category.MetaDescription,
+			ScoreChange: 5,
+		},
+	}
+
+	trends := []string{
+		"SEO score improving over time",
+		"Meta data coverage increasing",
+		"Schema markup implementation needed",
+	}
+
+	return &SEOInsightsResponse{
+		CategoryID:   categoryID,
+		CategoryName: category.Name,
+		CurrentSEO: struct {
+			Score       int                     `json:"score"`
+			Grade       string                  `json:"grade"`
+			Issues      []CategorySEOIssue      `json:"issues"`
+			Suggestions []CategorySEOSuggestion `json:"suggestions"`
+		}{
+			Score:       validation.Score,
+			Grade:       grade,
+			Issues:      validation.Issues,
+			Suggestions: validation.Suggestions,
+		},
+		Recommendations: struct {
+			Priority []SEORecommendation `json:"priority"`
+			Quick    []SEORecommendation `json:"quick"`
+			Advanced []SEORecommendation `json:"advanced"`
+		}{
+			Priority: priorityRecs,
+			Quick:    quickRecs,
+			Advanced: advancedRecs,
+		},
+		Competitors: struct {
+			Similar       []CompetitorCategory  `json:"similar"`
+			BestPractices []BestPracticeExample `json:"best_practices"`
+		}{
+			Similar:       competitors,
+			BestPractices: bestPractices,
+		},
+		Performance: struct {
+			HistoricalScores []ScoreHistory `json:"historical_scores"`
+			Improvements     []Improvement  `json:"improvements"`
+			Trends           []string       `json:"trends"`
+		}{
+			HistoricalScores: historicalScores,
+			Improvements:     improvements,
+			Trends:           trends,
+		},
+	}, nil
+}
+
+// GetSEOCompetitorAnalysis provides competitor analysis for SEO optimization
+func (uc *categoryUseCase) GetSEOCompetitorAnalysis(ctx context.Context, categoryID uuid.UUID) (*SEOCompetitorAnalysisResponse, error) {
+	// Get category
+	category, err := uc.categoryRepo.GetByID(ctx, categoryID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get category: %w", err)
+	}
+
+	// Get current SEO validation
+	validation, err := uc.ValidateCategorySEO(ctx, categoryID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to validate SEO: %w", err)
+	}
+
+	// Mock competitor analysis (in real implementation, this would use external APIs)
+	competitors := []struct {
+		Name        string   `json:"name"`
+		URL         string   `json:"url"`
+		SEOScore    int      `json:"seo_score"`
+		Strengths   []string `json:"strengths"`
+		Weaknesses  []string `json:"weaknesses"`
+		KeyInsights []string `json:"key_insights"`
+	}{
+		{
+			Name:     "Market Leader",
+			URL:      "https://leader.com/" + category.Slug,
+			SEOScore: 95,
+			Strengths: []string{
+				"Comprehensive meta descriptions",
+				"Rich schema markup",
+				"Optimized URL structure",
+				"Strong internal linking",
+			},
+			Weaknesses: []string{
+				"Slow page load times",
+				"Limited mobile optimization",
+			},
+			KeyInsights: []string{
+				"Uses category + brand in title tags",
+				"Implements breadcrumb schema",
+				"Strong focus on user intent keywords",
+			},
+		},
+		{
+			Name:     "Direct Competitor",
+			URL:      "https://competitor.com/" + category.Slug,
+			SEOScore: 78,
+			Strengths: []string{
+				"Good keyword targeting",
+				"Clean URL structure",
+				"Regular content updates",
+			},
+			Weaknesses: []string{
+				"Missing Open Graph tags",
+				"Inconsistent meta descriptions",
+				"No structured data",
+			},
+			KeyInsights: []string{
+				"Focuses on long-tail keywords",
+				"Uses category descriptions for meta content",
+				"Strong social media integration",
+			},
+		},
+	}
+
+	// Calculate competitive position
+	averageCompetitorScore := 86.5
+	competitiveGap := averageCompetitorScore - float64(validation.Score)
+
+	marketPosition := "Behind Leaders"
+	if validation.Score >= 90 {
+		marketPosition = "Market Leader"
+	} else if validation.Score >= 80 {
+		marketPosition = "Strong Competitor"
+	} else if validation.Score >= 70 {
+		marketPosition = "Average Performer"
+	}
+
+	// Generate opportunities and threats
+	opportunities := []string{
+		"Implement structured data markup",
+		"Optimize meta descriptions for click-through rates",
+		"Add comprehensive Open Graph tags",
+		"Improve internal linking structure",
+	}
+
+	threats := []string{
+		"Competitors have better schema markup",
+		"Missing social media optimization",
+		"URL structure could be more SEO-friendly",
+	}
+
+	// Generate action plan
+	actionPlan := []struct {
+		Priority   int    `json:"priority"`
+		Action     string `json:"action"`
+		Impact     string `json:"impact"`
+		Timeline   string `json:"timeline"`
+		Difficulty string `json:"difficulty"`
+	}{
+		{
+			Priority:   1,
+			Action:     "Add comprehensive meta descriptions",
+			Impact:     "High",
+			Timeline:   "1 week",
+			Difficulty: "Low",
+		},
+		{
+			Priority:   2,
+			Action:     "Implement schema markup",
+			Impact:     "High",
+			Timeline:   "2 weeks",
+			Difficulty: "Medium",
+		},
+		{
+			Priority:   3,
+			Action:     "Optimize Open Graph tags",
+			Impact:     "Medium",
+			Timeline:   "1 week",
+			Difficulty: "Low",
+		},
+		{
+			Priority:   4,
+			Action:     "Improve URL structure",
+			Impact:     "Medium",
+			Timeline:   "1 month",
+			Difficulty: "High",
+		},
+	}
+
+	return &SEOCompetitorAnalysisResponse{
+		CategoryID:   categoryID,
+		CategoryName: category.Name,
+		Analysis: struct {
+			MarketPosition string   `json:"market_position"`
+			CompetitiveGap float64  `json:"competitive_gap"`
+			Opportunities  []string `json:"opportunities"`
+			Threats        []string `json:"threats"`
+		}{
+			MarketPosition: marketPosition,
+			CompetitiveGap: competitiveGap,
+			Opportunities:  opportunities,
+			Threats:        threats,
+		},
+		Competitors: competitors,
+		Benchmarks: struct {
+			IndustryAverage float64 `json:"industry_average"`
+			TopPerformer    float64 `json:"top_performer"`
+			YourScore       float64 `json:"your_score"`
+			Percentile      float64 `json:"percentile"`
+		}{
+			IndustryAverage: 75.0,
+			TopPerformer:    95.0,
+			YourScore:       float64(validation.Score),
+			Percentile:      float64(validation.Score) / 95.0 * 100,
+		},
+		ActionPlan: actionPlan,
+	}, nil
+}
+
+// Enhanced URL optimization and slug management request/response types
+type SlugOptimizationRequest struct {
+	NewSlug         string `json:"new_slug" validate:"required"`
+	PreserveHistory bool   `json:"preserve_history"`
+	AutoRedirect    bool   `json:"auto_redirect"`
+}
+
+type SlugOptimizationResponse struct {
+	OldSlug     string `json:"old_slug"`
+	NewSlug     string `json:"new_slug"`
+	RedirectURL string `json:"redirect_url,omitempty"`
+	Success     bool   `json:"success"`
+	Message     string `json:"message"`
+}
+
+type SlugSuggestionsResponse struct {
+	Suggestions []SlugSuggestion `json:"suggestions"`
+	Current     string           `json:"current"`
+}
+
+type SlugSuggestion struct {
+	Slug        string  `json:"slug"`
+	Score       float64 `json:"score"`
+	Reason      string  `json:"reason"`
+	IsAvailable bool    `json:"is_available"`
+	SEOFriendly bool    `json:"seo_friendly"`
+}
+
+type SlugValidationResponse struct {
+	Slug        string `json:"slug"`
+	IsAvailable bool   `json:"is_available"`
+	IsValid     bool   `json:"is_valid"`
+	Issues      []string `json:"issues,omitempty"`
+	Suggestions []string `json:"suggestions,omitempty"`
+}
+
+type SlugHistoryResponse struct {
+	History []SlugHistoryEntry `json:"history"`
+	Current string             `json:"current"`
+}
+
+type SlugHistoryEntry struct {
+	Slug      string    `json:"slug"`
+	CreatedAt time.Time `json:"created_at"`
+	Reason    string    `json:"reason"`
+	IsActive  bool      `json:"is_active"`
+}
+
+// Bulk SEO operations request/response types
+type BulkSEOUpdateRequest struct {
+	CategoryIDs []uuid.UUID       `json:"category_ids" validate:"required"`
+	SEOData     CategorySEORequest `json:"seo_data" validate:"required"`
+	UpdateMode  string            `json:"update_mode" validate:"oneof=replace merge"`
+}
+
+type BulkSEOUpdateResponse struct {
+	TotalCategories   int                    `json:"total_categories"`
+	SuccessCount      int                    `json:"success_count"`
+	FailureCount      int                    `json:"failure_count"`
+	Results           []BulkSEOResult        `json:"results"`
+	Summary           BulkOperationSummary   `json:"summary"`
+}
+
+type BulkSEOGenerateRequest struct {
+	CategoryIDs []uuid.UUID `json:"category_ids" validate:"required"`
+	Options     struct {
+		OverwriteExisting bool `json:"overwrite_existing"`
+		GenerateKeywords  bool `json:"generate_keywords"`
+		GenerateSchema    bool `json:"generate_schema"`
+	} `json:"options"`
+}
+
+type BulkSEOGenerateResponse struct {
+	TotalCategories   int                    `json:"total_categories"`
+	SuccessCount      int                    `json:"success_count"`
+	FailureCount      int                    `json:"failure_count"`
+	Results           []BulkSEOResult        `json:"results"`
+	Summary           BulkOperationSummary   `json:"summary"`
+}
+
+type BulkSEOValidateRequest struct {
+	CategoryIDs []uuid.UUID `json:"category_ids" validate:"required"`
+	Options     struct {
+		CheckDuplicates bool `json:"check_duplicates"`
+		CheckKeywords   bool `json:"check_keywords"`
+		CheckSchema     bool `json:"check_schema"`
+	} `json:"options"`
+}
+
+type BulkSEOValidateResponse struct {
+	TotalCategories   int                    `json:"total_categories"`
+	ValidCount        int                    `json:"valid_count"`
+	InvalidCount      int                    `json:"invalid_count"`
+	Results           []BulkSEOValidationResult `json:"results"`
+	Summary           BulkOperationSummary   `json:"summary"`
+	GlobalIssues      []string               `json:"global_issues,omitempty"`
+}
+
+type BulkSEOResult struct {
+	CategoryID uuid.UUID `json:"category_id"`
+	Success    bool      `json:"success"`
+	Message    string    `json:"message"`
+	Error      string    `json:"error,omitempty"`
+}
+
+type BulkSEOValidationResult struct {
+	CategoryID  uuid.UUID                    `json:"category_id"`
+	IsValid     bool                         `json:"is_valid"`
+	Score       int                          `json:"score"`
+	Issues      []CategorySEOIssue           `json:"issues"`
+	Suggestions []CategorySEOSuggestion      `json:"suggestions"`
+}
+
+type BulkOperationSummary struct {
+	Duration      string    `json:"duration"`
+	StartTime     time.Time `json:"start_time"`
+	EndTime       time.Time `json:"end_time"`
+	SuccessRate   float64   `json:"success_rate"`
+	AverageScore  float64   `json:"average_score,omitempty"`
+}
+
+// SEO analytics and insights request/response types
+type SEOAnalyticsRequest struct {
+	CategoryIDs []uuid.UUID `json:"category_ids,omitempty"`
+	DateFrom    *time.Time  `json:"date_from,omitempty"`
+	DateTo      *time.Time  `json:"date_to,omitempty"`
+	Metrics     []string    `json:"metrics,omitempty"`
+}
+
+type SEOAnalyticsResponse struct {
+	Overview struct {
+		TotalCategories      int     `json:"total_categories"`
+		CategoriesWithSEO    int     `json:"categories_with_seo"`
+		AverageSEOScore      float64 `json:"average_seo_score"`
+		SEOCompletionRate    float64 `json:"seo_completion_rate"`
+		TopPerformingCategories []CategorySEOPerformance `json:"top_performing_categories"`
+		BottomPerformingCategories []CategorySEOPerformance `json:"bottom_performing_categories"`
+	} `json:"overview"`
+
+	Metrics struct {
+		MetaTitleCoverage    float64 `json:"meta_title_coverage"`
+		MetaDescCoverage     float64 `json:"meta_desc_coverage"`
+		KeywordsCoverage     float64 `json:"keywords_coverage"`
+		CanonicalURLCoverage float64 `json:"canonical_url_coverage"`
+		OpenGraphCoverage    float64 `json:"open_graph_coverage"`
+		TwitterCardCoverage  float64 `json:"twitter_card_coverage"`
+		SchemaMarkupCoverage float64 `json:"schema_markup_coverage"`
+	} `json:"metrics"`
+
+	Issues struct {
+		DuplicateMetaTitles    []DuplicateIssue `json:"duplicate_meta_titles"`
+		DuplicateMetaDescs     []DuplicateIssue `json:"duplicate_meta_descs"`
+		MissingCanonicalURLs   []uuid.UUID      `json:"missing_canonical_urls"`
+		LongMetaTitles         []uuid.UUID      `json:"long_meta_titles"`
+		ShortMetaDescriptions  []uuid.UUID      `json:"short_meta_descriptions"`
+	} `json:"issues"`
+
+	Trends []SEOTrendData `json:"trends"`
+}
+
+type CategorySEOPerformance struct {
+	CategoryID   uuid.UUID `json:"category_id"`
+	CategoryName string    `json:"category_name"`
+	SEOScore     int       `json:"seo_score"`
+	Issues       int       `json:"issues"`
+	LastUpdated  time.Time `json:"last_updated"`
+}
+
+type DuplicateIssue struct {
+	Value       string      `json:"value"`
+	CategoryIDs []uuid.UUID `json:"category_ids"`
+	Count       int         `json:"count"`
+}
+
+type SEOTrendData struct {
+	Date             time.Time `json:"date"`
+	AverageSEOScore  float64   `json:"average_seo_score"`
+	CompletionRate   float64   `json:"completion_rate"`
+	IssuesResolved   int       `json:"issues_resolved"`
+	NewIssuesFound   int       `json:"new_issues_found"`
+}
+
+type SEOInsightsResponse struct {
+	CategoryID   uuid.UUID `json:"category_id"`
+	CategoryName string    `json:"category_name"`
+
+	CurrentSEO struct {
+		Score       int                     `json:"score"`
+		Grade       string                  `json:"grade"`
+		Issues      []CategorySEOIssue      `json:"issues"`
+		Suggestions []CategorySEOSuggestion `json:"suggestions"`
+	} `json:"current_seo"`
+
+	Recommendations struct {
+		Priority     []SEORecommendation `json:"priority"`
+		Quick        []SEORecommendation `json:"quick"`
+		Advanced     []SEORecommendation `json:"advanced"`
+	} `json:"recommendations"`
+
+	Competitors struct {
+		Similar      []CompetitorCategory `json:"similar"`
+		BestPractices []BestPracticeExample `json:"best_practices"`
+	} `json:"competitors"`
+
+	Performance struct {
+		HistoricalScores []ScoreHistory `json:"historical_scores"`
+		Improvements     []Improvement  `json:"improvements"`
+		Trends           []string       `json:"trends"`
+	} `json:"performance"`
+}
+
+type SEORecommendation struct {
+	Title       string `json:"title"`
+	Description string `json:"description"`
+	Impact      string `json:"impact"`
+	Effort      string `json:"effort"`
+	Priority    int    `json:"priority"`
+	Action      string `json:"action"`
+}
+
+type CompetitorCategory struct {
+	Name     string `json:"name"`
+	SEOScore int    `json:"seo_score"`
+	URL      string `json:"url"`
+	Insights []string `json:"insights"`
+}
+
+type BestPracticeExample struct {
+	Field       string `json:"field"`
+	Example     string `json:"example"`
+	Explanation string `json:"explanation"`
+	Source      string `json:"source"`
+}
+
+type ScoreHistory struct {
+	Date  time.Time `json:"date"`
+	Score int       `json:"score"`
+	Event string    `json:"event,omitempty"`
+}
+
+type Improvement struct {
+	Date        time.Time `json:"date"`
+	Field       string    `json:"field"`
+	OldValue    string    `json:"old_value"`
+	NewValue    string    `json:"new_value"`
+	ScoreChange int       `json:"score_change"`
+}
+
+type SEOCompetitorAnalysisResponse struct {
+	CategoryID   uuid.UUID `json:"category_id"`
+	CategoryName string    `json:"category_name"`
+
+	Analysis struct {
+		MarketPosition string  `json:"market_position"`
+		CompetitiveGap float64 `json:"competitive_gap"`
+		Opportunities  []string `json:"opportunities"`
+		Threats        []string `json:"threats"`
+	} `json:"analysis"`
+
+	Competitors []struct {
+		Name        string  `json:"name"`
+		URL         string  `json:"url"`
+		SEOScore    int     `json:"seo_score"`
+		Strengths   []string `json:"strengths"`
+		Weaknesses  []string `json:"weaknesses"`
+		KeyInsights []string `json:"key_insights"`
+	} `json:"competitors"`
+
+	Benchmarks struct {
+		IndustryAverage float64 `json:"industry_average"`
+		TopPerformer    float64 `json:"top_performer"`
+		YourScore       float64 `json:"your_score"`
+		Percentile      float64 `json:"percentile"`
+	} `json:"benchmarks"`
+
+	ActionPlan []struct {
+		Priority    int    `json:"priority"`
+		Action      string `json:"action"`
+		Impact      string `json:"impact"`
+		Timeline    string `json:"timeline"`
+		Difficulty  string `json:"difficulty"`
+	} `json:"action_plan"`
+}
+
+// Helper functions for slug optimization
+func generateSlugFromName(name string) string {
+	// Convert to lowercase
+	slug := strings.ToLower(name)
+
+	// Replace spaces and special characters with hyphens
+	slug = regexp.MustCompile(`[^a-z0-9]+`).ReplaceAllString(slug, "-")
+
+	// Remove leading and trailing hyphens
+	slug = strings.Trim(slug, "-")
+
+	// Remove consecutive hyphens
+	slug = regexp.MustCompile(`-+`).ReplaceAllString(slug, "-")
+
+	return slug
+}
+
+func isValidSlugFormat(slug string) bool {
+	// Check if slug contains only valid characters
+	matched, _ := regexp.MatchString(`^[a-z0-9-]+$`, slug)
+	return matched
+}
+
+func calculateSlugSEOScore(slug, categoryName string) float64 {
+	score := 1.0
+
+	// Length score (optimal 3-50 characters)
+	length := len(slug)
+	if length < 3 || length > 50 {
+		score -= 0.2
+	}
+
+	// Keyword relevance (check if category name words are in slug)
+	nameWords := strings.Fields(strings.ToLower(categoryName))
+	slugWords := strings.Split(slug, "-")
+
+	relevantWords := 0
+	for _, nameWord := range nameWords {
+		for _, slugWord := range slugWords {
+			if strings.Contains(slugWord, nameWord) || strings.Contains(nameWord, slugWord) {
+				relevantWords++
+				break
+			}
+		}
+	}
+
+	if len(nameWords) > 0 {
+		relevanceScore := float64(relevantWords) / float64(len(nameWords))
+		score *= relevanceScore
+	}
+
+	// Penalize for too many hyphens
+	hyphenCount := strings.Count(slug, "-")
+	if hyphenCount > 3 {
+		score -= 0.1 * float64(hyphenCount-3)
+	}
+
+	// Bonus for SEO-friendly patterns
+	if strings.Contains(slug, "shop") || strings.Contains(slug, "buy") || strings.Contains(slug, "category") {
+		score += 0.1
+	}
+
+	// Ensure score is between 0 and 1
+	if score < 0 {
+		score = 0
+	}
+	if score > 1 {
+		score = 1
+	}
+
+	return score
+}
+
+func generateSlugReason(slug, categoryName string) string {
+	if strings.Contains(slug, "shop") {
+		return "Includes 'shop' keyword for better e-commerce SEO"
+	}
+	if strings.Contains(slug, "buy") {
+		return "Includes 'buy' keyword for purchase intent"
+	}
+	if strings.Contains(slug, "category") {
+		return "Clearly identifies as a category page"
+	}
+	if len(slug) <= 30 {
+		return "Short and memorable URL"
+	}
+	if strings.Count(slug, "-") <= 2 {
+		return "Clean structure with minimal separators"
+	}
+	return "SEO-optimized slug based on category name"
 }

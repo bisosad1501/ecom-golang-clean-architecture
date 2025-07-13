@@ -3,6 +3,7 @@ package handlers
 import (
 	"net/http"
 	"strconv"
+	"time"
 
 	"ecom-golang-clean-architecture/internal/usecases"
 	"github.com/gin-gonic/gin"
@@ -1048,5 +1049,400 @@ func (h *CategoryHandler) ValidateCategorySEO(c *gin.Context) {
 
 	c.JSON(http.StatusOK, SuccessResponse{
 		Data: validation,
+	})
+}
+
+// OptimizeSlug handles optimizing category slug for better SEO
+// @Summary Optimize category slug
+// @Description Optimize category slug for better SEO (admin only)
+// @Tags categories
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Param id path string true "Category ID"
+// @Param request body usecases.SlugOptimizationRequest true "Slug optimization request"
+// @Success 200 {object} usecases.SlugOptimizationResponse
+// @Failure 400 {object} ErrorResponse
+// @Failure 401 {object} ErrorResponse
+// @Failure 403 {object} ErrorResponse
+// @Failure 404 {object} ErrorResponse
+// @Router /admin/categories/{id}/slug/optimize [post]
+func (h *CategoryHandler) OptimizeSlug(c *gin.Context) {
+	categoryID, err := uuid.Parse(c.Param("id"))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, ErrorResponse{
+			Error: "Invalid category ID",
+		})
+		return
+	}
+
+	var req usecases.SlugOptimizationRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, ErrorResponse{
+			Error:   "Invalid request format",
+			Details: err.Error(),
+		})
+		return
+	}
+
+	result, err := h.categoryUseCase.OptimizeSlug(c.Request.Context(), categoryID, req)
+	if err != nil {
+		c.JSON(getErrorStatusCode(err), ErrorResponse{
+			Error: err.Error(),
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, SuccessResponse{
+		Data: result,
+	})
+}
+
+// GenerateSlugSuggestions handles generating slug suggestions
+// @Summary Generate slug suggestions
+// @Description Generate SEO-friendly slug suggestions for a category (admin only)
+// @Tags categories
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Param id path string true "Category ID"
+// @Success 200 {object} usecases.SlugSuggestionsResponse
+// @Failure 400 {object} ErrorResponse
+// @Failure 401 {object} ErrorResponse
+// @Failure 403 {object} ErrorResponse
+// @Failure 404 {object} ErrorResponse
+// @Router /admin/categories/{id}/slug/suggestions [get]
+func (h *CategoryHandler) GenerateSlugSuggestions(c *gin.Context) {
+	categoryID, err := uuid.Parse(c.Param("id"))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, ErrorResponse{
+			Error: "Invalid category ID",
+		})
+		return
+	}
+
+	suggestions, err := h.categoryUseCase.GenerateSlugSuggestions(c.Request.Context(), categoryID)
+	if err != nil {
+		c.JSON(getErrorStatusCode(err), ErrorResponse{
+			Error: err.Error(),
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, SuccessResponse{
+		Data: suggestions,
+	})
+}
+
+// ValidateSlugAvailability handles validating slug availability
+// @Summary Validate slug availability
+// @Description Check if a slug is available and SEO-friendly
+// @Tags categories
+// @Accept json
+// @Produce json
+// @Param slug query string true "Slug to validate"
+// @Param exclude_id query string false "Category ID to exclude from check"
+// @Success 200 {object} usecases.SlugValidationResponse
+// @Failure 400 {object} ErrorResponse
+// @Router /categories/slug/validate [get]
+func (h *CategoryHandler) ValidateSlugAvailability(c *gin.Context) {
+	slug := c.Query("slug")
+	if slug == "" {
+		c.JSON(http.StatusBadRequest, ErrorResponse{
+			Error: "Slug parameter is required",
+		})
+		return
+	}
+
+	var excludeID *uuid.UUID
+	if excludeIDStr := c.Query("exclude_id"); excludeIDStr != "" {
+		if id, err := uuid.Parse(excludeIDStr); err == nil {
+			excludeID = &id
+		}
+	}
+
+	validation, err := h.categoryUseCase.ValidateSlugAvailability(c.Request.Context(), slug, excludeID)
+	if err != nil {
+		c.JSON(getErrorStatusCode(err), ErrorResponse{
+			Error: err.Error(),
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, SuccessResponse{
+		Data: validation,
+	})
+}
+
+// GetSlugHistory handles getting slug change history
+// @Summary Get slug history
+// @Description Get slug change history for a category (admin only)
+// @Tags categories
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Param id path string true "Category ID"
+// @Success 200 {object} usecases.SlugHistoryResponse
+// @Failure 400 {object} ErrorResponse
+// @Failure 401 {object} ErrorResponse
+// @Failure 403 {object} ErrorResponse
+// @Failure 404 {object} ErrorResponse
+// @Router /admin/categories/{id}/slug/history [get]
+func (h *CategoryHandler) GetSlugHistory(c *gin.Context) {
+	categoryID, err := uuid.Parse(c.Param("id"))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, ErrorResponse{
+			Error: "Invalid category ID",
+		})
+		return
+	}
+
+	history, err := h.categoryUseCase.GetSlugHistory(c.Request.Context(), categoryID)
+	if err != nil {
+		c.JSON(getErrorStatusCode(err), ErrorResponse{
+			Error: err.Error(),
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, SuccessResponse{
+		Data: history,
+	})
+}
+
+// BulkUpdateSEO handles bulk SEO updates for multiple categories
+// @Summary Bulk update SEO
+// @Description Update SEO metadata for multiple categories (admin only)
+// @Tags categories
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Param request body usecases.BulkSEOUpdateRequest true "Bulk SEO update request"
+// @Success 200 {object} usecases.BulkSEOUpdateResponse
+// @Failure 400 {object} ErrorResponse
+// @Failure 401 {object} ErrorResponse
+// @Failure 403 {object} ErrorResponse
+// @Router /admin/categories/seo/bulk-update [post]
+func (h *CategoryHandler) BulkUpdateSEO(c *gin.Context) {
+	var req usecases.BulkSEOUpdateRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, ErrorResponse{
+			Error:   "Invalid request format",
+			Details: err.Error(),
+		})
+		return
+	}
+
+	result, err := h.categoryUseCase.BulkUpdateSEO(c.Request.Context(), req)
+	if err != nil {
+		c.JSON(getErrorStatusCode(err), ErrorResponse{
+			Error: err.Error(),
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, SuccessResponse{
+		Data: result,
+	})
+}
+
+// BulkGenerateSEO handles bulk SEO generation for multiple categories
+// @Summary Bulk generate SEO
+// @Description Generate SEO metadata for multiple categories (admin only)
+// @Tags categories
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Param request body usecases.BulkSEOGenerateRequest true "Bulk SEO generate request"
+// @Success 200 {object} usecases.BulkSEOGenerateResponse
+// @Failure 400 {object} ErrorResponse
+// @Failure 401 {object} ErrorResponse
+// @Failure 403 {object} ErrorResponse
+// @Router /admin/categories/seo/bulk-generate [post]
+func (h *CategoryHandler) BulkGenerateSEO(c *gin.Context) {
+	var req usecases.BulkSEOGenerateRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, ErrorResponse{
+			Error:   "Invalid request format",
+			Details: err.Error(),
+		})
+		return
+	}
+
+	result, err := h.categoryUseCase.BulkGenerateSEO(c.Request.Context(), req)
+	if err != nil {
+		c.JSON(getErrorStatusCode(err), ErrorResponse{
+			Error: err.Error(),
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, SuccessResponse{
+		Data: result,
+	})
+}
+
+// BulkValidateSEO handles bulk SEO validation for multiple categories
+// @Summary Bulk validate SEO
+// @Description Validate SEO metadata for multiple categories (admin only)
+// @Tags categories
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Param request body usecases.BulkSEOValidateRequest true "Bulk SEO validate request"
+// @Success 200 {object} usecases.BulkSEOValidateResponse
+// @Failure 400 {object} ErrorResponse
+// @Failure 401 {object} ErrorResponse
+// @Failure 403 {object} ErrorResponse
+// @Router /admin/categories/seo/bulk-validate [post]
+func (h *CategoryHandler) BulkValidateSEO(c *gin.Context) {
+	var req usecases.BulkSEOValidateRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, ErrorResponse{
+			Error:   "Invalid request format",
+			Details: err.Error(),
+		})
+		return
+	}
+
+	result, err := h.categoryUseCase.BulkValidateSEO(c.Request.Context(), req)
+	if err != nil {
+		c.JSON(getErrorStatusCode(err), ErrorResponse{
+			Error: err.Error(),
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, SuccessResponse{
+		Data: result,
+	})
+}
+
+// GetSEOAnalytics handles getting comprehensive SEO analytics
+// @Summary Get SEO analytics
+// @Description Get comprehensive SEO analytics across categories (admin only)
+// @Tags categories
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Param category_ids query []string false "Category IDs to analyze"
+// @Param date_from query string false "Start date for analysis (YYYY-MM-DD)"
+// @Param date_to query string false "End date for analysis (YYYY-MM-DD)"
+// @Param metrics query []string false "Specific metrics to include"
+// @Success 200 {object} usecases.SEOAnalyticsResponse
+// @Failure 400 {object} ErrorResponse
+// @Failure 401 {object} ErrorResponse
+// @Failure 403 {object} ErrorResponse
+// @Router /admin/categories/seo/analytics [get]
+func (h *CategoryHandler) GetSEOAnalytics(c *gin.Context) {
+	req := usecases.SEOAnalyticsRequest{}
+
+	// Parse category IDs
+	if categoryIDsStr := c.QueryArray("category_ids"); len(categoryIDsStr) > 0 {
+		for _, idStr := range categoryIDsStr {
+			if id, err := uuid.Parse(idStr); err == nil {
+				req.CategoryIDs = append(req.CategoryIDs, id)
+			}
+		}
+	}
+
+	// Parse date range
+	if dateFromStr := c.Query("date_from"); dateFromStr != "" {
+		if dateFrom, err := time.Parse("2006-01-02", dateFromStr); err == nil {
+			req.DateFrom = &dateFrom
+		}
+	}
+
+	if dateToStr := c.Query("date_to"); dateToStr != "" {
+		if dateTo, err := time.Parse("2006-01-02", dateToStr); err == nil {
+			req.DateTo = &dateTo
+		}
+	}
+
+	// Parse metrics
+	req.Metrics = c.QueryArray("metrics")
+
+	analytics, err := h.categoryUseCase.GetSEOAnalytics(c.Request.Context(), req)
+	if err != nil {
+		c.JSON(getErrorStatusCode(err), ErrorResponse{
+			Error: err.Error(),
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, SuccessResponse{
+		Data: analytics,
+	})
+}
+
+// GetSEOInsights handles getting detailed SEO insights for a category
+// @Summary Get SEO insights
+// @Description Get detailed SEO insights and recommendations for a category (admin only)
+// @Tags categories
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Param id path string true "Category ID"
+// @Success 200 {object} usecases.SEOInsightsResponse
+// @Failure 400 {object} ErrorResponse
+// @Failure 401 {object} ErrorResponse
+// @Failure 403 {object} ErrorResponse
+// @Failure 404 {object} ErrorResponse
+// @Router /admin/categories/{id}/seo/insights [get]
+func (h *CategoryHandler) GetSEOInsights(c *gin.Context) {
+	categoryID, err := uuid.Parse(c.Param("id"))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, ErrorResponse{
+			Error: "Invalid category ID",
+		})
+		return
+	}
+
+	insights, err := h.categoryUseCase.GetSEOInsights(c.Request.Context(), categoryID)
+	if err != nil {
+		c.JSON(getErrorStatusCode(err), ErrorResponse{
+			Error: err.Error(),
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, SuccessResponse{
+		Data: insights,
+	})
+}
+
+// GetSEOCompetitorAnalysis handles getting competitor analysis for SEO
+// @Summary Get SEO competitor analysis
+// @Description Get competitor analysis and benchmarks for category SEO (admin only)
+// @Tags categories
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Param id path string true "Category ID"
+// @Success 200 {object} usecases.SEOCompetitorAnalysisResponse
+// @Failure 400 {object} ErrorResponse
+// @Failure 401 {object} ErrorResponse
+// @Failure 403 {object} ErrorResponse
+// @Failure 404 {object} ErrorResponse
+// @Router /admin/categories/{id}/seo/competitor-analysis [get]
+func (h *CategoryHandler) GetSEOCompetitorAnalysis(c *gin.Context) {
+	categoryID, err := uuid.Parse(c.Param("id"))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, ErrorResponse{
+			Error: "Invalid category ID",
+		})
+		return
+	}
+
+	analysis, err := h.categoryUseCase.GetSEOCompetitorAnalysis(c.Request.Context(), categoryID)
+	if err != nil {
+		c.JSON(getErrorStatusCode(err), ErrorResponse{
+			Error: err.Error(),
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, SuccessResponse{
+		Data: analysis,
 	})
 }
