@@ -34,6 +34,7 @@ func SetupRoutes(
 	searchHandler *handlers.SearchHandler,
 	recommendationHandler *handlers.RecommendationHandler,
 	comparisonHandler *handlers.ProductComparisonHandler,
+	productFilterHandler *handlers.ProductFilterHandler,
 ) {
 	// Apply global middleware
 	router.Use(middleware.SecurityHeadersMiddleware())
@@ -44,6 +45,9 @@ func SetupRoutes(
 	router.Use(middleware.ErrorHandlerMiddleware())
 	router.Use(middleware.ValidationMiddleware())
 	router.Use(middleware.SessionValidationMiddleware())
+
+	// Create auth middleware instance
+	authMiddleware := middleware.NewAuthMiddleware(cfg)
 
 	// Serve static files for uploads
 	router.Static("/uploads", "./uploads")
@@ -125,6 +129,21 @@ func SetupRoutes(
 				products.GET("/compare/popular", comparisonHandler.GetPopularComparedProducts)
 			}
 
+			// Advanced product filtering routes
+			if productFilterHandler != nil {
+				products.GET("/filter", productFilterHandler.FilterProducts)
+				products.GET("/facets", productFilterHandler.GetFilterFacets)
+				products.POST("/filters/dynamic", productFilterHandler.GetDynamicFilters)
+				products.GET("/filters/suggestions", productFilterHandler.GetFilterSuggestions)
+				products.POST("/filters/related", productFilterHandler.GetRelatedFilters)
+				products.GET("/attributes", productFilterHandler.GetAttributeFilters)
+				products.GET("/attributes/:attribute_id/terms", productFilterHandler.GetAttributeTerms)
+
+				// Filter sets (public access for session-based)
+				products.GET("/filter-sets/session", productFilterHandler.GetSessionFilterSets)
+				products.GET("/filter-sets/:id", productFilterHandler.GetFilterSet)
+			}
+
 			// Search autocomplete and suggestions
 			products.GET("/suggestions", productHandler.GetSearchSuggestions)
 			products.GET("/popular-searches", productHandler.GetPopularSearches)
@@ -134,6 +153,14 @@ func SetupRoutes(
 			authProducts.Use(middleware.AuthMiddleware(cfg.JWT.Secret))
 			{
 				authProducts.GET("/search-history", productHandler.GetSearchHistory)
+
+				// Authenticated filter set routes
+				if productFilterHandler != nil {
+					authProducts.POST("/filter-sets", productFilterHandler.SaveFilterSet)
+					authProducts.GET("/filter-sets/user", productFilterHandler.GetUserFilterSets)
+					authProducts.PUT("/filter-sets/:id", productFilterHandler.UpdateFilterSet)
+					authProducts.DELETE("/filter-sets/:id", productFilterHandler.DeleteFilterSet)
+				}
 			}
 		}
 
@@ -163,7 +190,20 @@ func SetupRoutes(
 				search.GET("/facets", searchHandler.GetSearchFacets)
 				search.GET("/popular", searchHandler.GetPopularSearchTerms)
 				search.GET("/autocomplete", searchHandler.GetAutocomplete)
+				search.GET("/autocomplete/enhanced", searchHandler.GetEnhancedAutocomplete)
+				search.GET("/trending", searchHandler.GetTrendingSearches)
+				search.GET("/trends", searchHandler.GetSearchTrends)
 				search.POST("/record", searchHandler.RecordSearchEvent)
+				search.POST("/autocomplete/click", searchHandler.RecordAutocompleteClick)
+
+				// Authenticated search routes
+				authSearch := search.Group("")
+				authSearch.Use(authMiddleware.RequireAuth())
+				{
+					authSearch.GET("/autocomplete/personalized", searchHandler.GetPersonalizedAutocomplete)
+					authSearch.GET("/preferences", searchHandler.GetUserSearchPreferences)
+					authSearch.PUT("/preferences", searchHandler.UpdateUserSearchPreferences)
+				}
 			}
 		}
 
@@ -543,6 +583,8 @@ func SetupRoutes(
 				{
 					adminSearch.GET("/analytics", searchHandler.GetSearchAnalytics)
 					adminSearch.GET("/popular", searchHandler.GetPopularSearchTerms)
+					adminSearch.POST("/rebuild-index", searchHandler.RebuildAutocompleteIndex)
+					adminSearch.POST("/cleanup", searchHandler.CleanupSearchData)
 				}
 			}
 
@@ -582,6 +624,12 @@ func SetupRoutes(
 				analytics.POST("/events", analyticsHandler.TrackEvent)
 				analytics.GET("/top-products", analyticsHandler.GetTopProducts)
 				analytics.GET("/top-categories", analyticsHandler.GetTopCategories)
+
+				// Filter analytics
+				if productFilterHandler != nil {
+					analytics.GET("/filters", productFilterHandler.GetFilterAnalytics)
+					analytics.GET("/filters/popular", productFilterHandler.GetPopularFilters)
+				}
 			}
 
 			// Reports routes

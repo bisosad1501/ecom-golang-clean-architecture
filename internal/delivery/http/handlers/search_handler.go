@@ -500,6 +500,359 @@ func (h *SearchHandler) GetAutocomplete(c *gin.Context) {
 	})
 }
 
+// GetEnhancedAutocomplete handles enhanced autocomplete requests
+// @Summary Get enhanced autocomplete suggestions
+// @Description Get enhanced autocomplete suggestions with multiple sources
+// @Tags search
+// @Accept json
+// @Produce json
+// @Param q query string true "Search query"
+// @Param types query string false "Comma-separated types (product,category,brand,query)"
+// @Param limit query int false "Limit" default(10)
+// @Param include_trending query bool false "Include trending suggestions"
+// @Param include_personalized query bool false "Include personalized suggestions"
+// @Success 200 {object} usecases.EnhancedAutocompleteResponse
+// @Router /search/autocomplete/enhanced [get]
+func (h *SearchHandler) GetEnhancedAutocomplete(c *gin.Context) {
+	query := c.Query("q")
+	if query == "" {
+		c.JSON(http.StatusBadRequest, ErrorResponse{
+			Error: "Query parameter 'q' is required",
+		})
+		return
+	}
+
+	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "10"))
+
+	var types []string
+	if typesStr := c.Query("types"); typesStr != "" {
+		types = strings.Split(typesStr, ",")
+	}
+
+	includeTrending, _ := strconv.ParseBool(c.DefaultQuery("include_trending", "false"))
+	includePersonalized, _ := strconv.ParseBool(c.DefaultQuery("include_personalized", "false"))
+
+	req := usecases.EnhancedAutocompleteRequest{
+		Query:               query,
+		Types:               types,
+		Limit:               limit,
+		IncludeTrending:     includeTrending,
+		IncludePersonalized: includePersonalized,
+	}
+
+	// Get user ID if authenticated
+	if userID, exists := c.Get("user_id"); exists {
+		if uid, ok := userID.(uuid.UUID); ok {
+			req.UserID = &uid
+		}
+	}
+
+	autocomplete, err := h.searchUseCase.GetEnhancedAutocomplete(c.Request.Context(), req)
+	if err != nil {
+		c.JSON(getErrorStatusCode(err), ErrorResponse{
+			Error: err.Error(),
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, SuccessResponse{
+		Data: autocomplete,
+	})
+}
+
+// GetPersonalizedAutocomplete handles personalized autocomplete requests
+// @Summary Get personalized autocomplete suggestions
+// @Description Get personalized autocomplete suggestions for authenticated user
+// @Tags search
+// @Accept json
+// @Produce json
+// @Param q query string true "Search query"
+// @Param limit query int false "Limit" default(10)
+// @Security BearerAuth
+// @Success 200 {object} usecases.EnhancedAutocompleteResponse
+// @Router /search/autocomplete/personalized [get]
+func (h *SearchHandler) GetPersonalizedAutocomplete(c *gin.Context) {
+	userID, exists := c.Get("user_id")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, ErrorResponse{
+			Error: "Authentication required",
+		})
+		return
+	}
+
+	uid, ok := userID.(uuid.UUID)
+	if !ok {
+		c.JSON(http.StatusBadRequest, ErrorResponse{
+			Error: "Invalid user ID",
+		})
+		return
+	}
+
+	query := c.Query("q")
+	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "10"))
+
+	autocomplete, err := h.searchUseCase.GetPersonalizedAutocomplete(c.Request.Context(), uid, query, limit)
+	if err != nil {
+		c.JSON(getErrorStatusCode(err), ErrorResponse{
+			Error: err.Error(),
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, SuccessResponse{
+		Data: autocomplete,
+	})
+}
+
+// GetTrendingSearches handles trending searches requests
+// @Summary Get trending search terms
+// @Description Get trending search terms
+// @Tags search
+// @Accept json
+// @Produce json
+// @Param limit query int false "Limit" default(20)
+// @Success 200 {object} []usecases.TrendingSearchResponse
+// @Router /search/trending [get]
+func (h *SearchHandler) GetTrendingSearches(c *gin.Context) {
+	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "20"))
+
+	trending, err := h.searchUseCase.GetTrendingSearches(c.Request.Context(), limit)
+	if err != nil {
+		c.JSON(getErrorStatusCode(err), ErrorResponse{
+			Error: err.Error(),
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, SuccessResponse{
+		Data: trending,
+	})
+}
+
+// GetUserSearchPreferences handles user search preferences requests
+// @Summary Get user search preferences
+// @Description Get user search preferences
+// @Tags search
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Success 200 {object} usecases.UserSearchPreferencesResponse
+// @Router /search/preferences [get]
+func (h *SearchHandler) GetUserSearchPreferences(c *gin.Context) {
+	userID, exists := c.Get("user_id")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, ErrorResponse{
+			Error: "Authentication required",
+		})
+		return
+	}
+
+	uid, ok := userID.(uuid.UUID)
+	if !ok {
+		c.JSON(http.StatusBadRequest, ErrorResponse{
+			Error: "Invalid user ID",
+		})
+		return
+	}
+
+	preferences, err := h.searchUseCase.GetUserSearchPreferences(c.Request.Context(), uid)
+	if err != nil {
+		c.JSON(getErrorStatusCode(err), ErrorResponse{
+			Error: err.Error(),
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, SuccessResponse{
+		Data: preferences,
+	})
+}
+
+// UpdateUserSearchPreferences handles user search preferences update requests
+// @Summary Update user search preferences
+// @Description Update user search preferences
+// @Tags search
+// @Accept json
+// @Produce json
+// @Param request body usecases.UpdateSearchPreferencesRequest true "Update preferences request"
+// @Security BearerAuth
+// @Success 200 {object} SuccessResponse
+// @Router /search/preferences [put]
+func (h *SearchHandler) UpdateUserSearchPreferences(c *gin.Context) {
+	userID, exists := c.Get("user_id")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, ErrorResponse{
+			Error: "Authentication required",
+		})
+		return
+	}
+
+	uid, ok := userID.(uuid.UUID)
+	if !ok {
+		c.JSON(http.StatusBadRequest, ErrorResponse{
+			Error: "Invalid user ID",
+		})
+		return
+	}
+
+	var req usecases.UpdateSearchPreferencesRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, ErrorResponse{
+			Error: "Invalid request body: " + err.Error(),
+		})
+		return
+	}
+
+	err := h.searchUseCase.UpdateUserSearchPreferences(c.Request.Context(), uid, req)
+	if err != nil {
+		c.JSON(getErrorStatusCode(err), ErrorResponse{
+			Error: err.Error(),
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, SuccessResponse{
+		Message: "Search preferences updated successfully",
+	})
+}
+
+// RecordAutocompleteClick handles autocomplete click tracking
+// @Summary Record autocomplete click
+// @Description Record autocomplete click for analytics
+// @Tags search
+// @Accept json
+// @Produce json
+// @Param request body usecases.AutocompleteClickRequest true "Autocomplete click request"
+// @Success 200 {object} SuccessResponse
+// @Router /search/autocomplete/click [post]
+func (h *SearchHandler) RecordAutocompleteClick(c *gin.Context) {
+	var req usecases.AutocompleteClickRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, ErrorResponse{
+			Error: "Invalid request body: " + err.Error(),
+		})
+		return
+	}
+
+	// Get user ID if authenticated
+	if userID, exists := c.Get("user_id"); exists {
+		if uid, ok := userID.(uuid.UUID); ok {
+			req.UserID = &uid
+		}
+	}
+
+	// Get session ID
+	if sessionID := c.GetString("session_id"); sessionID != "" {
+		req.SessionID = sessionID
+	}
+
+	err := h.searchUseCase.RecordAutocompleteClick(c.Request.Context(), req)
+	if err != nil {
+		c.JSON(getErrorStatusCode(err), ErrorResponse{
+			Error: err.Error(),
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, SuccessResponse{
+		Message: "Autocomplete click recorded successfully",
+	})
+}
+
+// GetSearchTrends handles search trends requests
+// @Summary Get search trends
+// @Description Get search trends for analytics
+// @Tags search
+// @Accept json
+// @Produce json
+// @Param period query string false "Period (daily, weekly, monthly)" default(daily)
+// @Param limit query int false "Limit" default(50)
+// @Success 200 {object} []usecases.SearchTrendResponse
+// @Router /search/trends [get]
+func (h *SearchHandler) GetSearchTrends(c *gin.Context) {
+	period := c.DefaultQuery("period", "daily")
+	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "50"))
+
+	trends, err := h.searchUseCase.GetSearchTrends(c.Request.Context(), period, limit)
+	if err != nil {
+		c.JSON(getErrorStatusCode(err), ErrorResponse{
+			Error: err.Error(),
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, SuccessResponse{
+		Data: trends,
+	})
+}
+
+// RebuildAutocompleteIndex handles autocomplete index rebuild (admin only)
+// @Summary Rebuild autocomplete index
+// @Description Rebuild autocomplete index from existing data
+// @Tags admin
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Success 200 {object} SuccessResponse
+// @Router /admin/search/rebuild-index [post]
+func (h *SearchHandler) RebuildAutocompleteIndex(c *gin.Context) {
+	// Check if user is admin
+	role, exists := c.Get("role")
+	if !exists || role != "admin" {
+		c.JSON(http.StatusForbidden, ErrorResponse{
+			Error: "Admin access required",
+		})
+		return
+	}
+
+	err := h.searchUseCase.RebuildAutocompleteIndex(c.Request.Context())
+	if err != nil {
+		c.JSON(getErrorStatusCode(err), ErrorResponse{
+			Error: err.Error(),
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, SuccessResponse{
+		Message: "Autocomplete index rebuilt successfully",
+	})
+}
+
+// CleanupSearchData handles search data cleanup (admin only)
+// @Summary Cleanup old search data
+// @Description Cleanup old search data
+// @Tags admin
+// @Accept json
+// @Produce json
+// @Param days query int false "Days to keep" default(90)
+// @Security BearerAuth
+// @Success 200 {object} SuccessResponse
+// @Router /admin/search/cleanup [post]
+func (h *SearchHandler) CleanupSearchData(c *gin.Context) {
+	// Check if user is admin
+	role, exists := c.Get("role")
+	if !exists || role != "admin" {
+		c.JSON(http.StatusForbidden, ErrorResponse{
+			Error: "Admin access required",
+		})
+		return
+	}
+
+	days, _ := strconv.Atoi(c.DefaultQuery("days", "90"))
+
+	err := h.searchUseCase.CleanupSearchData(c.Request.Context(), days)
+	if err != nil {
+		c.JSON(getErrorStatusCode(err), ErrorResponse{
+			Error: err.Error(),
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, SuccessResponse{
+		Message: "Search data cleanup completed successfully",
+	})
+}
+
 // EnhancedSearch performs enhanced search with dynamic faceting
 // @Summary Enhanced search with dynamic faceting
 // @Description Perform enhanced product search with multi-select filters and dynamic facets

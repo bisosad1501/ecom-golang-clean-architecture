@@ -105,6 +105,11 @@ func migration001Up(db *gorm.DB) error {
 		// Product comparison
 		&entities.ProductComparison{},
 		&entities.ProductComparisonItem{},
+
+		// Advanced filtering
+		&entities.FilterSet{},
+		&entities.FilterUsage{},
+		&entities.ProductFilterOption{},
 	)
 }
 

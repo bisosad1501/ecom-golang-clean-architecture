@@ -32,6 +32,7 @@ func (r *productRepository) GetByID(ctx context.Context, id uuid.UUID) (*entitie
 	var product entities.Product
 	err := r.db.WithContext(ctx).Session(&gorm.Session{}).
 		Preload("Category").
+		Preload("Brand").
 		Preload("Images", func(db *gorm.DB) *gorm.DB {
 			return db.Where("position >= 0").Order("position ASC")
 		}).
@@ -52,6 +53,7 @@ func (r *productRepository) GetByIDForUpdate(ctx context.Context, id uuid.UUID) 
 	var product entities.Product
 	err := r.db.WithContext(ctx).Session(&gorm.Session{}).
 		Preload("Category").
+		Preload("Brand").
 		Preload("Images", func(db *gorm.DB) *gorm.DB {
 			return db.Where("position >= 0").Order("position ASC")
 		}).
@@ -77,6 +79,7 @@ func (r *productRepository) GetByIDs(ctx context.Context, ids []uuid.UUID) ([]*e
 	var products []*entities.Product
 	err := r.db.WithContext(ctx).
 		Preload("Category").
+		Preload("Brand").
 		Preload("Images", func(db *gorm.DB) *gorm.DB {
 			return db.Where("position >= 0").Order("position ASC")
 		}).
@@ -94,6 +97,7 @@ func (r *productRepository) GetBySKU(ctx context.Context, sku string) (*entities
 	var product entities.Product
 	err := r.db.WithContext(ctx).
 		Preload("Category").
+		Preload("Brand").
 		Preload("Images", func(db *gorm.DB) *gorm.DB {
 			return db.Where("position >= 0").Order("position ASC")
 		}).
@@ -195,6 +199,7 @@ func (r *productRepository) List(ctx context.Context, limit, offset int) ([]*ent
 	var products []*entities.Product
 	err := r.db.WithContext(ctx).
 		Preload("Category").
+		Preload("Brand").
 		Preload("Images", func(db *gorm.DB) *gorm.DB {
 			return db.Where("position >= 0").Order("position ASC")
 		}).
@@ -210,6 +215,7 @@ func (r *productRepository) List(ctx context.Context, limit, offset int) ([]*ent
 func (r *productRepository) Search(ctx context.Context, params repositories.ProductSearchParams) ([]*entities.Product, error) {
 	query := r.db.WithContext(ctx).
 		Preload("Category").
+		Preload("Brand").
 		Preload("Images", func(db *gorm.DB) *gorm.DB {
 			return db.Where("position >= 0").Order("position ASC")
 		}).

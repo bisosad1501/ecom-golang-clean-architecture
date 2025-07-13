@@ -237,6 +237,62 @@ func (ProductComparisonItem) TableName() string {
 	return "product_comparison_items"
 }
 
+// FilterSet represents a saved filter configuration
+type FilterSet struct {
+	ID          uuid.UUID `json:"id" gorm:"type:uuid;primary_key;default:gen_random_uuid()"`
+	UserID      *uuid.UUID `json:"user_id" gorm:"type:uuid;index"`
+	SessionID   string    `json:"session_id" gorm:"index"`
+	Name        string    `json:"name"`
+	Description string    `json:"description"`
+	Filters     string    `json:"filters" gorm:"type:jsonb"` // JSON encoded filter parameters
+	IsPublic    bool      `json:"is_public" gorm:"default:false"`
+	UsageCount  int       `json:"usage_count" gorm:"default:0"`
+	CreatedAt   time.Time `json:"created_at" gorm:"autoCreateTime"`
+	UpdatedAt   time.Time `json:"updated_at" gorm:"autoUpdateTime"`
+}
+
+// TableName returns the table name for FilterSet entity
+func (FilterSet) TableName() string {
+	return "filter_sets"
+}
+
+// FilterUsage tracks filter usage analytics
+type FilterUsage struct {
+	ID         uuid.UUID `json:"id" gorm:"type:uuid;primary_key;default:gen_random_uuid()"`
+	UserID     *uuid.UUID `json:"user_id" gorm:"type:uuid;index"`
+	SessionID  string    `json:"session_id" gorm:"index"`
+	FilterType string    `json:"filter_type" gorm:"index"` // price, category, brand, attribute, etc.
+	FilterKey  string    `json:"filter_key" gorm:"index"`  // specific filter identifier
+	FilterValue string   `json:"filter_value"`             // filter value used
+	ResultCount int      `json:"result_count"`             // number of results returned
+	CreatedAt   time.Time `json:"created_at" gorm:"autoCreateTime"`
+}
+
+// TableName returns the table name for FilterUsage entity
+func (FilterUsage) TableName() string {
+	return "filter_usage"
+}
+
+// ProductFilterOption represents available filter options for products
+type ProductFilterOption struct {
+	ID          uuid.UUID `json:"id" gorm:"type:uuid;primary_key;default:gen_random_uuid()"`
+	CategoryID  *uuid.UUID `json:"category_id" gorm:"type:uuid;index"`
+	FilterType  string    `json:"filter_type" gorm:"index"` // price, brand, attribute, rating, etc.
+	FilterKey   string    `json:"filter_key" gorm:"index"`  // attribute_id for attributes, 'brand' for brands
+	FilterValue string    `json:"filter_value"`             // the actual filter value
+	Label       string    `json:"label"`                    // display label
+	Count       int       `json:"count" gorm:"default:0"`   // number of products with this filter
+	Position    int       `json:"position" gorm:"default:0"`
+	IsActive    bool      `json:"is_active" gorm:"default:true"`
+	CreatedAt   time.Time `json:"created_at" gorm:"autoCreateTime"`
+	UpdatedAt   time.Time `json:"updated_at" gorm:"autoUpdateTime"`
+}
+
+// TableName returns the table name for ProductFilterOption entity
+func (ProductFilterOption) TableName() string {
+	return "product_filter_options"
+}
+
 // ProductAttribute represents a product attribute (e.g., Color, Size)
 type ProductAttribute struct {
 	ID          uuid.UUID `json:"id" gorm:"type:uuid;primary_key;default:gen_random_uuid()"`

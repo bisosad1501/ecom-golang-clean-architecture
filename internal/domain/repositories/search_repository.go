@@ -43,6 +43,37 @@ type SearchRepository interface {
 	// Search Analytics
 	RecordSearchAnalytics(ctx context.Context, query string, resultCount int) error
 	GetSearchAnalytics(ctx context.Context, startDate, endDate time.Time, limit int) ([]map[string]interface{}, error)
+
+	// Enhanced Autocomplete
+	GetAutocompleteEntries(ctx context.Context, query string, types []string, limit int) ([]*entities.AutocompleteEntry, error)
+	CreateAutocompleteEntry(ctx context.Context, entry *entities.AutocompleteEntry) error
+	UpdateAutocompleteEntry(ctx context.Context, entry *entities.AutocompleteEntry) error
+	DeleteAutocompleteEntry(ctx context.Context, id uuid.UUID) error
+	IncrementAutocompleteUsage(ctx context.Context, id uuid.UUID, isClick bool) error
+
+	// Search Trends
+	GetSearchTrends(ctx context.Context, period string, limit int) ([]*entities.SearchTrend, error)
+	UpdateSearchTrend(ctx context.Context, query string, period string) error
+
+	// User Search Preferences
+	GetUserSearchPreferences(ctx context.Context, userID uuid.UUID) (*entities.UserSearchPreference, error)
+	SaveUserSearchPreferences(ctx context.Context, prefs *entities.UserSearchPreference) error
+
+	// Search Sessions
+	CreateSearchSession(ctx context.Context, session *entities.SearchSession) error
+	UpdateSearchSession(ctx context.Context, session *entities.SearchSession) error
+	GetSearchSession(ctx context.Context, sessionID string) (*entities.SearchSession, error)
+
+	// Smart Suggestions
+	GetPersonalizedSuggestions(ctx context.Context, userID uuid.UUID, query string, limit int) ([]*entities.AutocompleteEntry, error)
+	GetTrendingSuggestions(ctx context.Context, limit int) ([]*entities.AutocompleteEntry, error)
+	GetCategorySuggestions(ctx context.Context, query string, limit int) ([]*entities.AutocompleteEntry, error)
+	GetBrandSuggestions(ctx context.Context, query string, limit int) ([]*entities.AutocompleteEntry, error)
+	GetProductSuggestions(ctx context.Context, query string, limit int) ([]*entities.AutocompleteEntry, error)
+
+	// Autocomplete Management
+	RebuildAutocompleteIndex(ctx context.Context) error
+	CleanupOldAutocompleteEntries(ctx context.Context, days int) error
 }
 
 // SearchEventFilters represents filters for search events

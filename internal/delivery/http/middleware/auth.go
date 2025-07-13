@@ -7,9 +7,27 @@ import (
 	"time"
 
 	"ecom-golang-clean-architecture/internal/domain/entities"
+	"ecom-golang-clean-architecture/internal/infrastructure/config"
 	"github.com/gin-gonic/gin"
 	"github.com/golang-jwt/jwt/v5"
 )
+
+// AuthMiddlewareStruct holds the auth middleware configuration
+type AuthMiddlewareStruct struct {
+	jwtSecret string
+}
+
+// NewAuthMiddleware creates a new auth middleware instance
+func NewAuthMiddleware(cfg *config.Config) *AuthMiddlewareStruct {
+	return &AuthMiddlewareStruct{
+		jwtSecret: cfg.JWT.Secret,
+	}
+}
+
+// RequireAuth returns a middleware that requires authentication
+func (a *AuthMiddlewareStruct) RequireAuth() gin.HandlerFunc {
+	return AuthMiddleware(a.jwtSecret)
+}
 
 // AuthMiddleware creates JWT authentication middleware
 func AuthMiddleware(jwtSecret string) gin.HandlerFunc {

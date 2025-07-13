@@ -9,6 +9,7 @@ import (
 	"ecom-golang-clean-architecture/internal/domain/entities"
 	"ecom-golang-clean-architecture/internal/domain/repositories"
 	"github.com/google/uuid"
+	"github.com/lib/pq"
 	"gorm.io/gorm"
 )
 
@@ -763,6 +764,445 @@ func (r *searchRepository) EnhancedSearch(ctx context.Context, params repositori
 	}
 
 	return products, total, facets, nil
+}
+
+// GetAutocompleteEntries retrieves autocomplete entries based on query and types
+func (r *searchRepository) GetAutocompleteEntries(ctx context.Context, query string, types []string, limit int) ([]*entities.AutocompleteEntry, error) {
+	if limit <= 0 {
+		limit = 10
+	}
+
+	var entries []*entities.AutocompleteEntry
+	dbQuery := r.db.WithContext(ctx).Model(&entities.AutocompleteEntry{}).
+		Where("is_active = true")
+
+	if query != "" {
+		dbQuery = dbQuery.Where("value ILIKE ? OR display_text ILIKE ?", "%"+query+"%", "%"+query+"%")
+	}
+
+	if len(types) > 0 {
+		dbQuery = dbQuery.Where("type IN ?", types)
+	}
+
+	err := dbQuery.Order("priority DESC, search_count DESC, click_count DESC").
+		Limit(limit).
+		Find(&entries).Error
+
+	return entries, err
+}
+
+// CreateAutocompleteEntry creates a new autocomplete entry
+func (r *searchRepository) CreateAutocompleteEntry(ctx context.Context, entry *entities.AutocompleteEntry) error {
+	return r.db.WithContext(ctx).Create(entry).Error
+}
+
+// UpdateAutocompleteEntry updates an existing autocomplete entry
+func (r *searchRepository) UpdateAutocompleteEntry(ctx context.Context, entry *entities.AutocompleteEntry) error {
+	return r.db.WithContext(ctx).Save(entry).Error
+}
+
+// DeleteAutocompleteEntry deletes an autocomplete entry
+func (r *searchRepository) DeleteAutocompleteEntry(ctx context.Context, id uuid.UUID) error {
+	return r.db.WithContext(ctx).Delete(&entities.AutocompleteEntry{}, id).Error
+}
+
+// IncrementAutocompleteUsage increments usage statistics for an autocomplete entry
+func (r *searchRepository) IncrementAutocompleteUsage(ctx context.Context, id uuid.UUID, isClick bool) error {
+	updates := map[string]interface{}{
+		"search_count": gorm.Expr("search_count + 1"),
+		"updated_at":   time.Now(),
+	}
+
+	if isClick {
+		updates["click_count"] = gorm.Expr("click_count + 1")
+	}
+
+	return r.db.WithContext(ctx).Model(&entities.AutocompleteEntry{}).
+		Where("id = ?", id).
+		Updates(updates).Error
+}
+
+// GetSearchTrends retrieves search trends for a specific period
+func (r *searchRepository) GetSearchTrends(ctx context.Context, period string, limit int) ([]*entities.SearchTrend, error) {
+	if limit <= 0 {
+		limit = 20
+	}
+
+	var trends []*entities.SearchTrend
+	err := r.db.WithContext(ctx).
+		Where("period = ?", period).
+		Order("search_count DESC, date DESC").
+		Limit(limit).
+		Find(&trends).Error
+
+	return trends, err
+}
+
+// UpdateSearchTrend updates or creates search trend data
+func (r *searchRepository) UpdateSearchTrend(ctx context.Context, query string, period string) error {
+	today := time.Now().Truncate(24 * time.Hour)
+
+	// Try to update existing trend
+	result := r.db.WithContext(ctx).Model(&entities.SearchTrend{}).
+		Where("query = ? AND period = ? AND date = ?", query, period, today).
+		Update("search_count", gorm.Expr("search_count + 1"))
+
+	if result.Error != nil {
+		return result.Error
+	}
+
+	// If no rows affected, create new trend
+	if result.RowsAffected == 0 {
+		trend := &entities.SearchTrend{
+			Query:       query,
+			SearchCount: 1,
+			Period:      period,
+			Date:        today,
+		}
+		return r.db.WithContext(ctx).Create(trend).Error
+	}
+
+	return nil
+}
+
+// GetUserSearchPreferences retrieves user search preferences
+func (r *searchRepository) GetUserSearchPreferences(ctx context.Context, userID uuid.UUID) (*entities.UserSearchPreference, error) {
+	var prefs entities.UserSearchPreference
+	err := r.db.WithContext(ctx).Where("user_id = ?", userID).First(&prefs).Error
+	if err != nil {
+		if err == gorm.ErrRecordNotFound {
+			// Return default preferences
+			return &entities.UserSearchPreference{
+				UserID:              userID,
+				SearchLanguage:      "en",
+				AutocompleteEnabled: true,
+				SearchHistoryEnabled: true,
+				PersonalizedResults: true,
+			}, nil
+		}
+		return nil, err
+	}
+	return &prefs, nil
+}
+
+// SaveUserSearchPreferences saves user search preferences
+func (r *searchRepository) SaveUserSearchPreferences(ctx context.Context, prefs *entities.UserSearchPreference) error {
+	return r.db.WithContext(ctx).Save(prefs).Error
+}
+
+// CreateSearchSession creates a new search session
+func (r *searchRepository) CreateSearchSession(ctx context.Context, session *entities.SearchSession) error {
+	return r.db.WithContext(ctx).Create(session).Error
+}
+
+// UpdateSearchSession updates an existing search session
+func (r *searchRepository) UpdateSearchSession(ctx context.Context, session *entities.SearchSession) error {
+	return r.db.WithContext(ctx).Save(session).Error
+}
+
+// GetSearchSession retrieves a search session by session ID
+func (r *searchRepository) GetSearchSession(ctx context.Context, sessionID string) (*entities.SearchSession, error) {
+	var session entities.SearchSession
+	err := r.db.WithContext(ctx).Where("session_id = ?", sessionID).First(&session).Error
+	return &session, err
+}
+
+// GetPersonalizedSuggestions retrieves personalized suggestions for a user
+func (r *searchRepository) GetPersonalizedSuggestions(ctx context.Context, userID uuid.UUID, query string, limit int) ([]*entities.AutocompleteEntry, error) {
+	if limit <= 0 {
+		limit = 5
+	}
+
+	// Get user preferences
+	prefs, err := r.GetUserSearchPreferences(ctx, userID)
+	if err != nil || !prefs.PersonalizedResults {
+		// Fall back to general suggestions
+		return r.GetAutocompleteEntries(ctx, query, nil, limit)
+	}
+
+	var entries []*entities.AutocompleteEntry
+	dbQuery := r.db.WithContext(ctx).Model(&entities.AutocompleteEntry{}).
+		Where("is_active = true")
+
+	if query != "" {
+		dbQuery = dbQuery.Where("value ILIKE ? OR display_text ILIKE ?", "%"+query+"%", "%"+query+"%")
+	}
+
+	// Prioritize based on user preferences
+	if len(prefs.PreferredCategories) > 0 {
+		dbQuery = dbQuery.Where("(type != 'category' OR metadata::jsonb->>'category' = ANY(?))",
+			pq.Array(prefs.PreferredCategories))
+	}
+
+	if len(prefs.PreferredBrands) > 0 {
+		dbQuery = dbQuery.Where("(type != 'brand' OR metadata::jsonb->>'brand' = ANY(?))",
+			pq.Array(prefs.PreferredBrands))
+	}
+
+	err = dbQuery.Order("priority DESC, search_count DESC").
+		Limit(limit).
+		Find(&entries).Error
+
+	return entries, err
+}
+
+// GetTrendingSuggestions retrieves trending suggestions
+func (r *searchRepository) GetTrendingSuggestions(ctx context.Context, limit int) ([]*entities.AutocompleteEntry, error) {
+	if limit <= 0 {
+		limit = 10
+	}
+
+	var entries []*entities.AutocompleteEntry
+
+	// Get trending queries from search trends
+	subQuery := r.db.WithContext(ctx).Model(&entities.SearchTrend{}).
+		Select("query").
+		Where("period = 'daily' AND date >= ?", time.Now().AddDate(0, 0, -7)).
+		Group("query").
+		Order("SUM(search_count) DESC").
+		Limit(limit)
+
+	err := r.db.WithContext(ctx).Model(&entities.AutocompleteEntry{}).
+		Where("is_active = true AND type = 'query' AND value IN (?)", subQuery).
+		Order("search_count DESC").
+		Limit(limit).
+		Find(&entries).Error
+
+	return entries, err
+}
+
+// GetCategorySuggestions retrieves category-based suggestions
+func (r *searchRepository) GetCategorySuggestions(ctx context.Context, query string, limit int) ([]*entities.AutocompleteEntry, error) {
+	if limit <= 0 {
+		limit = 5
+	}
+
+	var entries []*entities.AutocompleteEntry
+	dbQuery := r.db.WithContext(ctx).Model(&entities.AutocompleteEntry{}).
+		Where("is_active = true AND type = 'category'")
+
+	if query != "" {
+		dbQuery = dbQuery.Where("value ILIKE ? OR display_text ILIKE ?", "%"+query+"%", "%"+query+"%")
+	}
+
+	err := dbQuery.Order("priority DESC, search_count DESC").
+		Limit(limit).
+		Find(&entries).Error
+
+	return entries, err
+}
+
+// GetBrandSuggestions retrieves brand-based suggestions
+func (r *searchRepository) GetBrandSuggestions(ctx context.Context, query string, limit int) ([]*entities.AutocompleteEntry, error) {
+	if limit <= 0 {
+		limit = 5
+	}
+
+	var entries []*entities.AutocompleteEntry
+	dbQuery := r.db.WithContext(ctx).Model(&entities.AutocompleteEntry{}).
+		Where("is_active = true AND type = 'brand'")
+
+	if query != "" {
+		dbQuery = dbQuery.Where("value ILIKE ? OR display_text ILIKE ?", "%"+query+"%", "%"+query+"%")
+	}
+
+	err := dbQuery.Order("priority DESC, search_count DESC").
+		Limit(limit).
+		Find(&entries).Error
+
+	return entries, err
+}
+
+// GetProductSuggestions retrieves product-based suggestions
+func (r *searchRepository) GetProductSuggestions(ctx context.Context, query string, limit int) ([]*entities.AutocompleteEntry, error) {
+	if limit <= 0 {
+		limit = 5
+	}
+
+	var entries []*entities.AutocompleteEntry
+	dbQuery := r.db.WithContext(ctx).Model(&entities.AutocompleteEntry{}).
+		Where("is_active = true AND type = 'product'")
+
+	if query != "" {
+		dbQuery = dbQuery.Where("value ILIKE ? OR display_text ILIKE ?", "%"+query+"%", "%"+query+"%")
+	}
+
+	err := dbQuery.Order("priority DESC, search_count DESC").
+		Limit(limit).
+		Find(&entries).Error
+
+	return entries, err
+}
+
+// RebuildAutocompleteIndex rebuilds the autocomplete index from existing data
+func (r *searchRepository) RebuildAutocompleteIndex(ctx context.Context) error {
+	// Clear existing entries
+	if err := r.db.WithContext(ctx).Where("1 = 1").Delete(&entities.AutocompleteEntry{}).Error; err != nil {
+		return fmt.Errorf("failed to clear autocomplete entries: %w", err)
+	}
+
+	// Rebuild from products
+	if err := r.rebuildProductSuggestions(ctx); err != nil {
+		return fmt.Errorf("failed to rebuild product suggestions: %w", err)
+	}
+
+	// Rebuild from categories
+	if err := r.rebuildCategorySuggestions(ctx); err != nil {
+		return fmt.Errorf("failed to rebuild category suggestions: %w", err)
+	}
+
+	// Rebuild from brands
+	if err := r.rebuildBrandSuggestions(ctx); err != nil {
+		return fmt.Errorf("failed to rebuild brand suggestions: %w", err)
+	}
+
+	// Rebuild from search history
+	if err := r.rebuildQuerySuggestions(ctx); err != nil {
+		return fmt.Errorf("failed to rebuild query suggestions: %w", err)
+	}
+
+	return nil
+}
+
+// CleanupOldAutocompleteEntries removes old unused autocomplete entries
+func (r *searchRepository) CleanupOldAutocompleteEntries(ctx context.Context, days int) error {
+	cutoffDate := time.Now().AddDate(0, 0, -days)
+
+	return r.db.WithContext(ctx).
+		Where("updated_at < ? AND search_count = 0 AND click_count = 0", cutoffDate).
+		Delete(&entities.AutocompleteEntry{}).Error
+}
+
+// Helper methods for rebuilding autocomplete index
+
+func (r *searchRepository) rebuildProductSuggestions(ctx context.Context) error {
+	var products []struct {
+		ID   uuid.UUID
+		Name string
+	}
+
+	if err := r.db.WithContext(ctx).Model(&entities.Product{}).
+		Select("id, name").
+		Where("status = 'active'").
+		Find(&products).Error; err != nil {
+		return err
+	}
+
+	for _, product := range products {
+		entry := &entities.AutocompleteEntry{
+			Type:        "product",
+			Value:       product.Name,
+			DisplayText: product.Name,
+			EntityID:    &product.ID,
+			Priority:    50,
+			IsActive:    true,
+			Metadata:    fmt.Sprintf(`{"product_id": "%s"}`, product.ID),
+		}
+
+		if err := r.db.WithContext(ctx).Create(entry).Error; err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func (r *searchRepository) rebuildCategorySuggestions(ctx context.Context) error {
+	var categories []struct {
+		ID   uuid.UUID
+		Name string
+	}
+
+	if err := r.db.WithContext(ctx).Model(&entities.Category{}).
+		Select("id, name").
+		Where("is_active = true").
+		Find(&categories).Error; err != nil {
+		return err
+	}
+
+	for _, category := range categories {
+		entry := &entities.AutocompleteEntry{
+			Type:        "category",
+			Value:       category.Name,
+			DisplayText: category.Name,
+			EntityID:    &category.ID,
+			Priority:    70,
+			IsActive:    true,
+			Metadata:    fmt.Sprintf(`{"category_id": "%s"}`, category.ID),
+		}
+
+		if err := r.db.WithContext(ctx).Create(entry).Error; err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func (r *searchRepository) rebuildBrandSuggestions(ctx context.Context) error {
+	var brands []struct {
+		ID   uuid.UUID
+		Name string
+	}
+
+	if err := r.db.WithContext(ctx).Model(&entities.Brand{}).
+		Select("id, name").
+		Where("is_active = true").
+		Find(&brands).Error; err != nil {
+		return err
+	}
+
+	for _, brand := range brands {
+		entry := &entities.AutocompleteEntry{
+			Type:        "brand",
+			Value:       brand.Name,
+			DisplayText: brand.Name,
+			EntityID:    &brand.ID,
+			Priority:    60,
+			IsActive:    true,
+			Metadata:    fmt.Sprintf(`{"brand_id": "%s"}`, brand.ID),
+		}
+
+		if err := r.db.WithContext(ctx).Create(entry).Error; err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func (r *searchRepository) rebuildQuerySuggestions(ctx context.Context) error {
+	var suggestions []struct {
+		Query       string
+		SearchCount int
+	}
+
+	if err := r.db.WithContext(ctx).Model(&entities.SearchSuggestion{}).
+		Select("query, search_count").
+		Where("is_active = true AND search_count > 0").
+		Order("search_count DESC").
+		Limit(1000).
+		Find(&suggestions).Error; err != nil {
+		return err
+	}
+
+	for _, suggestion := range suggestions {
+		entry := &entities.AutocompleteEntry{
+			Type:        "query",
+			Value:       suggestion.Query,
+			DisplayText: suggestion.Query,
+			Priority:    80,
+			SearchCount: suggestion.SearchCount,
+			IsActive:    true,
+			Metadata:    `{"type": "search_query"}`,
+		}
+
+		if err := r.db.WithContext(ctx).Create(entry).Error; err != nil {
+			return err
+		}
+	}
+
+	return nil
 }
 
 // GetDynamicFacets retrieves dynamic facets with real-time counts based on current filters

@@ -2,6 +2,7 @@ package usecases
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"time"
 
@@ -40,6 +41,23 @@ type SearchUseCase interface {
 
 	// Autocomplete
 	GetAutocomplete(ctx context.Context, query string, limit int) (*AutocompleteResponse, error)
+
+	// Enhanced Autocomplete
+	GetEnhancedAutocomplete(ctx context.Context, req EnhancedAutocompleteRequest) (*EnhancedAutocompleteResponse, error)
+	GetPersonalizedAutocomplete(ctx context.Context, userID uuid.UUID, query string, limit int) (*EnhancedAutocompleteResponse, error)
+	GetTrendingSearches(ctx context.Context, limit int) ([]TrendingSearchResponse, error)
+
+	// Search Preferences
+	GetUserSearchPreferences(ctx context.Context, userID uuid.UUID) (*UserSearchPreferencesResponse, error)
+	UpdateUserSearchPreferences(ctx context.Context, userID uuid.UUID, req UpdateSearchPreferencesRequest) error
+
+	// Search Analytics
+	RecordAutocompleteClick(ctx context.Context, req AutocompleteClickRequest) error
+	GetSearchTrends(ctx context.Context, period string, limit int) ([]SearchTrendResponse, error)
+
+	// Admin Functions
+	RebuildAutocompleteIndex(ctx context.Context) error
+	CleanupSearchData(ctx context.Context, days int) error
 }
 
 type searchUseCase struct {
@@ -889,6 +907,235 @@ func (uc *searchUseCase) GetAutocomplete(ctx context.Context, query string, limi
 	return response, nil
 }
 
+// GetEnhancedAutocomplete provides enhanced autocomplete with multiple sources
+func (uc *searchUseCase) GetEnhancedAutocomplete(ctx context.Context, req EnhancedAutocompleteRequest) (*EnhancedAutocompleteResponse, error) {
+	if req.Limit <= 0 {
+		req.Limit = 10
+	}
+
+	response := &EnhancedAutocompleteResponse{}
+
+	// Get suggestions by type
+	if len(req.Types) == 0 || contains(req.Types, "product") {
+		products, _ := uc.searchRepo.GetProductSuggestions(ctx, req.Query, req.Limit/4)
+		response.Products = uc.convertToAutocompleteSuggestions(products)
+	}
+
+	if len(req.Types) == 0 || contains(req.Types, "category") {
+		categories, _ := uc.searchRepo.GetCategorySuggestions(ctx, req.Query, req.Limit/4)
+		response.Categories = uc.convertToAutocompleteSuggestions(categories)
+	}
+
+	if len(req.Types) == 0 || contains(req.Types, "brand") {
+		brands, _ := uc.searchRepo.GetBrandSuggestions(ctx, req.Query, req.Limit/4)
+		response.Brands = uc.convertToAutocompleteSuggestions(brands)
+	}
+
+	if len(req.Types) == 0 || contains(req.Types, "query") {
+		queries, _ := uc.searchRepo.GetAutocompleteEntries(ctx, req.Query, []string{"query"}, req.Limit/4)
+		response.Queries = uc.convertToAutocompleteSuggestions(queries)
+	}
+
+	// Get trending suggestions if requested
+	if req.IncludeTrending {
+		trending, _ := uc.searchRepo.GetTrendingSuggestions(ctx, 5)
+		response.Trending = uc.convertToAutocompleteSuggestions(trending)
+	}
+
+	// Get personalized suggestions if requested and user is provided
+	if req.IncludePersonalized && req.UserID != nil {
+		personalized, _ := uc.searchRepo.GetPersonalizedSuggestions(ctx, *req.UserID, req.Query, 5)
+		response.Personalized = uc.convertToAutocompleteSuggestions(personalized)
+	}
+
+	return response, nil
+}
+
+// GetPersonalizedAutocomplete provides personalized autocomplete for a user
+func (uc *searchUseCase) GetPersonalizedAutocomplete(ctx context.Context, userID uuid.UUID, query string, limit int) (*EnhancedAutocompleteResponse, error) {
+	if limit <= 0 {
+		limit = 10
+	}
+
+	response := &EnhancedAutocompleteResponse{}
+
+	// Get personalized suggestions
+	personalized, err := uc.searchRepo.GetPersonalizedSuggestions(ctx, userID, query, limit)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get personalized suggestions: %w", err)
+	}
+
+	response.Personalized = uc.convertToAutocompleteSuggestions(personalized)
+
+	// Also get general suggestions as fallback
+	general, _ := uc.searchRepo.GetAutocompleteEntries(ctx, query, nil, limit/2)
+	response.Queries = uc.convertToAutocompleteSuggestions(general)
+
+	return response, nil
+}
+
+// GetTrendingSearches retrieves trending search terms
+func (uc *searchUseCase) GetTrendingSearches(ctx context.Context, limit int) ([]TrendingSearchResponse, error) {
+	if limit <= 0 {
+		limit = 20
+	}
+
+	trends, err := uc.searchRepo.GetSearchTrends(ctx, "daily", limit)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get search trends: %w", err)
+	}
+
+	response := make([]TrendingSearchResponse, len(trends))
+	for i, trend := range trends {
+		response[i] = TrendingSearchResponse{
+			Query:       trend.Query,
+			SearchCount: trend.SearchCount,
+			Period:      trend.Period,
+			Trend:       "stable", // TODO: Calculate actual trend
+		}
+	}
+
+	return response, nil
+}
+
+// GetUserSearchPreferences retrieves user search preferences
+func (uc *searchUseCase) GetUserSearchPreferences(ctx context.Context, userID uuid.UUID) (*UserSearchPreferencesResponse, error) {
+	prefs, err := uc.searchRepo.GetUserSearchPreferences(ctx, userID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get user search preferences: %w", err)
+	}
+
+	return &UserSearchPreferencesResponse{
+		UserID:              prefs.UserID,
+		PreferredCategories: prefs.PreferredCategories,
+		PreferredBrands:     prefs.PreferredBrands,
+		SearchLanguage:      prefs.SearchLanguage,
+		AutocompleteEnabled: prefs.AutocompleteEnabled,
+		SearchHistoryEnabled: prefs.SearchHistoryEnabled,
+		PersonalizedResults: prefs.PersonalizedResults,
+	}, nil
+}
+
+// UpdateUserSearchPreferences updates user search preferences
+func (uc *searchUseCase) UpdateUserSearchPreferences(ctx context.Context, userID uuid.UUID, req UpdateSearchPreferencesRequest) error {
+	prefs, err := uc.searchRepo.GetUserSearchPreferences(ctx, userID)
+	if err != nil {
+		return fmt.Errorf("failed to get current preferences: %w", err)
+	}
+
+	// Update only provided fields
+	if req.PreferredCategories != nil {
+		prefs.PreferredCategories = *req.PreferredCategories
+	}
+	if req.PreferredBrands != nil {
+		prefs.PreferredBrands = *req.PreferredBrands
+	}
+	if req.SearchLanguage != nil {
+		prefs.SearchLanguage = *req.SearchLanguage
+	}
+	if req.AutocompleteEnabled != nil {
+		prefs.AutocompleteEnabled = *req.AutocompleteEnabled
+	}
+	if req.SearchHistoryEnabled != nil {
+		prefs.SearchHistoryEnabled = *req.SearchHistoryEnabled
+	}
+	if req.PersonalizedResults != nil {
+		prefs.PersonalizedResults = *req.PersonalizedResults
+	}
+
+	return uc.searchRepo.SaveUserSearchPreferences(ctx, prefs)
+}
+
+// RecordAutocompleteClick records autocomplete usage analytics
+func (uc *searchUseCase) RecordAutocompleteClick(ctx context.Context, req AutocompleteClickRequest) error {
+	// Record the click/search in autocomplete entry
+	if err := uc.searchRepo.IncrementAutocompleteUsage(ctx, req.EntryID, req.IsClick); err != nil {
+		return fmt.Errorf("failed to record autocomplete usage: %w", err)
+	}
+
+	// Also record as search event if it's a search
+	if !req.IsClick && req.Query != "" {
+		event := &entities.SearchEvent{
+			Query:     req.Query,
+			UserID:    req.UserID,
+			SessionID: req.SessionID,
+		}
+		uc.searchRepo.RecordSearchEvent(ctx, event)
+	}
+
+	return nil
+}
+
+// GetSearchTrends retrieves search trends for analytics
+func (uc *searchUseCase) GetSearchTrends(ctx context.Context, period string, limit int) ([]SearchTrendResponse, error) {
+	if limit <= 0 {
+		limit = 50
+	}
+
+	trends, err := uc.searchRepo.GetSearchTrends(ctx, period, limit)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get search trends: %w", err)
+	}
+
+	response := make([]SearchTrendResponse, len(trends))
+	for i, trend := range trends {
+		response[i] = SearchTrendResponse{
+			Query:       trend.Query,
+			SearchCount: trend.SearchCount,
+			Period:      trend.Period,
+			Date:        trend.Date,
+			Change:      0, // TODO: Calculate change from previous period
+		}
+	}
+
+	return response, nil
+}
+
+// RebuildAutocompleteIndex rebuilds the autocomplete index
+func (uc *searchUseCase) RebuildAutocompleteIndex(ctx context.Context) error {
+	return uc.searchRepo.RebuildAutocompleteIndex(ctx)
+}
+
+// CleanupSearchData cleans up old search data
+func (uc *searchUseCase) CleanupSearchData(ctx context.Context, days int) error {
+	return uc.searchRepo.CleanupOldAutocompleteEntries(ctx, days)
+}
+
+// Helper methods
+
+func (uc *searchUseCase) convertToAutocompleteSuggestions(entries []*entities.AutocompleteEntry) []AutocompleteSuggestion {
+	suggestions := make([]AutocompleteSuggestion, len(entries))
+	for i, entry := range entries {
+		var metadata interface{}
+		if entry.Metadata != "" {
+			// Parse JSON metadata
+			json.Unmarshal([]byte(entry.Metadata), &metadata)
+		}
+
+		suggestions[i] = AutocompleteSuggestion{
+			ID:          entry.ID,
+			Type:        entry.Type,
+			Value:       entry.Value,
+			DisplayText: entry.DisplayText,
+			EntityID:    entry.EntityID,
+			Priority:    entry.Priority,
+			SearchCount: entry.SearchCount,
+			ClickCount:  entry.ClickCount,
+			Metadata:    metadata,
+		}
+	}
+	return suggestions
+}
+
+func contains(slice []string, item string) bool {
+	for _, s := range slice {
+		if s == item {
+			return true
+		}
+	}
+	return false
+}
+
 // GetSearchAnalytics gets search analytics for admin dashboard
 func (uc *searchUseCase) GetSearchAnalytics(ctx context.Context, req SearchAnalyticsRequest) (*SearchAnalyticsResponse, error) {
 	if req.Limit <= 0 {
@@ -1247,4 +1494,78 @@ type DynamicPriceRangeFacetResponse struct {
 	Ranges      []PriceRangeResponse         `json:"ranges"`
 	SelectedMin *float64                     `json:"selected_min"`
 	SelectedMax *float64                     `json:"selected_max"`
+}
+
+// Enhanced Autocomplete Types
+
+type EnhancedAutocompleteRequest struct {
+	Query   string   `json:"query"`
+	Types   []string `json:"types"` // product, category, brand, tag, query
+	Limit   int      `json:"limit"`
+	UserID  *uuid.UUID `json:"user_id"`
+	IncludePersonalized bool `json:"include_personalized"`
+	IncludeTrending     bool `json:"include_trending"`
+}
+
+type EnhancedAutocompleteResponse struct {
+	Products    []AutocompleteSuggestion `json:"products"`
+	Categories  []AutocompleteSuggestion `json:"categories"`
+	Brands      []AutocompleteSuggestion `json:"brands"`
+	Queries     []AutocompleteSuggestion `json:"queries"`
+	Trending    []AutocompleteSuggestion `json:"trending"`
+	Personalized []AutocompleteSuggestion `json:"personalized"`
+}
+
+type AutocompleteSuggestion struct {
+	ID          uuid.UUID   `json:"id"`
+	Type        string      `json:"type"`
+	Value       string      `json:"value"`
+	DisplayText string      `json:"display_text"`
+	EntityID    *uuid.UUID  `json:"entity_id"`
+	Priority    int         `json:"priority"`
+	SearchCount int         `json:"search_count"`
+	ClickCount  int         `json:"click_count"`
+	Metadata    interface{} `json:"metadata"`
+}
+
+type TrendingSearchResponse struct {
+	Query       string `json:"query"`
+	SearchCount int    `json:"search_count"`
+	Period      string `json:"period"`
+	Trend       string `json:"trend"` // up, down, stable
+}
+
+type UserSearchPreferencesResponse struct {
+	UserID              uuid.UUID `json:"user_id"`
+	PreferredCategories []string  `json:"preferred_categories"`
+	PreferredBrands     []string  `json:"preferred_brands"`
+	SearchLanguage      string    `json:"search_language"`
+	AutocompleteEnabled bool      `json:"autocomplete_enabled"`
+	SearchHistoryEnabled bool     `json:"search_history_enabled"`
+	PersonalizedResults  bool     `json:"personalized_results"`
+}
+
+type UpdateSearchPreferencesRequest struct {
+	PreferredCategories  *[]string `json:"preferred_categories"`
+	PreferredBrands      *[]string `json:"preferred_brands"`
+	SearchLanguage       *string   `json:"search_language"`
+	AutocompleteEnabled  *bool     `json:"autocomplete_enabled"`
+	SearchHistoryEnabled *bool     `json:"search_history_enabled"`
+	PersonalizedResults  *bool     `json:"personalized_results"`
+}
+
+type AutocompleteClickRequest struct {
+	EntryID   uuid.UUID  `json:"entry_id"`
+	UserID    *uuid.UUID `json:"user_id"`
+	SessionID string     `json:"session_id"`
+	Query     string     `json:"query"`
+	IsClick   bool       `json:"is_click"` // true for click, false for search
+}
+
+type SearchTrendResponse struct {
+	Query       string    `json:"query"`
+	SearchCount int       `json:"search_count"`
+	Period      string    `json:"period"`
+	Date        time.Time `json:"date"`
+	Change      float64   `json:"change"` // percentage change from previous period
 }
