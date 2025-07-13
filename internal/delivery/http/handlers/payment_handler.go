@@ -156,6 +156,25 @@ func (h *PaymentHandler) GetRefunds(c *gin.Context) {
 
 // SavePaymentMethod saves a user's payment method
 func (h *PaymentHandler) SavePaymentMethod(c *gin.Context) {
+	// Get user ID from JWT token context
+	userID, exists := c.Get("user_id")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, ErrorResponse{
+			Error:   "User not authenticated",
+			Details: "User ID not found in token",
+		})
+		return
+	}
+
+	userUUID, ok := userID.(uuid.UUID)
+	if !ok {
+		c.JSON(http.StatusInternalServerError, ErrorResponse{
+			Error:   "Invalid user ID format",
+			Details: "User ID is not a valid UUID",
+		})
+		return
+	}
+
 	var req usecases.SavePaymentMethodRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, ErrorResponse{
@@ -164,6 +183,9 @@ func (h *PaymentHandler) SavePaymentMethod(c *gin.Context) {
 		})
 		return
 	}
+
+	// Set user ID from token
+	req.UserID = userUUID
 
 	method, err := h.paymentUseCase.SavePaymentMethod(c.Request.Context(), req)
 	if err != nil {
@@ -182,17 +204,26 @@ func (h *PaymentHandler) SavePaymentMethod(c *gin.Context) {
 
 // GetUserPaymentMethods retrieves user's payment methods
 func (h *PaymentHandler) GetUserPaymentMethods(c *gin.Context) {
-	userIDStr := c.Param("user_id")
-	userID, err := uuid.Parse(userIDStr)
-	if err != nil {
-		c.JSON(http.StatusBadRequest, ErrorResponse{
-			Error:   "Invalid user ID",
-			Details: err.Error(),
+	// Get user ID from JWT token context
+	userID, exists := c.Get("user_id")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, ErrorResponse{
+			Error:   "User not authenticated",
+			Details: "User ID not found in token",
 		})
 		return
 	}
 
-	methods, err := h.paymentUseCase.GetUserPaymentMethods(c.Request.Context(), userID)
+	userUUID, ok := userID.(uuid.UUID)
+	if !ok {
+		c.JSON(http.StatusInternalServerError, ErrorResponse{
+			Error:   "Invalid user ID format",
+			Details: "User ID is not a valid UUID",
+		})
+		return
+	}
+
+	methods, err := h.paymentUseCase.GetUserPaymentMethods(c.Request.Context(), userUUID)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, ErrorResponse{
 			Error:   "Failed to get payment methods",
@@ -234,12 +265,21 @@ func (h *PaymentHandler) DeletePaymentMethod(c *gin.Context) {
 
 // SetDefaultPaymentMethod sets a payment method as default
 func (h *PaymentHandler) SetDefaultPaymentMethod(c *gin.Context) {
-	userIDStr := c.Param("user_id")
-	userID, err := uuid.Parse(userIDStr)
-	if err != nil {
-		c.JSON(http.StatusBadRequest, ErrorResponse{
-			Error:   "Invalid user ID",
-			Details: err.Error(),
+	// Get user ID from JWT token context
+	userID, exists := c.Get("user_id")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, ErrorResponse{
+			Error:   "User not authenticated",
+			Details: "User ID not found in token",
+		})
+		return
+	}
+
+	userUUID, ok := userID.(uuid.UUID)
+	if !ok {
+		c.JSON(http.StatusInternalServerError, ErrorResponse{
+			Error:   "Invalid user ID format",
+			Details: "User ID is not a valid UUID",
 		})
 		return
 	}
@@ -254,7 +294,7 @@ func (h *PaymentHandler) SetDefaultPaymentMethod(c *gin.Context) {
 		return
 	}
 
-	if err := h.paymentUseCase.SetDefaultPaymentMethod(c.Request.Context(), userID, methodID); err != nil {
+	if err := h.paymentUseCase.SetDefaultPaymentMethod(c.Request.Context(), userUUID, methodID); err != nil {
 		c.JSON(http.StatusInternalServerError, ErrorResponse{
 			Error:   "Failed to set default payment method",
 			Details: err.Error(),

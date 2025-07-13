@@ -35,6 +35,8 @@ func migration001Up(db *gorm.DB) error {
 		&entities.OrderItem{},
 		&entities.OrderEvent{},
 		&entities.Payment{},
+		&entities.PaymentMethodEntity{},
+		&entities.Refund{},
 		&entities.StockReservation{},
 
 		// File uploads

@@ -485,7 +485,7 @@ func SetupRoutes(
 				payments.GET("/methods", paymentHandler.GetUserPaymentMethods)
 				payments.POST("/methods", paymentHandler.SavePaymentMethod)
 				payments.DELETE("/methods/:id", paymentHandler.DeletePaymentMethod)
-				payments.PUT("/methods/:id/default", paymentHandler.SetDefaultPaymentMethod)
+				payments.PUT("/methods/:method_id/default", paymentHandler.SetDefaultPaymentMethod)
 			}
 
 			// Webhook routes (public - no auth required)

@@ -195,11 +195,12 @@ export const ORDER_STATUS = {
   REFUNDED: 'refunded',
 } as const
 
-// Payment status options
+// Payment status options (synchronized with backend)
 export const PAYMENT_STATUS = {
   PENDING: 'pending',
   PROCESSING: 'processing',
-  COMPLETED: 'completed',
+  PAID: 'paid',
+  COMPLETED: 'completed',  // Alias for paid
   FAILED: 'failed',
   CANCELLED: 'cancelled',
   REFUNDED: 'refunded',

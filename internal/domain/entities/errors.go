@@ -49,6 +49,14 @@ var (
 	ErrRefundAmountExceedsPayment  = errors.New("refund amount exceeds payment amount")
 	ErrPaymentAlreadyProcessed     = errors.New("payment already processed")
 
+	// Payment method errors
+	ErrPaymentMethodNotFound       = errors.New("payment method not found")
+	ErrPaymentMethodExists         = errors.New("payment method already exists")
+	ErrPaymentMethodExpired        = errors.New("payment method expired")
+	ErrPaymentMethodInactive       = errors.New("payment method inactive")
+	ErrInvalidPaymentMethodData    = errors.New("invalid payment method data")
+	ErrCannotDeleteDefaultPaymentMethod = errors.New("cannot delete default payment method")
+
 	// Address errors
 	ErrAddressNotFound = errors.New("address not found")
 

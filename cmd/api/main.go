@@ -91,6 +91,7 @@ func main() {
 	cartRepo := database.NewCartRepository(db)
 	orderRepo := database.NewOrderRepository(db)
 	paymentRepo := database.NewPaymentRepository(db)
+	paymentMethodRepo := database.NewPaymentMethodRepository(db)
 	fileRepo := database.NewFileRepository(db)
 	reviewRepo := database.NewReviewRepository(db)
 	reviewVoteRepo := database.NewReviewVoteRepository(db)
@@ -215,7 +216,7 @@ func main() {
 
 	// Initialize payment use case
 	paymentUseCase := usecases.NewPaymentUseCase(
-		paymentRepo, orderRepo, userRepo,
+		paymentRepo, paymentMethodRepo, orderRepo, userRepo,
 		stripeService, paypalService,
 		notificationUseCase,
 		stockReservationService,

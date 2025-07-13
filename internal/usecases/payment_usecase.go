@@ -63,6 +63,7 @@ type PaymentUseCase interface {
 
 type paymentUseCase struct {
 	paymentRepo             repositories.PaymentRepository
+	paymentMethodRepo       repositories.PaymentMethodRepository
 	orderRepo               repositories.OrderRepository
 	userRepo                repositories.UserRepository
 	stripeService           PaymentGatewayService
@@ -76,6 +77,7 @@ type paymentUseCase struct {
 // NewPaymentUseCase creates a new payment use case
 func NewPaymentUseCase(
 	paymentRepo repositories.PaymentRepository,
+	paymentMethodRepo repositories.PaymentMethodRepository,
 	orderRepo repositories.OrderRepository,
 	userRepo repositories.UserRepository,
 	stripeService PaymentGatewayService,
@@ -87,6 +89,7 @@ func NewPaymentUseCase(
 ) PaymentUseCase {
 	return &paymentUseCase{
 		paymentRepo:             paymentRepo,
+		paymentMethodRepo:       paymentMethodRepo,
 		orderRepo:               orderRepo,
 		userRepo:                userRepo,
 		stripeService:           stripeService,
@@ -118,11 +121,35 @@ type ProcessRefundRequest struct {
 }
 
 type SavePaymentMethodRequest struct {
-	UserID         uuid.UUID              `json:"user_id" validate:"required"`
-	Type           entities.PaymentMethod `json:"type" validate:"required"`
-	Token          string                 `json:"token" validate:"required"`
-	IsDefault      bool                   `json:"is_default"`
-	BillingAddress *BillingAddressRequest `json:"billing_address,omitempty"`
+	UserID            uuid.UUID              `json:"user_id" validate:"required"`
+	Type              entities.PaymentMethod `json:"type" validate:"required"`
+	Token             string                 `json:"token" validate:"required"`
+
+	// Card information (for card payments)
+	Last4             string                 `json:"last4"`
+	Brand             string                 `json:"brand"`
+	ExpiryMonth       int                    `json:"expiry_month"`
+	ExpiryYear        int                    `json:"expiry_year"`
+
+	// Gateway information
+	Gateway           string                 `json:"gateway"`
+	GatewayCustomerID string                 `json:"gateway_customer_id"`
+
+	// Billing information
+	BillingName       string                 `json:"billing_name"`
+	BillingEmail      string                 `json:"billing_email"`
+	BillingAddress    string                 `json:"billing_address"`
+
+	// Preferences
+	IsDefault         bool                   `json:"is_default"`
+
+	// Security
+	Fingerprint       string                 `json:"fingerprint"`
+
+	// Metadata
+	Metadata          map[string]interface{} `json:"metadata,omitempty"`
+	MetadataJSON      string                 `json:"-"` // Internal use
+	Notes             string                 `json:"notes"`
 }
 
 type BillingAddressRequest struct {
@@ -197,16 +224,23 @@ type RefundResponse struct {
 }
 
 type PaymentMethodResponse struct {
-	ID             uuid.UUID               `json:"id"`
-	UserID         uuid.UUID               `json:"user_id"`
-	Type           entities.PaymentMethod  `json:"type"`
-	Last4          string                  `json:"last4,omitempty"`
-	Brand          string                  `json:"brand,omitempty"`
-	ExpiryMonth    int                     `json:"expiry_month,omitempty"`
-	ExpiryYear     int                     `json:"expiry_year,omitempty"`
-	IsDefault      bool                    `json:"is_default"`
-	BillingAddress *BillingAddressResponse `json:"billing_address,omitempty"`
-	CreatedAt      time.Time               `json:"created_at"`
+	ID            uuid.UUID              `json:"id"`
+	UserID        uuid.UUID              `json:"user_id"`
+	Type          entities.PaymentMethod `json:"type"`
+	Last4         string                 `json:"last4,omitempty"`
+	Brand         string                 `json:"brand,omitempty"`
+	ExpiryMonth   int                    `json:"expiry_month,omitempty"`
+	ExpiryYear    int                    `json:"expiry_year,omitempty"`
+	Gateway       string                 `json:"gateway,omitempty"`
+	BillingName   string                 `json:"billing_name,omitempty"`
+	BillingEmail  string                 `json:"billing_email,omitempty"`
+	IsDefault     bool                   `json:"is_default"`
+	IsActive      bool                   `json:"is_active"`
+	IsExpired     bool                   `json:"is_expired"`
+	DisplayName   string                 `json:"display_name"`
+	CreatedAt     time.Time              `json:"created_at"`
+	UpdatedAt     time.Time              `json:"updated_at"`
+	LastUsedAt    *time.Time             `json:"last_used_at,omitempty"`
 }
 
 type BillingAddressResponse struct {
@@ -944,42 +978,131 @@ func (uc *paymentUseCase) GetRefunds(ctx context.Context, paymentID uuid.UUID) (
 	return responses, nil
 }
 
-// SavePaymentMethod saves a payment method (placeholder implementation)
+// SavePaymentMethod saves a payment method
 func (uc *paymentUseCase) SavePaymentMethod(ctx context.Context, req SavePaymentMethodRequest) (*PaymentMethodResponse, error) {
-	// This is a placeholder implementation since we don't have a payment method entity
-	// In a real implementation, you would save the payment method to the database
-	response := &PaymentMethodResponse{
-		ID:        uuid.New(),
-		UserID:    req.UserID,
-		Type:      req.Type,
-		Last4:     "****",    // Placeholder since not in request
-		Brand:     "unknown", // Placeholder since not in request
-		IsDefault: req.IsDefault,
-		CreatedAt: time.Now(),
+	// Validate user exists
+	_, err := uc.userRepo.GetByID(ctx, req.UserID)
+	if err != nil {
+		return nil, entities.ErrUserNotFound
 	}
 
-	return response, nil
+	// Check for duplicate fingerprint if provided
+	if req.Fingerprint != "" {
+		existing, err := uc.paymentMethodRepo.GetByFingerprint(ctx, req.UserID, req.Fingerprint)
+		if err == nil && existing != nil {
+			return nil, entities.ErrPaymentMethodExists
+		}
+	}
+
+	// Create payment method entity
+	paymentMethod := &entities.PaymentMethodEntity{
+		UserID:            req.UserID,
+		Type:              req.Type,
+		Last4:             req.Last4,
+		Brand:             req.Brand,
+		ExpiryMonth:       req.ExpiryMonth,
+		ExpiryYear:        req.ExpiryYear,
+		Gateway:           req.Gateway,
+		GatewayToken:      req.Token,
+		GatewayCustomerID: req.GatewayCustomerID,
+		BillingName:       req.BillingName,
+		BillingEmail:      req.BillingEmail,
+		BillingAddress:    req.BillingAddress,
+		IsDefault:         req.IsDefault,
+		IsActive:          true,
+		Fingerprint:       req.Fingerprint,
+		Metadata:          req.MetadataJSON,
+		Notes:             req.Notes,
+	}
+
+	// If this is set as default, unset other defaults first
+	if req.IsDefault {
+		if err := uc.paymentMethodRepo.UnsetDefault(ctx, req.UserID); err != nil {
+			return nil, err
+		}
+	}
+
+	// Save payment method
+	if err := uc.paymentMethodRepo.Create(ctx, paymentMethod); err != nil {
+		return nil, err
+	}
+
+	return uc.toPaymentMethodResponse(paymentMethod), nil
 }
 
-// GetUserPaymentMethods gets all payment methods for a user (placeholder implementation)
+// GetUserPaymentMethods gets all payment methods for a user
 func (uc *paymentUseCase) GetUserPaymentMethods(ctx context.Context, userID uuid.UUID) ([]*PaymentMethodResponse, error) {
-	// This is a placeholder implementation since we don't have a payment method entity
-	// In a real implementation, you would fetch from the database
-	return []*PaymentMethodResponse{}, nil
+	// Validate user exists
+	_, err := uc.userRepo.GetByID(ctx, userID)
+	if err != nil {
+		return nil, entities.ErrUserNotFound
+	}
+
+	// Get active payment methods
+	paymentMethods, err := uc.paymentMethodRepo.GetActiveByUserID(ctx, userID)
+	if err != nil {
+		return nil, err
+	}
+
+	// Convert to response format
+	responses := make([]*PaymentMethodResponse, len(paymentMethods))
+	for i, pm := range paymentMethods {
+		responses[i] = uc.toPaymentMethodResponse(pm)
+	}
+
+	return responses, nil
 }
 
-// DeletePaymentMethod deletes a payment method (placeholder implementation)
+// DeletePaymentMethod deletes a payment method
 func (uc *paymentUseCase) DeletePaymentMethod(ctx context.Context, id uuid.UUID) error {
-	// This is a placeholder implementation since we don't have a payment method entity
-	// In a real implementation, you would delete from the database
-	return nil
+	// Get payment method to check if it exists and is default
+	paymentMethod, err := uc.paymentMethodRepo.GetByID(ctx, id)
+	if err != nil {
+		return err
+	}
+
+	// Check if it's the default payment method
+	if paymentMethod.IsDefault {
+		// Check if user has other payment methods
+		count, err := uc.paymentMethodRepo.Count(ctx, paymentMethod.UserID)
+		if err != nil {
+			return err
+		}
+
+		// If this is the only payment method, allow deletion
+		// If there are others, require setting a new default first
+		if count > 1 {
+			return entities.ErrCannotDeleteDefaultPaymentMethod
+		}
+	}
+
+	// Deactivate instead of hard delete for audit purposes
+	return uc.paymentMethodRepo.Deactivate(ctx, id)
 }
 
-// SetDefaultPaymentMethod sets default payment method (placeholder implementation)
+// SetDefaultPaymentMethod sets a payment method as default
 func (uc *paymentUseCase) SetDefaultPaymentMethod(ctx context.Context, userID, methodID uuid.UUID) error {
-	// This is a placeholder implementation since we don't have a payment method entity
-	// In a real implementation, you would update the database
-	return nil
+	// Validate that the payment method belongs to the user
+	paymentMethod, err := uc.paymentMethodRepo.GetByID(ctx, methodID)
+	if err != nil {
+		return err
+	}
+
+	if paymentMethod.UserID != userID {
+		return entities.ErrForbidden
+	}
+
+	if !paymentMethod.IsActive {
+		return entities.ErrPaymentMethodInactive
+	}
+
+	// Check if card is expired
+	if paymentMethod.IsExpired() {
+		return entities.ErrPaymentMethodExpired
+	}
+
+	// Set as default (this will unset others automatically)
+	return uc.paymentMethodRepo.SetAsDefault(ctx, userID, methodID)
 }
 
 // ConfirmPaymentSuccess confirms payment success for an order (fallback method)
@@ -1060,4 +1183,27 @@ func (uc *paymentUseCase) ConfirmPaymentSuccess(ctx context.Context, orderID, us
 
 	fmt.Printf("🎉 Fallback payment confirmation completed\n")
 	return nil
+}
+
+// toPaymentMethodResponse converts PaymentMethodEntity to PaymentMethodResponse
+func (uc *paymentUseCase) toPaymentMethodResponse(pm *entities.PaymentMethodEntity) *PaymentMethodResponse {
+	return &PaymentMethodResponse{
+		ID:            pm.ID,
+		UserID:        pm.UserID,
+		Type:          pm.Type,
+		Last4:         pm.Last4,
+		Brand:         pm.Brand,
+		ExpiryMonth:   pm.ExpiryMonth,
+		ExpiryYear:    pm.ExpiryYear,
+		Gateway:       pm.Gateway,
+		BillingName:   pm.BillingName,
+		BillingEmail:  pm.BillingEmail,
+		IsDefault:     pm.IsDefault,
+		IsActive:      pm.IsActive,
+		IsExpired:     pm.IsExpired(),
+		DisplayName:   pm.GetDisplayName(),
+		CreatedAt:     pm.CreatedAt,
+		UpdatedAt:     pm.UpdatedAt,
+		LastUsedAt:    pm.LastUsedAt,
+	}
 }

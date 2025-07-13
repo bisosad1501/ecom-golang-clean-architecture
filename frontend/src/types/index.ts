@@ -230,7 +230,7 @@ export interface Payment {
   order_id: string
   amount: number
   currency: string
-  status: 'pending' | 'processing' | 'completed' | 'failed' | 'cancelled' | 'refunded'
+  status: 'pending' | 'processing' | 'paid' | 'completed' | 'failed' | 'cancelled' | 'refunded'
   method: PaymentMethod
   created_at: string
 }

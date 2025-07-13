@@ -133,3 +133,51 @@ type PaymentRepository interface {
 	UpdateRefund(ctx context.Context, refund *entities.Refund) error
 	ListRefunds(ctx context.Context, limit, offset int) ([]*entities.Refund, error)
 }
+
+// PaymentMethodRepository defines the interface for payment method data access
+type PaymentMethodRepository interface {
+	// Create creates a new payment method
+	Create(ctx context.Context, paymentMethod *entities.PaymentMethodEntity) error
+
+	// GetByID retrieves a payment method by ID
+	GetByID(ctx context.Context, id uuid.UUID) (*entities.PaymentMethodEntity, error)
+
+	// GetByUserID retrieves all payment methods for a user
+	GetByUserID(ctx context.Context, userID uuid.UUID) ([]*entities.PaymentMethodEntity, error)
+
+	// GetActiveByUserID retrieves all active payment methods for a user
+	GetActiveByUserID(ctx context.Context, userID uuid.UUID) ([]*entities.PaymentMethodEntity, error)
+
+	// GetDefaultByUserID retrieves the default payment method for a user
+	GetDefaultByUserID(ctx context.Context, userID uuid.UUID) (*entities.PaymentMethodEntity, error)
+
+	// GetByGatewayToken retrieves a payment method by gateway token
+	GetByGatewayToken(ctx context.Context, gatewayToken string) (*entities.PaymentMethodEntity, error)
+
+	// GetByFingerprint retrieves payment methods by fingerprint (to prevent duplicates)
+	GetByFingerprint(ctx context.Context, userID uuid.UUID, fingerprint string) (*entities.PaymentMethodEntity, error)
+
+	// Update updates an existing payment method
+	Update(ctx context.Context, paymentMethod *entities.PaymentMethodEntity) error
+
+	// Delete deletes a payment method by ID
+	Delete(ctx context.Context, id uuid.UUID) error
+
+	// SetAsDefault sets a payment method as default and unsets others
+	SetAsDefault(ctx context.Context, userID, paymentMethodID uuid.UUID) error
+
+	// UnsetDefault removes default status from all payment methods for a user
+	UnsetDefault(ctx context.Context, userID uuid.UUID) error
+
+	// Deactivate deactivates a payment method
+	Deactivate(ctx context.Context, id uuid.UUID) error
+
+	// Count returns the total number of payment methods for a user
+	Count(ctx context.Context, userID uuid.UUID) (int64, error)
+
+	// GetExpiredCards retrieves expired card payment methods
+	GetExpiredCards(ctx context.Context, limit, offset int) ([]*entities.PaymentMethodEntity, error)
+
+	// CleanupInactive removes inactive payment methods older than specified days
+	CleanupInactive(ctx context.Context, daysOld int) error
+}

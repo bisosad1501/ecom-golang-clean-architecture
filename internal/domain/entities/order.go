@@ -85,16 +85,7 @@ const (
 	CustomerTypeCorporate  CustomerType = "corporate"
 )
 
-// PaymentStatus represents the payment status of an order
-type PaymentStatus string
-
-const (
-	PaymentStatusPending   PaymentStatus = "pending"
-	PaymentStatusPaid      PaymentStatus = "paid"
-	PaymentStatusFailed    PaymentStatus = "failed"
-	PaymentStatusRefunded  PaymentStatus = "refunded"
-	PaymentStatusCancelled PaymentStatus = "cancelled"
-)
+// PaymentStatus is now defined in payment.go to avoid duplication
 
 // Order represents an order in the system
 type Order struct {

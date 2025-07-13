@@ -10,6 +10,7 @@ import (
 	"ecom-golang-clean-architecture/internal/infrastructure/config"
 	"github.com/gin-gonic/gin"
 	"github.com/golang-jwt/jwt/v5"
+	"github.com/google/uuid"
 )
 
 // AuthMiddlewareStruct holds the auth middleware configuration
@@ -102,7 +103,7 @@ func AuthMiddleware(jwtSecret string) gin.HandlerFunc {
 				return
 			}
 
-			// Validate user_id format
+			// Validate user_id format and parse to UUID
 			if userIDStr, ok := userID.(string); ok {
 				if len(userIDStr) == 0 {
 					c.JSON(http.StatusUnauthorized, gin.H{
@@ -111,6 +112,16 @@ func AuthMiddleware(jwtSecret string) gin.HandlerFunc {
 					c.Abort()
 					return
 				}
+				// Parse string to UUID
+				userUUID, err := uuid.Parse(userIDStr)
+				if err != nil {
+					c.JSON(http.StatusUnauthorized, gin.H{
+						"error": "Invalid user ID format in token",
+					})
+					c.Abort()
+					return
+				}
+				userID = userUUID // Replace string with UUID
 			} else {
 				c.JSON(http.StatusUnauthorized, gin.H{
 					"error": "Invalid user ID format in token",
