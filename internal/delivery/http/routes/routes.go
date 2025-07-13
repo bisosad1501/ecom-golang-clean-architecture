@@ -498,6 +498,17 @@ func SetupRoutes(
 				adminUsers.GET("/:id/activity", adminHandler.GetUserActivity)
 			}
 
+			// Admin customer management and segmentation
+			adminCustomers := admin.Group("/customers")
+			{
+				adminCustomers.GET("/search", adminHandler.SearchCustomers)
+				adminCustomers.GET("/segments", adminHandler.GetCustomerSegments)
+				adminCustomers.GET("/segments/:segment", adminHandler.GetCustomersBySegment)
+				adminCustomers.GET("/analytics", adminHandler.GetCustomerAnalytics)
+				adminCustomers.GET("/high-value", adminHandler.GetHighValueCustomers)
+				adminCustomers.GET("/:customer_id/lifetime-value", adminHandler.GetCustomerLifetimeValue)
+			}
+
 			// Admin product management
 			adminProducts := admin.Group("/products")
 			{

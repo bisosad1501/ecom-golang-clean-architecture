@@ -362,17 +362,239 @@ export function useSearchUsers(query: string, options?: {
     queryKey: [...userKeys.admin(), 'search', query],
     queryFn: async (): Promise<User[]> => {
       if (!query.trim()) return []
-      
+
       const params = new URLSearchParams({
         search: query,
         limit: (options?.limit || 20).toString()
       })
-      
+
       const response = await apiClient.get<PaginatedResponse<User>>(`/admin/users?${params}`)
       return response.data.data
     },
     enabled: options?.enabled !== false && !!query.trim(),
     staleTime: 30 * 1000,
+  })
+}
+
+// Customer search and segmentation hooks
+export interface CustomerSearchFilters {
+  query?: string
+  role?: string
+  status?: string
+  is_active?: boolean
+  email_verified?: boolean
+  phone_verified?: boolean
+  two_factor_enabled?: boolean
+  membership_tier?: string
+  customer_segment?: string
+  min_total_spent?: number
+  max_total_spent?: number
+  min_total_orders?: number
+  max_total_orders?: number
+  min_loyalty_points?: number
+  max_loyalty_points?: number
+  created_from?: string
+  created_to?: string
+  last_login_from?: string
+  last_login_to?: string
+  last_activity_from?: string
+  last_activity_to?: string
+  include_inactive?: boolean
+  include_unverified?: boolean
+  sort_by?: string
+  sort_order?: string
+  limit?: number
+  offset?: number
+}
+
+export interface CustomerSearchResult {
+  id: string
+  email: string
+  first_name: string
+  last_name: string
+  phone?: string
+  role: string
+  status: string
+  is_active: boolean
+  email_verified: boolean
+  phone_verified: boolean
+  two_factor_enabled: boolean
+  last_login?: string
+  last_activity?: string
+  order_count: number
+  total_spent: number
+  loyalty_points: number
+  membership_tier: string
+  customer_segment: string
+  security_level: string
+  is_high_value: boolean
+  is_vip: boolean
+  created_at: string
+  updated_at: string
+}
+
+export interface CustomerSearchResponse {
+  customers: CustomerSearchResult[]
+  total: number
+  pagination: {
+    page: number
+    limit: number
+    total: number
+    total_pages: number
+    has_next: boolean
+    has_prev: boolean
+  }
+  facets?: {
+    roles: Array<{ value: string; count: number }>
+    statuses: Array<{ value: string; count: number }>
+    membership_tiers: Array<{ value: string; count: number }>
+    customer_segments: Array<{ value: string; count: number }>
+    security_levels: Array<{ value: string; count: number }>
+    verification_status: {
+      email_verified: number
+      phone_verified: number
+      two_factor_enabled: number
+    }
+  }
+}
+
+export function useCustomerSearch(filters: CustomerSearchFilters) {
+  return useQuery({
+    queryKey: ['admin', 'customers', 'search', filters],
+    queryFn: async (): Promise<CustomerSearchResponse> => {
+      const params = new URLSearchParams()
+
+      Object.entries(filters).forEach(([key, value]) => {
+        if (value !== undefined && value !== null && value !== '') {
+          params.append(key, value.toString())
+        }
+      })
+
+      const response = await apiClient.get<{
+        data: CustomerSearchResponse
+      }>(`/admin/customers/search?${params}`)
+
+      return response.data.data
+    },
+    staleTime: 30 * 1000,
+  })
+}
+
+export interface CustomerSegmentInfo {
+  segment: string
+  count: number
+  percentage: number
+  avg_spent: number
+  avg_orders: number
+  description: string
+}
+
+export interface CustomerSegmentsResponse {
+  segments: CustomerSegmentInfo[]
+  total: number
+}
+
+export function useCustomerSegments() {
+  return useQuery({
+    queryKey: ['admin', 'customers', 'segments'],
+    queryFn: async (): Promise<CustomerSegmentsResponse> => {
+      const response = await apiClient.get<{
+        data: CustomerSegmentsResponse
+      }>('/admin/customers/segments')
+
+      return response.data.data
+    },
+    staleTime: 5 * 60 * 1000, // 5 minutes
+  })
+}
+
+export interface CustomerAnalyticsResponse {
+  overview: {
+    total_customers: number
+    active_customers: number
+    new_customers: number
+    returning_customers: number
+    churn_rate: number
+    avg_lifetime_value: number
+    avg_order_value: number
+  }
+  segment_breakdown: CustomerSegmentInfo[]
+  tier_distribution: Array<{
+    tier: string
+    count: number
+    percentage: number
+    revenue: number
+  }>
+  geographic_distribution: Array<{
+    country: string
+    count: number
+    percentage: number
+  }>
+  acquisition_trends: Array<{
+    date: string
+    count: number
+  }>
+  retention_metrics: {
+    day_30_retention: number
+    day_90_retention: number
+    day_365_retention: number
+    repeat_purchase_rate: number
+  }
+}
+
+export function useCustomerAnalytics(filters?: {
+  date_from?: string
+  date_to?: string
+  segment?: string
+}) {
+  return useQuery({
+    queryKey: ['admin', 'customers', 'analytics', filters],
+    queryFn: async (): Promise<CustomerAnalyticsResponse> => {
+      const params = new URLSearchParams()
+
+      if (filters) {
+        Object.entries(filters).forEach(([key, value]) => {
+          if (value !== undefined && value !== null && value !== '') {
+            params.append(key, value.toString())
+          }
+        })
+      }
+
+      const response = await apiClient.get<{
+        data: CustomerAnalyticsResponse
+      }>(`/admin/customers/analytics?${params}`)
+
+      return response.data.data
+    },
+    staleTime: 5 * 60 * 1000, // 5 minutes
+  })
+}
+
+export function useHighValueCustomers(limit: number = 50) {
+  return useQuery({
+    queryKey: ['admin', 'customers', 'high-value', limit],
+    queryFn: async (): Promise<{
+      customers: CustomerSearchResult[]
+      total: number
+      criteria: {
+        min_total_spent: number
+        min_total_orders: number
+      }
+    }> => {
+      const response = await apiClient.get<{
+        data: {
+          customers: CustomerSearchResult[]
+          total: number
+          criteria: {
+            min_total_spent: number
+            min_total_orders: number
+          }
+        }
+      }>(`/admin/customers/high-value?limit=${limit}`)
+
+      return response.data.data
+    },
+    staleTime: 5 * 60 * 1000, // 5 minutes
   })
 }
 

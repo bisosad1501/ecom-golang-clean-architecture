@@ -219,6 +219,277 @@ func (h *AdminHandler) GetUserActivity(c *gin.Context) {
 	})
 }
 
+// SearchCustomers performs advanced customer search with filtering and segmentation
+// @Summary Search customers with advanced filters
+// @Description Search customers with advanced filtering, segmentation, and analytics
+// @Tags admin
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Param query query string false "Search query"
+// @Param role query string false "User role filter"
+// @Param status query string false "User status filter"
+// @Param is_active query bool false "Active status filter"
+// @Param email_verified query bool false "Email verified filter"
+// @Param phone_verified query bool false "Phone verified filter"
+// @Param two_factor_enabled query bool false "Two factor enabled filter"
+// @Param membership_tier query string false "Membership tier filter"
+// @Param customer_segment query string false "Customer segment filter"
+// @Param min_total_spent query number false "Minimum total spent filter"
+// @Param max_total_spent query number false "Maximum total spent filter"
+// @Param min_total_orders query int false "Minimum total orders filter"
+// @Param max_total_orders query int false "Maximum total orders filter"
+// @Param min_loyalty_points query int false "Minimum loyalty points filter"
+// @Param max_loyalty_points query int false "Maximum loyalty points filter"
+// @Param created_from query string false "Created from date filter (RFC3339)"
+// @Param created_to query string false "Created to date filter (RFC3339)"
+// @Param last_login_from query string false "Last login from date filter (RFC3339)"
+// @Param last_login_to query string false "Last login to date filter (RFC3339)"
+// @Param last_activity_from query string false "Last activity from date filter (RFC3339)"
+// @Param last_activity_to query string false "Last activity to date filter (RFC3339)"
+// @Param include_inactive query bool false "Include inactive customers"
+// @Param include_unverified query bool false "Include unverified customers"
+// @Param sort_by query string false "Sort by field" Enums(name,email,created_at,last_login,total_spent,total_orders,loyalty_points)
+// @Param sort_order query string false "Sort order" Enums(asc,desc)
+// @Param limit query int false "Limit" default(20)
+// @Param offset query int false "Offset" default(0)
+// @Success 200 {object} usecases.CustomerSearchResponse
+// @Failure 400 {object} ErrorResponse
+// @Failure 401 {object} ErrorResponse
+// @Failure 403 {object} ErrorResponse
+// @Failure 500 {object} ErrorResponse
+// @Router /admin/customers/search [get]
+func (h *AdminHandler) SearchCustomers(c *gin.Context) {
+	var req usecases.CustomerSearchRequest
+	if err := c.ShouldBindQuery(&req); err != nil {
+		c.JSON(http.StatusBadRequest, ErrorResponse{
+			Error:   "Invalid query parameters",
+			Details: err.Error(),
+		})
+		return
+	}
+
+	// Set default values if not provided
+	if req.Limit == 0 {
+		req.Limit = 20
+	}
+	if req.Offset < 0 {
+		req.Offset = 0
+	}
+
+	result, err := h.adminUseCase.SearchCustomers(c.Request.Context(), req)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, ErrorResponse{
+			Error:   "Failed to search customers",
+			Details: err.Error(),
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, SuccessResponse{
+		Message: "Customers searched successfully",
+		Data:    result,
+	})
+}
+
+// GetCustomerSegments returns customer segmentation analysis
+// @Summary Get customer segments
+// @Description Get customer segmentation analysis with statistics
+// @Tags admin
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Success 200 {object} usecases.CustomerSegmentsResponse
+// @Failure 401 {object} ErrorResponse
+// @Failure 403 {object} ErrorResponse
+// @Failure 500 {object} ErrorResponse
+// @Router /admin/customers/segments [get]
+func (h *AdminHandler) GetCustomerSegments(c *gin.Context) {
+	result, err := h.adminUseCase.GetCustomerSegments(c.Request.Context())
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, ErrorResponse{
+			Error:   "Failed to get customer segments",
+			Details: err.Error(),
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, SuccessResponse{
+		Message: "Customer segments retrieved successfully",
+		Data:    result,
+	})
+}
+
+// GetCustomerAnalytics returns comprehensive customer analytics
+// @Summary Get customer analytics
+// @Description Get comprehensive customer analytics and insights
+// @Tags admin
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Param date_from query string false "Date from filter (RFC3339)"
+// @Param date_to query string false "Date to filter (RFC3339)"
+// @Param segment query string false "Customer segment filter"
+// @Success 200 {object} usecases.CustomerAnalyticsResponse
+// @Failure 400 {object} ErrorResponse
+// @Failure 401 {object} ErrorResponse
+// @Failure 403 {object} ErrorResponse
+// @Failure 500 {object} ErrorResponse
+// @Router /admin/customers/analytics [get]
+func (h *AdminHandler) GetCustomerAnalytics(c *gin.Context) {
+	var req usecases.CustomerAnalyticsRequest
+	if err := c.ShouldBindQuery(&req); err != nil {
+		c.JSON(http.StatusBadRequest, ErrorResponse{
+			Error:   "Invalid query parameters",
+			Details: err.Error(),
+		})
+		return
+	}
+
+	result, err := h.adminUseCase.GetCustomerAnalytics(c.Request.Context(), req)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, ErrorResponse{
+			Error:   "Failed to get customer analytics",
+			Details: err.Error(),
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, SuccessResponse{
+		Message: "Customer analytics retrieved successfully",
+		Data:    result,
+	})
+}
+
+// GetHighValueCustomers returns high value customers
+// @Summary Get high value customers
+// @Description Get list of high value customers based on spending and order criteria
+// @Tags admin
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Param limit query int false "Limit" default(50)
+// @Success 200 {object} usecases.HighValueCustomersResponse
+// @Failure 400 {object} ErrorResponse
+// @Failure 401 {object} ErrorResponse
+// @Failure 403 {object} ErrorResponse
+// @Failure 500 {object} ErrorResponse
+// @Router /admin/customers/high-value [get]
+func (h *AdminHandler) GetHighValueCustomers(c *gin.Context) {
+	limitStr := c.DefaultQuery("limit", "50")
+	limit, err := strconv.Atoi(limitStr)
+	if err != nil || limit <= 0 || limit > 1000 {
+		limit = 50
+	}
+
+	result, err := h.adminUseCase.GetHighValueCustomers(c.Request.Context(), limit)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, ErrorResponse{
+			Error:   "Failed to get high value customers",
+			Details: err.Error(),
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, SuccessResponse{
+		Message: "High value customers retrieved successfully",
+		Data:    result,
+	})
+}
+
+// GetCustomersBySegment returns customers filtered by segment
+// @Summary Get customers by segment
+// @Description Get customers filtered by specific segment with pagination
+// @Tags admin
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Param segment path string true "Customer segment" Enums(new,occasional,regular,loyal)
+// @Param limit query int false "Limit" default(20)
+// @Param offset query int false "Offset" default(0)
+// @Success 200 {object} usecases.CustomersBySegmentResponse
+// @Failure 400 {object} ErrorResponse
+// @Failure 401 {object} ErrorResponse
+// @Failure 403 {object} ErrorResponse
+// @Failure 500 {object} ErrorResponse
+// @Router /admin/customers/segments/{segment} [get]
+func (h *AdminHandler) GetCustomersBySegment(c *gin.Context) {
+	segment := c.Param("segment")
+	if segment == "" {
+		c.JSON(http.StatusBadRequest, ErrorResponse{
+			Error: "Segment parameter is required",
+		})
+		return
+	}
+
+	limitStr := c.DefaultQuery("limit", "20")
+	limit, err := strconv.Atoi(limitStr)
+	if err != nil || limit <= 0 || limit > 100 {
+		limit = 20
+	}
+
+	offsetStr := c.DefaultQuery("offset", "0")
+	offset, err := strconv.Atoi(offsetStr)
+	if err != nil || offset < 0 {
+		offset = 0
+	}
+
+	result, err := h.adminUseCase.GetCustomersBySegment(c.Request.Context(), segment, limit, offset)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, ErrorResponse{
+			Error:   "Failed to get customers by segment",
+			Details: err.Error(),
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, SuccessResponse{
+		Message: "Customers by segment retrieved successfully",
+		Data:    result,
+	})
+}
+
+// GetCustomerLifetimeValue calculates and returns customer lifetime value
+// @Summary Get customer lifetime value
+// @Description Calculate and return customer lifetime value with analytics
+// @Tags admin
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Param customer_id path string true "Customer ID"
+// @Success 200 {object} usecases.CustomerLifetimeValueResponse
+// @Failure 400 {object} ErrorResponse
+// @Failure 401 {object} ErrorResponse
+// @Failure 403 {object} ErrorResponse
+// @Failure 404 {object} ErrorResponse
+// @Failure 500 {object} ErrorResponse
+// @Router /admin/customers/{customer_id}/lifetime-value [get]
+func (h *AdminHandler) GetCustomerLifetimeValue(c *gin.Context) {
+	customerIDStr := c.Param("customer_id")
+	customerID, err := uuid.Parse(customerIDStr)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, ErrorResponse{
+			Error:   "Invalid customer ID",
+			Details: err.Error(),
+		})
+		return
+	}
+
+	result, err := h.adminUseCase.GetCustomerLifetimeValue(c.Request.Context(), customerID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, ErrorResponse{
+			Error:   "Failed to get customer lifetime value",
+			Details: err.Error(),
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, SuccessResponse{
+		Message: "Customer lifetime value retrieved successfully",
+		Data:    result,
+	})
+}
+
 // GetOrders returns paginated list of orders
 func (h *AdminHandler) GetOrders(c *gin.Context) {
 	var req usecases.AdminOrdersRequest
