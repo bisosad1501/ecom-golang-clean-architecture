@@ -141,6 +141,16 @@ func (uc *inventoryUseCase) RecordMovement(ctx context.Context, req RecordMoveme
 		return nil, fmt.Errorf("failed to update stock: %w", err)
 	}
 
+	// Sync product stock with inventory - get updated inventory first
+	updatedInventory, err := uc.inventoryRepo.GetByID(ctx, inventory.ID)
+	if err == nil {
+		// Update product stock to match inventory quantity on hand
+		if err := uc.productRepo.UpdateStock(ctx, req.ProductID, updatedInventory.QuantityOnHand); err != nil {
+			// Log error but don't fail the operation
+			// logger.Error("Failed to sync product stock", "error", err)
+		}
+	}
+
 	// Check and create alerts if needed
 	if err := uc.CheckAndCreateAlerts(ctx, inventory.ID); err != nil {
 		// Log error but don't fail the operation
@@ -220,15 +230,36 @@ func (uc *inventoryUseCase) AdjustStock(ctx context.Context, req AdjustStockRequ
 		return nil, err
 	}
 
+	// Determine movement type based on quantity delta
+	var movementType string
+	var quantity int
+	if req.QuantityDelta > 0 {
+		movementType = "in"
+		quantity = req.QuantityDelta
+	} else if req.QuantityDelta < 0 {
+		movementType = "out"
+		quantity = -req.QuantityDelta // Make positive for movement record
+	} else {
+		return nil, fmt.Errorf("quantity delta cannot be zero")
+	}
+
 	// Create movement record for adjustment
 	movementReq := RecordMovementRequest{
 		ProductID:   req.ProductID,
 		WarehouseID: req.WarehouseID,
-		Type:        "adjust",
-		Reason:      "adjustment",
-		Quantity:    req.QuantityDelta,
+		Type:        movementType,
+		Reason:      req.Reason,
+		Quantity:    quantity,
 		Notes:       req.Notes,
 		CreatedBy:   req.AdjustedBy,
+	}
+
+	// Add batch and expiry info if provided
+	if req.BatchNumber != "" {
+		movementReq.BatchNumber = &req.BatchNumber
+	}
+	if req.ExpiryDate != nil {
+		movementReq.ExpiryDate = req.ExpiryDate
 	}
 
 	// Record the movement
@@ -281,8 +312,12 @@ func (uc *inventoryUseCase) GetMovementReport(ctx context.Context, req MovementR
 
 // GetLowStockItems gets items with low stock
 func (uc *inventoryUseCase) GetLowStockItems(ctx context.Context, req GetLowStockItemsRequest) (*LowStockItemsResponse, error) {
-	// Calculate offset from page and limit
-	offset := req.Page * req.Limit
+	// Calculate offset from page and limit (page is 1-based)
+	page := req.Page
+	if page < 1 {
+		page = 1
+	}
+	offset := (page - 1) * req.Limit
 
 	// Get low stock items from repository
 	inventories, err := uc.inventoryRepo.GetLowStockItems(ctx, req.Limit, offset)
@@ -302,7 +337,7 @@ func (uc *inventoryUseCase) GetLowStockItems(ctx context.Context, req GetLowStoc
 		items[i] = uc.toInventoryResponse(inventory)
 	}
 
-	pagination := NewPaginationInfo(offset, req.Limit, total)
+	pagination := NewPaginationInfo(page, req.Limit, total)
 
 	response := &LowStockItemsResponse{
 		Items:      items,
@@ -314,8 +349,12 @@ func (uc *inventoryUseCase) GetLowStockItems(ctx context.Context, req GetLowStoc
 
 // GetMovements gets inventory movements
 func (uc *inventoryUseCase) GetMovements(ctx context.Context, req GetMovementsRequest) (*MovementsListResponse, error) {
-	// Calculate offset from page and limit
-	offset := req.Page * req.Limit
+	// Calculate offset from page and limit (page is 1-based)
+	page := req.Page
+	if page < 1 {
+		page = 1
+	}
+	offset := (page - 1) * req.Limit
 
 	var movements []*entities.InventoryMovement
 	var err error
@@ -344,7 +383,7 @@ func (uc *inventoryUseCase) GetMovements(ctx context.Context, req GetMovementsRe
 	// For total count, we'll use the length for now
 	// In a real implementation, you'd want a separate count query
 	total := int64(len(movements))
-	pagination := NewPaginationInfo(offset, req.Limit, total)
+	pagination := NewPaginationInfo(page, req.Limit, total)
 
 	response := &MovementsListResponse{
 		Items:      items,
@@ -496,7 +535,7 @@ func (uc *inventoryUseCase) CheckAndCreateAlerts(ctx context.Context, inventoryI
 			InventoryID:     inventoryID,
 			Type:            entities.StockAlertTypeLowStock,
 			Status:          entities.StockAlertStatusActive,
-			Message:         fmt.Sprintf("Low stock alert: %s has only %d units remaining", inventory.Product.Name, inventory.QuantityAvailable),
+			Message:         fmt.Sprintf("Low stock alert: Product has only %d units remaining (threshold: %d)", inventory.QuantityAvailable, inventory.ReorderLevel),
 			Severity:        "medium",
 			CurrentQuantity: inventory.QuantityAvailable,
 			ThresholdValue:  inventory.ReorderLevel,
@@ -513,7 +552,7 @@ func (uc *inventoryUseCase) CheckAndCreateAlerts(ctx context.Context, inventoryI
 			InventoryID:     inventoryID,
 			Type:            entities.StockAlertTypeOutStock,
 			Status:          entities.StockAlertStatusActive,
-			Message:         fmt.Sprintf("Out of stock alert: %s is out of stock", inventory.Product.Name),
+			Message:         fmt.Sprintf("Out of stock alert: Product is completely out of stock"),
 			Severity:        "high",
 			CurrentQuantity: inventory.QuantityAvailable,
 			ThresholdValue:  0,
@@ -530,7 +569,7 @@ func (uc *inventoryUseCase) CheckAndCreateAlerts(ctx context.Context, inventoryI
 			InventoryID:     inventoryID,
 			Type:            entities.StockAlertTypeOverStock,
 			Status:          entities.StockAlertStatusActive,
-			Message:         fmt.Sprintf("Over stock alert: %s has %d units, exceeding maximum of %d", inventory.Product.Name, inventory.QuantityOnHand, inventory.MaxStockLevel),
+			Message:         fmt.Sprintf("Over stock alert: Product has %d units, exceeding maximum of %d", inventory.QuantityOnHand, inventory.MaxStockLevel),
 			Severity:        "low",
 			CurrentQuantity: inventory.QuantityOnHand,
 			ThresholdValue:  inventory.MaxStockLevel,
@@ -573,8 +612,12 @@ func (uc *inventoryUseCase) GetProductInventories(ctx context.Context, productID
 
 // GetWarehouseInventories gets all inventories for a specific warehouse
 func (uc *inventoryUseCase) GetWarehouseInventories(ctx context.Context, warehouseID uuid.UUID, req GetInventoriesRequest) (*InventoriesListResponse, error) {
-	// Calculate offset from page and limit
-	offset := req.Page * req.Limit
+	// Calculate offset from page and limit (page is 1-based)
+	page := req.Page
+	if page < 1 {
+		page = 1
+	}
+	offset := (page - 1) * req.Limit
 
 	// Get inventories from repository
 	inventories, err := uc.inventoryRepo.GetInventoryByWarehouse(ctx, warehouseID, req.Limit, offset)
@@ -597,7 +640,7 @@ func (uc *inventoryUseCase) GetWarehouseInventories(ctx context.Context, warehou
 		items[i] = uc.toInventoryResponse(inventory)
 	}
 
-	pagination := NewPaginationInfo(offset, req.Limit, total)
+	pagination := NewPaginationInfo(page, req.Limit, total)
 
 	response := &InventoriesListResponse{
 		Items:      items,
@@ -745,8 +788,12 @@ func (uc *inventoryUseCase) TransferStock(ctx context.Context, req TransferStock
 
 // GetStockAlerts gets stock alerts
 func (uc *inventoryUseCase) GetStockAlerts(ctx context.Context, req GetAlertsRequest) (*AlertsListResponse, error) {
-	// Calculate offset from page and limit
-	offset := req.Page * req.Limit
+	// Calculate offset from page and limit (page is 1-based)
+	page := req.Page
+	if page < 1 {
+		page = 1
+	}
+	offset := (page - 1) * req.Limit
 
 	// Get alerts from repository
 	alerts, err := uc.inventoryRepo.GetActiveAlerts(ctx, req.Limit, offset)
@@ -777,7 +824,7 @@ func (uc *inventoryUseCase) GetStockAlerts(ctx context.Context, req GetAlertsReq
 	}
 
 	total := int64(len(filteredAlerts))
-	pagination := NewPaginationInfo(offset, req.Limit, total)
+	pagination := NewPaginationInfo(page, req.Limit, total)
 
 	response := &AlertsListResponse{
 		Items:      items,

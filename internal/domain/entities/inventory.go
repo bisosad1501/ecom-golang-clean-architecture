@@ -1,6 +1,7 @@
 package entities
 
 import (
+	"fmt"
 	"time"
 
 	"github.com/google/uuid"
@@ -137,6 +138,75 @@ func (i *Inventory) UpdateAvailableQuantity() {
 	}
 }
 
+// Validate validates inventory data
+func (i *Inventory) Validate() error {
+	// Validate required fields
+	if i.ProductID == uuid.Nil {
+		return fmt.Errorf("product ID is required")
+	}
+	if i.WarehouseID == uuid.Nil {
+		return fmt.Errorf("warehouse ID is required")
+	}
+
+	// Validate quantities are non-negative
+	if i.QuantityOnHand < 0 {
+		return fmt.Errorf("quantity on hand cannot be negative")
+	}
+	if i.QuantityReserved < 0 {
+		return fmt.Errorf("quantity reserved cannot be negative")
+	}
+	if i.QuantityAvailable < 0 {
+		return fmt.Errorf("quantity available cannot be negative")
+	}
+
+	// Validate thresholds
+	if i.ReorderLevel < 0 {
+		return fmt.Errorf("reorder level cannot be negative")
+	}
+	if i.MaxStockLevel < 0 {
+		return fmt.Errorf("max stock level cannot be negative")
+	}
+	if i.MinStockLevel < 0 {
+		return fmt.Errorf("min stock level cannot be negative")
+	}
+
+	// Validate threshold relationships
+	if i.MinStockLevel > i.ReorderLevel {
+		return fmt.Errorf("min stock level (%d) cannot be greater than reorder level (%d)",
+			i.MinStockLevel, i.ReorderLevel)
+	}
+	if i.ReorderLevel > i.MaxStockLevel {
+		return fmt.Errorf("reorder level (%d) cannot be greater than max stock level (%d)",
+			i.ReorderLevel, i.MaxStockLevel)
+	}
+
+	// Validate quantity consistency
+	expectedAvailable := i.QuantityOnHand - i.QuantityReserved
+	if expectedAvailable < 0 {
+		expectedAvailable = 0
+	}
+	if i.QuantityAvailable != expectedAvailable {
+		return fmt.Errorf("quantity available (%d) does not match calculated value (%d) from on hand (%d) - reserved (%d)",
+			i.QuantityAvailable, expectedAvailable, i.QuantityOnHand, i.QuantityReserved)
+	}
+
+	// Validate reserved quantity doesn't exceed on hand
+	if i.QuantityReserved > i.QuantityOnHand {
+		return fmt.Errorf("quantity reserved (%d) cannot exceed quantity on hand (%d)",
+			i.QuantityReserved, i.QuantityOnHand)
+	}
+
+	// Validate cost fields
+	if i.AverageCost < 0 {
+		return fmt.Errorf("average cost cannot be negative")
+	}
+	if i.LastCost < 0 {
+		return fmt.Errorf("last cost cannot be negative")
+	}
+
+	return nil
+}
+
 // InventoryMovement represents inventory movement transactions
 type InventoryMovement struct {
 	ID          uuid.UUID               `json:"id" gorm:"type:uuid;primary_key;default:gen_random_uuid()"`
@@ -188,6 +258,68 @@ func (im *InventoryMovement) IsOutbound() bool {
 		   im.Type == InventoryMovementTypeExpired
 }
 
+// Validate validates inventory movement data
+func (im *InventoryMovement) Validate() error {
+	// Validate required fields
+	if im.InventoryID == uuid.Nil {
+		return fmt.Errorf("inventory ID is required")
+	}
+	if im.Type == "" {
+		return fmt.Errorf("movement type is required")
+	}
+	if im.Reason == "" {
+		return fmt.Errorf("movement reason is required")
+	}
+	if im.CreatedBy == uuid.Nil {
+		return fmt.Errorf("created by is required")
+	}
+
+	// Validate quantity
+	if im.Quantity == 0 {
+		return fmt.Errorf("quantity cannot be zero")
+	}
+
+	// Validate before/after quantities are non-negative
+	if im.QuantityBefore < 0 {
+		return fmt.Errorf("quantity before cannot be negative")
+	}
+	if im.QuantityAfter < 0 {
+		return fmt.Errorf("quantity after cannot be negative")
+	}
+
+	// Validate quantity change consistency
+	expectedQuantityAfter := im.QuantityBefore
+	if im.IsInbound() {
+		expectedQuantityAfter += im.Quantity
+	} else if im.IsOutbound() {
+		expectedQuantityAfter -= im.Quantity
+	}
+
+	if im.QuantityAfter != expectedQuantityAfter {
+		return fmt.Errorf("quantity after (%d) does not match expected value (%d) based on movement",
+			im.QuantityAfter, expectedQuantityAfter)
+	}
+
+	// Validate cost fields
+	if im.UnitCost < 0 {
+		return fmt.Errorf("unit cost cannot be negative")
+	}
+	if im.TotalCost < 0 {
+		return fmt.Errorf("total cost cannot be negative")
+	}
+
+	// Validate total cost consistency if both unit cost and quantity are provided
+	if im.UnitCost > 0 && im.Quantity > 0 {
+		expectedTotalCost := im.UnitCost * float64(im.Quantity)
+		if im.TotalCost != expectedTotalCost {
+			return fmt.Errorf("total cost (%.2f) does not match unit cost (%.2f) * quantity (%d) = %.2f",
+				im.TotalCost, im.UnitCost, im.Quantity, expectedTotalCost)
+		}
+	}
+
+	return nil
+}
+
 // Warehouse represents a storage location
 type Warehouse struct {
 	ID          uuid.UUID `json:"id" gorm:"type:uuid;primary_key;default:gen_random_uuid()"`
@@ -226,6 +358,65 @@ type Warehouse struct {
 // TableName returns the table name for Warehouse entity
 func (Warehouse) TableName() string {
 	return "warehouses"
+}
+
+// Validate validates warehouse data
+func (w *Warehouse) Validate() error {
+	// Validate required fields
+	if w.Code == "" {
+		return fmt.Errorf("warehouse code is required")
+	}
+	if w.Name == "" {
+		return fmt.Errorf("warehouse name is required")
+	}
+
+	// Validate capacity
+	if w.Capacity < 0 {
+		return fmt.Errorf("capacity cannot be negative")
+	}
+
+	// Validate coordinates if provided
+	if w.Latitude != 0 || w.Longitude != 0 {
+		if w.Latitude < -90 || w.Latitude > 90 {
+			return fmt.Errorf("latitude must be between -90 and 90, got %.6f", w.Latitude)
+		}
+		if w.Longitude < -180 || w.Longitude > 180 {
+			return fmt.Errorf("longitude must be between -180 and 180, got %.6f", w.Longitude)
+		}
+	}
+
+	// Validate email format if provided
+	if w.Email != "" {
+		// Basic email validation
+		if len(w.Email) < 5 || !contains(w.Email, "@") || !contains(w.Email, ".") {
+			return fmt.Errorf("invalid email format: %s", w.Email)
+		}
+	}
+
+	// Validate warehouse type
+	validTypes := map[string]bool{
+		"standard":     true,
+		"cold_storage": true,
+		"hazmat":       true,
+		"distribution": true,
+		"fulfillment":  true,
+		"retail":       true,
+	}
+	if w.Type != "" && !validTypes[w.Type] {
+		return fmt.Errorf("invalid warehouse type: %s", w.Type)
+	}
+
+	return nil
+}
+
+// Helper function for basic string contains check
+func contains(s, substr string) bool {
+	for i := 0; i <= len(s)-len(substr); i++ {
+		if s[i:i+len(substr)] == substr {
+			return true
+		}
+	}
+	return false
 }
 
 // WarehouseZone represents a zone within a warehouse
@@ -315,6 +506,59 @@ func (sa *StockAlert) Resolve(resolvedBy uuid.UUID, resolution string) {
 	sa.UpdatedAt = now
 }
 
+// Validate validates stock alert data
+func (sa *StockAlert) Validate() error {
+	// Validate required fields
+	if sa.InventoryID == uuid.Nil {
+		return fmt.Errorf("inventory ID is required")
+	}
+	if sa.Type == "" {
+		return fmt.Errorf("alert type is required")
+	}
+	if sa.Message == "" {
+		return fmt.Errorf("alert message is required")
+	}
+
+	// Validate severity
+	validSeverities := map[string]bool{
+		"low":      true,
+		"medium":   true,
+		"high":     true,
+		"critical": true,
+	}
+	if !validSeverities[sa.Severity] {
+		return fmt.Errorf("invalid severity: %s. Must be one of: low, medium, high, critical", sa.Severity)
+	}
+
+	// Validate quantities are non-negative
+	if sa.CurrentQuantity < 0 {
+		return fmt.Errorf("current quantity cannot be negative")
+	}
+	if sa.ThresholdValue < 0 {
+		return fmt.Errorf("threshold value cannot be negative")
+	}
+
+	// Validate alert type specific rules
+	switch sa.Type {
+	case StockAlertTypeLowStock:
+		if sa.CurrentQuantity > sa.ThresholdValue {
+			return fmt.Errorf("for low stock alert, current quantity (%d) should be <= threshold (%d)",
+				sa.CurrentQuantity, sa.ThresholdValue)
+		}
+	case StockAlertTypeOutStock:
+		if sa.CurrentQuantity > 0 {
+			return fmt.Errorf("for out of stock alert, current quantity should be 0, got %d", sa.CurrentQuantity)
+		}
+	case StockAlertTypeOverStock:
+		if sa.CurrentQuantity < sa.ThresholdValue {
+			return fmt.Errorf("for over stock alert, current quantity (%d) should be >= threshold (%d)",
+				sa.CurrentQuantity, sa.ThresholdValue)
+		}
+	}
+
+	return nil
+}
+
 // Supplier represents a product supplier
 type Supplier struct {
 	ID          uuid.UUID `json:"id" gorm:"type:uuid;primary_key;default:gen_random_uuid()"`
@@ -372,6 +616,63 @@ func (s *Supplier) GetOverallRating() float64 {
 // IsReliable checks if supplier is reliable based on ratings
 func (s *Supplier) IsReliable() bool {
 	return s.GetOverallRating() >= 4.0
+}
+
+// Validate validates supplier data
+func (s *Supplier) Validate() error {
+	// Validate required fields
+	if s.Code == "" {
+		return fmt.Errorf("supplier code is required")
+	}
+	if s.Name == "" {
+		return fmt.Errorf("supplier name is required")
+	}
+
+	// Validate email format if provided
+	if s.Email != "" {
+		if len(s.Email) < 5 || !contains(s.Email, "@") || !contains(s.Email, ".") {
+			return fmt.Errorf("invalid email format: %s", s.Email)
+		}
+	}
+
+	// Validate financial fields
+	if s.CreditLimit < 0 {
+		return fmt.Errorf("credit limit cannot be negative")
+	}
+	if s.MinOrderAmount < 0 {
+		return fmt.Errorf("minimum order amount cannot be negative")
+	}
+	if s.LeadTimeDays < 0 {
+		return fmt.Errorf("lead time days cannot be negative")
+	}
+
+	// Validate ratings (0-5 scale)
+	if s.QualityRating < 0 || s.QualityRating > 5 {
+		return fmt.Errorf("quality rating must be between 0 and 5, got %.2f", s.QualityRating)
+	}
+	if s.DeliveryRating < 0 || s.DeliveryRating > 5 {
+		return fmt.Errorf("delivery rating must be between 0 and 5, got %.2f", s.DeliveryRating)
+	}
+	if s.ServiceRating < 0 || s.ServiceRating > 5 {
+		return fmt.Errorf("service rating must be between 0 and 5, got %.2f", s.ServiceRating)
+	}
+
+	// Validate payment terms if provided
+	if s.PaymentTerms != "" {
+		validTerms := map[string]bool{
+			"Net 30":     true,
+			"Net 60":     true,
+			"Net 90":     true,
+			"COD":        true,
+			"Prepaid":    true,
+			"2/10 Net 30": true,
+		}
+		if !validTerms[s.PaymentTerms] {
+			return fmt.Errorf("invalid payment terms: %s", s.PaymentTerms)
+		}
+	}
+
+	return nil
 }
 
 // WarehouseStats represents warehouse statistics
