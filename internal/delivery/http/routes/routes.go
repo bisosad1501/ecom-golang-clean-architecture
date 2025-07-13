@@ -267,7 +267,9 @@ func SetupRoutes(
 			shipping := v1.Group("/shipping")
 			{
 				shipping.GET("/methods", shippingHandler.GetShippingMethods)
-				// shipping.POST("/calculate", shippingHandler.CalculateShipping) // TODO: Implement CalculateShipping method
+				shipping.POST("/calculate-distance", shippingHandler.CalculateDistanceBasedShipping)
+				shipping.GET("/zones", shippingHandler.GetShippingZones)
+				shipping.POST("/rates", shippingHandler.CalculateShippingCost)
 				shipping.GET("/track/:tracking_number", shippingHandler.TrackShipment)
 			}
 		}

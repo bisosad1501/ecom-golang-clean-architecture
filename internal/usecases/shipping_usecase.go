@@ -2,10 +2,12 @@ package usecases
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	"ecom-golang-clean-architecture/internal/domain/entities"
 	"ecom-golang-clean-architecture/internal/domain/repositories"
+	"ecom-golang-clean-architecture/internal/domain/services"
 
 	"github.com/google/uuid"
 )
@@ -26,21 +28,28 @@ type ShippingUseCase interface {
 	CreateReturn(ctx context.Context, req CreateReturnRequest) (*ReturnResponse, error)
 	GetReturn(ctx context.Context, returnID uuid.UUID) (*ReturnResponse, error)
 	ProcessReturn(ctx context.Context, returnID uuid.UUID, status entities.ReturnStatus) (*ReturnResponse, error)
+
+	// Distance-based methods
+	CalculateDistanceBasedShipping(ctx context.Context, req DistanceBasedShippingRequest) (*DistanceBasedShippingResponse, error)
+	GetShippingZones(ctx context.Context) ([]services.ShippingZoneInfo, error)
 }
 
 type shippingUseCase struct {
-	shippingRepo repositories.ShippingRepository
-	orderRepo    repositories.OrderRepository
+	shippingRepo    repositories.ShippingRepository
+	orderRepo       repositories.OrderRepository
+	distanceService services.DistanceService
 }
 
 // NewShippingUseCase creates a new shipping use case
 func NewShippingUseCase(
 	shippingRepo repositories.ShippingRepository,
 	orderRepo repositories.OrderRepository,
+	distanceService services.DistanceService,
 ) ShippingUseCase {
 	return &shippingUseCase{
-		shippingRepo: shippingRepo,
-		orderRepo:    orderRepo,
+		shippingRepo:    shippingRepo,
+		orderRepo:       orderRepo,
+		distanceService: distanceService,
 	}
 }
 
@@ -77,6 +86,18 @@ type ReturnItemRequest struct {
 	Quantity  int       `json:"quantity" validate:"required,gt=0"`
 }
 
+type DistanceBasedShippingRequest struct {
+	FromLatitude  *float64 `json:"from_latitude"`
+	FromLongitude *float64 `json:"from_longitude"`
+	FromAddress   string   `json:"from_address"`
+	ToLatitude    *float64 `json:"to_latitude"`
+	ToLongitude   *float64 `json:"to_longitude"`
+	ToAddress     string   `json:"to_address" validate:"required"`
+	Weight        float64  `json:"weight" validate:"required,gt=0"`
+	OrderValue    float64  `json:"order_value" validate:"required,gt=0"`
+	MethodID      string   `json:"method_id"`
+}
+
 // Response types
 type ShippingMethodResponse struct {
 	ID          uuid.UUID `json:"id"`
@@ -94,6 +115,23 @@ type ShippingCostResponse struct {
 	MethodName    string    `json:"method_name"`
 	Cost          float64   `json:"cost"`
 	EstimatedDays int       `json:"estimated_days"`
+}
+
+type DistanceBasedShippingResponse struct {
+	Distance      float64                     `json:"distance_km"`
+	Zone          string                      `json:"shipping_zone"`
+	IsShippable   bool                        `json:"is_shippable"`
+	Options       []DistanceShippingOption    `json:"shipping_options"`
+	Recommendations []string                  `json:"recommendations"`
+}
+
+type DistanceShippingOption struct {
+	MethodID      string  `json:"method_id"`
+	MethodName    string  `json:"method_name"`
+	Cost          float64 `json:"cost"`
+	EstimatedDays int     `json:"estimated_days"`
+	IsAvailable   bool    `json:"is_available"`
+	Reason        string  `json:"reason,omitempty"`
 }
 
 type ShipmentResponse struct {
@@ -412,4 +450,91 @@ func (uc *shippingUseCase) toReturnResponse(returnEntity *entities.Return) *Retu
 		CreatedAt:    returnEntity.CreatedAt,
 		UpdatedAt:    returnEntity.UpdatedAt,
 	}
+}
+
+// CalculateDistanceBasedShipping calculates shipping options based on distance
+func (uc *shippingUseCase) CalculateDistanceBasedShipping(ctx context.Context, req DistanceBasedShippingRequest) (*DistanceBasedShippingResponse, error) {
+	var distance float64
+	var err error
+
+	// Calculate distance based on provided data
+	if req.FromLatitude != nil && req.FromLongitude != nil && req.ToLatitude != nil && req.ToLongitude != nil {
+		distance, err = uc.distanceService.CalculateDistance(ctx, *req.FromLatitude, *req.FromLongitude, *req.ToLatitude, *req.ToLongitude)
+	} else if req.FromAddress != "" && req.ToAddress != "" {
+		distance, err = uc.distanceService.CalculateDistanceByAddress(ctx, req.FromAddress, req.ToAddress)
+	} else {
+		return nil, fmt.Errorf("insufficient location data provided")
+	}
+
+	if err != nil {
+		return nil, fmt.Errorf("failed to calculate distance: %w", err)
+	}
+
+	// Get shipping zone
+	zone, err := uc.distanceService.GetShippingZoneByDistance(ctx, distance)
+	if err != nil {
+		return &DistanceBasedShippingResponse{
+			Distance:    distance,
+			Zone:        "unavailable",
+			IsShippable: false,
+			Options:     []DistanceShippingOption{},
+			Recommendations: []string{"Shipping not available for this distance"},
+		}, nil
+	}
+
+	// Get available shipping methods
+	methods, err := uc.shippingRepo.GetShippingMethods(ctx, nil, &req.Weight)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get shipping methods: %w", err)
+	}
+
+	// Calculate shipping options
+	var options []DistanceShippingOption
+	var recommendations []string
+
+	for _, method := range methods {
+		// Validate if method supports this distance
+		isValid, err := uc.distanceService.ValidateShippingDistance(ctx, distance, method.Name)
+		if err != nil {
+			continue
+		}
+
+		// Calculate cost using the method's CalculateCost function
+		cost := method.CalculateCost(req.Weight, distance, req.OrderValue)
+
+		option := DistanceShippingOption{
+			MethodID:      method.ID.String(),
+			MethodName:    method.Name,
+			Cost:          cost,
+			EstimatedDays: method.MaxDeliveryDays,
+			IsAvailable:   isValid,
+		}
+
+		if !isValid {
+			option.Reason = fmt.Sprintf("Distance %.1f km exceeds maximum for %s", distance, method.Name)
+		}
+
+		options = append(options, option)
+	}
+
+	// Add recommendations
+	if distance > 500 {
+		recommendations = append(recommendations, "Consider splitting large orders for faster delivery")
+	}
+	if req.OrderValue > 100 {
+		recommendations = append(recommendations, "You may be eligible for free shipping on some methods")
+	}
+
+	return &DistanceBasedShippingResponse{
+		Distance:        distance,
+		Zone:           zone,
+		IsShippable:    len(options) > 0,
+		Options:        options,
+		Recommendations: recommendations,
+	}, nil
+}
+
+// GetShippingZones returns available shipping zones
+func (uc *shippingUseCase) GetShippingZones(ctx context.Context) ([]services.ShippingZoneInfo, error) {
+	return uc.distanceService.GetShippingZones(), nil
 }

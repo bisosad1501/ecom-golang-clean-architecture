@@ -224,8 +224,11 @@ func main() {
 		txManager,
 	)
 
+	// Initialize distance service
+	distanceService := services.NewDistanceService()
+
 	// Initialize shipping use case
-	shippingUseCase := usecases.NewShippingUseCase(shippingRepo, orderRepo)
+	shippingUseCase := usecases.NewShippingUseCase(shippingRepo, orderRepo, distanceService)
 
 	adminUseCase := usecases.NewAdminUseCase(
 		userRepo, orderRepo, productRepo, reviewRepo,

@@ -325,7 +325,7 @@ func (r *shippingRepository) GetShippingMethods(ctx context.Context, locationID 
 
 	// Filter by weight limits if weight is provided
 	if weight != nil {
-		query = query.Where("(max_weight IS NULL OR max_weight >= ?) AND (min_weight IS NULL OR min_weight <= ?)", *weight, *weight)
+		query = query.Where("max_weight IS NULL OR max_weight >= ?", *weight)
 	}
 
 	// Additional location-based filtering could be added here if needed

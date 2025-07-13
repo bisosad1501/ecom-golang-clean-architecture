@@ -279,3 +279,46 @@ func (h *ShippingHandler) ProcessReturn(c *gin.Context) {
 		Data: returnReq,
 	})
 }
+
+// CalculateDistanceBasedShipping calculates shipping options based on distance
+func (h *ShippingHandler) CalculateDistanceBasedShipping(c *gin.Context) {
+	var req usecases.DistanceBasedShippingRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, ErrorResponse{
+			Error: "Invalid request body",
+			Details: err.Error(),
+		})
+		return
+	}
+
+	response, err := h.shippingUseCase.CalculateDistanceBasedShipping(c.Request.Context(), req)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, ErrorResponse{
+			Error: "Failed to calculate distance-based shipping",
+			Details: err.Error(),
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, SuccessResponse{
+		Message: "Distance-based shipping calculated successfully",
+		Data: response,
+	})
+}
+
+// GetShippingZones returns available shipping zones
+func (h *ShippingHandler) GetShippingZones(c *gin.Context) {
+	zones, err := h.shippingUseCase.GetShippingZones(c.Request.Context())
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, ErrorResponse{
+			Error: "Failed to get shipping zones",
+			Details: err.Error(),
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, SuccessResponse{
+		Message: "Shipping zones retrieved successfully",
+		Data: zones,
+	})
+}
