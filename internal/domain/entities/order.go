@@ -1,6 +1,7 @@
 package entities
 
 import (
+	"fmt"
 	"os"
 	"strconv"
 	"time"
@@ -197,6 +198,37 @@ func (OrderItem) TableName() string {
 	return "order_items"
 }
 
+// Validate validates order item data
+func (oi *OrderItem) Validate() error {
+	if oi.ProductID == uuid.Nil {
+		return fmt.Errorf("product ID is required")
+	}
+	if oi.ProductName == "" {
+		return fmt.Errorf("product name is required")
+	}
+	if oi.ProductSKU == "" {
+		return fmt.Errorf("product SKU is required")
+	}
+	if oi.Quantity <= 0 {
+		return fmt.Errorf("quantity must be greater than 0")
+	}
+	if oi.Price < 0 {
+		return fmt.Errorf("price cannot be negative")
+	}
+	if oi.Total < 0 {
+		return fmt.Errorf("total cannot be negative")
+	}
+
+	// Verify that total matches price * quantity
+	expectedTotal := oi.Price * float64(oi.Quantity)
+	if oi.Total != expectedTotal {
+		return fmt.Errorf("total %.2f does not match price %.2f * quantity %d = %.2f",
+			oi.Total, oi.Price, oi.Quantity, expectedTotal)
+	}
+
+	return nil
+}
+
 // OrderAddress represents an address for orders
 type OrderAddress struct {
 	FirstName string `json:"first_name" validate:"required"`
@@ -214,6 +246,38 @@ type OrderAddress struct {
 // GetFullName returns the full name from the address
 func (a *OrderAddress) GetFullName() string {
 	return a.FirstName + " " + a.LastName
+}
+
+// Validate validates order address data
+func (a *OrderAddress) Validate() error {
+	if a.FirstName == "" {
+		return fmt.Errorf("first name is required")
+	}
+	if a.LastName == "" {
+		return fmt.Errorf("last name is required")
+	}
+	if a.Address1 == "" {
+		return fmt.Errorf("address line 1 is required")
+	}
+	if a.City == "" {
+		return fmt.Errorf("city is required")
+	}
+	if a.State == "" {
+		return fmt.Errorf("state is required")
+	}
+	if a.ZipCode == "" {
+		return fmt.Errorf("zip code is required")
+	}
+	if a.Country == "" {
+		return fmt.Errorf("country is required")
+	}
+
+	// Validate zip code format (basic validation)
+	if len(a.ZipCode) < 3 || len(a.ZipCode) > 20 {
+		return fmt.Errorf("zip code must be between 3 and 20 characters")
+	}
+
+	return nil
 }
 
 // OrderEventType represents the type of order event
@@ -358,6 +422,72 @@ func (o *Order) ReleaseReservation() {
 	o.InventoryReserved = false
 	o.ReservedUntil = nil
 	// Optionally, update stock here if needed
+}
+
+// Validate validates order data
+func (o *Order) Validate() error {
+	// Validate required fields
+	if o.OrderNumber == "" {
+		return fmt.Errorf("order number is required")
+	}
+	if o.UserID == uuid.Nil {
+		return fmt.Errorf("user ID is required")
+	}
+	if len(o.Items) == 0 {
+		return fmt.Errorf("order must have at least one item")
+	}
+
+	// Validate financial fields
+	if o.Subtotal < 0 {
+		return fmt.Errorf("subtotal cannot be negative")
+	}
+	if o.TaxAmount < 0 {
+		return fmt.Errorf("tax amount cannot be negative")
+	}
+	if o.ShippingAmount < 0 {
+		return fmt.Errorf("shipping amount cannot be negative")
+	}
+	if o.DiscountAmount < 0 {
+		return fmt.Errorf("discount amount cannot be negative")
+	}
+	if o.TipAmount < 0 {
+		return fmt.Errorf("tip amount cannot be negative")
+	}
+	if o.Total < 0 {
+		return fmt.Errorf("total cannot be negative")
+	}
+
+	// Validate total calculation
+	expectedTotal := o.Subtotal + o.TaxAmount + o.ShippingAmount + o.TipAmount - o.DiscountAmount
+	if o.Total != expectedTotal {
+		return fmt.Errorf("total %.2f does not match calculated total %.2f", o.Total, expectedTotal)
+	}
+
+	// Validate currency
+	if o.Currency == "" {
+		return fmt.Errorf("currency is required")
+	}
+
+	// Validate order items
+	for i, item := range o.Items {
+		if err := item.Validate(); err != nil {
+			return fmt.Errorf("item %d validation failed: %w", i, err)
+		}
+	}
+
+	// Validate addresses if present
+	if o.ShippingAddress != nil {
+		if err := o.ShippingAddress.Validate(); err != nil {
+			return fmt.Errorf("shipping address validation failed: %w", err)
+		}
+	}
+	if o.BillingAddress != nil {
+		if err := o.BillingAddress.Validate(); err != nil {
+			return fmt.Errorf("billing address validation failed: %w", err)
+		}
+	}
+
+	return nil
 }
 
 // Call ValidateTimeouts when creating new order (example constructor)

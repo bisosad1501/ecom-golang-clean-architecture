@@ -46,7 +46,8 @@ type CartItem struct {
 	ProductID uuid.UUID `json:"product_id" gorm:"type:uuid;not null;index"`
 	Product   Product   `json:"product" gorm:"foreignKey:ProductID"`
 	Quantity  int       `json:"quantity" gorm:"not null" validate:"required,gt=0"`
-	Price     float64   `json:"price" gorm:"not null"`
+	Price     float64   `json:"price" gorm:"not null" validate:"required,gte=0"`
+	Total     float64   `json:"total" gorm:"not null" validate:"required,gte=0"`
 	CreatedAt time.Time `json:"created_at" gorm:"autoCreateTime"`
 	UpdatedAt time.Time `json:"updated_at" gorm:"autoUpdateTime"`
 }
@@ -150,6 +151,24 @@ func (c *Cart) Validate() error {
 	// Validate currency
 	if c.Currency == "" {
 		c.Currency = "USD"
+	}
+
+	// Validate financial fields
+	if c.Subtotal < 0 {
+		return fmt.Errorf("subtotal cannot be negative")
+	}
+	if c.Total < 0 {
+		return fmt.Errorf("total cannot be negative")
+	}
+	if c.ItemCount < 0 {
+		return fmt.Errorf("item_count cannot be negative")
+	}
+
+	// Validate items
+	for i, item := range c.Items {
+		if err := item.Validate(); err != nil {
+			return fmt.Errorf("item %d validation failed: %w", i, err)
+		}
 	}
 	validCurrencies := []string{"USD", "EUR", "GBP", "JPY", "VND"}
 	isValidCurrency := false
@@ -281,7 +300,33 @@ func (c *Cart) Clear() {
 	c.UpdateCalculatedFields()
 }
 
-// GetSubtotal calculates the subtotal for a cart item
+// GetSubtotal returns the stored total for a cart item
 func (ci *CartItem) GetSubtotal() float64 {
-	return ci.Price * float64(ci.Quantity)
+	return ci.Total
+}
+
+// CalculateTotal calculates and updates the total for a cart item
+func (ci *CartItem) CalculateTotal() {
+	ci.Total = ci.Price * float64(ci.Quantity)
+	ci.UpdatedAt = time.Now()
+}
+
+// Validate validates cart item data
+func (ci *CartItem) Validate() error {
+	if ci.Quantity <= 0 {
+		return fmt.Errorf("quantity must be greater than 0")
+	}
+	if ci.Price < 0 {
+		return fmt.Errorf("price cannot be negative")
+	}
+	if ci.Total < 0 {
+		return fmt.Errorf("total cannot be negative")
+	}
+	// Verify that total matches price * quantity
+	expectedTotal := ci.Price * float64(ci.Quantity)
+	if ci.Total != expectedTotal {
+		return fmt.Errorf("total %.2f does not match price %.2f * quantity %d = %.2f",
+			ci.Total, ci.Price, ci.Quantity, expectedTotal)
+	}
+	return nil
 }

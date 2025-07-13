@@ -312,6 +312,8 @@ func (uc *cartUseCase) addToCartInTransaction(ctx context.Context, userID uuid.U
 			CreatedAt: time.Now(),
 			UpdatedAt: time.Now(),
 		}
+		// Calculate and set total
+		cartItem.CalculateTotal()
 
 		if err := uc.cartRepo.AddItem(ctx, cart.ID, cartItem); err != nil {
 			return nil, pkgErrors.Wrap(err, pkgErrors.ErrCodeInternalError, "Failed to add item to cart")
@@ -440,6 +442,8 @@ func (uc *cartUseCase) addToGuestCartInTransaction(ctx context.Context, sessionI
 			CreatedAt: time.Now(),
 			UpdatedAt: time.Now(),
 		}
+		// Calculate and set total
+		cartItem.CalculateTotal()
 		if err := uc.cartRepo.AddItem(ctx, cart.ID, cartItem); err != nil {
 			return nil, pkgErrors.Wrap(err, pkgErrors.ErrCodeInternalError, "Failed to add item to guest cart")
 		}
@@ -483,6 +487,8 @@ func (uc *cartUseCase) UpdateCartItem(ctx context.Context, userID uuid.UUID, req
 	// Update quantity
 	cartItem.Quantity = req.Quantity
 	cartItem.UpdatedAt = time.Now()
+	// Recalculate total
+	cartItem.CalculateTotal()
 
 	if err := uc.cartRepo.UpdateItem(ctx, cartItem); err != nil {
 		return nil, err
@@ -735,6 +741,8 @@ func (uc *cartUseCase) MergeGuestCartWithStrategy(ctx context.Context, userID uu
 				CreatedAt: time.Now(),
 				UpdatedAt: time.Now(),
 			}
+			// Calculate and set total
+			newItem.CalculateTotal()
 
 			if err := txRepo.AddItem(txCtx, userCart.ID, newItem); err != nil {
 				return nil, pkgErrors.Wrap(err, pkgErrors.ErrCodeInternalError, "Failed to replace cart item")
@@ -793,6 +801,8 @@ func (uc *cartUseCase) mergeCartItems(ctx context.Context, userCart, guestCart *
 				CreatedAt: time.Now(),
 				UpdatedAt: time.Now(),
 			}
+			// Calculate and set total
+			newItem.CalculateTotal()
 
 			if err := uc.cartRepo.AddItem(ctx, userCart.ID, newItem); err != nil {
 				return nil, pkgErrors.Wrap(err, pkgErrors.ErrCodeInternalError, "Failed to add merged cart item")
@@ -849,6 +859,8 @@ func (uc *cartUseCase) mergeCartItemsWithRepo(ctx context.Context, repo reposito
 				CreatedAt: time.Now(),
 				UpdatedAt: time.Now(),
 			}
+			// Calculate and set total
+			newItem.CalculateTotal()
 
 			if err := repo.AddItem(ctx, userCart.ID, newItem); err != nil {
 				return nil, pkgErrors.Wrap(err, pkgErrors.ErrCodeInternalError, "Failed to add merged cart item")
