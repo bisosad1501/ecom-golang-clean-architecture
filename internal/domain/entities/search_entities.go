@@ -4,6 +4,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/lib/pq"
 )
 
 // SearchSuggestion represents search suggestions
@@ -113,7 +114,18 @@ type AutocompleteEntry struct {
 	SearchCount int       `json:"search_count" gorm:"default:0"` // how often this was searched
 	ClickCount  int       `json:"click_count" gorm:"default:0"`  // how often this was clicked
 	IsActive    bool      `json:"is_active" gorm:"default:true"`
+	IsTrending  bool      `json:"is_trending" gorm:"default:false"` // trending suggestions
+	IsPersonalized bool   `json:"is_personalized" gorm:"default:false"` // personalized for user
+	UserID      *uuid.UUID `json:"user_id" gorm:"type:uuid;index"` // for personalized suggestions
 	Metadata    string    `json:"metadata" gorm:"type:jsonb"` // additional data (price, image, etc.)
+
+	// Enhanced fields for smart autocomplete
+	Synonyms    pq.StringArray `json:"synonyms" gorm:"type:text[]"` // alternative search terms
+	Tags        pq.StringArray `json:"tags" gorm:"type:text[]"`     // categorization tags
+	Score       float64   `json:"score" gorm:"default:0"`      // relevance score
+	Language    string    `json:"language" gorm:"default:'en'"` // language code
+	Region      string    `json:"region"`                       // geographic region
+
 	CreatedAt   time.Time `json:"created_at" gorm:"autoCreateTime"`
 	UpdatedAt   time.Time `json:"updated_at" gorm:"autoUpdateTime"`
 }
@@ -121,6 +133,55 @@ type AutocompleteEntry struct {
 // TableName returns the table name for AutocompleteEntry entity
 func (AutocompleteEntry) TableName() string {
 	return "autocomplete_entries"
+}
+
+// SmartAutocompleteRequest represents a smart autocomplete request
+type SmartAutocompleteRequest struct {
+	Query               string     `json:"query"`
+	Types               []string   `json:"types"`               // product, category, brand, query
+	Limit               int        `json:"limit"`
+	UserID              *uuid.UUID `json:"user_id"`
+	IncludeTrending     bool       `json:"include_trending"`
+	IncludePersonalized bool       `json:"include_personalized"`
+	IncludeHistory      bool       `json:"include_history"`
+	IncludePopular      bool       `json:"include_popular"`
+	Language            string     `json:"language"`
+	Region              string     `json:"region"`
+	SessionID           string     `json:"session_id"`
+	IPAddress           string     `json:"ip_address"`
+	UserAgent           string     `json:"user_agent"`
+}
+
+// SmartAutocompleteSuggestion represents a smart suggestion
+type SmartAutocompleteSuggestion struct {
+	ID          uuid.UUID              `json:"id"`
+	Type        string                 `json:"type"`
+	Value       string                 `json:"value"`
+	DisplayText string                 `json:"display_text"`
+	EntityID    *uuid.UUID             `json:"entity_id,omitempty"`
+	Priority    int                    `json:"priority"`
+	Score       float64                `json:"score"`
+	IsTrending  bool                   `json:"is_trending"`
+	IsPersonalized bool                `json:"is_personalized"`
+	Metadata    map[string]interface{} `json:"metadata,omitempty"`
+	Synonyms    []string               `json:"synonyms,omitempty"`
+	Tags        []string               `json:"tags,omitempty"`
+	Reason      string                 `json:"reason,omitempty"` // why this suggestion was shown
+}
+
+// SmartAutocompleteResponse represents the response for smart autocomplete
+type SmartAutocompleteResponse struct {
+	Suggestions []SmartAutocompleteSuggestion `json:"suggestions"`
+	Categories  []SmartAutocompleteSuggestion `json:"categories,omitempty"`
+	Brands      []SmartAutocompleteSuggestion `json:"brands,omitempty"`
+	Products    []SmartAutocompleteSuggestion `json:"products,omitempty"`
+	Queries     []SmartAutocompleteSuggestion `json:"queries,omitempty"`
+	Trending    []SmartAutocompleteSuggestion `json:"trending,omitempty"`
+	Popular     []SmartAutocompleteSuggestion `json:"popular,omitempty"`
+	History     []SmartAutocompleteSuggestion `json:"history,omitempty"`
+	Total       int                           `json:"total"`
+	HasMore     bool                          `json:"has_more"`
+	QueryTime   int64                         `json:"query_time_ms"`
 }
 
 // SearchTrend represents search trend data

@@ -47,6 +47,10 @@ type SearchUseCase interface {
 	GetPersonalizedAutocomplete(ctx context.Context, userID uuid.UUID, query string, limit int) (*EnhancedAutocompleteResponse, error)
 	GetTrendingSearches(ctx context.Context, limit int) ([]TrendingSearchResponse, error)
 
+	// Smart Autocomplete
+	GetSmartAutocomplete(ctx context.Context, req entities.SmartAutocompleteRequest) (*entities.SmartAutocompleteResponse, error)
+	TrackAutocompleteInteraction(ctx context.Context, entryID uuid.UUID, userID *uuid.UUID, sessionID string, interactionType string) error
+
 	// Search Preferences
 	GetUserSearchPreferences(ctx context.Context, userID uuid.UUID) (*UserSearchPreferencesResponse, error)
 	UpdateUserSearchPreferences(ctx context.Context, userID uuid.UUID, req UpdateSearchPreferencesRequest) error
@@ -1568,4 +1572,43 @@ type SearchTrendResponse struct {
 	Period      string    `json:"period"`
 	Date        time.Time `json:"date"`
 	Change      float64   `json:"change"` // percentage change from previous period
+}
+
+// GetSmartAutocomplete provides intelligent autocomplete suggestions
+func (uc *searchUseCase) GetSmartAutocomplete(ctx context.Context, req entities.SmartAutocompleteRequest) (*entities.SmartAutocompleteResponse, error) {
+	// Set defaults
+	if req.Limit <= 0 {
+		req.Limit = 10
+	}
+	if req.Language == "" {
+		req.Language = "en"
+	}
+
+	// Call repository method
+	response, err := uc.searchRepo.GetSmartAutocomplete(ctx, req)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get smart autocomplete: %w", err)
+	}
+
+	// Track autocomplete request for analytics
+	if req.UserID != nil {
+		go func() {
+			// Track in background to not slow down response
+			uc.searchRepo.RecordSearchAnalytics(context.Background(), req.Query, len(response.Suggestions))
+		}()
+	}
+
+	return response, nil
+}
+
+// TrackAutocompleteInteraction tracks user interactions with autocomplete suggestions
+func (uc *searchUseCase) TrackAutocompleteInteraction(ctx context.Context, entryID uuid.UUID, userID *uuid.UUID, sessionID string, interactionType string) error {
+	switch interactionType {
+	case "click":
+		return uc.searchRepo.TrackAutocompleteClick(ctx, entryID, userID, sessionID)
+	case "impression":
+		return uc.searchRepo.TrackAutocompleteImpression(ctx, entryID, userID, sessionID)
+	default:
+		return fmt.Errorf("unknown interaction type: %s", interactionType)
+	}
 }

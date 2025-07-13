@@ -196,6 +196,8 @@ func SetupRoutes(
 				search.GET("/popular", searchHandler.GetPopularSearchTerms)
 				search.GET("/autocomplete", searchHandler.GetAutocomplete)
 				search.GET("/autocomplete/enhanced", searchHandler.GetEnhancedAutocomplete)
+				search.GET("/autocomplete/smart", searchHandler.GetSmartAutocomplete)
+				search.POST("/autocomplete/track", searchHandler.TrackAutocompleteInteraction)
 				search.GET("/trending", searchHandler.GetTrendingSearches)
 				search.GET("/trends", searchHandler.GetSearchTrends)
 				search.POST("/record", searchHandler.RecordSearchEvent)

@@ -71,6 +71,19 @@ type SearchRepository interface {
 	GetBrandSuggestions(ctx context.Context, query string, limit int) ([]*entities.AutocompleteEntry, error)
 	GetProductSuggestions(ctx context.Context, query string, limit int) ([]*entities.AutocompleteEntry, error)
 
+	// Enhanced Smart Autocomplete
+	GetSmartAutocomplete(ctx context.Context, req entities.SmartAutocompleteRequest) (*entities.SmartAutocompleteResponse, error)
+	GetFuzzyMatches(ctx context.Context, query string, types []string, limit int) ([]*entities.AutocompleteEntry, error)
+	GetSynonymSuggestions(ctx context.Context, query string, limit int) ([]*entities.AutocompleteEntry, error)
+	GetPopularSuggestions(ctx context.Context, limit int, timeframe string) ([]*entities.AutocompleteEntry, error)
+	GetUserAutocompleteHistory(ctx context.Context, userID uuid.UUID, limit int) ([]*entities.AutocompleteEntry, error)
+
+	// Autocomplete Analytics
+	TrackAutocompleteClick(ctx context.Context, entryID uuid.UUID, userID *uuid.UUID, sessionID string) error
+	TrackAutocompleteImpression(ctx context.Context, entryID uuid.UUID, userID *uuid.UUID, sessionID string) error
+	UpdateAutocompleteTrending(ctx context.Context) error
+	CalculateAutocompleteScores(ctx context.Context) error
+
 	// Autocomplete Management
 	RebuildAutocompleteIndex(ctx context.Context) error
 	CleanupOldAutocompleteEntries(ctx context.Context, days int) error

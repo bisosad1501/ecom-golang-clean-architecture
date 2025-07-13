@@ -604,6 +604,174 @@ func (h *SearchHandler) GetPersonalizedAutocomplete(c *gin.Context) {
 	})
 }
 
+// GetSmartAutocomplete handles smart autocomplete requests with advanced features
+// @Summary Get smart autocomplete suggestions
+// @Description Get intelligent autocomplete suggestions with fuzzy matching, personalization, and trending
+// @Tags search
+// @Accept json
+// @Produce json
+// @Param q query string true "Search query"
+// @Param types query string false "Comma-separated types (product,category,brand,query)"
+// @Param limit query int false "Limit" default(10)
+// @Param include_trending query bool false "Include trending suggestions"
+// @Param include_personalized query bool false "Include personalized suggestions"
+// @Param include_history query bool false "Include search history"
+// @Param include_popular query bool false "Include popular suggestions"
+// @Param language query string false "Language code" default(en)
+// @Param region query string false "Region code"
+// @Success 200 {object} entities.SmartAutocompleteResponse
+// @Router /search/autocomplete/smart [get]
+func (h *SearchHandler) GetSmartAutocomplete(c *gin.Context) {
+	query := c.Query("q")
+	if query == "" {
+		c.JSON(http.StatusBadRequest, ErrorResponse{
+			Error: "Query parameter 'q' is required",
+		})
+		return
+	}
+
+	req := entities.SmartAutocompleteRequest{
+		Query:               query,
+		Limit:               10,
+		IncludeTrending:     false,
+		IncludePersonalized: false,
+		IncludeHistory:      false,
+		IncludePopular:      false,
+		Language:            "en",
+		SessionID:           c.GetString("session_id"),
+		IPAddress:           c.ClientIP(),
+		UserAgent:           c.GetHeader("User-Agent"),
+	}
+
+	// Parse types
+	if typesStr := c.Query("types"); typesStr != "" {
+		req.Types = strings.Split(typesStr, ",")
+	}
+
+	// Parse limit
+	if limitStr := c.Query("limit"); limitStr != "" {
+		if limit, err := strconv.Atoi(limitStr); err == nil && limit > 0 && limit <= 50 {
+			req.Limit = limit
+		}
+	}
+
+	// Parse boolean flags
+	if includeTrending := c.Query("include_trending"); includeTrending != "" {
+		if val, err := strconv.ParseBool(includeTrending); err == nil {
+			req.IncludeTrending = val
+		}
+	}
+
+	if includePersonalized := c.Query("include_personalized"); includePersonalized != "" {
+		if val, err := strconv.ParseBool(includePersonalized); err == nil {
+			req.IncludePersonalized = val
+		}
+	}
+
+	if includeHistory := c.Query("include_history"); includeHistory != "" {
+		if val, err := strconv.ParseBool(includeHistory); err == nil {
+			req.IncludeHistory = val
+		}
+	}
+
+	if includePopular := c.Query("include_popular"); includePopular != "" {
+		if val, err := strconv.ParseBool(includePopular); err == nil {
+			req.IncludePopular = val
+		}
+	}
+
+	// Parse language and region
+	if language := c.Query("language"); language != "" {
+		req.Language = language
+	}
+
+	if region := c.Query("region"); region != "" {
+		req.Region = region
+	}
+
+	// Get user ID if authenticated
+	if userID, exists := c.Get("user_id"); exists {
+		if uid, ok := userID.(uuid.UUID); ok {
+			req.UserID = &uid
+		}
+	}
+
+	// Get smart autocomplete suggestions
+	response, err := h.searchUseCase.GetSmartAutocomplete(c.Request.Context(), req)
+	if err != nil {
+		c.JSON(getErrorStatusCode(err), ErrorResponse{
+			Error: err.Error(),
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, SuccessResponse{
+		Data: response,
+	})
+}
+
+// TrackAutocompleteInteraction tracks user interactions with autocomplete suggestions
+// @Summary Track autocomplete interaction
+// @Description Track when users click or interact with autocomplete suggestions
+// @Tags search
+// @Accept json
+// @Produce json
+// @Param request body TrackAutocompleteRequest true "Interaction data"
+// @Success 200 {object} SuccessResponse
+// @Router /search/autocomplete/track [post]
+func (h *SearchHandler) TrackAutocompleteInteraction(c *gin.Context) {
+	var req TrackAutocompleteRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, ErrorResponse{
+			Error: "Invalid request body: " + err.Error(),
+		})
+		return
+	}
+
+	// Get user ID if authenticated
+	var userID *uuid.UUID
+	if uid, exists := c.Get("user_id"); exists {
+		if id, ok := uid.(uuid.UUID); ok {
+			userID = &id
+		}
+	}
+
+	// Get session ID
+	sessionID := c.GetString("session_id")
+	if sessionID == "" {
+		sessionID = req.SessionID
+	}
+
+	// Track the interaction
+	err := h.searchUseCase.TrackAutocompleteInteraction(
+		c.Request.Context(),
+		req.EntryID,
+		userID,
+		sessionID,
+		req.InteractionType,
+	)
+
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, ErrorResponse{
+			Error: "Failed to track interaction: " + err.Error(),
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, SuccessResponse{
+		Message: "Interaction tracked successfully",
+	})
+}
+
+// TrackAutocompleteRequest represents the request for tracking autocomplete interactions
+type TrackAutocompleteRequest struct {
+	EntryID         uuid.UUID `json:"entry_id" binding:"required"`
+	InteractionType string    `json:"interaction_type" binding:"required"` // "click" or "impression"
+	SessionID       string    `json:"session_id"`
+	Query           string    `json:"query"`
+	Position        int       `json:"position"` // position in the suggestion list
+}
+
 // GetTrendingSearches handles trending searches requests
 // @Summary Get trending search terms
 // @Description Get trending search terms

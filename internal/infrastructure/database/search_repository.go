@@ -2,7 +2,9 @@ package database
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
+	"sort"
 	"strings"
 	"time"
 
@@ -1623,4 +1625,387 @@ func (r *searchRepository) GetFacetCounts(ctx context.Context, params repositori
 // Helper function to create float64 pointer
 func float64Ptr(f float64) *float64 {
 	return &f
+}
+
+// GetSmartAutocomplete provides intelligent autocomplete suggestions
+func (r *searchRepository) GetSmartAutocomplete(ctx context.Context, req entities.SmartAutocompleteRequest) (*entities.SmartAutocompleteResponse, error) {
+	startTime := time.Now()
+
+	response := &entities.SmartAutocompleteResponse{
+		Suggestions: []entities.SmartAutocompleteSuggestion{},
+		Total:       0,
+		HasMore:     false,
+	}
+
+	if req.Limit <= 0 {
+		req.Limit = 10
+	}
+
+	var allSuggestions []entities.SmartAutocompleteSuggestion
+
+	// 1. Get fuzzy matches for typo tolerance
+	if req.Query != "" {
+		fuzzyEntries, err := r.GetFuzzyMatches(ctx, req.Query, req.Types, req.Limit/2)
+		if err == nil {
+			for _, entry := range fuzzyEntries {
+				suggestion := r.convertToSmartSuggestion(entry, "fuzzy_match")
+				allSuggestions = append(allSuggestions, suggestion)
+			}
+		}
+	}
+
+	// 2. Get personalized suggestions if user is authenticated
+	if req.IncludePersonalized && req.UserID != nil {
+		personalizedEntries, err := r.GetPersonalizedSuggestions(ctx, *req.UserID, req.Query, req.Limit/4)
+		if err == nil {
+			for _, entry := range personalizedEntries {
+				suggestion := r.convertToSmartSuggestion(entry, "personalized")
+				suggestion.IsPersonalized = true
+				allSuggestions = append(allSuggestions, suggestion)
+			}
+		}
+	}
+
+	// 3. Get trending suggestions
+	if req.IncludeTrending {
+		trendingEntries, err := r.GetTrendingSuggestions(ctx, req.Limit/4)
+		if err == nil {
+			for _, entry := range trendingEntries {
+				suggestion := r.convertToSmartSuggestion(entry, "trending")
+				suggestion.IsTrending = true
+				allSuggestions = append(allSuggestions, suggestion)
+			}
+		}
+	}
+
+	// 4. Get popular suggestions
+	if req.IncludePopular {
+		popularEntries, err := r.GetPopularSuggestions(ctx, req.Limit/4, "week")
+		if err == nil {
+			for _, entry := range popularEntries {
+				suggestion := r.convertToSmartSuggestion(entry, "popular")
+				allSuggestions = append(allSuggestions, suggestion)
+			}
+		}
+	}
+
+	// 5. Get search history if requested
+	if req.IncludeHistory && req.UserID != nil {
+		historyEntries, err := r.GetUserAutocompleteHistory(ctx, *req.UserID, req.Limit/4)
+		if err == nil {
+			for _, entry := range historyEntries {
+				suggestion := r.convertToSmartSuggestion(entry, "history")
+				allSuggestions = append(allSuggestions, suggestion)
+			}
+		}
+	}
+
+	// 6. Get synonym suggestions
+	if req.Query != "" {
+		synonymEntries, err := r.GetSynonymSuggestions(ctx, req.Query, req.Limit/4)
+		if err == nil {
+			for _, entry := range synonymEntries {
+				suggestion := r.convertToSmartSuggestion(entry, "synonym")
+				allSuggestions = append(allSuggestions, suggestion)
+			}
+		}
+	}
+
+	// Remove duplicates and sort by score
+	uniqueSuggestions := r.deduplicateAndSort(allSuggestions)
+
+	// Limit results
+	if len(uniqueSuggestions) > req.Limit {
+		response.Suggestions = uniqueSuggestions[:req.Limit]
+		response.HasMore = true
+	} else {
+		response.Suggestions = uniqueSuggestions
+	}
+
+	// Group by type for easier frontend consumption
+	r.groupSuggestionsByType(response)
+
+	response.Total = len(response.Suggestions)
+	response.QueryTime = time.Since(startTime).Milliseconds()
+
+	return response, nil
+}
+
+// GetFuzzyMatches provides fuzzy matching for typo tolerance
+func (r *searchRepository) GetFuzzyMatches(ctx context.Context, query string, types []string, limit int) ([]*entities.AutocompleteEntry, error) {
+	if limit <= 0 {
+		limit = 10
+	}
+
+	var entries []*entities.AutocompleteEntry
+	dbQuery := r.db.WithContext(ctx).Model(&entities.AutocompleteEntry{}).
+		Where("is_active = true")
+
+	if len(types) > 0 {
+		dbQuery = dbQuery.Where("type IN ?", types)
+	}
+
+	// Use PostgreSQL similarity operator for fuzzy matching
+	// First try simple ILIKE matching, then add similarity if needed
+	dbQuery = dbQuery.Where("value ILIKE ? OR display_text ILIKE ? OR synonyms::text ILIKE ?",
+		"%"+query+"%", "%"+query+"%", "%"+query+"%")
+
+	err := dbQuery.Order("priority DESC, search_count DESC, score DESC").
+		Limit(limit).
+		Find(&entries).Error
+
+	// Debug log
+	fmt.Printf("DEBUG GetFuzzyMatches: query=%s, types=%v, limit=%d, found=%d entries, error=%v\n",
+		query, types, limit, len(entries), err)
+
+	return entries, err
+}
+
+// GetSynonymSuggestions gets suggestions based on synonyms
+func (r *searchRepository) GetSynonymSuggestions(ctx context.Context, query string, limit int) ([]*entities.AutocompleteEntry, error) {
+	if limit <= 0 {
+		limit = 5
+	}
+
+	// First, find synonyms for the query
+	var synonyms []string
+	err := r.db.WithContext(ctx).Table("search_synonyms").
+		Select("unnest(synonyms) as synonym").
+		Where("term ILIKE ? AND is_active = true", "%"+query+"%").
+		Pluck("synonym", &synonyms)
+
+	if err != nil || len(synonyms) == 0 {
+		return []*entities.AutocompleteEntry{}, nil
+	}
+
+	// Get suggestions for synonyms
+	var entries []*entities.AutocompleteEntry
+	for _, synonym := range synonyms {
+		var synonymEntries []*entities.AutocompleteEntry
+		err := r.db.WithContext(ctx).Model(&entities.AutocompleteEntry{}).
+			Where("is_active = true AND (value ILIKE ? OR display_text ILIKE ?)", "%"+synonym+"%", "%"+synonym+"%").
+			Order("priority DESC, search_count DESC").
+			Limit(limit / len(synonyms) + 1).
+			Find(&synonymEntries).Error
+
+		if err == nil {
+			entries = append(entries, synonymEntries...)
+		}
+	}
+
+	return entries, nil
+}
+
+// GetPopularSuggestions gets popular suggestions based on timeframe
+func (r *searchRepository) GetPopularSuggestions(ctx context.Context, limit int, timeframe string) ([]*entities.AutocompleteEntry, error) {
+	if limit <= 0 {
+		limit = 10
+	}
+
+	var entries []*entities.AutocompleteEntry
+	query := r.db.WithContext(ctx).Model(&entities.AutocompleteEntry{}).
+		Where("is_active = true")
+
+	// Add timeframe filter based on updated_at
+	switch timeframe {
+	case "day":
+		query = query.Where("updated_at >= ?", time.Now().AddDate(0, 0, -1))
+	case "week":
+		query = query.Where("updated_at >= ?", time.Now().AddDate(0, 0, -7))
+	case "month":
+		query = query.Where("updated_at >= ?", time.Now().AddDate(0, -1, 0))
+	}
+
+	err := query.Order("search_count DESC, click_count DESC, priority DESC").
+		Limit(limit).
+		Find(&entries).Error
+
+	return entries, err
+}
+
+// GetUserAutocompleteHistory gets user's search history as suggestions
+func (r *searchRepository) GetUserAutocompleteHistory(ctx context.Context, userID uuid.UUID, limit int) ([]*entities.AutocompleteEntry, error) {
+	if limit <= 0 {
+		limit = 5
+	}
+
+	var entries []*entities.AutocompleteEntry
+	err := r.db.WithContext(ctx).Model(&entities.AutocompleteEntry{}).
+		Where("user_id = ? AND is_active = true", userID).
+		Order("updated_at DESC, search_count DESC").
+		Limit(limit).
+		Find(&entries).Error
+
+	return entries, err
+}
+
+// convertToSmartSuggestion converts AutocompleteEntry to SmartAutocompleteSuggestion
+func (r *searchRepository) convertToSmartSuggestion(entry *entities.AutocompleteEntry, reason string) entities.SmartAutocompleteSuggestion {
+	var metadata map[string]interface{}
+	if entry.Metadata != "" {
+		json.Unmarshal([]byte(entry.Metadata), &metadata)
+	}
+
+	return entities.SmartAutocompleteSuggestion{
+		ID:             entry.ID,
+		Type:           entry.Type,
+		Value:          entry.Value,
+		DisplayText:    entry.DisplayText,
+		EntityID:       entry.EntityID,
+		Priority:       entry.Priority,
+		Score:          entry.Score,
+		IsTrending:     entry.IsTrending,
+		IsPersonalized: entry.IsPersonalized,
+		Metadata:       metadata,
+		Synonyms:       []string(entry.Synonyms),
+		Tags:           []string(entry.Tags),
+		Reason:         reason,
+	}
+}
+
+// deduplicateAndSort removes duplicates and sorts suggestions by score
+func (r *searchRepository) deduplicateAndSort(suggestions []entities.SmartAutocompleteSuggestion) []entities.SmartAutocompleteSuggestion {
+	seen := make(map[string]bool)
+	var unique []entities.SmartAutocompleteSuggestion
+
+	for _, suggestion := range suggestions {
+		key := suggestion.Type + ":" + suggestion.Value
+		if !seen[key] {
+			seen[key] = true
+			unique = append(unique, suggestion)
+		}
+	}
+
+	// Sort by score (descending), then priority (descending)
+	sort.Slice(unique, func(i, j int) bool {
+		if unique[i].Score != unique[j].Score {
+			return unique[i].Score > unique[j].Score
+		}
+		return unique[i].Priority > unique[j].Priority
+	})
+
+	return unique
+}
+
+// groupSuggestionsByType groups suggestions by type for easier frontend consumption
+func (r *searchRepository) groupSuggestionsByType(response *entities.SmartAutocompleteResponse) {
+	for _, suggestion := range response.Suggestions {
+		switch suggestion.Type {
+		case "product":
+			response.Products = append(response.Products, suggestion)
+		case "category":
+			response.Categories = append(response.Categories, suggestion)
+		case "brand":
+			response.Brands = append(response.Brands, suggestion)
+		case "query":
+			response.Queries = append(response.Queries, suggestion)
+		}
+
+		if suggestion.IsTrending {
+			response.Trending = append(response.Trending, suggestion)
+		}
+
+		if suggestion.Reason == "popular" {
+			response.Popular = append(response.Popular, suggestion)
+		}
+
+		if suggestion.Reason == "history" {
+			response.History = append(response.History, suggestion)
+		}
+	}
+}
+
+// TrackAutocompleteClick tracks when a user clicks on an autocomplete suggestion
+func (r *searchRepository) TrackAutocompleteClick(ctx context.Context, entryID uuid.UUID, userID *uuid.UUID, sessionID string) error {
+	// Increment click count
+	err := r.db.WithContext(ctx).Model(&entities.AutocompleteEntry{}).
+		Where("id = ?", entryID).
+		UpdateColumn("click_count", gorm.Expr("click_count + 1")).Error
+
+	if err != nil {
+		return err
+	}
+
+	// Record the click event for analytics
+	clickEvent := map[string]interface{}{
+		"entry_id":   entryID,
+		"user_id":    userID,
+		"session_id": sessionID,
+		"event_type": "autocomplete_click",
+		"timestamp":  time.Now(),
+	}
+
+	// Store in analytics (simplified - could be expanded)
+	return r.db.WithContext(ctx).Table("search_events").Create(map[string]interface{}{
+		"query":      "",
+		"user_id":    userID,
+		"session_id": sessionID,
+		"filters":    clickEvent,
+		"created_at": time.Now(),
+	}).Error
+}
+
+// TrackAutocompleteImpression tracks when autocomplete suggestions are shown
+func (r *searchRepository) TrackAutocompleteImpression(ctx context.Context, entryID uuid.UUID, userID *uuid.UUID, sessionID string) error {
+	// Record the impression event for analytics
+	impressionEvent := map[string]interface{}{
+		"entry_id":   entryID,
+		"user_id":    userID,
+		"session_id": sessionID,
+		"event_type": "autocomplete_impression",
+		"timestamp":  time.Now(),
+	}
+
+	// Store in analytics
+	return r.db.WithContext(ctx).Table("search_events").Create(map[string]interface{}{
+		"query":      "",
+		"user_id":    userID,
+		"session_id": sessionID,
+		"filters":    impressionEvent,
+		"created_at": time.Now(),
+	}).Error
+}
+
+// UpdateAutocompleteTrending updates trending status for autocomplete entries
+func (r *searchRepository) UpdateAutocompleteTrending(ctx context.Context) error {
+	// Reset all trending flags
+	err := r.db.WithContext(ctx).Model(&entities.AutocompleteEntry{}).
+		Where("is_trending = true").
+		Update("is_trending", false).Error
+
+	if err != nil {
+		return err
+	}
+
+	// Calculate trending based on recent activity (last 24 hours)
+	since := time.Now().AddDate(0, 0, -1)
+
+	// Mark entries as trending based on recent search/click activity
+	return r.db.WithContext(ctx).Model(&entities.AutocompleteEntry{}).
+		Where("updated_at >= ? AND (search_count > 10 OR click_count > 5)", since).
+		Update("is_trending", true).Error
+}
+
+// CalculateAutocompleteScores calculates relevance scores for autocomplete entries
+func (r *searchRepository) CalculateAutocompleteScores(ctx context.Context) error {
+	// Calculate scores based on multiple factors:
+	// - Search count (40%)
+	// - Click count (30%)
+	// - Priority (20%)
+	// - Recency (10%)
+
+	return r.db.WithContext(ctx).Exec(`
+		UPDATE autocomplete_entries
+		SET score = (
+			(search_count * 0.4) +
+			(click_count * 0.3) +
+			(priority * 0.2) +
+			(CASE
+				WHEN updated_at >= NOW() - INTERVAL '7 days' THEN 10
+				WHEN updated_at >= NOW() - INTERVAL '30 days' THEN 5
+				ELSE 0
+			END * 0.1)
+		)
+		WHERE is_active = true
+	`).Error
 }
