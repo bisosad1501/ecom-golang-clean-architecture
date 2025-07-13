@@ -33,6 +33,7 @@ func SetupRoutes(
 	migrationHandler *handlers.MigrationHandler,
 	searchHandler *handlers.SearchHandler,
 	recommendationHandler *handlers.RecommendationHandler,
+	comparisonHandler *handlers.ProductComparisonHandler,
 ) {
 	// Apply global middleware
 	router.Use(middleware.SecurityHeadersMiddleware())
@@ -106,6 +107,22 @@ func SetupRoutes(
 			if recommendationHandler != nil {
 				products.GET("/:id/recommendations", recommendationHandler.GetRelatedProducts)
 				products.GET("/:id/frequently-bought-together", recommendationHandler.GetFrequentlyBoughtTogether)
+			}
+
+			// Product comparison routes
+			if comparisonHandler != nil {
+				products.POST("/compare", comparisonHandler.CreateComparison)
+				products.GET("/compare/:id", comparisonHandler.GetComparison)
+				products.GET("/compare/user", comparisonHandler.GetUserComparison)
+				products.GET("/compare/session", comparisonHandler.GetSessionComparison)
+				products.PUT("/compare/:id", comparisonHandler.UpdateComparison)
+				products.DELETE("/compare/:id", comparisonHandler.DeleteComparison)
+				products.POST("/compare/:id/products/:product_id", comparisonHandler.AddProductToComparison)
+				products.DELETE("/compare/:id/products/:product_id", comparisonHandler.RemoveProductFromComparison)
+				products.POST("/compare/:id/clear", comparisonHandler.ClearComparison)
+				products.GET("/compare/matrix", comparisonHandler.CompareProducts)
+				products.GET("/compare/:id/matrix", comparisonHandler.GetComparisonMatrix)
+				products.GET("/compare/popular", comparisonHandler.GetPopularComparedProducts)
 			}
 
 			// Search autocomplete and suggestions

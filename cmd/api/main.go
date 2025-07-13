@@ -253,6 +253,10 @@ func main() {
 	recommendationRepo := database.NewRecommendationRepository(db)
 	recommendationUseCase := usecases.NewRecommendationUseCase(recommendationRepo, productRepo, userRepo)
 
+	// Initialize product comparison system
+	comparisonRepo := database.NewProductComparisonRepository(db)
+	comparisonUseCase := usecases.NewProductComparisonUseCase(comparisonRepo, productRepo)
+
 	// Initialize handlers
 	userHandler := handlers.NewUserHandler(userUseCase)
 	productHandler := handlers.NewProductHandler(productUseCase)
@@ -275,6 +279,7 @@ func main() {
 	migrationHandler := handlers.NewMigrationHandler(db)
 	searchHandler := handlers.NewSearchHandler(searchUseCase)
 	recommendationHandler := handlers.NewRecommendationHandler(recommendationUseCase)
+	comparisonHandler := handlers.NewProductComparisonHandler(comparisonUseCase)
 
 	// Initialize Gin router
 	router := gin.New()
@@ -304,6 +309,7 @@ func main() {
 		migrationHandler,
 		searchHandler,
 		recommendationHandler,
+		comparisonHandler,
 	)
 
 	// Start background cleanup scheduler

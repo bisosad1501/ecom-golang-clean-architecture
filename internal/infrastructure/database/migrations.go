@@ -94,6 +94,17 @@ func migration001Up(db *gorm.DB) error {
 		&entities.KnowledgeBase{},
 		&entities.LiveChatSession{},
 		&entities.ChatMessage{},
+
+		// Recommendation system
+		&entities.UserProductInteraction{},
+		&entities.ProductRecommendation{},
+		&entities.ProductSimilarity{},
+		&entities.FrequentlyBoughtTogether{},
+		&entities.TrendingProduct{},
+
+		// Product comparison
+		&entities.ProductComparison{},
+		&entities.ProductComparisonItem{},
 	)
 }
 
