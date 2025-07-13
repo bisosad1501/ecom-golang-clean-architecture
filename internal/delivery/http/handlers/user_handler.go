@@ -1136,3 +1136,349 @@ func (h *UserHandler) ResendVerification(c *gin.Context) {
 		Message: "Verification email sent successfully",
 	})
 }
+
+// TrackSearch tracks user search activity
+func (h *UserHandler) TrackSearch(c *gin.Context) {
+	userIDStr, exists := c.Get("user_id")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, ErrorResponse{
+			Error: "User ID not found in token",
+		})
+		return
+	}
+
+	userID, err := uuid.Parse(userIDStr.(string))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, ErrorResponse{
+			Error: "Invalid user ID",
+		})
+		return
+	}
+
+	var req usecases.TrackSearchRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, ErrorResponse{
+			Error:   "Invalid request body",
+			Details: err.Error(),
+		})
+		return
+	}
+
+	req.UserID = userID
+	req.IPAddress = c.ClientIP()
+	req.UserAgent = c.GetHeader("User-Agent")
+
+	if err := h.userUseCase.TrackSearch(c.Request.Context(), req); err != nil {
+		c.JSON(http.StatusInternalServerError, ErrorResponse{
+			Error:   "Failed to track search",
+			Details: err.Error(),
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, SuccessResponse{
+		Message: "Search tracked successfully",
+	})
+}
+
+// GetSearchHistory retrieves user's search history
+func (h *UserHandler) GetSearchHistory(c *gin.Context) {
+	userIDStr, exists := c.Get("user_id")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, ErrorResponse{
+			Error: "User ID not found in token",
+		})
+		return
+	}
+
+	userID, err := uuid.Parse(userIDStr.(string))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, ErrorResponse{
+			Error: "Invalid user ID",
+		})
+		return
+	}
+
+	var req usecases.SearchHistoryRequest
+	if err := c.ShouldBindQuery(&req); err != nil {
+		c.JSON(http.StatusBadRequest, ErrorResponse{
+			Error:   "Invalid query parameters",
+			Details: err.Error(),
+		})
+		return
+	}
+
+	// Set default values
+	if req.Limit == 0 {
+		req.Limit = 20
+	}
+	if req.Offset < 0 {
+		req.Offset = 0
+	}
+
+	response, err := h.userUseCase.GetSearchHistory(c.Request.Context(), userID, req)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, ErrorResponse{
+			Error:   "Failed to get search history",
+			Details: err.Error(),
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, SuccessResponse{
+		Message: "Search history retrieved successfully",
+		Data:    response,
+	})
+}
+
+// ClearSearchHistory clears user's search history
+func (h *UserHandler) ClearSearchHistory(c *gin.Context) {
+	userIDStr, exists := c.Get("user_id")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, ErrorResponse{
+			Error: "User ID not found in token",
+		})
+		return
+	}
+
+	userID, err := uuid.Parse(userIDStr.(string))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, ErrorResponse{
+			Error: "Invalid user ID",
+		})
+		return
+	}
+
+	if err := h.userUseCase.ClearSearchHistory(c.Request.Context(), userID); err != nil {
+		c.JSON(http.StatusInternalServerError, ErrorResponse{
+			Error:   "Failed to clear search history",
+			Details: err.Error(),
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, SuccessResponse{
+		Message: "Search history cleared successfully",
+	})
+}
+
+// CreateSavedSearch creates a new saved search
+func (h *UserHandler) CreateSavedSearch(c *gin.Context) {
+	userIDStr, exists := c.Get("user_id")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, ErrorResponse{
+			Error: "User ID not found in token",
+		})
+		return
+	}
+
+	userID, err := uuid.Parse(userIDStr.(string))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, ErrorResponse{
+			Error: "Invalid user ID",
+		})
+		return
+	}
+
+	var req usecases.CreateSavedSearchRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, ErrorResponse{
+			Error:   "Invalid request body",
+			Details: err.Error(),
+		})
+		return
+	}
+
+	req.UserID = userID
+
+	response, err := h.userUseCase.CreateSavedSearch(c.Request.Context(), req)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, ErrorResponse{
+			Error:   "Failed to create saved search",
+			Details: err.Error(),
+		})
+		return
+	}
+
+	c.JSON(http.StatusCreated, SuccessResponse{
+		Message: "Saved search created successfully",
+		Data:    response,
+	})
+}
+
+// GetSavedSearches retrieves user's saved searches
+func (h *UserHandler) GetSavedSearches(c *gin.Context) {
+	userIDStr, exists := c.Get("user_id")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, ErrorResponse{
+			Error: "User ID not found in token",
+		})
+		return
+	}
+
+	userID, err := uuid.Parse(userIDStr.(string))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, ErrorResponse{
+			Error: "Invalid user ID",
+		})
+		return
+	}
+
+	var req usecases.GetSavedSearchesRequest
+	if err := c.ShouldBindQuery(&req); err != nil {
+		c.JSON(http.StatusBadRequest, ErrorResponse{
+			Error:   "Invalid query parameters",
+			Details: err.Error(),
+		})
+		return
+	}
+
+	// Set default values
+	if req.Limit == 0 {
+		req.Limit = 20
+	}
+	if req.Offset < 0 {
+		req.Offset = 0
+	}
+
+	response, err := h.userUseCase.GetSavedSearches(c.Request.Context(), userID, req)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, ErrorResponse{
+			Error:   "Failed to get saved searches",
+			Details: err.Error(),
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, SuccessResponse{
+		Message: "Saved searches retrieved successfully",
+		Data:    response,
+	})
+}
+
+// TrackProductView tracks user product viewing activity
+func (h *UserHandler) TrackProductView(c *gin.Context) {
+	userIDStr, exists := c.Get("user_id")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, ErrorResponse{
+			Error: "User ID not found in token",
+		})
+		return
+	}
+
+	userID, err := uuid.Parse(userIDStr.(string))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, ErrorResponse{
+			Error: "Invalid user ID",
+		})
+		return
+	}
+
+	var req usecases.TrackProductViewRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, ErrorResponse{
+			Error:   "Invalid request body",
+			Details: err.Error(),
+		})
+		return
+	}
+
+	req.UserID = userID
+	req.IPAddress = c.ClientIP()
+	req.UserAgent = c.GetHeader("User-Agent")
+
+	if err := h.userUseCase.TrackProductView(c.Request.Context(), req); err != nil {
+		c.JSON(http.StatusInternalServerError, ErrorResponse{
+			Error:   "Failed to track product view",
+			Details: err.Error(),
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, SuccessResponse{
+		Message: "Product view tracked successfully",
+	})
+}
+
+// GetBrowsingHistory retrieves user's browsing history
+func (h *UserHandler) GetBrowsingHistory(c *gin.Context) {
+	userIDStr, exists := c.Get("user_id")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, ErrorResponse{
+			Error: "User ID not found in token",
+		})
+		return
+	}
+
+	userID, err := uuid.Parse(userIDStr.(string))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, ErrorResponse{
+			Error: "Invalid user ID",
+		})
+		return
+	}
+
+	var req usecases.BrowsingHistoryRequest
+	if err := c.ShouldBindQuery(&req); err != nil {
+		c.JSON(http.StatusBadRequest, ErrorResponse{
+			Error:   "Invalid query parameters",
+			Details: err.Error(),
+		})
+		return
+	}
+
+	// Set default values
+	if req.Limit == 0 {
+		req.Limit = 20
+	}
+	if req.Offset < 0 {
+		req.Offset = 0
+	}
+
+	response, err := h.userUseCase.GetBrowsingHistory(c.Request.Context(), userID, req)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, ErrorResponse{
+			Error:   "Failed to get browsing history",
+			Details: err.Error(),
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, SuccessResponse{
+		Message: "Browsing history retrieved successfully",
+		Data:    response,
+	})
+}
+
+// GetPersonalization retrieves user personalization data
+func (h *UserHandler) GetPersonalization(c *gin.Context) {
+	userIDStr, exists := c.Get("user_id")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, ErrorResponse{
+			Error: "User ID not found in token",
+		})
+		return
+	}
+
+	userID, err := uuid.Parse(userIDStr.(string))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, ErrorResponse{
+			Error: "Invalid user ID",
+		})
+		return
+	}
+
+	response, err := h.userUseCase.GetPersonalization(c.Request.Context(), userID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, ErrorResponse{
+			Error:   "Failed to get personalization data",
+			Details: err.Error(),
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, SuccessResponse{
+		Message: "Personalization data retrieved successfully",
+		Data:    response,
+	})
+}

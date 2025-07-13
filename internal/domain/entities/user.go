@@ -409,6 +409,146 @@ func (UserPreferences) TableName() string {
 	return "user_preferences"
 }
 
+// UserSearchHistory represents user's search history
+type UserSearchHistory struct {
+	ID        uuid.UUID `json:"id" gorm:"type:uuid;primary_key;default:gen_random_uuid()"`
+	UserID    uuid.UUID `json:"user_id" gorm:"type:uuid;not null;index"`
+	User      User      `json:"user,omitempty" gorm:"foreignKey:UserID"`
+	Query     string    `json:"query" gorm:"not null"`
+	Filters   string    `json:"filters" gorm:"type:jsonb"` // JSON string of applied filters
+	Results   int       `json:"results" gorm:"default:0"`  // Number of results returned
+	Clicked   bool      `json:"clicked" gorm:"default:false"` // Whether user clicked on any result
+	IPAddress string    `json:"ip_address"`
+	UserAgent string    `json:"user_agent"`
+	CreatedAt time.Time `json:"created_at" gorm:"autoCreateTime"`
+}
+
+// TableName returns the table name for UserSearchHistory entity
+func (UserSearchHistory) TableName() string {
+	return "user_search_history"
+}
+
+// SavedSearch represents user's saved searches with alerts
+type SavedSearch struct {
+	ID          uuid.UUID  `json:"id" gorm:"type:uuid;primary_key;default:gen_random_uuid()"`
+	UserID      uuid.UUID  `json:"user_id" gorm:"type:uuid;not null;index"`
+	User        User       `json:"user,omitempty" gorm:"foreignKey:UserID"`
+	Name        string     `json:"name" gorm:"not null"` // User-defined name for the search
+	Query       string     `json:"query" gorm:"not null"`
+	Filters     string     `json:"filters" gorm:"type:jsonb"` // JSON string of filters
+	IsActive    bool       `json:"is_active" gorm:"default:true"`
+
+	// Alert settings
+	PriceAlert     bool    `json:"price_alert" gorm:"default:false"`
+	StockAlert     bool    `json:"stock_alert" gorm:"default:false"`
+	NewItemAlert   bool    `json:"new_item_alert" gorm:"default:false"`
+	MaxPrice       *float64 `json:"max_price,omitempty"`
+	MinPrice       *float64 `json:"min_price,omitempty"`
+
+	// Notification settings
+	EmailNotify    bool `json:"email_notify" gorm:"default:true"`
+	PushNotify     bool `json:"push_notify" gorm:"default:false"`
+
+	LastChecked    *time.Time `json:"last_checked,omitempty"`
+	LastNotified   *time.Time `json:"last_notified,omitempty"`
+	CreatedAt      time.Time  `json:"created_at" gorm:"autoCreateTime"`
+	UpdatedAt      time.Time  `json:"updated_at" gorm:"autoUpdateTime"`
+}
+
+// TableName returns the table name for SavedSearch entity
+func (SavedSearch) TableName() string {
+	return "saved_searches"
+}
+
+// UserBrowsingHistory represents user's product browsing history
+type UserBrowsingHistory struct {
+	ID         uuid.UUID `json:"id" gorm:"type:uuid;primary_key;default:gen_random_uuid()"`
+	UserID     uuid.UUID `json:"user_id" gorm:"type:uuid;not null;index"`
+	User       User      `json:"user,omitempty" gorm:"foreignKey:UserID"`
+	ProductID  uuid.UUID `json:"product_id" gorm:"type:uuid;not null;index"`
+	Product    Product   `json:"product,omitempty" gorm:"foreignKey:ProductID"`
+	CategoryID *uuid.UUID `json:"category_id,omitempty" gorm:"type:uuid;index"`
+	Category   *Category  `json:"category,omitempty" gorm:"foreignKey:CategoryID"`
+
+	// Interaction details
+	ViewDuration int    `json:"view_duration" gorm:"default:0"` // in seconds
+	Source       string `json:"source"` // search, category, recommendation, etc.
+	IPAddress    string `json:"ip_address"`
+	UserAgent    string `json:"user_agent"`
+
+	CreatedAt time.Time `json:"created_at" gorm:"autoCreateTime"`
+}
+
+// TableName returns the table name for UserBrowsingHistory entity
+func (UserBrowsingHistory) TableName() string {
+	return "user_browsing_history"
+}
+
+// UserPersonalization represents user's personalization data
+type UserPersonalization struct {
+	ID     uuid.UUID `json:"id" gorm:"type:uuid;primary_key;default:gen_random_uuid()"`
+	UserID uuid.UUID `json:"user_id" gorm:"type:uuid;not null;uniqueIndex"`
+	User   User      `json:"user,omitempty" gorm:"foreignKey:UserID"`
+
+	// Preference scores (0-100)
+	CategoryPreferences  string `json:"category_preferences" gorm:"type:jsonb"`  // JSON map of category_id -> score
+	BrandPreferences     string `json:"brand_preferences" gorm:"type:jsonb"`     // JSON map of brand_id -> score
+	PriceRangePreference string `json:"price_range_preference" gorm:"type:jsonb"` // JSON object with min/max preferences
+
+	// Behavioral data
+	AverageOrderValue    float64 `json:"average_order_value" gorm:"default:0"`
+	PreferredShoppingTime string  `json:"preferred_shopping_time"` // morning, afternoon, evening, night
+	ShoppingFrequency    string  `json:"shopping_frequency"` // daily, weekly, monthly, occasional
+
+	// Recommendation settings
+	RecommendationEngine string `json:"recommendation_engine" gorm:"default:'collaborative'"` // collaborative, content_based, hybrid
+	PersonalizationLevel string `json:"personalization_level" gorm:"default:'medium'"` // low, medium, high
+
+	// Analytics data
+	TotalViews           int       `json:"total_views" gorm:"default:0"`
+	TotalSearches        int       `json:"total_searches" gorm:"default:0"`
+	UniqueProductsViewed int       `json:"unique_products_viewed" gorm:"default:0"`
+	LastAnalyzed         *time.Time `json:"last_analyzed,omitempty"`
+
+	CreatedAt time.Time `json:"created_at" gorm:"autoCreateTime"`
+	UpdatedAt time.Time `json:"updated_at" gorm:"autoUpdateTime"`
+}
+
+// TableName returns the table name for UserPersonalization entity
+func (UserPersonalization) TableName() string {
+	return "user_personalization"
+}
+
+// UserActivityLog represents detailed user activity logging
+type UserActivityLog struct {
+	ID         uuid.UUID `json:"id" gorm:"type:uuid;primary_key;default:gen_random_uuid()"`
+	UserID     uuid.UUID `json:"user_id" gorm:"type:uuid;not null;index"`
+	User       User      `json:"user,omitempty" gorm:"foreignKey:UserID"`
+
+	// Activity details
+	ActivityType string `json:"activity_type" gorm:"not null;index"` // search, view, purchase, etc.
+	EntityType   string `json:"entity_type"` // product, category, brand, etc.
+	EntityID     *uuid.UUID `json:"entity_id,omitempty" gorm:"type:uuid;index"`
+
+	// Context data
+	SessionID    string `json:"session_id" gorm:"index"`
+	Source       string `json:"source"` // web, mobile, api
+	Page         string `json:"page"`
+	Referrer     string `json:"referrer"`
+
+	// Metadata
+	Metadata  string `json:"metadata" gorm:"type:jsonb"` // Additional context as JSON
+	IPAddress string `json:"ip_address"`
+	UserAgent string `json:"user_agent"`
+
+	CreatedAt time.Time `json:"created_at" gorm:"autoCreateTime"`
+}
+
+// TableName returns the table name for UserActivityLog entity
+func (UserActivityLog) TableName() string {
+	return "user_activity_logs"
+}
+
 // UserVerification represents user verification records
 type UserVerification struct {
 	ID                uuid.UUID  `json:"id" gorm:"type:uuid;primary_key;default:gen_random_uuid()"`

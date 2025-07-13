@@ -323,6 +323,34 @@ func SetupRoutes(
 				users.PUT("/preferences/theme", userHandler.UpdateTheme)
 				users.PUT("/preferences/language", userHandler.UpdateLanguage)
 
+				// Search history routes
+				searchHistory := users.Group("/search-history")
+				{
+					searchHistory.POST("/track", userHandler.TrackSearch)
+					searchHistory.GET("", userHandler.GetSearchHistory)
+					searchHistory.DELETE("", userHandler.ClearSearchHistory)
+				}
+
+				// Saved searches routes
+				savedSearches := users.Group("/saved-searches")
+				{
+					savedSearches.POST("", userHandler.CreateSavedSearch)
+					savedSearches.GET("", userHandler.GetSavedSearches)
+				}
+
+				// Browsing history routes
+				browsingHistory := users.Group("/browsing-history")
+				{
+					browsingHistory.POST("/track", userHandler.TrackProductView)
+					browsingHistory.GET("", userHandler.GetBrowsingHistory)
+				}
+
+				// Personalization routes
+				personalization := users.Group("/personalization")
+				{
+					personalization.GET("", userHandler.GetPersonalization)
+				}
+
 				// User verification routes
 				verification := users.Group("/verification")
 				{

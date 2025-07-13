@@ -2,6 +2,7 @@ package usecases
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"time"
 
@@ -34,13 +35,42 @@ type UserUseCase interface {
 	InvalidateSession(ctx context.Context, userID uuid.UUID, sessionID uuid.UUID) error
 	InvalidateAllSessions(ctx context.Context, userID uuid.UUID) error
 	GetUserActivity(ctx context.Context, userID uuid.UUID, limit, offset int) (*UserActivityResponse, error)
-	TrackUserActivity(ctx context.Context, userID uuid.UUID, activityType entities.ActivityType, description string, entityType string, entityID *uuid.UUID, metadata map[string]interface{}) error
+	TrackUserActivity(ctx context.Context, userID uuid.UUID, activityType string, description string, entityType string, entityID *uuid.UUID, metadata map[string]interface{}) error
 	GetUserStats(ctx context.Context, userID uuid.UUID) (*UserStatsResponse, error)
 
 	// User preferences methods
 	GetUserPreferences(ctx context.Context, userID uuid.UUID) (*UserPreferencesResponse, error)
 	UpdateUserPreferences(ctx context.Context, userID uuid.UUID, req UpdateUserPreferencesRequest) (*UserPreferencesResponse, error)
 	UpdateTheme(ctx context.Context, userID uuid.UUID, theme string) error
+
+	// Search history
+	TrackSearch(ctx context.Context, req TrackSearchRequest) error
+	GetSearchHistory(ctx context.Context, userID uuid.UUID, req SearchHistoryRequest) (*UserSearchHistoryListResponse, error)
+	ClearSearchHistory(ctx context.Context, userID uuid.UUID) error
+	DeleteSearchHistoryItem(ctx context.Context, userID, historyID uuid.UUID) error
+	GetPopularSearches(ctx context.Context, userID uuid.UUID, limit int) (*UserPopularSearchesResponse, error)
+
+	// Saved searches
+	CreateSavedSearch(ctx context.Context, req CreateSavedSearchRequest) (*SavedSearchResponse, error)
+	GetSavedSearches(ctx context.Context, userID uuid.UUID, req GetSavedSearchesRequest) (*GetSavedSearchesResponse, error)
+	UpdateSavedSearch(ctx context.Context, req UpdateSavedSearchRequest) (*SavedSearchResponse, error)
+	DeleteSavedSearch(ctx context.Context, userID, savedSearchID uuid.UUID) error
+	ExecuteSavedSearch(ctx context.Context, userID, savedSearchID uuid.UUID) (*SavedSearchExecutionResponse, error)
+
+	// Browsing history
+	TrackProductView(ctx context.Context, req TrackProductViewRequest) error
+	GetBrowsingHistory(ctx context.Context, userID uuid.UUID, req BrowsingHistoryRequest) (*BrowsingHistoryResponse, error)
+	ClearBrowsingHistory(ctx context.Context, userID uuid.UUID) error
+
+	// Personalization
+	GetPersonalization(ctx context.Context, userID uuid.UUID) (*PersonalizationResponse, error)
+	UpdatePersonalization(ctx context.Context, req UpdatePersonalizationRequest) (*PersonalizationResponse, error)
+	GetPersonalizedRecommendations(ctx context.Context, userID uuid.UUID, req PersonalizedRecommendationsRequest) (*PersonalizedRecommendationsResponse, error)
+	AnalyzeUserBehavior(ctx context.Context, userID uuid.UUID) (*UserBehaviorAnalysisResponse, error)
+
+	// Profile analytics
+	GetProfileAnalytics(ctx context.Context, userID uuid.UUID) (*ProfileAnalyticsResponse, error)
+	GetActivitySummary(ctx context.Context, userID uuid.UUID, timeRange string) (*ActivitySummaryResponse, error)
 	UpdateLanguage(ctx context.Context, userID uuid.UUID, language string) error
 
 	// User verification methods
@@ -658,11 +688,11 @@ func (uc *userUseCase) GetUserActivity(ctx context.Context, userID uuid.UUID, li
 }
 
 // TrackUserActivity tracks user activity
-func (uc *userUseCase) TrackUserActivity(ctx context.Context, userID uuid.UUID, activityType entities.ActivityType, description string, entityType string, entityID *uuid.UUID, metadata map[string]interface{}) error {
+func (uc *userUseCase) TrackUserActivity(ctx context.Context, userID uuid.UUID, activityType string, description string, entityType string, entityID *uuid.UUID, metadata map[string]interface{}) error {
 	activity := &entities.UserActivity{
 		ID:          uuid.New(),
 		UserID:      userID,
-		Type:        activityType,
+		Type:        entities.ActivityType(activityType),
 		Description: description,
 		EntityType:  entityType,
 		EntityID:    entityID,
@@ -850,7 +880,7 @@ func (uc *userUseCase) UpdateUserPreferences(ctx context.Context, userID uuid.UU
 	}
 
 	// Track activity
-	_ = uc.TrackUserActivity(ctx, userID, entities.ActivityTypeProfileUpdate, "User preferences updated", "user_preferences", &preferences.ID, nil)
+	_ = uc.TrackUserActivity(ctx, userID, "profile_update", "User preferences updated", "user_preferences", &preferences.ID, nil)
 
 	return uc.toUserPreferencesResponse(preferences), nil
 }
@@ -917,7 +947,7 @@ func (uc *userUseCase) SendEmailVerification(ctx context.Context, userID uuid.UU
 	fmt.Printf("Verification link: http://localhost:3000/verify-email?token=%s\n", token)
 
 	// Track activity
-	_ = uc.TrackUserActivity(ctx, userID, entities.ActivityTypeProfileUpdate, "Email verification sent", "user", &user.ID, nil)
+	_ = uc.TrackUserActivity(ctx, userID, "profile_update", "Email verification sent", "user", &user.ID, nil)
 
 	return nil
 }
@@ -959,7 +989,7 @@ func (uc *userUseCase) SendPhoneVerification(ctx context.Context, userID uuid.UU
 	fmt.Printf("Phone verification code for user %s (phone: %s): %s\n", userID, phone, code)
 
 	// Track activity
-	_ = uc.TrackUserActivity(ctx, userID, entities.ActivityTypeProfileUpdate, "Phone verification sent", "user", &userID, nil)
+	_ = uc.TrackUserActivity(ctx, userID, "profile_update", "Phone verification sent", "user", &userID, nil)
 
 	return nil
 }
@@ -1144,4 +1174,740 @@ func (uc *userUseCase) ResendVerification(ctx context.Context, req ResendVerific
 	fmt.Printf("Email verification resent for: %s\n", user.Email)
 
 	return nil
+}
+
+// TrackSearch tracks user search activity
+func (uc *userUseCase) TrackSearch(ctx context.Context, req TrackSearchRequest) error {
+	// Create search history entry
+	searchHistory := &entities.UserSearchHistory{
+		ID:        uuid.New(),
+		UserID:    req.UserID,
+		Query:     req.Query,
+		Results:   req.Results,
+		Clicked:   req.Clicked,
+		IPAddress: req.IPAddress,
+		UserAgent: req.UserAgent,
+		CreatedAt: time.Now(),
+	}
+
+	// Convert filters to JSON string
+	if req.Filters != nil {
+		filtersJSON, err := json.Marshal(req.Filters)
+		if err == nil {
+			searchHistory.Filters = string(filtersJSON)
+		}
+	}
+
+	// TODO: Save to search history repository
+	// For now, just track the activity
+	_ = uc.TrackUserActivity(ctx, req.UserID, "search",
+		fmt.Sprintf("Searched for: %s", req.Query), "search", nil, nil)
+
+	return nil
+}
+
+// GetSearchHistory retrieves user's search history
+func (uc *userUseCase) GetSearchHistory(ctx context.Context, userID uuid.UUID, req SearchHistoryRequest) (*UserSearchHistoryListResponse, error) {
+	// TODO: Implement search history retrieval from repository
+	// For now, return empty results
+	return &UserSearchHistoryListResponse{
+		History: []*SearchHistoryItem{},
+		Total:   0,
+	}, nil
+}
+
+// ClearSearchHistory clears user's search history
+func (uc *userUseCase) ClearSearchHistory(ctx context.Context, userID uuid.UUID) error {
+	// TODO: Implement search history clearing
+	// For now, just track the activity
+	_ = uc.TrackUserActivity(ctx, userID, "profile_update",
+		"Cleared search history", "search_history", nil, nil)
+	return nil
+}
+
+// DeleteSearchHistoryItem deletes a specific search history item
+func (uc *userUseCase) DeleteSearchHistoryItem(ctx context.Context, userID, historyID uuid.UUID) error {
+	// TODO: Implement specific search history item deletion
+	// For now, just track the activity
+	_ = uc.TrackUserActivity(ctx, userID, "profile_update",
+		"Deleted search history item", "search_history", &historyID, nil)
+	return nil
+}
+
+// GetPopularSearches gets user's popular searches
+func (uc *userUseCase) GetPopularSearches(ctx context.Context, userID uuid.UUID, limit int) (*UserPopularSearchesResponse, error) {
+	// TODO: Implement popular searches retrieval
+	// For now, return empty results
+	return &UserPopularSearchesResponse{
+		Searches: []PopularSearchItem{},
+	}, nil
+}
+
+// CreateSavedSearch creates a new saved search
+func (uc *userUseCase) CreateSavedSearch(ctx context.Context, req CreateSavedSearchRequest) (*SavedSearchResponse, error) {
+	// Create saved search entity
+	savedSearch := &entities.SavedSearch{
+		ID:           uuid.New(),
+		UserID:       req.UserID,
+		Name:         req.Name,
+		Query:        req.Query,
+		IsActive:     true,
+		PriceAlert:   req.PriceAlert,
+		StockAlert:   req.StockAlert,
+		NewItemAlert: req.NewItemAlert,
+		MaxPrice:     req.MaxPrice,
+		MinPrice:     req.MinPrice,
+		EmailNotify:  req.EmailNotify,
+		PushNotify:   req.PushNotify,
+		CreatedAt:    time.Now(),
+		UpdatedAt:    time.Now(),
+	}
+
+	// Convert filters to JSON string
+	if req.Filters != nil {
+		filtersJSON, err := json.Marshal(req.Filters)
+		if err == nil {
+			savedSearch.Filters = string(filtersJSON)
+		}
+	}
+
+	// TODO: Save to saved search repository
+	// For now, just track the activity
+	_ = uc.TrackUserActivity(ctx, req.UserID, "profile_update",
+		fmt.Sprintf("Created saved search: %s", req.Name), "saved_search", &savedSearch.ID, nil)
+
+	return &SavedSearchResponse{
+		ID:           savedSearch.ID,
+		Name:         savedSearch.Name,
+		Query:        savedSearch.Query,
+		Filters:      req.Filters,
+		IsActive:     savedSearch.IsActive,
+		PriceAlert:   savedSearch.PriceAlert,
+		StockAlert:   savedSearch.StockAlert,
+		NewItemAlert: savedSearch.NewItemAlert,
+		MaxPrice:     savedSearch.MaxPrice,
+		MinPrice:     savedSearch.MinPrice,
+		EmailNotify:  savedSearch.EmailNotify,
+		PushNotify:   savedSearch.PushNotify,
+		CreatedAt:    savedSearch.CreatedAt,
+		UpdatedAt:    savedSearch.UpdatedAt,
+	}, nil
+}
+
+// GetSavedSearches retrieves user's saved searches
+func (uc *userUseCase) GetSavedSearches(ctx context.Context, userID uuid.UUID, req GetSavedSearchesRequest) (*GetSavedSearchesResponse, error) {
+	// TODO: Implement saved searches retrieval from repository
+	// For now, return empty results
+	return &GetSavedSearchesResponse{
+		SavedSearches: []*SavedSearchResponse{},
+		Total:         0,
+	}, nil
+}
+
+// TrackProductView tracks user product viewing activity
+func (uc *userUseCase) TrackProductView(ctx context.Context, req TrackProductViewRequest) error {
+	// TODO: Save to browsing history repository
+	// For now, just track the activity
+	_ = uc.TrackUserActivity(ctx, req.UserID, "product_view",
+		"Viewed product", "product", &req.ProductID, nil)
+
+	// Update personalization data
+	// TODO: Update user personalization based on product view
+
+	return nil
+}
+
+// GetPersonalization retrieves user personalization data
+func (uc *userUseCase) GetPersonalization(ctx context.Context, userID uuid.UUID) (*PersonalizationResponse, error) {
+	// TODO: Implement personalization retrieval from repository
+	// For now, return default personalization
+	return &PersonalizationResponse{
+		ID:                   uuid.New(),
+		UserID:               userID,
+		CategoryPreferences:  make(map[string]float64),
+		BrandPreferences:     make(map[string]float64),
+		PriceRangePreference: PriceRangePreference{
+			MinPrice: 0,
+			MaxPrice: 1000,
+			Currency: "USD",
+		},
+		AverageOrderValue:    0,
+		PreferredShoppingTime: "evening",
+		ShoppingFrequency:    "weekly",
+		RecommendationEngine: "collaborative",
+		PersonalizationLevel: "medium",
+		TotalViews:           0,
+		TotalSearches:        0,
+		UniqueProductsViewed: 0,
+		CreatedAt:            time.Now(),
+		UpdatedAt:            time.Now(),
+	}, nil
+}
+
+// UpdateSavedSearch updates an existing saved search
+func (uc *userUseCase) UpdateSavedSearch(ctx context.Context, req UpdateSavedSearchRequest) (*SavedSearchResponse, error) {
+	// TODO: Implement saved search update
+	// For now, just track the activity
+	_ = uc.TrackUserActivity(ctx, req.UserID, "profile_update",
+		"Updated saved search", "saved_search", &req.SavedSearchID, nil)
+
+	return &SavedSearchResponse{
+		ID:        req.SavedSearchID,
+		Name:      *req.Name,
+		Query:     *req.Query,
+		IsActive:  *req.IsActive,
+		UpdatedAt: time.Now(),
+	}, nil
+}
+
+// DeleteSavedSearch deletes a saved search
+func (uc *userUseCase) DeleteSavedSearch(ctx context.Context, userID, savedSearchID uuid.UUID) error {
+	// TODO: Implement saved search deletion
+	// For now, just track the activity
+	_ = uc.TrackUserActivity(ctx, userID, "profile_update",
+		"Deleted saved search", "saved_search", &savedSearchID, nil)
+	return nil
+}
+
+// ExecuteSavedSearch executes a saved search
+func (uc *userUseCase) ExecuteSavedSearch(ctx context.Context, userID, savedSearchID uuid.UUID) (*SavedSearchExecutionResponse, error) {
+	// TODO: Implement saved search execution
+	// For now, return placeholder response
+	return &SavedSearchExecutionResponse{
+		SavedSearchID: savedSearchID,
+		Query:         "placeholder query",
+		Results:       0,
+		ExecutedAt:    time.Now(),
+		SearchURL:     "/search?q=placeholder",
+	}, nil
+}
+
+// GetBrowsingHistory retrieves user's browsing history
+func (uc *userUseCase) GetBrowsingHistory(ctx context.Context, userID uuid.UUID, req BrowsingHistoryRequest) (*BrowsingHistoryResponse, error) {
+	// TODO: Implement browsing history retrieval from repository
+	// For now, return empty results
+	return &BrowsingHistoryResponse{
+		History: []*BrowsingHistoryItem{},
+		Total:   0,
+	}, nil
+}
+
+// ClearBrowsingHistory clears user's browsing history
+func (uc *userUseCase) ClearBrowsingHistory(ctx context.Context, userID uuid.UUID) error {
+	// TODO: Implement browsing history clearing
+	// For now, just track the activity
+	_ = uc.TrackUserActivity(ctx, userID, "profile_update",
+		"Cleared browsing history", "browsing_history", nil, nil)
+	return nil
+}
+
+// UpdatePersonalization updates user personalization data
+func (uc *userUseCase) UpdatePersonalization(ctx context.Context, req UpdatePersonalizationRequest) (*PersonalizationResponse, error) {
+	// TODO: Implement personalization update
+	// For now, just track the activity and return current data
+	_ = uc.TrackUserActivity(ctx, req.UserID, "profile_update",
+		"Updated personalization settings", "personalization", nil, nil)
+
+	return uc.GetPersonalization(ctx, req.UserID)
+}
+
+// GetPersonalizedRecommendations gets personalized recommendations for user
+func (uc *userUseCase) GetPersonalizedRecommendations(ctx context.Context, userID uuid.UUID, req PersonalizedRecommendationsRequest) (*PersonalizedRecommendationsResponse, error) {
+	// TODO: Implement personalized recommendations
+	// For now, return empty recommendations
+	return &PersonalizedRecommendationsResponse{
+		Type:            req.Type,
+		Recommendations: []PersonalizedRecommendation{},
+		Algorithm:       "collaborative",
+		GeneratedAt:     time.Now(),
+	}, nil
+}
+
+// AnalyzeUserBehavior analyzes user behavior and returns insights
+func (uc *userUseCase) AnalyzeUserBehavior(ctx context.Context, userID uuid.UUID) (*UserBehaviorAnalysisResponse, error) {
+	// TODO: Implement user behavior analysis
+	// For now, return placeholder analysis
+	return &UserBehaviorAnalysisResponse{
+		UserID:        userID,
+		TopCategories: []CategoryPreference{},
+		TopBrands:     []BrandPreference{},
+		PriceAnalysis: PriceAnalysis{
+			MinPrice:     0,
+			MaxPrice:     1000,
+			AveragePrice: 100,
+			PriceSegment: "mid-range",
+		},
+		ShoppingPatterns: ShoppingPatterns{
+			PreferredDays:        []string{"Saturday", "Sunday"},
+			PreferredHours:       []int{19, 20, 21},
+			AverageSessionLength: 15.5,
+			PagesPerSession:      8.2,
+			ConversionRate:       0.05,
+		},
+		EngagementScore: 75.0,
+		LoyaltyScore:    60.0,
+		Insights: []BehaviorInsight{
+			{
+				Type:        "trend",
+				Title:       "Weekend Shopping Preference",
+				Description: "You tend to shop more on weekends",
+				Confidence:  0.85,
+				ActionItems: []string{"Check weekend deals", "Set weekend shopping reminders"},
+			},
+		},
+		AnalyzedAt: time.Now(),
+	}, nil
+}
+
+// GetProfileAnalytics gets user profile analytics
+func (uc *userUseCase) GetProfileAnalytics(ctx context.Context, userID uuid.UUID) (*ProfileAnalyticsResponse, error) {
+	// TODO: Implement profile analytics
+	// For now, return placeholder analytics
+	user, err := uc.userRepo.GetByID(ctx, userID)
+	if err != nil {
+		return nil, err
+	}
+
+	return &ProfileAnalyticsResponse{
+		UserID: userID,
+		Overview: struct {
+			TotalViews           int       `json:"total_views"`
+			TotalSearches        int       `json:"total_searches"`
+			TotalOrders          int       `json:"total_orders"`
+			TotalSpent           float64   `json:"total_spent"`
+			AverageOrderValue    float64   `json:"average_order_value"`
+			LastActivity         time.Time `json:"last_activity"`
+			MemberSince          time.Time `json:"member_since"`
+			EngagementScore      float64   `json:"engagement_score"`
+			LoyaltyScore         float64   `json:"loyalty_score"`
+		}{
+			TotalViews:        0,
+			TotalSearches:     0,
+			TotalOrders:       user.TotalOrders,
+			TotalSpent:        user.TotalSpent,
+			AverageOrderValue: 0,
+			LastActivity:      time.Now(),
+			MemberSince:       user.CreatedAt,
+			EngagementScore:   75.0,
+			LoyaltyScore:      60.0,
+		},
+		ActivityTrends: []ActivityTrendData{},
+		TopCategories:  []CategoryStats{},
+		TopBrands:      []BrandStats{},
+		Preferences: struct {
+			Theme                string `json:"theme"`
+			Language             string `json:"language"`
+			Currency             string `json:"currency"`
+			NotificationsEnabled bool   `json:"notifications_enabled"`
+			PersonalizationLevel string `json:"personalization_level"`
+		}{
+			Theme:                user.Language,
+			Language:             user.Language,
+			Currency:             user.Currency,
+			NotificationsEnabled: true,
+			PersonalizationLevel: "medium",
+		},
+	}, nil
+}
+
+// GetActivitySummary gets user activity summary for a time range
+func (uc *userUseCase) GetActivitySummary(ctx context.Context, userID uuid.UUID, timeRange string) (*ActivitySummaryResponse, error) {
+	// TODO: Implement activity summary
+	// For now, return placeholder summary
+	now := time.Now()
+	var startDate time.Time
+
+	switch timeRange {
+	case "day":
+		startDate = now.AddDate(0, 0, -1)
+	case "week":
+		startDate = now.AddDate(0, 0, -7)
+	case "month":
+		startDate = now.AddDate(0, -1, 0)
+	default:
+		startDate = now.AddDate(0, 0, -7) // Default to week
+	}
+
+	return &ActivitySummaryResponse{
+		UserID:    userID,
+		TimeRange: timeRange,
+		Period: struct {
+			StartDate time.Time `json:"start_date"`
+			EndDate   time.Time `json:"end_date"`
+		}{
+			StartDate: startDate,
+			EndDate:   now,
+		},
+		Summary: struct {
+			Views         int     `json:"views"`
+			Searches      int     `json:"searches"`
+			Orders        int     `json:"orders"`
+			AmountSpent   float64 `json:"amount_spent"`
+			TimeSpent     int     `json:"time_spent"`
+			PagesVisited  int     `json:"pages_visited"`
+			UniqueProducts int    `json:"unique_products"`
+		}{
+			Views:          0,
+			Searches:       0,
+			Orders:         0,
+			AmountSpent:    0,
+			TimeSpent:      0,
+			PagesVisited:   0,
+			UniqueProducts: 0,
+		},
+		DailyActivity: []DailyActivityData{},
+		TopActions:    []ActionData{},
+	}, nil
+}
+
+// Search history request/response types
+type TrackSearchRequest struct {
+	UserID    uuid.UUID `json:"user_id" validate:"required"`
+	Query     string    `json:"query" validate:"required"`
+	Filters   map[string]interface{} `json:"filters,omitempty"`
+	Results   int       `json:"results"`
+	Clicked   bool      `json:"clicked"`
+	IPAddress string    `json:"ip_address,omitempty"`
+	UserAgent string    `json:"user_agent,omitempty"`
+}
+
+type SearchHistoryRequest struct {
+	Query    *string    `json:"query,omitempty"`
+	DateFrom *time.Time `json:"date_from,omitempty"`
+	DateTo   *time.Time `json:"date_to,omitempty"`
+	Limit    int        `json:"limit,omitempty"`
+	Offset   int        `json:"offset,omitempty"`
+}
+
+type UserSearchHistoryListResponse struct {
+	History []*SearchHistoryItem `json:"history"`
+	Total   int64                `json:"total"`
+}
+
+type SearchHistoryItem struct {
+	ID        uuid.UUID              `json:"id"`
+	Query     string                 `json:"query"`
+	Filters   map[string]interface{} `json:"filters,omitempty"`
+	Results   int                    `json:"results"`
+	Clicked   bool                   `json:"clicked"`
+	CreatedAt time.Time              `json:"created_at"`
+}
+
+type UserPopularSearchesResponse struct {
+	Searches []PopularSearchItem `json:"searches"`
+}
+
+type PopularSearchItem struct {
+	Query       string    `json:"query"`
+	SearchCount int       `json:"search_count"`
+	LastUsed    time.Time `json:"last_used"`
+}
+
+// Saved searches request/response types
+type CreateSavedSearchRequest struct {
+	UserID         uuid.UUID              `json:"user_id" validate:"required"`
+	Name           string                 `json:"name" validate:"required"`
+	Query          string                 `json:"query" validate:"required"`
+	Filters        map[string]interface{} `json:"filters,omitempty"`
+	PriceAlert     bool                   `json:"price_alert"`
+	StockAlert     bool                   `json:"stock_alert"`
+	NewItemAlert   bool                   `json:"new_item_alert"`
+	MaxPrice       *float64               `json:"max_price,omitempty"`
+	MinPrice       *float64               `json:"min_price,omitempty"`
+	EmailNotify    bool                   `json:"email_notify"`
+	PushNotify     bool                   `json:"push_notify"`
+}
+
+type SavedSearchResponse struct {
+	ID             uuid.UUID              `json:"id"`
+	Name           string                 `json:"name"`
+	Query          string                 `json:"query"`
+	Filters        map[string]interface{} `json:"filters,omitempty"`
+	IsActive       bool                   `json:"is_active"`
+	PriceAlert     bool                   `json:"price_alert"`
+	StockAlert     bool                   `json:"stock_alert"`
+	NewItemAlert   bool                   `json:"new_item_alert"`
+	MaxPrice       *float64               `json:"max_price,omitempty"`
+	MinPrice       *float64               `json:"min_price,omitempty"`
+	EmailNotify    bool                   `json:"email_notify"`
+	PushNotify     bool                   `json:"push_notify"`
+	LastChecked    *time.Time             `json:"last_checked,omitempty"`
+	LastNotified   *time.Time             `json:"last_notified,omitempty"`
+	CreatedAt      time.Time              `json:"created_at"`
+	UpdatedAt      time.Time              `json:"updated_at"`
+}
+
+type GetSavedSearchesRequest struct {
+	IsActive *bool `json:"is_active,omitempty"`
+	Limit    int   `json:"limit,omitempty"`
+	Offset   int   `json:"offset,omitempty"`
+}
+
+type GetSavedSearchesResponse struct {
+	SavedSearches []*SavedSearchResponse `json:"saved_searches"`
+	Total         int64                  `json:"total"`
+}
+
+type UpdateSavedSearchRequest struct {
+	UserID         uuid.UUID              `json:"user_id" validate:"required"`
+	SavedSearchID  uuid.UUID              `json:"saved_search_id" validate:"required"`
+	Name           *string                `json:"name,omitempty"`
+	Query          *string                `json:"query,omitempty"`
+	Filters        map[string]interface{} `json:"filters,omitempty"`
+	IsActive       *bool                  `json:"is_active,omitempty"`
+	PriceAlert     *bool                  `json:"price_alert,omitempty"`
+	StockAlert     *bool                  `json:"stock_alert,omitempty"`
+	NewItemAlert   *bool                  `json:"new_item_alert,omitempty"`
+	MaxPrice       *float64               `json:"max_price,omitempty"`
+	MinPrice       *float64               `json:"min_price,omitempty"`
+	EmailNotify    *bool                  `json:"email_notify,omitempty"`
+	PushNotify     *bool                  `json:"push_notify,omitempty"`
+}
+
+type SavedSearchExecutionResponse struct {
+	SavedSearchID uuid.UUID `json:"saved_search_id"`
+	Query         string    `json:"query"`
+	Results       int       `json:"results"`
+	ExecutedAt    time.Time `json:"executed_at"`
+	SearchURL     string    `json:"search_url"`
+}
+
+// Browsing history request/response types
+type TrackProductViewRequest struct {
+	UserID       uuid.UUID  `json:"user_id" validate:"required"`
+	ProductID    uuid.UUID  `json:"product_id" validate:"required"`
+	CategoryID   *uuid.UUID `json:"category_id,omitempty"`
+	ViewDuration int        `json:"view_duration"` // in seconds
+	Source       string     `json:"source"`        // search, category, recommendation, etc.
+	IPAddress    string     `json:"ip_address,omitempty"`
+	UserAgent    string     `json:"user_agent,omitempty"`
+}
+
+type BrowsingHistoryRequest struct {
+	CategoryID *uuid.UUID `json:"category_id,omitempty"`
+	Source     *string    `json:"source,omitempty"`
+	DateFrom   *time.Time `json:"date_from,omitempty"`
+	DateTo     *time.Time `json:"date_to,omitempty"`
+	Limit      int        `json:"limit,omitempty"`
+	Offset     int        `json:"offset,omitempty"`
+}
+
+type BrowsingHistoryResponse struct {
+	History []*BrowsingHistoryItem `json:"history"`
+	Total   int64                  `json:"total"`
+}
+
+type BrowsingHistoryItem struct {
+	ID           uuid.UUID `json:"id"`
+	ProductID    uuid.UUID `json:"product_id"`
+	ProductName  string    `json:"product_name"`
+	ProductImage string    `json:"product_image,omitempty"`
+	CategoryID   *uuid.UUID `json:"category_id,omitempty"`
+	CategoryName string    `json:"category_name,omitempty"`
+	ViewDuration int       `json:"view_duration"`
+	Source       string    `json:"source"`
+	CreatedAt    time.Time `json:"created_at"`
+}
+
+// Personalization request/response types
+type PersonalizationResponse struct {
+	ID                   uuid.UUID              `json:"id"`
+	UserID               uuid.UUID              `json:"user_id"`
+	CategoryPreferences  map[string]float64     `json:"category_preferences"`
+	BrandPreferences     map[string]float64     `json:"brand_preferences"`
+	PriceRangePreference PriceRangePreference   `json:"price_range_preference"`
+	AverageOrderValue    float64                `json:"average_order_value"`
+	PreferredShoppingTime string                `json:"preferred_shopping_time"`
+	ShoppingFrequency    string                 `json:"shopping_frequency"`
+	RecommendationEngine string                 `json:"recommendation_engine"`
+	PersonalizationLevel string                 `json:"personalization_level"`
+	TotalViews           int                    `json:"total_views"`
+	TotalSearches        int                    `json:"total_searches"`
+	UniqueProductsViewed int                    `json:"unique_products_viewed"`
+	LastAnalyzed         *time.Time             `json:"last_analyzed,omitempty"`
+	CreatedAt            time.Time              `json:"created_at"`
+	UpdatedAt            time.Time              `json:"updated_at"`
+}
+
+type UpdatePersonalizationRequest struct {
+	UserID                uuid.UUID              `json:"user_id" validate:"required"`
+	CategoryPreferences   map[string]float64     `json:"category_preferences,omitempty"`
+	BrandPreferences      map[string]float64     `json:"brand_preferences,omitempty"`
+	PriceRangePreference  *PriceRangePreference  `json:"price_range_preference,omitempty"`
+	PreferredShoppingTime *string                `json:"preferred_shopping_time,omitempty"`
+	ShoppingFrequency     *string                `json:"shopping_frequency,omitempty"`
+	RecommendationEngine  *string                `json:"recommendation_engine,omitempty"`
+	PersonalizationLevel  *string                `json:"personalization_level,omitempty"`
+}
+
+type PriceRangePreference struct {
+	MinPrice float64 `json:"min_price"`
+	MaxPrice float64 `json:"max_price"`
+	Currency string  `json:"currency"`
+}
+
+type PersonalizedRecommendationsRequest struct {
+	UserID     uuid.UUID `json:"user_id" validate:"required"`
+	Type       string    `json:"type"` // products, categories, brands
+	Limit      int       `json:"limit,omitempty"`
+	CategoryID *uuid.UUID `json:"category_id,omitempty"`
+	Exclude    []uuid.UUID `json:"exclude,omitempty"` // Exclude specific items
+}
+
+type PersonalizedRecommendationsResponse struct {
+	Type            string                    `json:"type"`
+	Recommendations []PersonalizedRecommendation `json:"recommendations"`
+	Algorithm       string                    `json:"algorithm"`
+	GeneratedAt     time.Time                 `json:"generated_at"`
+}
+
+type PersonalizedRecommendation struct {
+	ID          uuid.UUID `json:"id"`
+	Type        string    `json:"type"` // product, category, brand
+	Name        string    `json:"name"`
+	Description string    `json:"description,omitempty"`
+	Image       string    `json:"image,omitempty"`
+	Price       *float64  `json:"price,omitempty"`
+	Score       float64   `json:"score"`
+	Reason      string    `json:"reason"`
+	Metadata    map[string]interface{} `json:"metadata,omitempty"`
+}
+
+type UserBehaviorAnalysisResponse struct {
+	UserID           uuid.UUID                `json:"user_id"`
+	TopCategories    []CategoryPreference     `json:"top_categories"`
+	TopBrands        []BrandPreference        `json:"top_brands"`
+	PriceAnalysis    PriceAnalysis            `json:"price_analysis"`
+	ShoppingPatterns ShoppingPatterns         `json:"shopping_patterns"`
+	EngagementScore  float64                  `json:"engagement_score"`
+	LoyaltyScore     float64                  `json:"loyalty_score"`
+	Insights         []BehaviorInsight        `json:"insights"`
+	AnalyzedAt       time.Time                `json:"analyzed_at"`
+}
+
+type CategoryPreference struct {
+	CategoryID    uuid.UUID `json:"category_id"`
+	CategoryName  string    `json:"category_name"`
+	Score         float64   `json:"score"`
+	ViewCount     int       `json:"view_count"`
+	PurchaseCount int       `json:"purchase_count"`
+}
+
+type BrandPreference struct {
+	BrandID       uuid.UUID `json:"brand_id"`
+	BrandName     string    `json:"brand_name"`
+	Score         float64   `json:"score"`
+	ViewCount     int       `json:"view_count"`
+	PurchaseCount int       `json:"purchase_count"`
+}
+
+type PriceAnalysis struct {
+	MinPrice      float64 `json:"min_price"`
+	MaxPrice      float64 `json:"max_price"`
+	AveragePrice  float64 `json:"average_price"`
+	PriceVariance float64 `json:"price_variance"`
+	PriceSegment  string  `json:"price_segment"` // budget, mid-range, premium
+}
+
+type ShoppingPatterns struct {
+	PreferredDays       []string `json:"preferred_days"`
+	PreferredHours      []int    `json:"preferred_hours"`
+	AverageSessionLength float64  `json:"average_session_length"`
+	PagesPerSession     float64  `json:"average_pages_per_session"`
+	ConversionRate      float64  `json:"conversion_rate"`
+}
+
+type BehaviorInsight struct {
+	Type        string    `json:"type"` // trend, preference, opportunity
+	Title       string    `json:"title"`
+	Description string    `json:"description"`
+	Confidence  float64   `json:"confidence"`
+	ActionItems []string  `json:"action_items,omitempty"`
+}
+
+// Profile analytics request/response types
+type ProfileAnalyticsResponse struct {
+	UserID   uuid.UUID `json:"user_id"`
+	Overview struct {
+		TotalViews           int       `json:"total_views"`
+		TotalSearches        int       `json:"total_searches"`
+		TotalOrders          int       `json:"total_orders"`
+		TotalSpent           float64   `json:"total_spent"`
+		AverageOrderValue    float64   `json:"average_order_value"`
+		LastActivity         time.Time `json:"last_activity"`
+		MemberSince          time.Time `json:"member_since"`
+		EngagementScore      float64   `json:"engagement_score"`
+		LoyaltyScore         float64   `json:"loyalty_score"`
+	} `json:"overview"`
+
+	ActivityTrends []ActivityTrendData `json:"activity_trends"`
+	TopCategories  []CategoryStats     `json:"top_categories"`
+	TopBrands      []BrandStats        `json:"top_brands"`
+
+	Preferences struct {
+		Theme                string  `json:"theme"`
+		Language             string  `json:"language"`
+		Currency             string  `json:"currency"`
+		NotificationsEnabled bool    `json:"notifications_enabled"`
+		PersonalizationLevel string  `json:"personalization_level"`
+	} `json:"preferences"`
+}
+
+type ActivitySummaryResponse struct {
+	UserID    uuid.UUID `json:"user_id"`
+	TimeRange string    `json:"time_range"`
+	Period    struct {
+		StartDate time.Time `json:"start_date"`
+		EndDate   time.Time `json:"end_date"`
+	} `json:"period"`
+
+	Summary struct {
+		Views         int     `json:"views"`
+		Searches      int     `json:"searches"`
+		Orders        int     `json:"orders"`
+		AmountSpent   float64 `json:"amount_spent"`
+		TimeSpent     int     `json:"time_spent"` // in minutes
+		PagesVisited  int     `json:"pages_visited"`
+		UniqueProducts int    `json:"unique_products"`
+	} `json:"summary"`
+
+	DailyActivity []DailyActivityData `json:"daily_activity"`
+	TopActions    []ActionData        `json:"top_actions"`
+}
+
+type ActivityTrendData struct {
+	Date   time.Time `json:"date"`
+	Views  int       `json:"views"`
+	Searches int     `json:"searches"`
+	Orders int       `json:"orders"`
+	Spent  float64   `json:"spent"`
+}
+
+type CategoryStats struct {
+	CategoryID   uuid.UUID `json:"category_id"`
+	CategoryName string    `json:"category_name"`
+	Views        int       `json:"views"`
+	Orders       int       `json:"orders"`
+	AmountSpent  float64   `json:"amount_spent"`
+}
+
+type BrandStats struct {
+	BrandID     uuid.UUID `json:"brand_id"`
+	BrandName   string    `json:"brand_name"`
+	Views       int       `json:"views"`
+	Orders      int       `json:"orders"`
+	AmountSpent float64   `json:"amount_spent"`
+}
+
+type DailyActivityData struct {
+	Date         time.Time `json:"date"`
+	Views        int       `json:"views"`
+	Searches     int       `json:"searches"`
+	TimeSpent    int       `json:"time_spent"`
+	PagesVisited int       `json:"pages_visited"`
+}
+
+type ActionData struct {
+	Action string `json:"action"`
+	Count  int    `json:"count"`
 }
