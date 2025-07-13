@@ -238,7 +238,8 @@ func (uc *brandUseCase) GetBrands(ctx context.Context, req GetBrandsRequest) (*B
 	if req.IsActive != nil && *req.IsActive {
 		brands, err = uc.brandRepo.GetActive(ctx, req.Limit, req.Offset)
 	} else {
-		brands, err = uc.brandRepo.List(ctx, req.Limit, req.Offset)
+		// Use GetBrandWithProductCount to include product counts
+		brands, err = uc.brandRepo.GetBrandWithProductCount(ctx, req.Limit, req.Offset)
 	}
 
 	if err != nil {
@@ -378,7 +379,7 @@ func (uc *brandUseCase) toBrandResponse(brand *entities.Brand) *BrandResponse {
 		Logo:         brand.Logo,
 		Website:      brand.Website,
 		IsActive:     brand.IsActive,
-		ProductCount: len(brand.Products), // This will be populated by repository if needed
+		ProductCount: brand.ProductCount, // Use the computed field from repository
 		CreatedAt:    brand.CreatedAt,
 		UpdatedAt:    brand.UpdatedAt,
 	}

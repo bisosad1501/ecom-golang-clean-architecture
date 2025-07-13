@@ -111,33 +111,69 @@ func (r *brandRepository) GetActive(ctx context.Context, limit, offset int) ([]*
 	return brands, err
 }
 
+// BrandWithCount represents a brand with product count
+type BrandWithCount struct {
+	entities.Brand
+	ProductCount int `json:"product_count"`
+}
+
 // GetBrandWithProductCount retrieves brands with product count
 func (r *brandRepository) GetBrandWithProductCount(ctx context.Context, limit, offset int) ([]*entities.Brand, error) {
-	var brands []*entities.Brand
-	err := r.db.WithContext(ctx).
-		Select("brands.*, COUNT(products.id) as product_count").
-		Joins("LEFT JOIN products ON brands.id = products.brand_id AND products.status = 'published'").
+	var results []struct {
+		entities.Brand
+		ProductCount int64 `gorm:"column:product_count"`
+	}
+
+	// Use a single query with LEFT JOIN to get brands and their product counts
+	err := r.db.WithContext(ctx).Debug().
+		Table("brands").
+		Select("brands.*, COALESCE(COUNT(products.id), 0) as product_count").
+		Joins("LEFT JOIN products ON brands.id = products.brand_id AND products.status = 'active'").
 		Group("brands.id").
 		Order("brands.name ASC").
 		Limit(limit).
 		Offset(offset).
-		Find(&brands).Error
-	return brands, err
+		Find(&results).Error
+
+	if err != nil {
+		return nil, err
+	}
+
+	// Convert results to brand entities
+	brands := make([]*entities.Brand, len(results))
+	for i, result := range results {
+		brands[i] = &result.Brand
+		brands[i].ProductCount = int(result.ProductCount)
+	}
+
+	return brands, nil
 }
 
 // GetPopularBrands retrieves brands ordered by product count
 func (r *brandRepository) GetPopularBrands(ctx context.Context, limit int) ([]*entities.Brand, error) {
-	var brands []*entities.Brand
+	var brandsWithCount []BrandWithCount
 	err := r.db.WithContext(ctx).
 		Select("brands.*, COUNT(products.id) as product_count").
-		Joins("LEFT JOIN products ON brands.id = products.brand_id AND products.status = 'published'").
+		Joins("LEFT JOIN products ON brands.id = products.brand_id AND products.status = 'active'").
 		Where("brands.is_active = ?", true).
 		Group("brands.id").
 		Having("COUNT(products.id) > 0").
 		Order("COUNT(products.id) DESC, brands.name ASC").
 		Limit(limit).
-		Find(&brands).Error
-	return brands, err
+		Find(&brandsWithCount).Error
+
+	if err != nil {
+		return nil, err
+	}
+
+	// Convert to Brand entities with ProductCount set
+	brands := make([]*entities.Brand, len(brandsWithCount))
+	for i, bwc := range brandsWithCount {
+		brands[i] = &bwc.Brand
+		brands[i].ProductCount = bwc.ProductCount
+	}
+
+	return brands, nil
 }
 
 // GetBrandsForFiltering retrieves brands for product filtering with counts
@@ -146,7 +182,7 @@ func (r *brandRepository) GetBrandsForFiltering(ctx context.Context, categoryID 
 		Select("brands.id, brands.name, COUNT(products.id) as count").
 		Table("brands").
 		Joins("INNER JOIN products ON brands.id = products.brand_id").
-		Where("brands.is_active = ? AND products.status = ?", true, "published").
+		Where("brands.is_active = ? AND products.status = ?", true, "active").
 		Group("brands.id, brands.name").
 		Having("COUNT(products.id) > 0").
 		Order("brands.name ASC")

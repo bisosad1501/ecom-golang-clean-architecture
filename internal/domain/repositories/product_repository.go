@@ -170,6 +170,9 @@ type BrandRepository interface {
 
 	// GetTotal gets total number of brands
 	GetTotal(ctx context.Context) (int64, error)
+
+	// GetBrandWithProductCount retrieves brands with product count
+	GetBrandWithProductCount(ctx context.Context, limit, offset int) ([]*entities.Brand, error)
 }
 
 // ProductAttributeRepository defines the interface for product attribute data access

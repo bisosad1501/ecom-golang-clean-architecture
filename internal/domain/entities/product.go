@@ -165,6 +165,9 @@ type Brand struct {
 	CreatedAt   time.Time `json:"created_at" gorm:"autoCreateTime"`
 	UpdatedAt   time.Time `json:"updated_at" gorm:"autoUpdateTime"`
 
+	// Computed fields (not stored in database)
+	ProductCount int `json:"product_count" gorm:"-"`
+
 	// Relationships
 	Products []Product `json:"products,omitempty" gorm:"foreignKey:BrandID"`
 }
