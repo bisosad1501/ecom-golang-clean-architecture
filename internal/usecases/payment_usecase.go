@@ -41,6 +41,9 @@ type PaymentUseCase interface {
 	// Refunds
 	ProcessRefund(ctx context.Context, req ProcessRefundRequest) (*RefundResponse, error)
 	GetRefunds(ctx context.Context, paymentID uuid.UUID) ([]*RefundResponse, error)
+	ApproveRefund(ctx context.Context, refundID uuid.UUID, approvedBy uuid.UUID) (*RefundResponse, error)
+	RejectRefund(ctx context.Context, refundID uuid.UUID, reason string) error
+	GetPendingRefunds(ctx context.Context, limit, offset int) ([]*RefundResponse, error)
 
 	// Payment methods
 	SavePaymentMethod(ctx context.Context, req SavePaymentMethodRequest) (*PaymentMethodResponse, error)
@@ -114,10 +117,15 @@ type ProcessPaymentRequest struct {
 }
 
 type ProcessRefundRequest struct {
-	PaymentID uuid.UUID              `json:"payment_id" validate:"required"`
-	Amount    float64                `json:"amount" validate:"required,gt=0"`
-	Reason    string                 `json:"reason" validate:"required"`
-	Metadata  map[string]interface{} `json:"metadata,omitempty"`
+	PaymentID         uuid.UUID                    `json:"payment_id" validate:"required"`
+	OrderID           uuid.UUID                    `json:"order_id" validate:"required"`
+	Amount            float64                      `json:"amount" validate:"required,gt=0"`
+	Reason            entities.RefundReason        `json:"reason" validate:"required"`
+	Description       string                       `json:"description,omitempty"`
+	Type              entities.RefundType          `json:"type" validate:"required"`
+	ForceApproval     bool                         `json:"force_approval,omitempty"`
+	ProcessedBy       *uuid.UUID                   `json:"processed_by,omitempty"`
+	Metadata          map[string]interface{}       `json:"metadata,omitempty"`
 }
 
 type SavePaymentMethodRequest struct {
@@ -213,14 +221,26 @@ type PaymentResponse struct {
 }
 
 type RefundResponse struct {
-	ID            uuid.UUID  `json:"id"`
-	PaymentID     uuid.UUID  `json:"payment_id"`
-	Amount        float64    `json:"amount"`
-	Reason        string     `json:"reason"`
-	Status        string     `json:"status"`
-	TransactionID string     `json:"transaction_id"`
-	ProcessedAt   *time.Time `json:"processed_at"`
-	CreatedAt     time.Time  `json:"created_at"`
+	ID               uuid.UUID                  `json:"id"`
+	PaymentID        uuid.UUID                  `json:"payment_id"`
+	OrderID          uuid.UUID                  `json:"order_id"`
+	Amount           float64                    `json:"amount"`
+	RefundFee        float64                    `json:"refund_fee"`
+	NetAmount        float64                    `json:"net_amount"`
+	Reason           entities.RefundReason      `json:"reason"`
+	Description      string                     `json:"description"`
+	Status           entities.RefundStatus      `json:"status"`
+	Type             entities.RefundType        `json:"type"`
+	TransactionID    string                     `json:"transaction_id"`
+	RequiresApproval bool                       `json:"requires_approval"`
+	ApprovedBy       *uuid.UUID                 `json:"approved_by"`
+	ApprovedAt       *time.Time                 `json:"approved_at"`
+	ProcessedAt      *time.Time                 `json:"processed_at"`
+	ProcessedBy      *uuid.UUID                 `json:"processed_by"`
+	FailureReason    string                     `json:"failure_reason"`
+	Metadata         map[string]interface{}     `json:"metadata"`
+	CreatedAt        time.Time                  `json:"created_at"`
+	UpdatedAt        time.Time                  `json:"updated_at"`
 }
 
 type PaymentMethodResponse struct {
@@ -446,77 +466,269 @@ func (uc *paymentUseCase) ProcessRefund(ctx context.Context, req ProcessRefundRe
 		return nil, entities.ErrPaymentNotFound
 	}
 
-	// Validate refund
-	if !payment.CanBeRefunded() {
-		return nil, fmt.Errorf("payment cannot be refunded")
-	}
-
-	if req.Amount > payment.GetRemainingRefundAmount() {
-		return nil, fmt.Errorf("refund amount exceeds remaining refundable amount")
-	}
-
-	// Process refund through gateway
-	var gatewayResp *RefundGatewayResponse
-	refundReq := RefundGatewayRequest{
-		TransactionID: payment.TransactionID,
-		Amount:        req.Amount,
-		Reason:        req.Reason,
-	}
-
-	switch payment.Method {
-	case entities.PaymentMethodStripe:
-		gatewayResp, err = uc.stripeService.ProcessRefund(ctx, refundReq)
-	case entities.PaymentMethodPayPal:
-		gatewayResp, err = uc.paypalService.ProcessRefund(ctx, refundReq)
-	default:
-		return nil, fmt.Errorf("unsupported payment method for refund: %s", payment.Method)
-	}
-
-	if err != nil {
+	// Comprehensive refund validation
+	if err := uc.validateRefundRequest(ctx, payment, req); err != nil {
 		return nil, err
 	}
 
-	if gatewayResp.Success {
-		// Update payment with refund
-		if err := payment.AddRefund(req.Amount); err != nil {
-			return nil, err
-		}
+	// Create refund entity
+	refund := &entities.Refund{
+		ID:          uuid.New(),
+		PaymentID:   req.PaymentID,
+		OrderID:     req.OrderID,
+		Amount:      req.Amount,
+		Reason:      req.Reason,
+		Description: req.Description,
+		Type:        req.Type,
+		Status:      entities.RefundStatusPending,
+		Metadata:    req.Metadata,
+		CreatedAt:   time.Now(),
+		UpdatedAt:   time.Now(),
+	}
 
-		// Save updated payment
-		if err := uc.paymentRepo.Update(ctx, payment); err != nil {
-			return nil, err
-		}
+	// Calculate refund fee
+	refundFee := refund.CalculateRefundFee()
+	refund.SetRefundFee(refundFee)
 
-		// Create refund record
-		refund := &entities.Refund{
-			ID:            uuid.New(),
-			PaymentID:     req.PaymentID,
-			Amount:        req.Amount,
-			Reason:        req.Reason,
-			Status:        entities.RefundStatusCompleted,
-			TransactionID: gatewayResp.RefundID,
-			ProcessedAt:   &time.Time{},
-			CreatedAt:     time.Now(),
-		}
-		*refund.ProcessedAt = time.Now()
+	// Check if approval is required
+	requiresApproval := req.ForceApproval || !refund.IsEligibleForAutoApproval()
+	refund.RequiresApproval = requiresApproval
 
+	if requiresApproval {
+		refund.Status = entities.RefundStatusAwaitingApproval
+
+		// Save refund for approval
 		if err := uc.paymentRepo.CreateRefund(ctx, refund); err != nil {
 			return nil, err
 		}
 
-		return &RefundResponse{
-			ID:            refund.ID,
-			PaymentID:     refund.PaymentID,
-			Amount:        refund.Amount,
-			Reason:        refund.Reason,
-			Status:        string(refund.Status),
-			TransactionID: refund.TransactionID,
-			ProcessedAt:   refund.ProcessedAt,
-			CreatedAt:     refund.CreatedAt,
-		}, nil
+		return uc.mapRefundToResponse(refund), nil
 	}
 
-	return nil, fmt.Errorf("refund failed: %s", gatewayResp.Message)
+	// Auto-approve and process
+	if req.ProcessedBy != nil {
+		refund.MarkAsApproved(*req.ProcessedBy)
+	}
+
+	return uc.processApprovedRefund(ctx, payment, refund)
+}
+
+// validateRefundRequest validates a refund request
+func (uc *paymentUseCase) validateRefundRequest(ctx context.Context, payment *entities.Payment, req ProcessRefundRequest) error {
+	// Basic payment validation
+	if !payment.CanBeRefunded() {
+		return fmt.Errorf("payment cannot be refunded")
+	}
+
+	// Time limit validation
+	if !payment.CanBeRefundedWithTimeLimit() {
+		return entities.ErrRefundTimeExpired
+	}
+
+	// Amount validation
+	if err := payment.ValidateRefundAmount(req.Amount); err != nil {
+		return err
+	}
+
+	// Reason validation
+	validReasons := []entities.RefundReason{
+		entities.RefundReasonDefective,
+		entities.RefundReasonNotAsDescribed,
+		entities.RefundReasonWrongItem,
+		entities.RefundReasonDamaged,
+		entities.RefundReasonCustomerRequest,
+		entities.RefundReasonDuplicate,
+		entities.RefundReasonFraud,
+		entities.RefundReasonChargeback,
+		entities.RefundReasonOther,
+	}
+
+	isValidReason := false
+	for _, validReason := range validReasons {
+		if req.Reason == validReason {
+			isValidReason = true
+			break
+		}
+	}
+
+	if !isValidReason {
+		return entities.ErrInvalidRefundReason
+	}
+
+	// Check for pending refunds
+	existingRefunds, err := uc.paymentRepo.GetRefundsByPaymentID(ctx, req.PaymentID)
+	if err != nil {
+		return err
+	}
+
+	for _, refund := range existingRefunds {
+		if refund.Status == entities.RefundStatusPending ||
+		   refund.Status == entities.RefundStatusAwaitingApproval ||
+		   refund.Status == entities.RefundStatusProcessing {
+			return fmt.Errorf("payment has pending refunds")
+		}
+	}
+
+	return nil
+}
+
+// processApprovedRefund processes an approved refund
+func (uc *paymentUseCase) processApprovedRefund(ctx context.Context, payment *entities.Payment, refund *entities.Refund) (*RefundResponse, error) {
+	refund.MarkAsProcessing()
+
+	// Process refund through gateway
+	refundReq := RefundGatewayRequest{
+		TransactionID: payment.TransactionID,
+		Amount:        refund.Amount,
+		Reason:        string(refund.Reason),
+	}
+
+	switch payment.Method {
+	case entities.PaymentMethodStripe:
+		gatewayResp, err := uc.stripeService.ProcessRefund(ctx, refundReq)
+		if err != nil {
+			refund.MarkAsFailed(fmt.Sprintf("Stripe gateway error: %v", err))
+			uc.paymentRepo.UpdateRefund(ctx, refund)
+			return nil, fmt.Errorf("gateway refund failed: %v", err)
+		}
+
+		if gatewayResp.Success {
+			refund.MarkAsCompleted(gatewayResp.RefundID)
+		} else {
+			refund.MarkAsFailed(gatewayResp.Message)
+			uc.paymentRepo.UpdateRefund(ctx, refund)
+			return nil, fmt.Errorf("refund failed: %s", gatewayResp.Message)
+		}
+
+	case entities.PaymentMethodPayPal:
+		gatewayResp, err := uc.paypalService.ProcessRefund(ctx, refundReq)
+		if err != nil {
+			refund.MarkAsFailed(fmt.Sprintf("PayPal gateway error: %v", err))
+			uc.paymentRepo.UpdateRefund(ctx, refund)
+			return nil, fmt.Errorf("gateway refund failed: %v", err)
+		}
+
+		if gatewayResp.Success {
+			refund.MarkAsCompleted(gatewayResp.RefundID)
+		} else {
+			refund.MarkAsFailed(gatewayResp.Message)
+			uc.paymentRepo.UpdateRefund(ctx, refund)
+			return nil, fmt.Errorf("refund failed: %s", gatewayResp.Message)
+		}
+
+	default:
+		refund.MarkAsFailed(fmt.Sprintf("Unsupported gateway: %s", payment.Method))
+		uc.paymentRepo.UpdateRefund(ctx, refund)
+		return nil, fmt.Errorf("unsupported payment method for refund: %s", payment.Method)
+	}
+
+	// Update payment with refund
+	if err := payment.AddRefund(refund.Amount); err != nil {
+		refund.MarkAsFailed(fmt.Sprintf("Failed to update payment: %v", err))
+		uc.paymentRepo.UpdateRefund(ctx, refund)
+		return nil, err
+	}
+
+	// Save updated payment
+	if err := uc.paymentRepo.Update(ctx, payment); err != nil {
+		refund.MarkAsFailed(fmt.Sprintf("Failed to save payment: %v", err))
+		uc.paymentRepo.UpdateRefund(ctx, refund)
+		return nil, err
+	}
+
+	// Save completed refund
+	if err := uc.paymentRepo.UpdateRefund(ctx, refund); err != nil {
+		return nil, err
+	}
+
+	return uc.mapRefundToResponse(refund), nil
+}
+
+// mapRefundToResponse maps a refund entity to response
+func (uc *paymentUseCase) mapRefundToResponse(refund *entities.Refund) *RefundResponse {
+	return &RefundResponse{
+		ID:               refund.ID,
+		PaymentID:        refund.PaymentID,
+		OrderID:          refund.OrderID,
+		Amount:           refund.Amount,
+		RefundFee:        refund.RefundFee,
+		NetAmount:        refund.NetAmount,
+		Reason:           refund.Reason,
+		Description:      refund.Description,
+		Status:           refund.Status,
+		Type:             refund.Type,
+		TransactionID:    refund.TransactionID,
+		RequiresApproval: refund.RequiresApproval,
+		ApprovedBy:       refund.ApprovedBy,
+		ApprovedAt:       refund.ApprovedAt,
+		ProcessedAt:      refund.ProcessedAt,
+		ProcessedBy:      refund.ProcessedBy,
+		FailureReason:    refund.FailureReason,
+		Metadata:         refund.Metadata,
+		CreatedAt:        refund.CreatedAt,
+		UpdatedAt:        refund.UpdatedAt,
+	}
+}
+
+// ApproveRefund approves a pending refund
+func (uc *paymentUseCase) ApproveRefund(ctx context.Context, refundID uuid.UUID, approvedBy uuid.UUID) (*RefundResponse, error) {
+	// Get refund
+	refund, err := uc.paymentRepo.GetRefund(ctx, refundID)
+	if err != nil {
+		return nil, entities.ErrRefundNotFound
+	}
+
+	// Validate refund status
+	if refund.Status != entities.RefundStatusAwaitingApproval {
+		return nil, fmt.Errorf("refund is not awaiting approval")
+	}
+
+	// Get payment for processing
+	payment, err := uc.paymentRepo.GetByID(ctx, refund.PaymentID)
+	if err != nil {
+		return nil, entities.ErrPaymentNotFound
+	}
+
+	// Mark as approved
+	refund.MarkAsApproved(approvedBy)
+
+	// Process the approved refund
+	return uc.processApprovedRefund(ctx, payment, refund)
+}
+
+// RejectRefund rejects a pending refund
+func (uc *paymentUseCase) RejectRefund(ctx context.Context, refundID uuid.UUID, reason string) error {
+	// Get refund
+	refund, err := uc.paymentRepo.GetRefund(ctx, refundID)
+	if err != nil {
+		return entities.ErrRefundNotFound
+	}
+
+	// Validate refund status
+	if refund.Status != entities.RefundStatusAwaitingApproval {
+		return fmt.Errorf("refund is not awaiting approval")
+	}
+
+	// Mark as rejected
+	refund.MarkAsRejected(reason)
+
+	// Save updated refund
+	return uc.paymentRepo.UpdateRefund(ctx, refund)
+}
+
+// GetPendingRefunds retrieves refunds awaiting approval
+func (uc *paymentUseCase) GetPendingRefunds(ctx context.Context, limit, offset int) ([]*RefundResponse, error) {
+	refunds, err := uc.paymentRepo.GetPendingRefunds(ctx, limit, offset)
+	if err != nil {
+		return nil, err
+	}
+
+	responses := make([]*RefundResponse, len(refunds))
+	for i, refund := range refunds {
+		responses[i] = uc.mapRefundToResponse(refund)
+	}
+
+	return responses, nil
 }
 
 // HandleWebhook handles payment gateway webhooks
@@ -951,16 +1163,7 @@ func (uc *paymentUseCase) toPaymentResponse(payment *entities.Payment) *PaymentR
 
 // Helper method to convert refund entity to response
 func (uc *paymentUseCase) toRefundResponse(refund *entities.Refund) *RefundResponse {
-	return &RefundResponse{
-		ID:            refund.ID,
-		PaymentID:     refund.PaymentID,
-		Amount:        refund.Amount,
-		Reason:        refund.Reason,
-		Status:        string(refund.Status),
-		TransactionID: refund.TransactionID,
-		ProcessedAt:   refund.ProcessedAt,
-		CreatedAt:     refund.CreatedAt,
-	}
+	return uc.mapRefundToResponse(refund)
 }
 
 // GetRefunds gets all refunds for a payment

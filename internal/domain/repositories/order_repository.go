@@ -132,6 +132,7 @@ type PaymentRepository interface {
 	GetRefundsByPaymentID(ctx context.Context, paymentID uuid.UUID) ([]*entities.Refund, error)
 	UpdateRefund(ctx context.Context, refund *entities.Refund) error
 	ListRefunds(ctx context.Context, limit, offset int) ([]*entities.Refund, error)
+	GetPendingRefunds(ctx context.Context, limit, offset int) ([]*entities.Refund, error)
 }
 
 // PaymentMethodRepository defines the interface for payment method data access

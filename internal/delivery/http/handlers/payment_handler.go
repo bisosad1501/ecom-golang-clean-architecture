@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"net/http"
+	"strconv"
 
 	"ecom-golang-clean-architecture/internal/usecases"
 
@@ -150,6 +151,119 @@ func (h *PaymentHandler) GetRefunds(c *gin.Context) {
 
 	c.JSON(http.StatusOK, SuccessResponse{
 		Message: "Refunds retrieved successfully",
+		Data:    refunds,
+	})
+}
+
+// ApproveRefund approves a pending refund
+func (h *PaymentHandler) ApproveRefund(c *gin.Context) {
+	refundIDStr := c.Param("refund_id")
+	refundID, err := uuid.Parse(refundIDStr)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, ErrorResponse{
+			Error:   "Invalid refund ID",
+			Details: err.Error(),
+		})
+		return
+	}
+
+	// Get user from context
+	userID, exists := c.Get("user_id")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, ErrorResponse{
+			Error: "User not authenticated",
+		})
+		return
+	}
+
+	approvedBy, ok := userID.(uuid.UUID)
+	if !ok {
+		c.JSON(http.StatusInternalServerError, ErrorResponse{
+			Error: "Invalid user ID format",
+		})
+		return
+	}
+
+	refund, err := h.paymentUseCase.ApproveRefund(c.Request.Context(), refundID, approvedBy)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, ErrorResponse{
+			Error:   "Failed to approve refund",
+			Details: err.Error(),
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, SuccessResponse{
+		Message: "Refund approved successfully",
+		Data:    refund,
+	})
+}
+
+// RejectRefund rejects a pending refund
+func (h *PaymentHandler) RejectRefund(c *gin.Context) {
+	refundIDStr := c.Param("refund_id")
+	refundID, err := uuid.Parse(refundIDStr)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, ErrorResponse{
+			Error:   "Invalid refund ID",
+			Details: err.Error(),
+		})
+		return
+	}
+
+	var req struct {
+		Reason string `json:"reason" validate:"required"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, ErrorResponse{
+			Error:   "Invalid request body",
+			Details: err.Error(),
+		})
+		return
+	}
+
+	err = h.paymentUseCase.RejectRefund(c.Request.Context(), refundID, req.Reason)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, ErrorResponse{
+			Error:   "Failed to reject refund",
+			Details: err.Error(),
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, SuccessResponse{
+		Message: "Refund rejected successfully",
+	})
+}
+
+// GetPendingRefunds retrieves refunds awaiting approval
+func (h *PaymentHandler) GetPendingRefunds(c *gin.Context) {
+	limit := 20
+	offset := 0
+
+	if limitStr := c.Query("limit"); limitStr != "" {
+		if parsedLimit, err := strconv.Atoi(limitStr); err == nil && parsedLimit > 0 {
+			limit = parsedLimit
+		}
+	}
+
+	if offsetStr := c.Query("offset"); offsetStr != "" {
+		if parsedOffset, err := strconv.Atoi(offsetStr); err == nil && parsedOffset >= 0 {
+			offset = parsedOffset
+		}
+	}
+
+	refunds, err := h.paymentUseCase.GetPendingRefunds(c.Request.Context(), limit, offset)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, ErrorResponse{
+			Error:   "Failed to get pending refunds",
+			Details: err.Error(),
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, SuccessResponse{
+		Message: "Pending refunds retrieved successfully",
 		Data:    refunds,
 	})
 }

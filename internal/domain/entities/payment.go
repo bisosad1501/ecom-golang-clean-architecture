@@ -7,6 +7,8 @@ import (
 	"github.com/google/uuid"
 )
 
+
+
 // PaymentMethod represents the payment method
 type PaymentMethod string
 
@@ -163,27 +165,82 @@ func (p *Payment) AddRefund(amount float64) error {
 type Refund struct {
 	ID            uuid.UUID     `json:"id" gorm:"type:uuid;primary_key;default:gen_random_uuid()"`
 	PaymentID     uuid.UUID     `json:"payment_id" gorm:"type:uuid;not null;index"`
+	OrderID       uuid.UUID     `json:"order_id" gorm:"type:uuid;not null;index"`
 	Amount        float64       `json:"amount" gorm:"not null" validate:"required,gt=0"`
-	Reason        string        `json:"reason" gorm:"not null"`
+	RefundFee     float64       `json:"refund_fee" gorm:"default:0"`
+	NetAmount     float64       `json:"net_amount" gorm:"not null"`
+	Reason        RefundReason  `json:"reason" gorm:"not null"`
+	Description   string        `json:"description" gorm:"type:text"`
 	Status        RefundStatus  `json:"status" gorm:"default:'pending'"`
+	Type          RefundType    `json:"type" gorm:"default:'full'"`
 	TransactionID string        `json:"transaction_id" gorm:"index"`
 	ExternalID    string        `json:"external_id" gorm:"index"`
+
+	// Business rules
+	RequiresApproval bool      `json:"requires_approval" gorm:"default:false"`
+	ApprovedBy       *uuid.UUID `json:"approved_by" gorm:"type:uuid"`
+	ApprovedAt       *time.Time `json:"approved_at"`
+
+	// Processing info
 	ProcessedAt   *time.Time    `json:"processed_at"`
+	ProcessedBy   *uuid.UUID    `json:"processed_by" gorm:"type:uuid"`
+	FailureReason string        `json:"failure_reason" gorm:"type:text"`
+
+	// Metadata
+	Metadata      map[string]interface{} `json:"metadata" gorm:"type:jsonb"`
+
+	// Timestamps
 	CreatedAt     time.Time     `json:"created_at" gorm:"autoCreateTime"`
 	UpdatedAt     time.Time     `json:"updated_at" gorm:"autoUpdateTime"`
 
 	// Relationships
 	Payment *Payment `json:"payment,omitempty" gorm:"foreignKey:PaymentID"`
+	Order   *Order   `json:"order,omitempty" gorm:"foreignKey:OrderID"`
 }
 
 // RefundStatus represents the refund status
 type RefundStatus string
 
 const (
-	RefundStatusPending   RefundStatus = "pending"
-	RefundStatusCompleted RefundStatus = "completed"
-	RefundStatusFailed    RefundStatus = "failed"
-	RefundStatusCancelled RefundStatus = "cancelled"
+	RefundStatusPending         RefundStatus = "pending"
+	RefundStatusAwaitingApproval RefundStatus = "awaiting_approval"
+	RefundStatusApproved        RefundStatus = "approved"
+	RefundStatusProcessing      RefundStatus = "processing"
+	RefundStatusCompleted       RefundStatus = "completed"
+	RefundStatusFailed          RefundStatus = "failed"
+	RefundStatusCancelled       RefundStatus = "cancelled"
+	RefundStatusRejected        RefundStatus = "rejected"
+)
+
+// RefundType represents the type of refund
+type RefundType string
+
+const (
+	RefundTypeFull    RefundType = "full"
+	RefundTypePartial RefundType = "partial"
+)
+
+// RefundReason represents the reason for refund
+type RefundReason string
+
+const (
+	RefundReasonDefective        RefundReason = "defective"
+	RefundReasonNotAsDescribed   RefundReason = "not_as_described"
+	RefundReasonWrongItem        RefundReason = "wrong_item"
+	RefundReasonDamaged          RefundReason = "damaged"
+	RefundReasonCustomerRequest  RefundReason = "customer_request"
+	RefundReasonDuplicate        RefundReason = "duplicate"
+	RefundReasonFraud            RefundReason = "fraud"
+	RefundReasonChargeback       RefundReason = "chargeback"
+	RefundReasonOther            RefundReason = "other"
+)
+
+// Refund business constants
+const (
+	DefaultRefundTimeLimit = 30 * 24 * time.Hour // 30 days
+	MinRefundAmount        = 0.01
+	MaxRefundFeePercent    = 0.05 // 5%
+	RefundFeeThreshold     = 100.0 // No fee for refunds above this amount
 )
 
 // TableName returns the table name for Refund entity
@@ -206,9 +263,80 @@ func (r *Refund) MarkAsCompleted(transactionID string) {
 }
 
 // MarkAsFailed marks the refund as failed
-func (r *Refund) MarkAsFailed() {
+func (r *Refund) MarkAsFailed(reason string) {
 	r.Status = RefundStatusFailed
+	r.FailureReason = reason
 	r.UpdatedAt = time.Now()
+}
+
+// MarkAsApproved marks the refund as approved
+func (r *Refund) MarkAsApproved(approvedBy uuid.UUID) {
+	r.Status = RefundStatusApproved
+	r.ApprovedBy = &approvedBy
+	now := time.Now()
+	r.ApprovedAt = &now
+	r.UpdatedAt = now
+}
+
+// MarkAsRejected marks the refund as rejected
+func (r *Refund) MarkAsRejected(reason string) {
+	r.Status = RefundStatusRejected
+	r.FailureReason = reason
+	r.UpdatedAt = time.Now()
+}
+
+// MarkAsProcessing marks the refund as processing
+func (r *Refund) MarkAsProcessing() {
+	r.Status = RefundStatusProcessing
+	r.UpdatedAt = time.Now()
+}
+
+// CalculateRefundFee calculates the refund fee based on business rules
+func (r *Refund) CalculateRefundFee() float64 {
+	// No fee for high-value refunds
+	if r.Amount >= RefundFeeThreshold {
+		return 0
+	}
+
+	// Calculate percentage-based fee
+	fee := r.Amount * MaxRefundFeePercent
+
+	// Ensure minimum fee
+	if fee < 1.0 && r.Amount > 10.0 {
+		fee = 1.0
+	}
+
+	return fee
+}
+
+// SetRefundFee sets the refund fee and calculates net amount
+func (r *Refund) SetRefundFee(fee float64) {
+	r.RefundFee = fee
+	r.NetAmount = r.Amount - fee
+}
+
+// IsEligibleForAutoApproval checks if refund can be auto-approved
+func (r *Refund) IsEligibleForAutoApproval() bool {
+	// Auto-approve small amounts and certain reasons
+	autoApprovalReasons := []RefundReason{
+		RefundReasonDefective,
+		RefundReasonDamaged,
+		RefundReasonWrongItem,
+	}
+
+	for _, reason := range autoApprovalReasons {
+		if r.Reason == reason && r.Amount <= 50.0 {
+			return true
+		}
+	}
+
+	return false
+}
+
+// CanBeProcessed checks if refund can be processed
+func (r *Refund) CanBeProcessed() bool {
+	return r.Status == RefundStatusApproved ||
+		   (r.Status == RefundStatusPending && r.IsEligibleForAutoApproval())
 }
 
 // GetRemainingRefundAmount returns the remaining amount that can be refunded
@@ -219,6 +347,57 @@ func (p *Payment) GetRemainingRefundAmount() float64 {
 // CanBeRefunded checks if the payment can be refunded
 func (p *Payment) CanBeRefunded() bool {
 	return p.Status == PaymentStatusPaid && p.RefundAmount < p.Amount
+}
+
+// CanBeRefundedWithTimeLimit checks if payment can be refunded within time limit
+func (p *Payment) CanBeRefundedWithTimeLimit() bool {
+	if !p.CanBeRefunded() {
+		return false
+	}
+
+	// Check time limit
+	timeLimit := time.Now().Add(-DefaultRefundTimeLimit)
+	return p.CreatedAt.After(timeLimit)
+}
+
+// ValidateRefundAmount validates if the refund amount is valid
+func (p *Payment) ValidateRefundAmount(amount float64) error {
+	if amount <= 0 {
+		return ErrInvalidRefundAmount
+	}
+
+	if amount < MinRefundAmount {
+		return fmt.Errorf("refund amount must be at least %.2f", MinRefundAmount)
+	}
+
+	if p.RefundAmount + amount > p.Amount {
+		return ErrRefundAmountExceedsPayment
+	}
+
+	return nil
+}
+
+// GetMaxRefundableAmount returns the maximum amount that can be refunded
+func (p *Payment) GetMaxRefundableAmount() float64 {
+	return p.Amount - p.RefundAmount
+}
+
+// HasPendingRefunds checks if payment has pending refunds
+func (p *Payment) HasPendingRefunds() bool {
+	// This would need to be implemented with repository query
+	// For now, return false - will be implemented in use case
+	return false
+}
+
+// CalculateRefundImpact calculates the impact of a refund on payment status
+func (p *Payment) CalculateRefundImpact(refundAmount float64) PaymentStatus {
+	totalRefunded := p.RefundAmount + refundAmount
+
+	if totalRefunded >= p.Amount {
+		return PaymentStatusRefunded
+	}
+
+	return p.Status // No change
 }
 
 // PaymentMethodEntity represents a saved payment method for a user

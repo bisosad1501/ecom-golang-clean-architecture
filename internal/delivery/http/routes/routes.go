@@ -482,6 +482,15 @@ func SetupRoutes(
 				payments.POST("/checkout-session", paymentHandler.CreateCheckoutSession)
 				payments.GET("/:id", paymentHandler.GetPayment)
 				payments.POST("/:id/refund", paymentHandler.ProcessRefund)
+
+				// Refund management
+				payments.POST("/refunds", paymentHandler.ProcessRefund)
+				payments.GET("/refunds/:payment_id", paymentHandler.GetRefunds)
+				payments.PUT("/refunds/:refund_id/approve", paymentHandler.ApproveRefund)
+				payments.PUT("/refunds/:refund_id/reject", paymentHandler.RejectRefund)
+				payments.GET("/refunds/pending", paymentHandler.GetPendingRefunds)
+
+				// Payment methods
 				payments.GET("/methods", paymentHandler.GetUserPaymentMethods)
 				payments.POST("/methods", paymentHandler.SavePaymentMethod)
 				payments.DELETE("/methods/:id", paymentHandler.DeletePaymentMethod)

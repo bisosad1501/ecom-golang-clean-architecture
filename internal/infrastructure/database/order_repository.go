@@ -591,3 +591,17 @@ func (r *paymentRepository) ListRefunds(ctx context.Context, limit, offset int) 
 		Find(&refunds).Error
 	return refunds, err
 }
+
+func (r *paymentRepository) GetPendingRefunds(ctx context.Context, limit, offset int) ([]*entities.Refund, error) {
+	var refunds []*entities.Refund
+	err := r.db.WithContext(ctx).
+		Where("status IN (?)", []entities.RefundStatus{
+			entities.RefundStatusPending,
+			entities.RefundStatusAwaitingApproval,
+		}).
+		Limit(limit).
+		Offset(offset).
+		Order("created_at ASC").
+		Find(&refunds).Error
+	return refunds, err
+}

@@ -49,6 +49,16 @@ var (
 	ErrRefundAmountExceedsPayment  = errors.New("refund amount exceeds payment amount")
 	ErrPaymentAlreadyProcessed     = errors.New("payment already processed")
 
+	// Refund errors
+	ErrRefundTimeExpired          = errors.New("refund time limit has expired")
+	ErrRefundAlreadyProcessed     = errors.New("refund has already been processed")
+	ErrRefundNotFound             = errors.New("refund not found")
+	ErrRefundNotApproved          = errors.New("refund has not been approved")
+	ErrRefundCannotBeProcessed    = errors.New("refund cannot be processed")
+	ErrInvalidRefundReason        = errors.New("invalid refund reason")
+	ErrRefundRequiresApproval     = errors.New("refund requires manual approval")
+	ErrMultipleRefundsNotAllowed  = errors.New("multiple refunds not allowed for this payment")
+
 	// Payment method errors
 	ErrPaymentMethodNotFound       = errors.New("payment method not found")
 	ErrPaymentMethodExists         = errors.New("payment method already exists")
