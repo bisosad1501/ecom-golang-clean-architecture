@@ -43,9 +43,9 @@ func SessionValidationMiddleware() gin.HandlerFunc {
 
 // validateSessionID validates the session ID format (strict)
 func validateSessionID(sessionID string) error {
-	// Session ID should be 10-128 characters, alphanumeric with hyphens and underscores
-	if len(sessionID) < 10 || len(sessionID) > 128 {
-		return fmt.Errorf("session ID must be between 10 and 128 characters")
+	// Session ID should be 16-128 characters, alphanumeric with hyphens and underscores
+	if len(sessionID) < 16 || len(sessionID) > 128 {
+		return fmt.Errorf("session ID must be between 16 and 128 characters")
 	}
 
 	// Check format: alphanumeric, hyphens, and underscores only
@@ -59,9 +59,9 @@ func validateSessionID(sessionID string) error {
 
 // validateSessionIDRelaxed validates the session ID format (relaxed for frontend compatibility)
 func validateSessionIDRelaxed(sessionID string) error {
-	// More relaxed validation - allow 6-256 characters
-	if len(sessionID) < 6 || len(sessionID) > 256 {
-		return fmt.Errorf("session ID must be between 6 and 256 characters")
+	// Consistent with entity validation - allow 16-128 characters
+	if len(sessionID) < 16 || len(sessionID) > 128 {
+		return fmt.Errorf("session ID must be between 16 and 128 characters")
 	}
 
 	// Allow more characters including dots and special chars that frontend might generate

@@ -873,3 +873,62 @@ func migration008Down(db *gorm.DB) error {
 	log.Println("✅ Reverted user verification structure and removed user sessions")
 	return nil
 }
+
+// migration009Up adds payment method field to orders table
+func migration009Up(db *gorm.DB) error {
+	log.Println("🔧 Adding payment method field to orders table...")
+
+	sqls := []string{
+		// Add payment_method column to orders table
+		"ALTER TABLE orders ADD COLUMN IF NOT EXISTS payment_method VARCHAR(50) DEFAULT 'credit_card'",
+
+		// Add index for payment_method for better query performance
+		"CREATE INDEX IF NOT EXISTS idx_orders_payment_method ON orders(payment_method)",
+
+		// Update existing orders to have a default payment method based on existing payments
+		`UPDATE orders
+		SET payment_method = (
+			SELECT COALESCE(p.method, 'credit_card')
+			FROM payments p
+			WHERE p.order_id = orders.id
+			ORDER BY p.created_at DESC
+			LIMIT 1
+		)
+		WHERE payment_method IS NULL OR payment_method = ''`,
+
+		// Ensure all orders have a payment method
+		"UPDATE orders SET payment_method = 'credit_card' WHERE payment_method IS NULL OR payment_method = ''",
+	}
+
+	for _, sql := range sqls {
+		if err := db.Exec(sql).Error; err != nil {
+			return fmt.Errorf("failed to execute SQL: %s, error: %w", sql, err)
+		}
+	}
+
+	log.Println("✅ Added payment method field to orders table")
+	return nil
+}
+
+// migration009Down removes payment method field from orders table
+func migration009Down(db *gorm.DB) error {
+	log.Println("🔧 Removing payment method field from orders table...")
+
+	sqls := []string{
+		// Remove index
+		"DROP INDEX IF EXISTS idx_orders_payment_method",
+
+		// Remove payment_method column from orders table
+		"ALTER TABLE orders DROP COLUMN IF EXISTS payment_method",
+	}
+
+	for _, sql := range sqls {
+		if err := db.Exec(sql).Error; err != nil {
+			// Log error but continue with other operations
+			log.Printf("Warning: Failed to execute SQL: %s, error: %v", sql, err)
+		}
+	}
+
+	log.Println("✅ Removed payment method field from orders table")
+	return nil
+}

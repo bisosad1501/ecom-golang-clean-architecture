@@ -99,6 +99,7 @@ type Order struct {
 	Status            OrderStatus       `json:"status" gorm:"default:'pending'"`
 	FulfillmentStatus FulfillmentStatus `json:"fulfillment_status" gorm:"default:'pending'"`
 	PaymentStatus     PaymentStatus     `json:"payment_status" gorm:"default:'pending'"`
+	PaymentMethod     PaymentMethod     `json:"payment_method" gorm:"default:'credit_card'"` // Store payment method
 	Priority          OrderPriority     `json:"priority" gorm:"default:'normal'"`
 	Source            OrderSource       `json:"source" gorm:"default:'web'"`
 	CustomerType      CustomerType      `json:"customer_type" gorm:"default:'guest'"`

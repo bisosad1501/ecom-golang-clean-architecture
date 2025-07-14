@@ -155,6 +155,7 @@ type OrderResponse struct {
 	Status               entities.OrderStatus       `json:"status"`
 	FulfillmentStatus    entities.FulfillmentStatus `json:"fulfillment_status"`
 	PaymentStatus        entities.PaymentStatus     `json:"payment_status"`
+	PaymentMethod        entities.PaymentMethod     `json:"payment_method"`
 	Priority             entities.OrderPriority     `json:"priority"`
 	Source               entities.OrderSource       `json:"source"`
 	CustomerType         entities.CustomerType      `json:"customer_type"`
@@ -412,6 +413,7 @@ func (uc *orderUseCase) createOrderInTransaction(ctx context.Context, tx *gorm.D
 		UserID:         userID,
 		Status:         entities.OrderStatusPending,
 		PaymentStatus:  initialPaymentStatus,
+		PaymentMethod:  req.PaymentMethod, // Store payment method
 		Subtotal:       subtotal,
 		TaxAmount:      taxAmount,
 		ShippingAmount: req.ShippingCost,
@@ -834,6 +836,7 @@ func (uc *orderUseCase) toOrderResponse(order *entities.Order) *OrderResponse {
 		Status:               order.Status,
 		FulfillmentStatus:    order.FulfillmentStatus,
 		PaymentStatus:        order.PaymentStatus,
+		PaymentMethod:        order.PaymentMethod,
 		Priority:             order.Priority,
 		Source:               order.Source,
 		CustomerType:         order.CustomerType,
@@ -929,16 +932,21 @@ func (uc *orderUseCase) toOrderResponse(order *entities.Order) *OrderResponse {
 		latestPayment := order.GetLatestPayment()
 		if latestPayment != nil {
 			response.Payment = &PaymentResponse{
-				ID:            latestPayment.ID,
-				Amount:        latestPayment.Amount,
-				Currency:      latestPayment.Currency,
-				Method:        latestPayment.Method,
-				Status:        latestPayment.Status,
-				TransactionID: latestPayment.TransactionID,
-				ProcessedAt:   latestPayment.ProcessedAt,
-				RefundedAt:    latestPayment.RefundedAt,
-				RefundAmount:  latestPayment.RefundAmount,
-				CreatedAt:     latestPayment.CreatedAt,
+				ID:              latestPayment.ID,
+				OrderID:         latestPayment.OrderID,
+				Amount:          latestPayment.Amount,
+				Currency:        latestPayment.Currency,
+				Method:          latestPayment.Method,
+				Status:          latestPayment.Status,
+				TransactionID:   latestPayment.TransactionID,
+				ExternalID:      latestPayment.ExternalID,
+				ProcessedAt:     latestPayment.ProcessedAt,
+				RefundedAt:      latestPayment.RefundedAt,
+				RefundAmount:    latestPayment.RefundAmount,
+				CanBeRefunded:   latestPayment.CanBeRefunded(),
+				RemainingRefund: latestPayment.GetRemainingRefundAmount(),
+				CreatedAt:       latestPayment.CreatedAt,
+				UpdatedAt:       latestPayment.UpdatedAt,
 			}
 		}
 	}

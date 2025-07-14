@@ -143,8 +143,15 @@ func (c *Cart) Validate() error {
 
 	// Validate SessionID format if present
 	if c.SessionID != nil && *c.SessionID != "" {
-		if len(*c.SessionID) < 10 || len(*c.SessionID) > 128 {
-			return fmt.Errorf("session_id must be between 10 and 128 characters")
+		if len(*c.SessionID) < 16 || len(*c.SessionID) > 128 {
+			return fmt.Errorf("session_id must be between 16 and 128 characters")
+		}
+		// Basic format validation - should contain only alphanumeric and safe characters
+		for _, char := range *c.SessionID {
+			if !((char >= 'a' && char <= 'z') || (char >= 'A' && char <= 'Z') ||
+				 (char >= '0' && char <= '9') || char == '-' || char == '_') {
+				return fmt.Errorf("session_id contains invalid characters")
+			}
 		}
 	}
 
@@ -198,16 +205,7 @@ func (c *Cart) Validate() error {
 		return fmt.Errorf("invalid status: %s", c.Status)
 	}
 
-	// Validate calculated fields are non-negative
-	if c.Subtotal < 0 {
-		return fmt.Errorf("subtotal cannot be negative")
-	}
-	if c.Total < 0 {
-		return fmt.Errorf("total cannot be negative")
-	}
-	if c.ItemCount < 0 {
-		return fmt.Errorf("item_count cannot be negative")
-	}
+
 
 	return nil
 }
@@ -254,6 +252,7 @@ func (c *Cart) AddItem(productID uuid.UUID, quantity int, price float64) {
 	if existingItem := c.GetItem(productID); existingItem != nil {
 		existingItem.Quantity += quantity
 		existingItem.Price = price // Update price to current price
+		existingItem.Total = float64(existingItem.Quantity) * existingItem.Price // Calculate total
 		existingItem.UpdatedAt = time.Now()
 	} else {
 		newItem := CartItem{
@@ -262,6 +261,7 @@ func (c *Cart) AddItem(productID uuid.UUID, quantity int, price float64) {
 			ProductID: productID,
 			Quantity:  quantity,
 			Price:     price,
+			Total:     float64(quantity) * price, // Calculate total for new item
 			CreatedAt: time.Now(),
 			UpdatedAt: time.Now(),
 		}
@@ -288,6 +288,7 @@ func (c *Cart) UpdateItemQuantity(productID uuid.UUID, quantity int) {
 			c.RemoveItem(productID)
 		} else {
 			item.Quantity = quantity
+			item.Total = float64(item.Quantity) * item.Price // Recalculate total
 			item.UpdatedAt = time.Now()
 			c.UpdateCalculatedFields()
 		}

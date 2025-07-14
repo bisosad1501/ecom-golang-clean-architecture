@@ -243,6 +243,12 @@ func getMigrations() []Migration {
 			Up:      migration008Up,
 			Down:    migration008Down,
 		},
+		{
+			Version: "009_add_payment_method_to_orders",
+			Name:    "Add payment method field to orders table",
+			Up:      migration009Up,
+			Down:    migration009Down,
+		},
 		// Temporarily disabled due to product_tags issue
 		// {
 		// 	Version: "006_enhance_search",
