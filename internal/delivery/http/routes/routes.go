@@ -270,6 +270,7 @@ func SetupRoutes(
 				shipping.POST("/calculate-distance", shippingHandler.CalculateDistanceBasedShipping)
 				shipping.GET("/zones", shippingHandler.GetShippingZones)
 				shipping.POST("/rates", shippingHandler.CalculateShippingCost)
+				shipping.POST("/validate-address", shippingHandler.ValidateShippingAddress)
 				shipping.GET("/track/:tracking_number", shippingHandler.TrackShipment)
 			}
 		}

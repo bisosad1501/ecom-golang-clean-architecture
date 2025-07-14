@@ -251,6 +251,8 @@ func (uc *orderUseCase) validateCreateOrderRequest(req CreateOrderRequest) error
 		entities.PaymentMethodStripe,
 		entities.PaymentMethodApplePay,
 		entities.PaymentMethodGooglePay,
+		entities.PaymentMethodBankTransfer,
+		entities.PaymentMethodCash, // Cash on Delivery (COD)
 	}
 	isValidPaymentMethod := false
 	for _, method := range validPaymentMethods {
@@ -396,13 +398,20 @@ func (uc *orderUseCase) createOrderInTransaction(ctx context.Context, tx *gorm.D
 		return nil, pkgErrors.Wrap(err, pkgErrors.ErrCodeInternalError, "Failed to generate order number")
 	}
 
+	// Determine initial payment status based on payment method
+	initialPaymentStatus := entities.PaymentStatusPending
+	if req.PaymentMethod == entities.PaymentMethodCash {
+		// COD orders start with "awaiting_payment" status
+		initialPaymentStatus = entities.PaymentStatusAwaitingPayment
+	}
+
 	// Create order with reservation fields
 	order := &entities.Order{
 		ID:             uuid.New(),
 		OrderNumber:    orderNumber,
 		UserID:         userID,
 		Status:         entities.OrderStatusPending,
-		PaymentStatus:  entities.PaymentStatusPending,
+		PaymentStatus:  initialPaymentStatus,
 		Subtotal:       subtotal,
 		TaxAmount:      taxAmount,
 		ShippingAmount: req.ShippingCost,
@@ -478,6 +487,27 @@ func (uc *orderUseCase) createOrderInTransaction(ctx context.Context, tx *gorm.D
 	// Create order within transaction
 	if err := uc.orderRepo.Create(ctx, order); err != nil {
 		return nil, pkgErrors.Wrap(err, pkgErrors.ErrCodeInternalError, "Failed to create order")
+	}
+
+	// For COD orders, create a pending payment record
+	if req.PaymentMethod == entities.PaymentMethodCash {
+		codPayment := &entities.Payment{
+			ID:        uuid.New(),
+			OrderID:   order.ID,
+			UserID:    userID,
+			Amount:    total,
+			Currency:  "USD",
+			Method:    entities.PaymentMethodCash,
+			Status:    entities.PaymentStatusAwaitingPayment,
+			Gateway:   "cod",
+			CreatedAt: time.Now(),
+			UpdatedAt: time.Now(),
+		}
+
+		// Create payment record for COD
+		if err := uc.paymentRepo.Create(ctx, codPayment); err != nil {
+			return nil, pkgErrors.Wrap(err, pkgErrors.ErrCodeInternalError, "Failed to create COD payment record")
+		}
 	}
 
 	// Reserve stock within transaction
@@ -894,19 +924,22 @@ func (uc *orderUseCase) toOrderResponse(order *entities.Order) *OrderResponse {
 		}
 	}
 
-	// Convert payment
-	if order.Payment != nil {
-		response.Payment = &PaymentResponse{
-			ID:            order.Payment.ID,
-			Amount:        order.Payment.Amount,
-			Currency:      order.Payment.Currency,
-			Method:        order.Payment.Method,
-			Status:        order.Payment.Status,
-			TransactionID: order.Payment.TransactionID,
-			ProcessedAt:   order.Payment.ProcessedAt,
-			RefundedAt:    order.Payment.RefundedAt,
-			RefundAmount:  order.Payment.RefundAmount,
-			CreatedAt:     order.Payment.CreatedAt,
+	// Convert payments - get the latest payment for backward compatibility
+	if len(order.Payments) > 0 {
+		latestPayment := order.GetLatestPayment()
+		if latestPayment != nil {
+			response.Payment = &PaymentResponse{
+				ID:            latestPayment.ID,
+				Amount:        latestPayment.Amount,
+				Currency:      latestPayment.Currency,
+				Method:        latestPayment.Method,
+				Status:        latestPayment.Status,
+				TransactionID: latestPayment.TransactionID,
+				ProcessedAt:   latestPayment.ProcessedAt,
+				RefundedAt:    latestPayment.RefundedAt,
+				RefundAmount:  latestPayment.RefundAmount,
+				CreatedAt:     latestPayment.CreatedAt,
+			}
 		}
 	}
 

@@ -1,6 +1,7 @@
 package entities
 
 import (
+	"fmt"
 	"time"
 
 	"github.com/google/uuid"
@@ -68,6 +69,86 @@ func (a *Address) IsShippingAddress() bool {
 // IsBillingAddress checks if this is a billing address
 func (a *Address) IsBillingAddress() bool {
 	return a.Type == AddressTypeBilling || a.Type == AddressTypeBoth
+}
+
+// Validate validates address data with enhanced checks
+func (a *Address) Validate() error {
+	if a.FirstName == "" {
+		return fmt.Errorf("first name is required")
+	}
+	if a.LastName == "" {
+		return fmt.Errorf("last name is required")
+	}
+	if a.Address1 == "" {
+		return fmt.Errorf("address line 1 is required")
+	}
+	if a.City == "" {
+		return fmt.Errorf("city is required")
+	}
+	if a.State == "" {
+		return fmt.Errorf("state is required")
+	}
+	if a.ZipCode == "" {
+		return fmt.Errorf("zip code is required")
+	}
+	if a.Country == "" {
+		return fmt.Errorf("country is required")
+	}
+
+	// Enhanced validations
+	if len(a.FirstName) > 50 {
+		return fmt.Errorf("first name must be 50 characters or less")
+	}
+	if len(a.LastName) > 50 {
+		return fmt.Errorf("last name must be 50 characters or less")
+	}
+	if len(a.Address1) > 100 {
+		return fmt.Errorf("address line 1 must be 100 characters or less")
+	}
+	if len(a.Address2) > 100 {
+		return fmt.Errorf("address line 2 must be 100 characters or less")
+	}
+	if len(a.City) > 50 {
+		return fmt.Errorf("city must be 50 characters or less")
+	}
+	if len(a.State) > 50 {
+		return fmt.Errorf("state must be 50 characters or less")
+	}
+
+	// Validate zip code format
+	if len(a.ZipCode) < 3 || len(a.ZipCode) > 20 {
+		return fmt.Errorf("zip code must be between 3 and 20 characters")
+	}
+
+	// Validate country code
+	if len(a.Country) < 2 || len(a.Country) > 3 {
+		return fmt.Errorf("country must be 2-3 character country code")
+	}
+
+	// Validate phone format if provided
+	if a.Phone != "" {
+		if len(a.Phone) < 10 || len(a.Phone) > 20 {
+			return fmt.Errorf("phone number must be between 10 and 20 characters")
+		}
+	}
+
+	return nil
+}
+
+// IsInternational checks if the address is international (non-US)
+func (a *Address) IsInternational() bool {
+	return a.Country != "US" && a.Country != "USA"
+}
+
+// GetShippingZone determines shipping zone based on address
+func (a *Address) GetShippingZone() string {
+	if a.IsInternational() {
+		return "international"
+	}
+
+	// For US addresses, could implement state-based zones
+	// This is a simplified implementation
+	return "domestic"
 }
 
 // Wishlist represents a user's wishlist item

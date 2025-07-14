@@ -36,7 +36,7 @@ func (r *orderRepository) GetByID(ctx context.Context, id uuid.UUID) (*entities.
 		Preload("Items.Product").
 		Preload("Items.Product.Images").
 		Preload("Items.Product.Category").
-		Preload("Payment").
+		Preload("Payments").
 		Where("id = ?", id).
 		First(&order).Error
 	if err != nil {
@@ -57,7 +57,7 @@ func (r *orderRepository) GetByOrderNumber(ctx context.Context, orderNumber stri
 		Preload("Items.Product").
 		Preload("Items.Product.Images").
 		Preload("Items.Product.Category").
-		Preload("Payment").
+		Preload("Payments").
 		Where("order_number = ?", orderNumber).
 		First(&order).Error
 	if err != nil {
@@ -105,7 +105,7 @@ func (r *orderRepository) List(ctx context.Context, limit, offset int) ([]*entit
 	err := r.db.WithContext(ctx).
 		Preload("User").
 		Preload("Items").
-		Preload("Payment").
+		Preload("Payments").
 		Limit(limit).
 		Offset(offset).
 		Order("created_at DESC").
@@ -123,7 +123,7 @@ func (r *orderRepository) Search(ctx context.Context, params repositories.OrderS
 		Preload("Items.Product.Images", func(db *gorm.DB) *gorm.DB {
 			return db.Where("position >= 0").Order("position ASC")
 		}).
-		Preload("Payment")
+		Preload("Payments")
 
 	// Apply filters
 	if params.UserID != nil {
@@ -226,7 +226,7 @@ func (r *orderRepository) GetByUserID(ctx context.Context, userID uuid.UUID, lim
 		Preload("Items.Product.Images", func(db *gorm.DB) *gorm.DB {
 			return db.Where("position >= 0").Order("position ASC")
 		}).
-		Preload("Payment").
+		Preload("Payments").
 		Where("user_id = ?", userID).
 		Limit(limit).
 		Offset(offset).
@@ -290,7 +290,7 @@ func (r *orderRepository) GetRecentOrders(ctx context.Context, limit int) ([]*en
 	err := r.db.WithContext(ctx).
 		Preload("User").
 		Preload("Items").
-		Preload("Payment").
+		Preload("Payments").
 		Limit(limit).
 		Order("created_at DESC").
 		Find(&orders).Error
@@ -303,7 +303,7 @@ func (r *orderRepository) GetOrdersByDateRange(ctx context.Context, startDate, e
 	err := r.db.WithContext(ctx).
 		Preload("User").
 		Preload("Items").
-		Preload("Payment").
+		Preload("Payments").
 		Where("created_at BETWEEN ? AND ?", startDate, endDate).
 		Order("created_at DESC").
 		Find(&orders).Error
@@ -445,10 +445,13 @@ func (r *paymentRepository) GetByID(ctx context.Context, id uuid.UUID) (*entitie
 	return &payment, nil
 }
 
-// GetByOrderID retrieves a payment by order ID
+// GetByOrderID retrieves the latest payment by order ID (for backward compatibility)
 func (r *paymentRepository) GetByOrderID(ctx context.Context, orderID uuid.UUID) (*entities.Payment, error) {
 	var payment entities.Payment
-	err := r.db.WithContext(ctx).Where("order_id = ?", orderID).First(&payment).Error
+	err := r.db.WithContext(ctx).
+		Where("order_id = ?", orderID).
+		Order("created_at DESC").
+		First(&payment).Error
 	if err != nil {
 		if err == gorm.ErrRecordNotFound {
 			return nil, entities.ErrPaymentNotFound
@@ -456,6 +459,26 @@ func (r *paymentRepository) GetByOrderID(ctx context.Context, orderID uuid.UUID)
 		return nil, err
 	}
 	return &payment, nil
+}
+
+// GetAllByOrderID retrieves all payments for an order
+func (r *paymentRepository) GetAllByOrderID(ctx context.Context, orderID uuid.UUID) ([]*entities.Payment, error) {
+	var payments []*entities.Payment
+	err := r.db.WithContext(ctx).
+		Where("order_id = ?", orderID).
+		Order("created_at DESC").
+		Find(&payments).Error
+	return payments, err
+}
+
+// GetSuccessfulPaymentsByOrderID retrieves all successful payments for an order
+func (r *paymentRepository) GetSuccessfulPaymentsByOrderID(ctx context.Context, orderID uuid.UUID) ([]*entities.Payment, error) {
+	var payments []*entities.Payment
+	err := r.db.WithContext(ctx).
+		Where("order_id = ? AND status = ?", orderID, entities.PaymentStatusPaid).
+		Order("created_at DESC").
+		Find(&payments).Error
+	return payments, err
 }
 
 // GetByTransactionID retrieves a payment by transaction ID

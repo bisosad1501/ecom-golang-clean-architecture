@@ -34,7 +34,7 @@ func NewAddressHandler(addressUseCase usecases.AddressUseCase) *AddressHandler {
 // @Failure 401 {object} ErrorResponse
 // @Router /addresses [post]
 func (h *AddressHandler) CreateAddress(c *gin.Context) {
-	userIDStr, exists := c.Get("user_id")
+	userIDInterface, exists := c.Get("user_id")
 	if !exists {
 		c.JSON(http.StatusUnauthorized, ErrorResponse{
 			Error: "User ID not found in token",
@@ -42,10 +42,10 @@ func (h *AddressHandler) CreateAddress(c *gin.Context) {
 		return
 	}
 
-	userID, err := uuid.Parse(userIDStr.(string))
-	if err != nil {
+	userID, ok := userIDInterface.(uuid.UUID)
+	if !ok {
 		c.JSON(http.StatusBadRequest, ErrorResponse{
-			Error: "Invalid user ID",
+			Error: "Invalid user ID format",
 		})
 		return
 	}

@@ -400,21 +400,21 @@ func (uc *userUseCase) Login(ctx context.Context, req LoginRequest) (*LoginRespo
 	user, err := uc.userRepo.GetByEmail(ctx, req.Email)
 	if err != nil {
 		// Log failed login attempt
-		_ = uc.logLoginAttempt(ctx, req.Email, false, "user not found", "")
+		_ = uc.logLoginAttempt(ctx, req.Email, false, "user not found", "127.0.0.1")
 		return nil, entities.ErrInvalidCredentials
 	}
 
 	// Check if user is active
 	if !user.IsActive {
 		// Log failed login attempt
-		_ = uc.logLoginAttempt(ctx, req.Email, false, "user not active", "")
+		_ = uc.logLoginAttempt(ctx, req.Email, false, "user not active", "127.0.0.1")
 		return nil, entities.ErrUserNotActive
 	}
 
 	// Check password
 	if err := uc.passwordService.CheckPassword(req.Password, user.Password); err != nil {
 		// Log failed login attempt
-		_ = uc.logLoginAttempt(ctx, req.Email, false, "invalid password", "")
+		_ = uc.logLoginAttempt(ctx, req.Email, false, "invalid password", "127.0.0.1")
 		return nil, entities.ErrInvalidCredentials
 	}
 
@@ -436,7 +436,7 @@ func (uc *userUseCase) Login(ctx context.Context, req LoginRequest) (*LoginRespo
 		UserID:       user.ID,
 		SessionToken: token,
 		DeviceInfo:   "", // TODO: Extract from request
-		IPAddress:    "", // TODO: Extract from request
+		IPAddress:    "127.0.0.1", // Default IP for now, TODO: Extract from request
 		UserAgent:    "", // TODO: Extract from request
 		Location:     "", // TODO: Extract from request
 		IsActive:     true,
@@ -460,7 +460,7 @@ func (uc *userUseCase) Login(ctx context.Context, req LoginRequest) (*LoginRespo
 	_ = uc.userRepo.Update(ctx, user)
 
 	// Log successful login attempt
-	_ = uc.logLoginAttempt(ctx, req.Email, true, "", "")
+	_ = uc.logLoginAttempt(ctx, req.Email, true, "", "127.0.0.1")
 
 	return &LoginResponse{
 		User:         uc.toUserResponse(user),

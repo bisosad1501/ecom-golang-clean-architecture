@@ -227,8 +227,11 @@ func main() {
 	// Initialize distance service
 	distanceService := services.NewDistanceService()
 
+	// Initialize shipping compatibility service
+	compatibilityService := services.NewShippingCompatibilityService()
+
 	// Initialize shipping use case
-	shippingUseCase := usecases.NewShippingUseCase(shippingRepo, orderRepo, distanceService)
+	shippingUseCase := usecases.NewShippingUseCase(shippingRepo, orderRepo, distanceService, compatibilityService)
 
 	adminUseCase := usecases.NewAdminUseCase(
 		userRepo, orderRepo, productRepo, reviewRepo,

@@ -1078,6 +1078,19 @@ func (uc *adminUseCase) GetOrderDetails(ctx context.Context, orderID uuid.UUID) 
 		return nil, fmt.Errorf("failed to get order: %w", err)
 	}
 
+	// Sync payment status based on current payments
+	oldPaymentStatus := order.PaymentStatus
+	order.SyncPaymentStatus()
+	if oldPaymentStatus != order.PaymentStatus {
+		// Update order if payment status changed
+		if err := uc.orderRepo.Update(ctx, order); err != nil {
+			// Log error but don't fail the request
+			fmt.Printf("❌ Failed to update order payment status: %v\n", err)
+		} else {
+			fmt.Printf("✅ Order payment status synced: %s → %s\n", oldPaymentStatus, order.PaymentStatus)
+		}
+	}
+
 	// Get user information
 	user, err := uc.userRepo.GetByID(ctx, order.UserID)
 	if err != nil {
@@ -1211,6 +1224,35 @@ func (uc *adminUseCase) GetOrderDetails(ctx context.Context, orderID uuid.UUID) 
 			Phone:        order.BillingAddress.Phone,
 		}
 	}
+
+	// Add payments information
+	payments := make([]struct {
+		ID            uuid.UUID              `json:"id"`
+		Amount        float64                `json:"amount"`
+		Method        entities.PaymentMethod `json:"method"`
+		Status        entities.PaymentStatus `json:"status"`
+		TransactionID string                 `json:"transaction_id"`
+		ProcessedAt   *time.Time             `json:"processed_at"`
+	}, len(order.Payments))
+
+	for i, payment := range order.Payments {
+		payments[i] = struct {
+			ID            uuid.UUID              `json:"id"`
+			Amount        float64                `json:"amount"`
+			Method        entities.PaymentMethod `json:"method"`
+			Status        entities.PaymentStatus `json:"status"`
+			TransactionID string                 `json:"transaction_id"`
+			ProcessedAt   *time.Time             `json:"processed_at"`
+		}{
+			ID:            payment.ID,
+			Amount:        payment.Amount,
+			Method:        payment.Method,
+			Status:        payment.Status,
+			TransactionID: payment.TransactionID,
+			ProcessedAt:   payment.ProcessedAt,
+		}
+	}
+	response.Payments = payments
 
 	return response, nil
 }

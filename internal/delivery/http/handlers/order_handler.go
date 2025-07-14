@@ -36,7 +36,7 @@ func NewOrderHandler(orderUseCase usecases.OrderUseCase) *OrderHandler {
 // @Failure 401 {object} ErrorResponse
 // @Router /orders [post]
 func (h *OrderHandler) CreateOrder(c *gin.Context) {
-	userIDStr, exists := c.Get("user_id")
+	userIDInterface, exists := c.Get("user_id")
 	if !exists {
 		c.JSON(http.StatusUnauthorized, ErrorResponse{
 			Error: "User ID not found in token",
@@ -44,10 +44,10 @@ func (h *OrderHandler) CreateOrder(c *gin.Context) {
 		return
 	}
 
-	userID, err := uuid.Parse(userIDStr.(string))
-	if err != nil {
+	userID, ok := userIDInterface.(uuid.UUID)
+	if !ok {
 		c.JSON(http.StatusBadRequest, ErrorResponse{
-			Error: "Invalid user ID",
+			Error: "Invalid user ID format",
 		})
 		return
 	}
@@ -186,7 +186,7 @@ func (h *OrderHandler) GetOrderPublic(c *gin.Context) {
 // @Failure 401 {object} ErrorResponse
 // @Router /orders [get]
 func (h *OrderHandler) GetUserOrders(c *gin.Context) {
-	userIDStr, exists := c.Get("user_id")
+	userIDInterface, exists := c.Get("user_id")
 	if !exists {
 		c.JSON(http.StatusUnauthorized, ErrorResponse{
 			Error: "User ID not found in token",
@@ -194,10 +194,10 @@ func (h *OrderHandler) GetUserOrders(c *gin.Context) {
 		return
 	}
 
-	userID, err := uuid.Parse(userIDStr.(string))
-	if err != nil {
+	userID, ok := userIDInterface.(uuid.UUID)
+	if !ok {
 		c.JSON(http.StatusBadRequest, ErrorResponse{
-			Error: "Invalid user ID",
+			Error: "Invalid user ID format",
 		})
 		return
 	}
@@ -415,7 +415,7 @@ func (h *OrderHandler) GetOrderBySessionID(c *gin.Context) {
 	}
 
 	// Get user ID from token for authorization
-	userIDStr, exists := c.Get("user_id")
+	userIDInterface, exists := c.Get("user_id")
 	if !exists {
 		c.JSON(http.StatusUnauthorized, ErrorResponse{
 			Error: "User ID not found in token",
@@ -423,10 +423,10 @@ func (h *OrderHandler) GetOrderBySessionID(c *gin.Context) {
 		return
 	}
 
-	userID, err := uuid.Parse(userIDStr.(string))
-	if err != nil {
+	userID, ok := userIDInterface.(uuid.UUID)
+	if !ok {
 		c.JSON(http.StatusBadRequest, ErrorResponse{
-			Error: "Invalid user ID",
+			Error: "Invalid user ID format",
 		})
 		return
 	}

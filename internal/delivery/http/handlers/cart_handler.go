@@ -33,13 +33,13 @@ func NewCartHandler(cartUseCase usecases.CartUseCase) *CartHandler {
 // @Router /cart [get]
 func (h *CartHandler) GetCart(c *gin.Context) {
 	// Check if user is authenticated
-	userIDStr, exists := c.Get("user_id")
+	userIDInterface, exists := c.Get("user_id")
 	if exists {
-		// Authenticated user
-		userID, err := uuid.Parse(userIDStr.(string))
-		if err != nil {
+		// Authenticated user - userID is already a UUID from middleware
+		userID, ok := userIDInterface.(uuid.UUID)
+		if !ok {
 			c.JSON(http.StatusBadRequest, ErrorResponse{
-				Error: "Invalid user ID",
+				Error: "Invalid user ID format",
 			})
 			return
 		}
@@ -105,13 +105,13 @@ func (h *CartHandler) AddToCart(c *gin.Context) {
 	}
 
 	// Check if user is authenticated
-	userIDStr, exists := c.Get("user_id")
+	userIDInterface, exists := c.Get("user_id")
 	if exists {
-		// Authenticated user
-		userID, err := uuid.Parse(userIDStr.(string))
-		if err != nil {
+		// Authenticated user - userID is already a UUID from middleware
+		userID, ok := userIDInterface.(uuid.UUID)
+		if !ok {
 			c.JSON(http.StatusBadRequest, ErrorResponse{
-				Error: "Invalid user ID",
+				Error: "Invalid user ID format",
 			})
 			return
 		}
@@ -168,7 +168,7 @@ func (h *CartHandler) AddToCart(c *gin.Context) {
 // @Failure 404 {object} ErrorResponse
 // @Router /cart/items [put]
 func (h *CartHandler) UpdateCartItem(c *gin.Context) {
-	userIDStr, exists := c.Get("user_id")
+	userIDInterface, exists := c.Get("user_id")
 	if !exists {
 		c.JSON(http.StatusUnauthorized, ErrorResponse{
 			Error: "User ID not found in token",
@@ -176,10 +176,10 @@ func (h *CartHandler) UpdateCartItem(c *gin.Context) {
 		return
 	}
 
-	userID, err := uuid.Parse(userIDStr.(string))
-	if err != nil {
+	userID, ok := userIDInterface.(uuid.UUID)
+	if !ok {
 		c.JSON(http.StatusBadRequest, ErrorResponse{
-			Error: "Invalid user ID",
+			Error: "Invalid user ID format",
 		})
 		return
 	}
@@ -221,7 +221,7 @@ func (h *CartHandler) UpdateCartItem(c *gin.Context) {
 // @Failure 404 {object} ErrorResponse
 // @Router /cart/items/{productId} [delete]
 func (h *CartHandler) RemoveFromCart(c *gin.Context) {
-	userIDStr, exists := c.Get("user_id")
+	userIDInterface, exists := c.Get("user_id")
 	if !exists {
 		c.JSON(http.StatusUnauthorized, ErrorResponse{
 			Error: "User ID not found in token",
@@ -229,10 +229,10 @@ func (h *CartHandler) RemoveFromCart(c *gin.Context) {
 		return
 	}
 
-	userID, err := uuid.Parse(userIDStr.(string))
-	if err != nil {
+	userID, ok := userIDInterface.(uuid.UUID)
+	if !ok {
 		c.JSON(http.StatusBadRequest, ErrorResponse{
-			Error: "Invalid user ID",
+			Error: "Invalid user ID format",
 		})
 		return
 	}
@@ -270,7 +270,7 @@ func (h *CartHandler) RemoveFromCart(c *gin.Context) {
 // @Failure 401 {object} ErrorResponse
 // @Router /cart [delete]
 func (h *CartHandler) ClearCart(c *gin.Context) {
-	userIDStr, exists := c.Get("user_id")
+	userIDInterface, exists := c.Get("user_id")
 	if !exists {
 		c.JSON(http.StatusUnauthorized, ErrorResponse{
 			Error: "User ID not found in token",
@@ -278,15 +278,15 @@ func (h *CartHandler) ClearCart(c *gin.Context) {
 		return
 	}
 
-	userID, err := uuid.Parse(userIDStr.(string))
-	if err != nil {
+	userID, ok := userIDInterface.(uuid.UUID)
+	if !ok {
 		c.JSON(http.StatusBadRequest, ErrorResponse{
-			Error: "Invalid user ID",
+			Error: "Invalid user ID format",
 		})
 		return
 	}
 
-	err = h.cartUseCase.ClearCart(c.Request.Context(), userID)
+	err := h.cartUseCase.ClearCart(c.Request.Context(), userID)
 	if err != nil {
 		c.JSON(getErrorStatusCode(err), ErrorResponse{
 			Error: err.Error(),
@@ -312,7 +312,7 @@ func (h *CartHandler) ClearCart(c *gin.Context) {
 // @Failure 401 {object} ErrorResponse
 // @Router /cart/merge [post]
 func (h *CartHandler) MergeGuestCart(c *gin.Context) {
-	userIDStr, exists := c.Get("user_id")
+	userIDInterface, exists := c.Get("user_id")
 	if !exists {
 		c.JSON(http.StatusUnauthorized, ErrorResponse{
 			Error: "User ID not found in token",
@@ -320,10 +320,10 @@ func (h *CartHandler) MergeGuestCart(c *gin.Context) {
 		return
 	}
 
-	userID, err := uuid.Parse(userIDStr.(string))
-	if err != nil {
+	userID, ok := userIDInterface.(uuid.UUID)
+	if !ok {
 		c.JSON(http.StatusBadRequest, ErrorResponse{
-			Error: "Invalid user ID",
+			Error: "Invalid user ID format",
 		})
 		return
 	}
@@ -384,7 +384,7 @@ func (h *CartHandler) MergeGuestCart(c *gin.Context) {
 // @Failure 401 {object} ErrorResponse
 // @Router /cart/check-conflict [post]
 func (h *CartHandler) CheckCartConflict(c *gin.Context) {
-	userIDStr, exists := c.Get("user_id")
+	userIDInterface, exists := c.Get("user_id")
 	if !exists {
 		c.JSON(http.StatusUnauthorized, ErrorResponse{
 			Error: "User ID not found in token",
@@ -392,10 +392,10 @@ func (h *CartHandler) CheckCartConflict(c *gin.Context) {
 		return
 	}
 
-	userID, err := uuid.Parse(userIDStr.(string))
-	if err != nil {
+	userID, ok := userIDInterface.(uuid.UUID)
+	if !ok {
 		c.JSON(http.StatusBadRequest, ErrorResponse{
-			Error: "Invalid user ID",
+			Error: "Invalid user ID format",
 		})
 		return
 	}

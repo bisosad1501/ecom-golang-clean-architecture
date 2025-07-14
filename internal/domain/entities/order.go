@@ -158,7 +158,7 @@ type Order struct {
 	LastModifiedBy *uuid.UUID `json:"last_modified_by" gorm:"type:uuid"`
 
 	// Relationships
-	Payment     *Payment     `json:"payment" gorm:"foreignKey:OrderID"`
+	Payments    []Payment    `json:"payments" gorm:"foreignKey:OrderID"`
 	OrderEvents []OrderEvent `json:"order_events" gorm:"foreignKey:OrderID"`
 
 	CreatedAt time.Time `json:"created_at" gorm:"autoCreateTime"`
@@ -517,6 +517,98 @@ func (o *Order) GetItemCount() int {
 // CalculateTotal calculates the total amount of the order
 func (o *Order) CalculateTotal() {
 	o.Total = o.Subtotal + o.TaxAmount + o.ShippingAmount + o.TipAmount - o.DiscountAmount
+}
+
+// GetSuccessfulPayments returns all successful payments for this order
+func (o *Order) GetSuccessfulPayments() []Payment {
+	var successfulPayments []Payment
+	for _, payment := range o.Payments {
+		if payment.IsSuccessful() {
+			successfulPayments = append(successfulPayments, payment)
+		}
+	}
+	return successfulPayments
+}
+
+// GetTotalPaidAmount returns the total amount paid for this order
+func (o *Order) GetTotalPaidAmount() float64 {
+	total := 0.0
+	for _, payment := range o.Payments {
+		if payment.IsSuccessful() {
+			total += payment.Amount
+		}
+	}
+	return total
+}
+
+// GetLatestPayment returns the most recent payment for this order
+func (o *Order) GetLatestPayment() *Payment {
+	if len(o.Payments) == 0 {
+		return nil
+	}
+
+	latest := &o.Payments[0]
+	for i := 1; i < len(o.Payments); i++ {
+		if o.Payments[i].CreatedAt.After(latest.CreatedAt) {
+			latest = &o.Payments[i]
+		}
+	}
+	return latest
+}
+
+// IsFullyPaid checks if the order is fully paid
+func (o *Order) IsFullyPaid() bool {
+	return o.GetTotalPaidAmount() >= o.Total
+}
+
+// IsPartiallyPaid checks if the order is partially paid
+func (o *Order) IsPartiallyPaid() bool {
+	paidAmount := o.GetTotalPaidAmount()
+	return paidAmount > 0 && paidAmount < o.Total
+}
+
+// GetRemainingAmount returns the remaining amount to be paid
+func (o *Order) GetRemainingAmount() float64 {
+	remaining := o.Total - o.GetTotalPaidAmount()
+	if remaining < 0 {
+		return 0
+	}
+	return remaining
+}
+
+// SyncPaymentStatus synchronizes the order payment status with actual payments
+func (o *Order) SyncPaymentStatus() {
+	if o.IsFullyPaid() {
+		o.PaymentStatus = PaymentStatusPaid
+	} else if o.IsPartiallyPaid() {
+		o.PaymentStatus = PaymentStatusPartiallyPaid
+	} else {
+		// Check if this is a COD order
+		isCODOrder := false
+		for _, payment := range o.Payments {
+			if payment.Method == PaymentMethodCash {
+				isCODOrder = true
+				break
+			}
+		}
+
+		// Check if there are any failed payments
+		hasFailed := false
+		for _, payment := range o.Payments {
+			if payment.IsFailed() {
+				hasFailed = true
+				break
+			}
+		}
+
+		if hasFailed {
+			o.PaymentStatus = PaymentStatusFailed
+		} else if isCODOrder {
+			o.PaymentStatus = PaymentStatusAwaitingPayment
+		} else {
+			o.PaymentStatus = PaymentStatusPending
+		}
+	}
 }
 
 // CanBeShipped checks if the order can be shipped

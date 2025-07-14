@@ -595,8 +595,8 @@ func (h *PaymentHandler) ConfirmPaymentSuccess(c *gin.Context) {
 
 	// Get user ID from token (optional for public access)
 	var userID uuid.UUID
-	if userIDStr, exists := c.Get("user_id"); exists {
-		if parsedUserID, parseErr := uuid.Parse(userIDStr.(string)); parseErr == nil {
+	if userIDInterface, exists := c.Get("user_id"); exists {
+		if parsedUserID, ok := userIDInterface.(uuid.UUID); ok {
 			userID = parsedUserID
 		}
 	}

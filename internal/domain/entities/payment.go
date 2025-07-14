@@ -27,19 +27,21 @@ const (
 type PaymentStatus string
 
 const (
-	PaymentStatusPending    PaymentStatus = "pending"
-	PaymentStatusProcessing PaymentStatus = "processing"  // Added for frontend compatibility
-	PaymentStatusPaid       PaymentStatus = "paid"
-	PaymentStatusCompleted  PaymentStatus = "completed"   // Alias for paid
-	PaymentStatusFailed     PaymentStatus = "failed"
-	PaymentStatusRefunded   PaymentStatus = "refunded"
-	PaymentStatusCancelled  PaymentStatus = "cancelled"
+	PaymentStatusPending         PaymentStatus = "pending"
+	PaymentStatusProcessing      PaymentStatus = "processing"       // Added for frontend compatibility
+	PaymentStatusAwaitingPayment PaymentStatus = "awaiting_payment" // For COD orders
+	PaymentStatusPaid            PaymentStatus = "paid"
+	PaymentStatusCompleted       PaymentStatus = "completed"        // Alias for paid
+	PaymentStatusPartiallyPaid   PaymentStatus = "partially_paid"   // For orders with partial payments
+	PaymentStatusFailed          PaymentStatus = "failed"
+	PaymentStatusRefunded        PaymentStatus = "refunded"
+	PaymentStatusCancelled       PaymentStatus = "cancelled"
 )
 
 // Payment represents a payment transaction
 type Payment struct {
 	ID                uuid.UUID     `json:"id" gorm:"type:uuid;primary_key;default:gen_random_uuid()"`
-	OrderID           uuid.UUID     `json:"order_id" gorm:"type:uuid;not null;uniqueIndex"` // One payment per order
+	OrderID           uuid.UUID     `json:"order_id" gorm:"type:uuid;not null;index"` // Multiple payments per order allowed
 	UserID            uuid.UUID     `json:"user_id" gorm:"type:uuid;index"`
 	Amount            float64       `json:"amount" gorm:"not null" validate:"required,gt=0"`
 	Currency          string        `json:"currency" gorm:"default:'USD'"`

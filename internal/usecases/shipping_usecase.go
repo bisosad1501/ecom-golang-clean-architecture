@@ -32,12 +32,16 @@ type ShippingUseCase interface {
 	// Distance-based methods
 	CalculateDistanceBasedShipping(ctx context.Context, req DistanceBasedShippingRequest) (*DistanceBasedShippingResponse, error)
 	GetShippingZones(ctx context.Context) ([]services.ShippingZoneInfo, error)
+
+	// Address validation
+	ValidateShippingAddress(ctx context.Context, req ValidateShippingAddressRequest) (*ValidateShippingAddressResponse, error)
 }
 
 type shippingUseCase struct {
-	shippingRepo    repositories.ShippingRepository
-	orderRepo       repositories.OrderRepository
-	distanceService services.DistanceService
+	shippingRepo         repositories.ShippingRepository
+	orderRepo            repositories.OrderRepository
+	distanceService      services.DistanceService
+	compatibilityService services.ShippingCompatibilityService
 }
 
 // NewShippingUseCase creates a new shipping use case
@@ -45,11 +49,13 @@ func NewShippingUseCase(
 	shippingRepo repositories.ShippingRepository,
 	orderRepo repositories.OrderRepository,
 	distanceService services.DistanceService,
+	compatibilityService services.ShippingCompatibilityService,
 ) ShippingUseCase {
 	return &shippingUseCase{
-		shippingRepo:    shippingRepo,
-		orderRepo:       orderRepo,
-		distanceService: distanceService,
+		shippingRepo:         shippingRepo,
+		orderRepo:            orderRepo,
+		distanceService:      distanceService,
+		compatibilityService: compatibilityService,
 	}
 }
 
@@ -92,7 +98,8 @@ type DistanceBasedShippingRequest struct {
 	FromAddress   string   `json:"from_address"`
 	ToLatitude    *float64 `json:"to_latitude"`
 	ToLongitude   *float64 `json:"to_longitude"`
-	ToAddress     string   `json:"to_address" validate:"required"`
+	ToAddress     string   `json:"to_address"`
+	Destination   string   `json:"destination"` // Alternative field name for compatibility
 	Weight        float64  `json:"weight" validate:"required,gt=0"`
 	OrderValue    float64  `json:"order_value" validate:"required,gt=0"`
 	MethodID      string   `json:"method_id"`
@@ -457,13 +464,25 @@ func (uc *shippingUseCase) CalculateDistanceBasedShipping(ctx context.Context, r
 	var distance float64
 	var err error
 
+	// Set default from address if not provided
+	fromAddress := req.FromAddress
+	if fromAddress == "" {
+		fromAddress = "New York, NY, USA" // Default warehouse location
+	}
+
+	// Determine destination address
+	toAddress := req.ToAddress
+	if toAddress == "" {
+		toAddress = req.Destination
+	}
+
 	// Calculate distance based on provided data
 	if req.FromLatitude != nil && req.FromLongitude != nil && req.ToLatitude != nil && req.ToLongitude != nil {
 		distance, err = uc.distanceService.CalculateDistance(ctx, *req.FromLatitude, *req.FromLongitude, *req.ToLatitude, *req.ToLongitude)
-	} else if req.FromAddress != "" && req.ToAddress != "" {
-		distance, err = uc.distanceService.CalculateDistanceByAddress(ctx, req.FromAddress, req.ToAddress)
+	} else if fromAddress != "" && toAddress != "" {
+		distance, err = uc.distanceService.CalculateDistanceByAddress(ctx, fromAddress, toAddress)
 	} else {
-		return nil, fmt.Errorf("insufficient location data provided")
+		return nil, fmt.Errorf("insufficient location data provided: need either coordinates or addresses")
 	}
 
 	if err != nil {
@@ -537,4 +556,177 @@ func (uc *shippingUseCase) CalculateDistanceBasedShipping(ctx context.Context, r
 // GetShippingZones returns available shipping zones
 func (uc *shippingUseCase) GetShippingZones(ctx context.Context) ([]services.ShippingZoneInfo, error) {
 	return uc.distanceService.GetShippingZones(), nil
+}
+
+// SimpleAddress represents a simplified address for validation
+type SimpleAddress struct {
+	FirstName  string `json:"first_name" validate:"required"`
+	LastName   string `json:"last_name" validate:"required"`
+	Address1   string `json:"address1" validate:"required"`
+	Address2   string `json:"address2"`
+	City       string `json:"city" validate:"required"`
+	State      string `json:"state" validate:"required"`
+	ZipCode    string `json:"zip_code" validate:"required"`
+	Country    string `json:"country" validate:"required"`
+	Phone      string `json:"phone"`
+}
+
+// Validate validates the simple address
+func (sa *SimpleAddress) Validate() error {
+	if sa.FirstName == "" {
+		return fmt.Errorf("first name is required")
+	}
+	if sa.LastName == "" {
+		return fmt.Errorf("last name is required")
+	}
+	if sa.Address1 == "" {
+		return fmt.Errorf("address line 1 is required")
+	}
+	if sa.City == "" {
+		return fmt.Errorf("city is required")
+	}
+	if sa.State == "" {
+		return fmt.Errorf("state is required")
+	}
+	if sa.ZipCode == "" {
+		return fmt.Errorf("zip code is required")
+	}
+	if sa.Country == "" {
+		return fmt.Errorf("country is required")
+	}
+	return nil
+}
+
+// ToAddress converts SimpleAddress to entities.Address
+func (sa *SimpleAddress) ToAddress() *entities.Address {
+	return &entities.Address{
+		FirstName: sa.FirstName,
+		LastName:  sa.LastName,
+		Address1:  sa.Address1,
+		Address2:  sa.Address2,
+		City:      sa.City,
+		State:     sa.State,
+		ZipCode:   sa.ZipCode,
+		Country:   sa.Country,
+		Phone:     sa.Phone,
+		Type:      entities.AddressTypeShipping,
+		IsActive:  true,
+	}
+}
+
+// IsInternational checks if the address is international (non-US)
+func (sa *SimpleAddress) IsInternational() bool {
+	return sa.Country != "US" && sa.Country != "USA"
+}
+
+// ValidateShippingAddressRequest represents a request to validate shipping address
+type ValidateShippingAddressRequest struct {
+	Address    SimpleAddress `json:"address" validate:"required"`
+	MethodID   *uuid.UUID    `json:"method_id,omitempty"`
+	Weight     float64       `json:"weight" validate:"min=0"`
+	OrderValue float64       `json:"order_value" validate:"min=0"`
+}
+
+// ValidateShippingAddressResponse represents the response for address validation
+type ValidateShippingAddressResponse struct {
+	IsValid              bool                    `json:"is_valid"`
+	ValidationErrors     []string                `json:"validation_errors,omitempty"`
+	CompatibleMethods    []ShippingMethodSummary `json:"compatible_methods"`
+	IncompatibleMethods  []IncompatibleMethod    `json:"incompatible_methods"`
+	Recommendations      []string                `json:"recommendations,omitempty"`
+}
+
+// ShippingMethodSummary represents a summary of shipping method
+type ShippingMethodSummary struct {
+	ID          string  `json:"id"`
+	Name        string  `json:"name"`
+	Type        string  `json:"type"`
+	Carrier     string  `json:"carrier"`
+	EstimatedCost float64 `json:"estimated_cost"`
+	DeliveryDays int     `json:"delivery_days"`
+}
+
+// IncompatibleMethod represents an incompatible shipping method with reason
+type IncompatibleMethod struct {
+	ID     string `json:"id"`
+	Name   string `json:"name"`
+	Reason string `json:"reason"`
+}
+
+// ValidateShippingAddress validates shipping address and returns compatible methods
+func (uc *shippingUseCase) ValidateShippingAddress(ctx context.Context, req ValidateShippingAddressRequest) (*ValidateShippingAddressResponse, error) {
+	response := &ValidateShippingAddressResponse{
+		IsValid:             true,
+		ValidationErrors:    []string{},
+		CompatibleMethods:   []ShippingMethodSummary{},
+		IncompatibleMethods: []IncompatibleMethod{},
+		Recommendations:     []string{},
+	}
+
+	// Validate address basic fields
+	if err := req.Address.Validate(); err != nil {
+		response.IsValid = false
+		response.ValidationErrors = append(response.ValidationErrors, err.Error())
+	}
+
+	// Get all shipping methods
+	methods, err := uc.shippingRepo.GetShippingMethods(ctx, nil, nil)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get shipping methods: %w", err)
+	}
+
+	// Convert SimpleAddress to entities.Address for compatibility checks
+	address := req.Address.ToAddress()
+
+	// Check compatibility with each method
+	for _, method := range methods {
+		// Validate method compatibility with address
+		if err := uc.compatibilityService.ValidateShippingMethodForAddress(ctx, method, address); err != nil {
+			response.IncompatibleMethods = append(response.IncompatibleMethods, IncompatibleMethod{
+				ID:     method.ID.String(),
+				Name:   method.Name,
+				Reason: err.Error(),
+			})
+			continue
+		}
+
+		// Validate weight constraints
+		if err := uc.compatibilityService.ValidateShippingConstraints(ctx, method, req.Weight, nil); err != nil {
+			response.IncompatibleMethods = append(response.IncompatibleMethods, IncompatibleMethod{
+				ID:     method.ID.String(),
+				Name:   method.Name,
+				Reason: err.Error(),
+			})
+			continue
+		}
+
+		// Method is compatible - calculate estimated cost
+		estimatedCost := method.CalculateCost(req.Weight, 100, req.OrderValue) // Using 100km as default distance
+
+		response.CompatibleMethods = append(response.CompatibleMethods, ShippingMethodSummary{
+			ID:            method.ID.String(),
+			Name:          method.Name,
+			Type:          string(method.Type),
+			Carrier:       method.Carrier,
+			EstimatedCost: estimatedCost,
+			DeliveryDays:  method.MaxDeliveryDays,
+		})
+	}
+
+	// Add recommendations
+	if req.Address.IsInternational() {
+		response.Recommendations = append(response.Recommendations, "International shipping may require additional documentation")
+		response.Recommendations = append(response.Recommendations, "Consider customs duties and taxes for international orders")
+	}
+
+	if req.Weight > 10 {
+		response.Recommendations = append(response.Recommendations, "Heavy packages may have limited shipping options")
+	}
+
+	if len(response.CompatibleMethods) == 0 {
+		response.IsValid = false
+		response.ValidationErrors = append(response.ValidationErrors, "No compatible shipping methods available for this address")
+	}
+
+	return response, nil
 }

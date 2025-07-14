@@ -6,18 +6,21 @@ import (
 	"ecom-golang-clean-architecture/internal/domain/entities"
 	"ecom-golang-clean-architecture/internal/usecases"
 	"github.com/gin-gonic/gin"
+	"github.com/go-playground/validator/v10"
 	"github.com/google/uuid"
 )
 
 // ShippingHandler handles shipping-related HTTP requests
 type ShippingHandler struct {
 	shippingUseCase usecases.ShippingUseCase
+	validator       *validator.Validate
 }
 
 // NewShippingHandler creates a new shipping handler
 func NewShippingHandler(shippingUseCase usecases.ShippingUseCase) *ShippingHandler {
 	return &ShippingHandler{
 		shippingUseCase: shippingUseCase,
+		validator:       validator.New(),
 	}
 }
 
@@ -320,5 +323,40 @@ func (h *ShippingHandler) GetShippingZones(c *gin.Context) {
 	c.JSON(http.StatusOK, SuccessResponse{
 		Message: "Shipping zones retrieved successfully",
 		Data: zones,
+	})
+}
+
+// ValidateShippingAddress handles shipping address validation requests
+func (h *ShippingHandler) ValidateShippingAddress(c *gin.Context) {
+	var req usecases.ValidateShippingAddressRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, ErrorResponse{
+			Error:   "Invalid request format",
+			Details: err.Error(),
+		})
+		return
+	}
+
+	// Validate request
+	if err := h.validator.Struct(req); err != nil {
+		c.JSON(http.StatusBadRequest, ErrorResponse{
+			Error:   "Validation failed",
+			Details: err.Error(),
+		})
+		return
+	}
+
+	result, err := h.shippingUseCase.ValidateShippingAddress(c.Request.Context(), req)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, ErrorResponse{
+			Error:   "Failed to validate shipping address",
+			Details: err.Error(),
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, SuccessResponse{
+		Message: "Address validation completed",
+		Data:    result,
 	})
 }

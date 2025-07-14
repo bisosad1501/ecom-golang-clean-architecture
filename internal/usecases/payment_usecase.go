@@ -310,15 +310,22 @@ func (uc *paymentUseCase) ProcessPayment(ctx context.Context, req ProcessPayment
 		return nil, entities.ErrOrderNotFound
 	}
 
-	// Validate payment amount matches order total
-	if req.Amount != order.Total {
-		return nil, fmt.Errorf("payment amount %.2f does not match order total %.2f", req.Amount, order.Total)
+	// Validate payment amount (allow partial payments)
+	if req.Amount <= 0 {
+		return nil, fmt.Errorf("payment amount must be greater than 0")
+	}
+
+	// Check if payment amount exceeds remaining balance
+	remainingAmount := order.GetRemainingAmount()
+	if req.Amount > remainingAmount {
+		return nil, fmt.Errorf("payment amount %.2f exceeds remaining balance %.2f", req.Amount, remainingAmount)
 	}
 
 	// Create payment record
 	payment := &entities.Payment{
 		ID:        uuid.New(),
 		OrderID:   req.OrderID,
+		UserID:    order.UserID, // Add missing UserID
 		Amount:    req.Amount,
 		Currency:  req.Currency,
 		Method:    req.Method,
@@ -384,8 +391,14 @@ func (uc *paymentUseCase) ProcessPayment(ctx context.Context, req ProcessPayment
 		payment.MarkAsProcessed(gatewayResp.TransactionID)
 		payment.ExternalID = gatewayResp.ExternalID
 
-		// Update order payment status
-		order.PaymentStatus = entities.PaymentStatusPaid
+		// Reload order with payments to sync payment status
+		order, err = uc.orderRepo.GetByID(ctx, order.ID)
+		if err != nil {
+			return nil, err
+		}
+
+		// Sync payment status based on all payments
+		order.SyncPaymentStatus()
 		if err := uc.orderRepo.Update(ctx, order); err != nil {
 			return nil, err
 		}
@@ -833,13 +846,21 @@ func (uc *paymentUseCase) confirmPaymentInTransaction(ctx context.Context, sessi
 	}
 	fmt.Printf("✅ Stock reservations confirmed and converted to actual stock reduction\n")
 
+	// Reload order with payments to sync payment status
+	order, err = uc.orderRepo.GetByID(ctx, order.ID)
+	if err != nil {
+		fmt.Printf("❌ Failed to reload order: %v\n", err)
+		return fmt.Errorf("failed to reload order: %v", err)
+	}
+
 	// Update order payment status
 	oldStatus := order.Status
 	oldPaymentStatus := order.PaymentStatus
 
-	order.PaymentStatus = entities.PaymentStatusPaid
-	// Update order status to confirmed if it was pending
-	if order.Status == entities.OrderStatusPending {
+	// Sync payment status based on all payments
+	order.SyncPaymentStatus()
+	// Update order status to confirmed if it was pending and fully paid
+	if order.Status == entities.OrderStatusPending && order.IsFullyPaid() {
 		order.Status = entities.OrderStatusConfirmed
 	}
 	// Release reservation flags since stock is now actually reduced
@@ -914,8 +935,14 @@ func (uc *paymentUseCase) handlePaymentIntentSucceeded(ctx context.Context, even
 		return fmt.Errorf("order not found: %v", err)
 	}
 
-	order.PaymentStatus = entities.PaymentStatusPaid
-	if order.Status == entities.OrderStatusPending {
+	// Reload order with payments to sync payment status
+	order, err = uc.orderRepo.GetByID(ctx, order.ID)
+	if err != nil {
+		return fmt.Errorf("failed to reload order: %v", err)
+	}
+
+	order.SyncPaymentStatus()
+	if order.Status == entities.OrderStatusPending && order.IsFullyPaid() {
 		order.Status = entities.OrderStatusConfirmed
 	}
 	order.UpdatedAt = time.Now()
@@ -1357,12 +1384,19 @@ func (uc *paymentUseCase) ConfirmPaymentSuccess(ctx context.Context, orderID, us
 
 	fmt.Printf("✅ Payment status updated to: %s\n", payment.Status)
 
+	// Reload order with payments to sync payment status
+	order, err = uc.orderRepo.GetByID(ctx, order.ID)
+	if err != nil {
+		fmt.Printf("❌ Failed to reload order: %v\n", err)
+		return fmt.Errorf("failed to reload order: %v", err)
+	}
+
 	// Update order status
 	oldStatus := order.Status
 	oldPaymentStatus := order.PaymentStatus
 
-	order.PaymentStatus = entities.PaymentStatusPaid
-	if order.Status == entities.OrderStatusPending {
+	order.SyncPaymentStatus()
+	if order.Status == entities.OrderStatusPending && order.IsFullyPaid() {
 		order.Status = entities.OrderStatusConfirmed
 	}
 	order.UpdatedAt = time.Now()

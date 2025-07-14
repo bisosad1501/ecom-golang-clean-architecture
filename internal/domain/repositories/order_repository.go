@@ -96,8 +96,14 @@ type PaymentRepository interface {
 	// GetByID retrieves a payment by ID
 	GetByID(ctx context.Context, id uuid.UUID) (*entities.Payment, error)
 
-	// GetByOrderID retrieves a payment by order ID
+	// GetByOrderID retrieves the latest payment by order ID (for backward compatibility)
 	GetByOrderID(ctx context.Context, orderID uuid.UUID) (*entities.Payment, error)
+
+	// GetAllByOrderID retrieves all payments for an order
+	GetAllByOrderID(ctx context.Context, orderID uuid.UUID) ([]*entities.Payment, error)
+
+	// GetSuccessfulPaymentsByOrderID retrieves all successful payments for an order
+	GetSuccessfulPaymentsByOrderID(ctx context.Context, orderID uuid.UUID) ([]*entities.Payment, error)
 
 	// GetByTransactionID retrieves a payment by transaction ID
 	GetByTransactionID(ctx context.Context, transactionID string) (*entities.Payment, error)
