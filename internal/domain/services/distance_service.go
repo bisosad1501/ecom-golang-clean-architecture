@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"math"
+	"strings"
 )
 
 // DistanceService handles distance calculations for shipping
@@ -63,28 +64,102 @@ func (s *distanceService) CalculateDistance(ctx context.Context, fromLat, fromLn
 
 // CalculateDistanceByAddress calculates distance between two addresses
 func (s *distanceService) CalculateDistanceByAddress(ctx context.Context, fromAddress, toAddress string) (float64, error) {
-	// In a real implementation, this would:
-	// 1. Geocode addresses to coordinates using Google Maps API or similar
-	// 2. Calculate distance using coordinates
-	// For now, return a mock distance based on address similarity
-
 	if fromAddress == "" || toAddress == "" {
 		return 0, fmt.Errorf("addresses cannot be empty")
 	}
 
-	// Mock implementation - in production, integrate with geocoding service
+	// If same address, return 0
 	if fromAddress == toAddress {
 		return 0, nil
 	}
 
-	// Return mock distance based on string comparison
-	// This is just for demonstration - replace with real geocoding
-	mockDistance := float64(len(fromAddress)+len(toAddress)) / 10.0
-	if mockDistance > s.maxShippingDistance {
-		mockDistance = s.maxShippingDistance
+	// For demo purposes, use realistic distance mapping based on common city pairs
+	// In production, this would use a real geocoding service like Google Maps API
+	distance := s.getRealisticDistanceByAddress(fromAddress, toAddress)
+
+	if distance > s.maxShippingDistance {
+		distance = s.maxShippingDistance
 	}
 
-	return mockDistance, nil
+	return distance, nil
+}
+
+// getRealisticDistanceByAddress returns realistic distances for demo purposes
+func (s *distanceService) getRealisticDistanceByAddress(fromAddress, toAddress string) float64 {
+	// Extract city/state info for realistic distance calculation
+	fromLower := strings.ToLower(fromAddress)
+	toLower := strings.ToLower(toAddress)
+
+	// Same city/state - local delivery
+	if s.isSameCity(fromLower, toLower) {
+		return 5.0 + (float64(len(fromAddress)%10) * 0.5) // 5-10 km within city
+	}
+
+	// Same state - regional delivery
+	if s.isSameState(fromLower, toLower) {
+		return 50.0 + (float64(len(fromAddress)%50) * 2.0) // 50-150 km within state
+	}
+
+	// Cross-country major routes
+	if s.isCrossCountry(fromLower, toLower) {
+		return 3000.0 + (float64(len(fromAddress)%100) * 10.0) // 3000-4000 km cross-country
+	}
+
+	// Default regional distance
+	return 200.0 + (float64(len(fromAddress)%30) * 5.0) // 200-350 km default
+}
+
+// isSameCity checks if addresses are in the same city
+func (s *distanceService) isSameCity(addr1, addr2 string) bool {
+	cities := []string{"new york", "los angeles", "chicago", "houston", "phoenix", "philadelphia", "san antonio", "san diego", "dallas", "san jose"}
+	for _, city := range cities {
+		if strings.Contains(addr1, city) && strings.Contains(addr2, city) {
+			return true
+		}
+	}
+	return false
+}
+
+// isSameState checks if addresses are in the same state
+func (s *distanceService) isSameState(addr1, addr2 string) bool {
+	states := []string{"ny", "ca", "tx", "fl", "il", "pa", "oh", "ga", "nc", "mi"}
+	for _, state := range states {
+		if strings.Contains(addr1, state) && strings.Contains(addr2, state) {
+			return true
+		}
+	}
+	return false
+}
+
+// isCrossCountry checks if this is a cross-country shipment
+func (s *distanceService) isCrossCountry(addr1, addr2 string) bool {
+	eastCoast := []string{"new york", "ny", "philadelphia", "pa", "boston", "ma", "miami", "fl"}
+	westCoast := []string{"los angeles", "ca", "san francisco", "seattle", "wa", "portland", "or"}
+
+	isAddr1East := false
+	isAddr1West := false
+	isAddr2East := false
+	isAddr2West := false
+
+	for _, city := range eastCoast {
+		if strings.Contains(addr1, city) {
+			isAddr1East = true
+		}
+		if strings.Contains(addr2, city) {
+			isAddr2East = true
+		}
+	}
+
+	for _, city := range westCoast {
+		if strings.Contains(addr1, city) {
+			isAddr1West = true
+		}
+		if strings.Contains(addr2, city) {
+			isAddr2West = true
+		}
+	}
+
+	return (isAddr1East && isAddr2West) || (isAddr1West && isAddr2East)
 }
 
 // GetShippingZoneByDistance determines shipping zone based on distance

@@ -161,12 +161,13 @@ func (h *CartHandler) AddToCart(c *gin.Context) {
 // @Accept json
 // @Produce json
 // @Security BearerAuth
+// @Param productId path string true "Product ID"
 // @Param request body usecases.UpdateCartItemRequest true "Update cart item request"
 // @Success 200 {object} usecases.CartResponse
 // @Failure 400 {object} ErrorResponse
 // @Failure 401 {object} ErrorResponse
 // @Failure 404 {object} ErrorResponse
-// @Router /cart/items [put]
+// @Router /cart/items/{productId} [put]
 func (h *CartHandler) UpdateCartItem(c *gin.Context) {
 	userIDInterface, exists := c.Get("user_id")
 	if !exists {
@@ -184,6 +185,14 @@ func (h *CartHandler) UpdateCartItem(c *gin.Context) {
 		return
 	}
 
+	productID, err := uuid.Parse(c.Param("productId"))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, ErrorResponse{
+			Error: "Invalid product ID",
+		})
+		return
+	}
+
 	var req usecases.UpdateCartItemRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, ErrorResponse{
@@ -192,6 +201,9 @@ func (h *CartHandler) UpdateCartItem(c *gin.Context) {
 		})
 		return
 	}
+
+	// Set the product ID from URL parameter
+	req.ProductID = productID
 
 	cart, err := h.cartUseCase.UpdateCartItem(c.Request.Context(), userID, req)
 	if err != nil {

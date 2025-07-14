@@ -4,6 +4,7 @@ import (
 	"net/http"
 	"strconv"
 
+	"ecom-golang-clean-architecture/internal/domain/entities"
 	"ecom-golang-clean-architecture/internal/usecases"
 
 	"github.com/gin-gonic/gin"
@@ -44,6 +45,62 @@ func (h *PaymentHandler) ProcessPayment(c *gin.Context) {
 
 	c.JSON(http.StatusOK, SuccessResponse{
 		Message: "Payment processed successfully",
+		Data:    payment,
+	})
+}
+
+// UpdatePaymentStatus updates payment status
+func (h *PaymentHandler) UpdatePaymentStatus(c *gin.Context) {
+	idStr := c.Param("id")
+	id, err := uuid.Parse(idStr)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, ErrorResponse{
+			Error:   "Invalid payment ID",
+			Details: err.Error(),
+		})
+		return
+	}
+
+	var req struct {
+		Status        string `json:"status" binding:"required"`
+		TransactionID string `json:"transaction_id"`
+	}
+
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, ErrorResponse{
+			Error:   "Invalid request body",
+			Details: err.Error(),
+		})
+		return
+	}
+
+	// Validate status
+	validStatuses := []string{"pending", "processing", "paid", "failed", "cancelled", "refunded", "awaiting_payment"}
+	isValidStatus := false
+	for _, status := range validStatuses {
+		if req.Status == status {
+			isValidStatus = true
+			break
+		}
+	}
+	if !isValidStatus {
+		c.JSON(http.StatusBadRequest, ErrorResponse{
+			Error: "Invalid payment status",
+		})
+		return
+	}
+
+	payment, err := h.paymentUseCase.UpdatePaymentStatus(c.Request.Context(), id, entities.PaymentStatus(req.Status), req.TransactionID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, ErrorResponse{
+			Error:   "Failed to update payment status",
+			Details: err.Error(),
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, SuccessResponse{
+		Message: "Payment status updated successfully",
 		Data:    payment,
 	})
 }

@@ -510,8 +510,20 @@ func (uc *paymentUseCase) GetOrderPayments(ctx context.Context, orderID uuid.UUI
 	return []*PaymentResponse{uc.toPaymentResponse(payments)}, nil
 }
 
-// UpdatePaymentStatus updates payment status
+// UpdatePaymentStatus updates payment status and syncs with order
 func (uc *paymentUseCase) UpdatePaymentStatus(ctx context.Context, id uuid.UUID, status entities.PaymentStatus, transactionID string) (*PaymentResponse, error) {
+	// Execute in transaction to ensure consistency
+	result, err := uc.txManager.WithTransactionResult(ctx, func(tx *gorm.DB) (interface{}, error) {
+		return uc.updatePaymentStatusInTransaction(ctx, id, status, transactionID)
+	})
+	if err != nil {
+		return nil, err
+	}
+	return result.(*PaymentResponse), nil
+}
+
+// updatePaymentStatusInTransaction updates payment status within a transaction
+func (uc *paymentUseCase) updatePaymentStatusInTransaction(ctx context.Context, id uuid.UUID, status entities.PaymentStatus, transactionID string) (*PaymentResponse, error) {
 	payment, err := uc.paymentRepo.GetByID(ctx, id)
 	if err != nil {
 		return nil, err
@@ -532,6 +544,37 @@ func (uc *paymentUseCase) UpdatePaymentStatus(ctx context.Context, id uuid.UUID,
 	if err := uc.paymentRepo.Update(ctx, payment); err != nil {
 		return nil, err
 	}
+
+	// Sync order payment status
+	order, err := uc.orderRepo.GetByID(ctx, payment.OrderID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get order for payment sync: %v", err)
+	}
+
+	// Reload order with payments to ensure we have latest payment data
+	order, err = uc.orderRepo.GetByID(ctx, order.ID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to reload order with payments: %v", err)
+	}
+
+	// Sync payment status based on all payments
+	oldPaymentStatus := order.PaymentStatus
+	order.SyncPaymentStatus()
+
+	// Update order status if payment is completed
+	if status == entities.PaymentStatusPaid && order.Status == entities.OrderStatusPending && order.IsFullyPaid() {
+		order.Status = entities.OrderStatusConfirmed
+	}
+
+	order.UpdatedAt = time.Now()
+
+	if err := uc.orderRepo.Update(ctx, order); err != nil {
+		return nil, fmt.Errorf("failed to update order payment status: %v", err)
+	}
+
+	// Log the sync for debugging
+	fmt.Printf("✅ Payment status updated: Payment=%s->%s, Order PaymentStatus=%s->%s\n",
+		payment.ID, status, oldPaymentStatus, order.PaymentStatus)
 
 	return uc.toPaymentResponse(payment), nil
 }

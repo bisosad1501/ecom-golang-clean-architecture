@@ -29,7 +29,7 @@ func (r *shippingRepository) GetShipmentByID(ctx context.Context, id uuid.UUID) 
 	var shipment entities.Shipment
 	err := r.db.WithContext(ctx).
 		Preload("Order").
-		Preload("ShippingAddress").
+		Preload("ShippingMethod").
 		First(&shipment, "id = ?", id).Error
 	if err != nil {
 		return nil, err
@@ -42,7 +42,7 @@ func (r *shippingRepository) GetShipmentByTrackingNumber(ctx context.Context, tr
 	var shipment entities.Shipment
 	err := r.db.WithContext(ctx).
 		Preload("Order").
-		Preload("ShippingAddress").
+		Preload("ShippingMethod").
 		First(&shipment, "tracking_number = ?", trackingNumber).Error
 	if err != nil {
 		return nil, err
@@ -54,7 +54,7 @@ func (r *shippingRepository) GetShipmentByTrackingNumber(ctx context.Context, tr
 func (r *shippingRepository) GetShipmentsByOrder(ctx context.Context, orderID uuid.UUID) ([]*entities.Shipment, error) {
 	var shipments []*entities.Shipment
 	err := r.db.WithContext(ctx).
-		Preload("ShippingAddress").
+		Preload("ShippingMethod").
 		Where("order_id = ?", orderID).
 		Order("created_at DESC").
 		Find(&shipments).Error

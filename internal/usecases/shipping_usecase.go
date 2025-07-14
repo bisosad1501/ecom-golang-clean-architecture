@@ -77,6 +77,10 @@ type CreateShipmentRequest struct {
 	ShippingMethod    uuid.UUID  `json:"shipping_method_id" validate:"required"`
 	TrackingNumber    string     `json:"tracking_number"`
 	Carrier           string     `json:"carrier" validate:"required"`
+	Weight            float64    `json:"weight"`
+	Dimensions        string     `json:"dimensions"`
+	PackageCount      int        `json:"package_count"`
+	InsuranceValue    float64    `json:"insurance_value"`
 	EstimatedDelivery *time.Time `json:"estimated_delivery"`
 }
 
@@ -144,9 +148,14 @@ type DistanceShippingOption struct {
 type ShipmentResponse struct {
 	ID                uuid.UUID               `json:"id"`
 	OrderID           uuid.UUID               `json:"order_id"`
+	ShippingMethodID  uuid.UUID               `json:"shipping_method_id"`
 	TrackingNumber    string                  `json:"tracking_number"`
 	Carrier           string                  `json:"carrier"`
 	Status            entities.ShipmentStatus `json:"status"`
+	Weight            float64                 `json:"weight"`
+	Dimensions        string                  `json:"dimensions"`
+	PackageCount      int                     `json:"package_count"`
+	InsuranceValue    float64                 `json:"insurance_value"`
 	ShippedAt         *time.Time              `json:"shipped_at"`
 	ActualDelivery    *time.Time              `json:"actual_delivery"`
 	EstimatedDelivery *time.Time              `json:"estimated_delivery"`
@@ -262,9 +271,14 @@ func (uc *shippingUseCase) CreateShipment(ctx context.Context, req CreateShipmen
 	shipment := &entities.Shipment{
 		ID:                uuid.New(),
 		OrderID:           req.OrderID,
+		ShippingMethodID:  req.ShippingMethod,
 		TrackingNumber:    req.TrackingNumber,
 		Carrier:           req.Carrier,
 		Status:            entities.ShipmentStatusPending,
+		Weight:            req.Weight,
+		Dimensions:        req.Dimensions,
+		PackageCount:      req.PackageCount,
+		InsuranceValue:    req.InsuranceValue,
 		EstimatedDelivery: req.EstimatedDelivery,
 		CreatedAt:         time.Now(),
 		UpdatedAt:         time.Now(),
@@ -424,9 +438,14 @@ func (uc *shippingUseCase) toShipmentResponse(shipment *entities.Shipment) *Ship
 	return &ShipmentResponse{
 		ID:                shipment.ID,
 		OrderID:           shipment.OrderID,
+		ShippingMethodID:  shipment.ShippingMethodID,
 		TrackingNumber:    shipment.TrackingNumber,
 		Carrier:           shipment.Carrier,
 		Status:            shipment.Status,
+		Weight:            shipment.Weight,
+		Dimensions:        shipment.Dimensions,
+		PackageCount:      shipment.PackageCount,
+		InsuranceValue:    shipment.InsuranceValue,
 		ShippedAt:         shipment.ShippedAt,
 		ActualDelivery:    shipment.ActualDelivery,
 		EstimatedDelivery: shipment.EstimatedDelivery,

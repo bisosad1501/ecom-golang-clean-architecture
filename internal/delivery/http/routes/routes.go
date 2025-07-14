@@ -242,7 +242,7 @@ func SetupRoutes(
 		{
 			publicCart.GET("", cartHandler.GetCart)
 			publicCart.POST("/items", cartHandler.AddToCart)
-			publicCart.PUT("/items", cartHandler.UpdateCartItem)
+			publicCart.PUT("/items/:productId", cartHandler.UpdateCartItem)
 			publicCart.DELETE("/items/:productId", cartHandler.RemoveFromCart)
 			publicCart.DELETE("", cartHandler.ClearCart)
 		}
@@ -424,7 +424,7 @@ func SetupRoutes(
 			{
 				cart.GET("", cartHandler.GetCart)
 				cart.POST("/items", cartHandler.AddToCart)
-				cart.PUT("/items", cartHandler.UpdateCartItem)
+				cart.PUT("/items/:productId", cartHandler.UpdateCartItem)
 				cart.DELETE("/items/:productId", cartHandler.RemoveFromCart)
 				cart.DELETE("", cartHandler.ClearCart)
 				cart.POST("/merge", cartHandler.MergeGuestCart)
@@ -486,6 +486,7 @@ func SetupRoutes(
 				payments.POST("", paymentHandler.ProcessPayment)
 				payments.POST("/checkout-session", paymentHandler.CreateCheckoutSession)
 				payments.GET("/:id", paymentHandler.GetPayment)
+				payments.PUT("/:id/status", paymentHandler.UpdatePaymentStatus)
 				payments.POST("/:id/refund", paymentHandler.ProcessRefund)
 
 				// Refund management
@@ -664,6 +665,16 @@ func SetupRoutes(
 				adminOrders.POST("/:id/notes", orderHandler.AddOrderNote)
 				adminOrders.GET("/:id/events", orderHandler.GetOrderEvents)
 				adminOrders.POST("/:id/refund", adminHandler.ProcessRefund)
+			}
+
+			// Admin shipment management
+			if shippingHandler != nil {
+				adminShipments := admin.Group("/shipments")
+				{
+					adminShipments.POST("", shippingHandler.CreateShipment)
+					adminShipments.GET("/:id", shippingHandler.GetShipment)
+					adminShipments.PUT("/:id/status", shippingHandler.UpdateShipmentStatus)
+				}
 			}
 
 			// Review management routes
