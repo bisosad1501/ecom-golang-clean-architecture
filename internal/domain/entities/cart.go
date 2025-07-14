@@ -143,13 +143,13 @@ func (c *Cart) Validate() error {
 
 	// Validate SessionID format if present
 	if c.SessionID != nil && *c.SessionID != "" {
-		if len(*c.SessionID) < 16 || len(*c.SessionID) > 128 {
-			return fmt.Errorf("session_id must be between 16 and 128 characters")
+		if len(*c.SessionID) < 8 || len(*c.SessionID) > 128 {
+			return fmt.Errorf("session_id must be between 8 and 128 characters")
 		}
 		// Basic format validation - should contain only alphanumeric and safe characters
 		for _, char := range *c.SessionID {
 			if !((char >= 'a' && char <= 'z') || (char >= 'A' && char <= 'Z') ||
-				 (char >= '0' && char <= '9') || char == '-' || char == '_') {
+				 (char >= '0' && char <= '9') || char == '-' || char == '_' || char == '.') {
 				return fmt.Errorf("session_id contains invalid characters")
 			}
 		}
@@ -176,6 +176,20 @@ func (c *Cart) Validate() error {
 		if err := item.Validate(); err != nil {
 			return fmt.Errorf("item %d validation failed: %w", i, err)
 		}
+	}
+
+	// Validate calculated fields consistency
+	expectedSubtotal := c.GetTotal()
+	expectedItemCount := c.GetItemCount()
+	if c.Subtotal != expectedSubtotal {
+		return fmt.Errorf("subtotal %.2f does not match calculated subtotal %.2f", c.Subtotal, expectedSubtotal)
+	}
+	if c.ItemCount != expectedItemCount {
+		return fmt.Errorf("item_count %d does not match calculated item_count %d", c.ItemCount, expectedItemCount)
+	}
+	if c.Total != c.Subtotal {
+		// For now, total should equal subtotal (no tax/shipping in cart)
+		return fmt.Errorf("total %.2f does not match subtotal %.2f", c.Total, c.Subtotal)
 	}
 	validCurrencies := []string{"USD", "EUR", "GBP", "JPY", "VND"}
 	isValidCurrency := false

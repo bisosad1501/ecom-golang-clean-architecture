@@ -57,6 +57,10 @@ type CartUseCase interface {
 	MergeGuestCart(ctx context.Context, userID uuid.UUID, sessionID string) (*CartResponse, error)
 	MergeGuestCartWithStrategy(ctx context.Context, userID uuid.UUID, sessionID string, strategy MergeStrategy) (*CartResponse, error)
 	CheckMergeConflict(ctx context.Context, userID uuid.UUID, sessionID string) (*CartConflictInfo, error)
+
+	// Cleanup methods
+	CleanupExpiredCarts(ctx context.Context) error
+	CleanupExpiredStockReservations(ctx context.Context) error
 }
 
 type cartUseCase struct {
@@ -293,9 +297,16 @@ func (uc *cartUseCase) addToCartInTransaction(ctx context.Context, userID uuid.U
 
 	// Create or update cart item
 	if existingItem != nil {
+		// Check total quantity after adding new quantity
+		totalQuantity := existingItem.Quantity + req.Quantity
+		if totalQuantity > 100 { // Max quantity per item
+			return nil, pkgErrors.InvalidInput(fmt.Sprintf("Total quantity %d exceeds maximum allowed (100)", totalQuantity))
+		}
+
 		// Update existing item with current price and new quantity
-		existingItem.Quantity += req.Quantity
+		existingItem.Quantity = totalQuantity
 		existingItem.Price = product.Price // Update to current price
+		existingItem.CalculateTotal()      // Recalculate total
 		existingItem.UpdatedAt = time.Now()
 
 		if err := uc.cartRepo.UpdateItem(ctx, existingItem); err != nil {
@@ -387,6 +398,11 @@ func (uc *cartUseCase) addToGuestCartInTransaction(ctx context.Context, sessionI
 	var quantityToReserve int
 
 	if existingItem != nil {
+		// Check total quantity after adding new quantity
+		totalQuantity := existingItem.Quantity + req.Quantity
+		if totalQuantity > 100 { // Max quantity per item
+			return nil, pkgErrors.InvalidInput(fmt.Sprintf("Total quantity %d exceeds maximum allowed (100)", totalQuantity))
+		}
 		quantityToReserve = req.Quantity // Only reserve the new quantity being added
 	} else {
 		quantityToReserve = req.Quantity
@@ -428,6 +444,7 @@ func (uc *cartUseCase) addToGuestCartInTransaction(ctx context.Context, sessionI
 	if existingItem != nil {
 		existingItem.Quantity += req.Quantity
 		existingItem.Price = product.Price
+		existingItem.CalculateTotal() // Recalculate total
 		existingItem.UpdatedAt = time.Now()
 		if err := uc.cartRepo.UpdateItem(ctx, existingItem); err != nil {
 			return nil, pkgErrors.Wrap(err, pkgErrors.ErrCodeInternalError, "Failed to update guest cart item")
@@ -461,6 +478,14 @@ func (uc *cartUseCase) addToGuestCartInTransaction(ctx context.Context, sessionI
 
 // UpdateCartItem updates cart item quantity
 func (uc *cartUseCase) UpdateCartItem(ctx context.Context, userID uuid.UUID, req UpdateCartItemRequest) (*CartResponse, error) {
+	// Validate input
+	if req.Quantity <= 0 {
+		return nil, pkgErrors.InvalidInput("Quantity must be greater than 0")
+	}
+	if req.Quantity > 100 { // Max quantity per item
+		return nil, pkgErrors.InvalidInput("Quantity cannot exceed 100")
+	}
+
 	// Get cart
 	cart, err := uc.cartRepo.GetByUserID(ctx, userID)
 	if err != nil {
@@ -473,9 +498,11 @@ func (uc *cartUseCase) UpdateCartItem(ctx context.Context, userID uuid.UUID, req
 		return nil, entities.ErrProductNotFound
 	}
 
-	// Check stock
-	if !product.CanReduceStock(req.Quantity) {
-		return nil, entities.ErrInsufficientStock
+	// Check if product is available
+	if !product.IsAvailable() {
+		return nil, pkgErrors.New(pkgErrors.ErrCodeProductNotAvailable, "Product is not available").
+			WithContext("product_id", req.ProductID).
+			WithContext("product_name", product.Name)
 	}
 
 	// Get cart item
@@ -484,15 +511,54 @@ func (uc *cartUseCase) UpdateCartItem(ctx context.Context, userID uuid.UUID, req
 		return nil, entities.ErrCartItemNotFound
 	}
 
-	// Update quantity
+	// Check if we can reserve the new quantity (difference from current)
+	quantityDifference := req.Quantity - cartItem.Quantity
+	if quantityDifference > 0 {
+		// Need to reserve additional stock
+		canReserve, err := uc.stockReservationService.CanReserveStock(ctx, req.ProductID, quantityDifference)
+		if err != nil {
+			return nil, pkgErrors.Wrap(err, pkgErrors.ErrCodeInternalError, "Failed to check stock reservation availability")
+		}
+		if !canReserve {
+			return nil, pkgErrors.InsufficientStock().
+				WithContext("product_id", req.ProductID).
+				WithContext("product_name", product.Name).
+				WithContext("requested_quantity", quantityDifference)
+		}
+	}
+
+	// Update quantity and price
 	cartItem.Quantity = req.Quantity
+	cartItem.Price = product.Price // Update to current price
+	cartItem.CalculateTotal()      // Recalculate total
 	cartItem.UpdatedAt = time.Now()
-	// Recalculate total
-	cartItem.CalculateTotal()
 
 	if err := uc.cartRepo.UpdateItem(ctx, cartItem); err != nil {
 		return nil, err
 	}
+
+	// Handle stock reservation changes
+	if quantityDifference > 0 {
+		// Create additional reservation
+		reservation := &entities.StockReservation{
+			ID:        uuid.New(),
+			ProductID: req.ProductID,
+			UserID:    &userID,
+			Quantity:  quantityDifference,
+			Type:      entities.ReservationTypeCart,
+			Status:    entities.ReservationStatusActive,
+			Notes:     "Additional reservation for cart update",
+			CreatedAt: time.Now(),
+			UpdatedAt: time.Now(),
+		}
+		reservation.SetExpiration(15) // 15 minutes for cart reservations
+
+		if err := uc.stockReservationService.ReserveStockForCart(ctx, reservation); err != nil {
+			return nil, pkgErrors.Wrap(err, pkgErrors.ErrCodeInternalError, "Failed to create additional stock reservation")
+		}
+	}
+	// Note: If quantityDifference < 0, we should ideally release some reservations
+	// but this is complex and can be handled by the cleanup job
 
 	// Get updated cart
 	updatedCart, err := uc.cartRepo.GetByID(ctx, cart.ID)
@@ -965,4 +1031,41 @@ func (uc *cartUseCase) transferGuestReservationsToUser(ctx context.Context, sess
 	// For now, we'll just log it as a TODO
 	fmt.Printf("TODO: Transfer stock reservations from session %s to user %s\n", sessionID, userID)
 	return nil
+}
+
+// CleanupExpiredCarts cleans up expired carts and their stock reservations
+func (uc *cartUseCase) CleanupExpiredCarts(ctx context.Context) error {
+	// Get all expired carts
+	expiredCarts, err := uc.cartRepo.GetExpiredCarts(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to get expired carts: %w", err)
+	}
+
+	for _, cart := range expiredCarts {
+		// Mark cart as abandoned
+		cart.MarkAsAbandoned()
+		if err := uc.cartRepo.Update(ctx, cart); err != nil {
+			fmt.Printf("Warning: Failed to mark cart %s as abandoned: %v\n", cart.ID, err)
+			continue
+		}
+
+		// Release stock reservations for this cart
+		if cart.UserID != nil {
+			// For user carts, release reservations by user ID
+			if err := uc.stockReservationService.ReleaseReservations(ctx, *cart.UserID); err != nil {
+				fmt.Printf("Warning: Failed to release reservations for user %s: %v\n", *cart.UserID, err)
+			}
+		} else if cart.SessionID != nil {
+			// For guest carts, we need a method to release by session ID
+			// This would need to be implemented in stock reservation service
+			fmt.Printf("TODO: Release stock reservations for session %s\n", *cart.SessionID)
+		}
+	}
+
+	return nil
+}
+
+// CleanupExpiredStockReservations cleans up expired stock reservations
+func (uc *cartUseCase) CleanupExpiredStockReservations(ctx context.Context) error {
+	return uc.stockReservationService.CleanupExpiredReservations(ctx)
 }

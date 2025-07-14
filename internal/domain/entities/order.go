@@ -385,21 +385,20 @@ func (o *Order) SetReservationTimeout(minutes int) {
 
 // SetPaymentTimeout sets the payment timeout (default 24 hours)
 func (o *Order) SetPaymentTimeout(hours int) {
-	minutes := hours
-	if minutes <= 0 {
-		minutes = getOrderTimeoutMinutes()
+	if hours <= 0 {
+		hours = 24 // Default 24 hours
 	}
-	timeout := time.Now().Add(time.Duration(minutes) * time.Minute)
+	timeout := time.Now().Add(time.Duration(hours) * time.Hour)
 	o.PaymentTimeout = &timeout
 }
 
 // ValidateTimeouts validates and sets default timeouts if not set
 func (o *Order) ValidateTimeouts() {
 	if o.ReservedUntil == nil && o.InventoryReserved {
-		o.SetReservationTimeout(30)
+		o.SetReservationTimeout(30) // 30 minutes for stock reservation
 	}
 	if o.PaymentTimeout == nil && o.Status == OrderStatusPending {
-		o.SetPaymentTimeout(getOrderTimeoutMinutes())
+		o.SetPaymentTimeout(24) // 24 hours for payment
 	}
 }
 

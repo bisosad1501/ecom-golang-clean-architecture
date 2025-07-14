@@ -282,24 +282,50 @@ func (uc *orderUseCase) validateCreateOrderRequest(req CreateOrderRequest) error
 
 // validateAddress validates address data
 func (uc *orderUseCase) validateAddress(addr AddressRequest, addressType string) error {
+	// Required fields validation with length limits
 	if addr.FirstName == "" {
 		return fmt.Errorf("%s address first name is required", addressType)
 	}
+	if len(addr.FirstName) > 50 {
+		return fmt.Errorf("%s address first name cannot exceed 50 characters", addressType)
+	}
+
 	if addr.LastName == "" {
 		return fmt.Errorf("%s address last name is required", addressType)
 	}
+	if len(addr.LastName) > 50 {
+		return fmt.Errorf("%s address last name cannot exceed 50 characters", addressType)
+	}
+
 	if addr.Address1 == "" {
 		return fmt.Errorf("%s address line 1 is required", addressType)
 	}
+	if len(addr.Address1) > 100 {
+		return fmt.Errorf("%s address line 1 cannot exceed 100 characters", addressType)
+	}
+
+	if len(addr.Address2) > 100 {
+		return fmt.Errorf("%s address line 2 cannot exceed 100 characters", addressType)
+	}
+
 	if addr.City == "" {
 		return fmt.Errorf("%s address city is required", addressType)
 	}
+	if len(addr.City) > 50 {
+		return fmt.Errorf("%s address city cannot exceed 50 characters", addressType)
+	}
+
 	if addr.State == "" {
 		return fmt.Errorf("%s address state is required", addressType)
 	}
+	if len(addr.State) > 50 {
+		return fmt.Errorf("%s address state cannot exceed 50 characters", addressType)
+	}
+
 	if addr.ZipCode == "" {
 		return fmt.Errorf("%s address zip code is required", addressType)
 	}
+
 	if addr.Country == "" {
 		return fmt.Errorf("%s address country is required", addressType)
 	}
@@ -308,14 +334,27 @@ func (uc *orderUseCase) validateAddress(addr AddressRequest, addressType string)
 	if len(addr.ZipCode) < 3 || len(addr.ZipCode) > 10 {
 		return fmt.Errorf("%s address zip code must be between 3 and 10 characters", addressType)
 	}
+	// Enhanced zip code format validation
+	zipRegex := `^[A-Za-z0-9\s\-]{3,10}$`
+	if matched, _ := regexp.MatchString(zipRegex, addr.ZipCode); !matched {
+		return fmt.Errorf("%s address zip code contains invalid characters", addressType)
+	}
 
-	// Validate country code (basic validation)
-	if len(addr.Country) < 2 || len(addr.Country) > 3 {
-		return fmt.Errorf("%s address country must be 2-3 character country code", addressType)
+	// Validate country code (should be exactly 2 characters for ISO codes)
+	if len(addr.Country) != 2 {
+		return fmt.Errorf("%s address country must be a 2-letter ISO country code", addressType)
+	}
+
+	// Optional fields validation
+	if len(addr.Company) > 100 {
+		return fmt.Errorf("%s address company cannot exceed 100 characters", addressType)
 	}
 
 	// Validate phone format if provided
 	if addr.Phone != "" {
+		if len(addr.Phone) > 20 {
+			return fmt.Errorf("%s address phone cannot exceed 20 characters", addressType)
+		}
 		phoneRegex := `^\+?[1-9]\d{1,14}$`
 		if matched, _ := regexp.MatchString(phoneRegex, addr.Phone); !matched {
 			return fmt.Errorf("%s address phone format is invalid", addressType)
@@ -512,9 +551,21 @@ func (uc *orderUseCase) createOrderInTransaction(ctx context.Context, tx *gorm.D
 		}
 	}
 
-	// Reserve stock within transaction
+	// Release existing cart reservations first to avoid double reservation
+	if err := uc.stockReservationService.ReleaseReservations(ctx, userID); err != nil {
+		// Log warning but don't fail the transaction
+		fmt.Printf("Warning: Failed to release cart reservations: %v\n", err)
+	}
+
+	// Reserve stock for order within transaction
 	if err := uc.stockReservationService.ReserveStockForOrder(ctx, order.ID, userID, cart.Items); err != nil {
 		return nil, pkgErrors.Wrap(err, pkgErrors.ErrCodeInsufficientStock, "Failed to reserve stock")
+	}
+
+	// Mark order as having inventory reserved
+	order.InventoryReserved = true
+	if err := uc.orderRepo.Update(ctx, order); err != nil {
+		return nil, pkgErrors.Wrap(err, pkgErrors.ErrCodeInternalError, "Failed to update order inventory status")
 	}
 
 	// Mark cart as converted and clear items
