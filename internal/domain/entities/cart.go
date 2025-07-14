@@ -18,9 +18,11 @@ type Cart struct {
 	Items     []CartItem `json:"items" gorm:"foreignKey:CartID"`
 
 	// Calculated fields (stored for performance)
-	Subtotal  float64 `json:"subtotal" gorm:"default:0"`
-	Total     float64 `json:"total" gorm:"default:0"`
-	ItemCount int     `json:"item_count" gorm:"default:0"`
+	Subtotal     float64 `json:"subtotal" gorm:"default:0"`
+	TaxAmount    float64 `json:"tax_amount" gorm:"default:0"`
+	ShippingAmount float64 `json:"shipping_amount" gorm:"default:0"`
+	Total        float64 `json:"total" gorm:"default:0"`
+	ItemCount    int     `json:"item_count" gorm:"default:0"`
 
 	// Cart lifecycle
 	Status    string     `json:"status" gorm:"default:'active'"`
@@ -93,7 +95,9 @@ func (c *Cart) UpdateCalculatedFields() {
 // UpdateCalculatedFieldsForce forces update of calculated fields regardless of changes
 func (c *Cart) UpdateCalculatedFieldsForce() {
 	c.Subtotal = c.GetTotal()
-	c.Total = c.Subtotal // Can add tax, shipping later
+	// Tax and shipping will be calculated when converting to order
+	// For now, cart total = subtotal (tax and shipping added at checkout)
+	c.Total = c.Subtotal + c.TaxAmount + c.ShippingAmount
 	c.ItemCount = c.GetItemCount()
 	c.UpdatedAt = time.Now()
 }
@@ -128,6 +132,24 @@ func (c *Cart) MarkAsAbandoned() {
 func (c *Cart) MarkAsConverted() {
 	c.Status = "converted"
 	c.UpdatedAt = time.Now()
+}
+
+// SetTaxAmount sets the tax amount for the cart
+func (c *Cart) SetTaxAmount(taxAmount float64) {
+	if taxAmount < 0 {
+		taxAmount = 0
+	}
+	c.TaxAmount = taxAmount
+	c.UpdateCalculatedFields()
+}
+
+// SetShippingAmount sets the shipping amount for the cart
+func (c *Cart) SetShippingAmount(shippingAmount float64) {
+	if shippingAmount < 0 {
+		shippingAmount = 0
+	}
+	c.ShippingAmount = shippingAmount
+	c.UpdateCalculatedFields()
 }
 
 // Validate validates cart data

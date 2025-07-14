@@ -2,6 +2,7 @@ package entities
 
 import (
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -135,9 +136,17 @@ func (a *Address) Validate() error {
 	return nil
 }
 
-// IsInternational checks if the address is international (non-US)
+// IsInternational checks if the address is international (non-domestic)
+// This method considers both US and Vietnam as domestic countries
+// since the system supports both US and Vietnamese carriers
 func (a *Address) IsInternational() bool {
-	return a.Country != "US" && a.Country != "USA"
+	domesticCountries := map[string]bool{
+		"US":      true,
+		"USA":     true,
+		"VN":      true,
+		"VIETNAM": true,
+	}
+	return !domesticCountries[strings.ToUpper(a.Country)]
 }
 
 // GetShippingZone determines shipping zone based on address

@@ -38,14 +38,23 @@ func (r *cartRepository) updateCartCalculatedFields(ctx context.Context, tx *gor
 		return err
 	}
 
+	// Get current cart to preserve tax and shipping amounts
+	var currentCart entities.Cart
+	if err := tx.WithContext(ctx).Select("tax_amount", "shipping_amount").Where("id = ?", cartID).First(&currentCart).Error; err != nil {
+		return err
+	}
+
+	// Calculate total including tax and shipping
+	total := result.Subtotal + currentCart.TaxAmount + currentCart.ShippingAmount
+
 	// Update cart with calculated values only if they changed
 	return tx.WithContext(ctx).
 		Model(&entities.Cart{}).
 		Where("id = ?", cartID).
-		Where("subtotal != ? OR total != ? OR item_count != ?", result.Subtotal, result.Subtotal, result.ItemCount).
+		Where("subtotal != ? OR total != ? OR item_count != ?", result.Subtotal, total, result.ItemCount).
 		Updates(map[string]interface{}{
 			"subtotal":   result.Subtotal,
-			"total":      result.Subtotal, // Can add tax, shipping later
+			"total":      total,
 			"item_count": result.ItemCount,
 			"updated_at": time.Now(),
 		}).Error
