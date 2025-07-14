@@ -564,6 +564,16 @@ func (uc *paymentUseCase) updatePaymentStatusInTransaction(ctx context.Context, 
 	// Update order status if payment is completed
 	if status == entities.PaymentStatusPaid && order.Status == entities.OrderStatusPending && order.IsFullyPaid() {
 		order.Status = entities.OrderStatusConfirmed
+
+		// Confirm stock reservations (convert to actual stock reduction)
+		if err := uc.stockReservationService.ConfirmReservations(ctx, order.ID); err != nil {
+			fmt.Printf("❌ Failed to confirm stock reservations: %v\n", err)
+			return nil, fmt.Errorf("failed to confirm stock reservations: %v", err)
+		}
+		fmt.Printf("✅ Stock reservations confirmed and converted to actual stock reduction\n")
+
+		// Release reservation flags since stock is now actually reduced
+		order.ReleaseReservation()
 	}
 
 	order.UpdatedAt = time.Now()
@@ -1052,6 +1062,16 @@ func (uc *paymentUseCase) handlePaymentIntentSucceeded(ctx context.Context, even
 	order.SyncPaymentStatus()
 	if order.Status == entities.OrderStatusPending && order.IsFullyPaid() {
 		order.Status = entities.OrderStatusConfirmed
+
+		// Confirm stock reservations (convert to actual stock reduction)
+		if err := uc.stockReservationService.ConfirmReservations(ctx, order.ID); err != nil {
+			fmt.Printf("❌ Failed to confirm stock reservations: %v\n", err)
+			return fmt.Errorf("failed to confirm stock reservations: %v", err)
+		}
+		fmt.Printf("✅ Stock reservations confirmed and converted to actual stock reduction\n")
+
+		// Release reservation flags since stock is now actually reduced
+		order.ReleaseReservation()
 	}
 	order.UpdatedAt = time.Now()
 
@@ -1506,6 +1526,16 @@ func (uc *paymentUseCase) ConfirmPaymentSuccess(ctx context.Context, orderID, us
 	order.SyncPaymentStatus()
 	if order.Status == entities.OrderStatusPending && order.IsFullyPaid() {
 		order.Status = entities.OrderStatusConfirmed
+
+		// Confirm stock reservations (convert to actual stock reduction)
+		if err := uc.stockReservationService.ConfirmReservations(ctx, order.ID); err != nil {
+			fmt.Printf("❌ Failed to confirm stock reservations: %v\n", err)
+			return fmt.Errorf("failed to confirm stock reservations: %v", err)
+		}
+		fmt.Printf("✅ Stock reservations confirmed and converted to actual stock reduction\n")
+
+		// Release reservation flags since stock is now actually reduced
+		order.ReleaseReservation()
 	}
 	order.UpdatedAt = time.Now()
 
