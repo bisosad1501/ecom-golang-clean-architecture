@@ -182,6 +182,7 @@ type OrderItem struct {
 	Quantity    int       `json:"quantity" gorm:"not null" validate:"required,gt=0"`
 	Price       float64   `json:"price" gorm:"not null"`
 	Total       float64   `json:"total" gorm:"not null"`
+	Weight      float64   `json:"weight" gorm:"default:0"` // Individual item weight for shipping calculation
 	CreatedAt   time.Time `json:"created_at" gorm:"autoCreateTime"`
 }
 
@@ -578,36 +579,53 @@ func (o *Order) GetRemainingAmount() float64 {
 
 // SyncPaymentStatus synchronizes the order payment status with actual payments
 func (o *Order) SyncPaymentStatus() {
-	if o.IsFullyPaid() {
-		o.PaymentStatus = PaymentStatusPaid
-	} else if o.IsPartiallyPaid() {
-		o.PaymentStatus = PaymentStatusPartiallyPaid
-	} else {
-		// Check if this is a COD order
-		isCODOrder := false
-		for _, payment := range o.Payments {
-			if payment.Method == PaymentMethodCash {
-				isCODOrder = true
-				break
-			}
-		}
-
-		// Check if there are any failed payments
-		hasFailed := false
-		for _, payment := range o.Payments {
-			if payment.IsFailed() {
-				hasFailed = true
-				break
-			}
-		}
-
-		if hasFailed {
-			o.PaymentStatus = PaymentStatusFailed
-		} else if isCODOrder {
+	// If no payments exist, determine status based on payment method
+	if len(o.Payments) == 0 {
+		if o.PaymentMethod == PaymentMethodCash {
 			o.PaymentStatus = PaymentStatusAwaitingPayment
 		} else {
 			o.PaymentStatus = PaymentStatusPending
 		}
+		return
+	}
+
+	// Check payment completion status
+	if o.IsFullyPaid() {
+		o.PaymentStatus = PaymentStatusPaid
+		return
+	}
+
+	if o.IsPartiallyPaid() {
+		o.PaymentStatus = PaymentStatusPartiallyPaid
+		return
+	}
+
+	// Check for failed payments
+	hasFailedPayments := false
+	hasPendingPayments := false
+	hasProcessingPayments := false
+	isCODOrder := o.PaymentMethod == PaymentMethodCash
+
+	for _, payment := range o.Payments {
+		switch payment.Status {
+		case PaymentStatusFailed:
+			hasFailedPayments = true
+		case PaymentStatusPending:
+			hasPendingPayments = true
+		case PaymentStatusProcessing:
+			hasProcessingPayments = true
+		}
+	}
+
+	// Determine status based on payment states and method
+	if hasFailedPayments && !hasPendingPayments && !hasProcessingPayments {
+		o.PaymentStatus = PaymentStatusFailed
+	} else if hasProcessingPayments {
+		o.PaymentStatus = PaymentStatusProcessing
+	} else if isCODOrder {
+		o.PaymentStatus = PaymentStatusAwaitingPayment
+	} else {
+		o.PaymentStatus = PaymentStatusPending
 	}
 }
 

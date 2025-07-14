@@ -81,7 +81,7 @@ func (c *Cart) GetItemCount() int {
 func (c *Cart) UpdateCalculatedFields() {
 	newSubtotal := c.GetTotal()
 	newItemCount := c.GetItemCount()
-	newTotal := newSubtotal // Can add tax, shipping later
+	newTotal := newSubtotal + c.TaxAmount + c.ShippingAmount
 
 	// Only update if values have changed to avoid unnecessary database writes
 	if c.Subtotal != newSubtotal || c.ItemCount != newItemCount || c.Total != newTotal {
@@ -203,15 +203,17 @@ func (c *Cart) Validate() error {
 	// Validate calculated fields consistency
 	expectedSubtotal := c.GetTotal()
 	expectedItemCount := c.GetItemCount()
+	expectedTotal := c.Subtotal + c.TaxAmount + c.ShippingAmount
+
 	if c.Subtotal != expectedSubtotal {
 		return fmt.Errorf("subtotal %.2f does not match calculated subtotal %.2f", c.Subtotal, expectedSubtotal)
 	}
 	if c.ItemCount != expectedItemCount {
 		return fmt.Errorf("item_count %d does not match calculated item_count %d", c.ItemCount, expectedItemCount)
 	}
-	if c.Total != c.Subtotal {
-		// For now, total should equal subtotal (no tax/shipping in cart)
-		return fmt.Errorf("total %.2f does not match subtotal %.2f", c.Total, c.Subtotal)
+	if c.Total != expectedTotal {
+		return fmt.Errorf("total %.2f does not match calculated total %.2f (subtotal %.2f + tax %.2f + shipping %.2f)",
+			c.Total, expectedTotal, c.Subtotal, c.TaxAmount, c.ShippingAmount)
 	}
 	validCurrencies := []string{"USD", "EUR", "GBP", "JPY", "VND"}
 	isValidCurrency := false
@@ -337,9 +339,14 @@ func (c *Cart) Clear() {
 	c.UpdateCalculatedFields()
 }
 
-// GetSubtotal returns the stored total for a cart item
-func (ci *CartItem) GetSubtotal() float64 {
+// GetTotal returns the stored total for a cart item
+func (ci *CartItem) GetTotal() float64 {
 	return ci.Total
+}
+
+// GetSubtotal is an alias for GetTotal for backward compatibility
+func (ci *CartItem) GetSubtotal() float64 {
+	return ci.GetTotal()
 }
 
 // CalculateTotal calculates and updates the total for a cart item

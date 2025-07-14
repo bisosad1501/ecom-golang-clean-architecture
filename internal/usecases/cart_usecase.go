@@ -238,6 +238,34 @@ func (uc *cartUseCase) addToCartInTransaction(ctx context.Context, userID uuid.U
 		if err := uc.cartRepo.Create(ctx, cart); err != nil {
 			return nil, pkgErrors.Wrap(err, pkgErrors.ErrCodeInternalError, "Failed to create cart")
 		}
+	} else {
+		// Check if cart is expired
+		if cart.IsExpired() {
+			// Mark cart as expired and create new one
+			cart.MarkAsAbandoned()
+			if err := uc.cartRepo.Update(ctx, cart); err != nil {
+				// Log error but continue with new cart creation
+				fmt.Printf("Warning: Failed to mark expired cart as abandoned: %v\n", err)
+			}
+
+			// Create new cart
+			cart = &entities.Cart{
+				ID:        uuid.New(),
+				UserID:    &userID,
+				Items:     []entities.CartItem{},
+				Status:    "active",
+				Currency:  "USD",
+				CreatedAt: time.Now(),
+				UpdatedAt: time.Now(),
+			}
+
+			cart.SetExpiration()
+			cart.UpdateCalculatedFields()
+
+			if err := uc.cartRepo.Create(ctx, cart); err != nil {
+				return nil, pkgErrors.Wrap(err, pkgErrors.ErrCodeInternalError, "Failed to create new cart after expiration")
+			}
+		}
 	}
 
 	// Check if cart is expired
@@ -395,10 +423,34 @@ func (uc *cartUseCase) addToGuestCartInTransaction(ctx context.Context, sessionI
 	}
 
 	// Rest of implementation similar to user cart...
-	// Get product and validate stock
+	// Get product and validate
 	product, err := uc.productRepo.GetByID(ctx, req.ProductID)
 	if err != nil {
 		return nil, pkgErrors.ProductNotFound().WithContext("product_id", req.ProductID)
+	}
+
+	// Validate product is active and available
+	if product.Status != entities.ProductStatusActive {
+		return nil, pkgErrors.InvalidInput("Product is not available for purchase")
+	}
+
+	// Check stock availability
+	if product.Stock < req.Quantity {
+		return nil, pkgErrors.InsufficientStock().
+			WithContext("product_id", req.ProductID).
+			WithContext("available_stock", product.Stock).
+			WithContext("requested_quantity", req.Quantity)
+	}
+
+	// Check if we can reserve the requested stock
+	canReserve, err := uc.stockReservationService.CanReserveStock(ctx, req.ProductID, req.Quantity)
+	if err != nil {
+		return nil, pkgErrors.Wrap(err, pkgErrors.ErrCodeInternalError, "Failed to check stock availability")
+	}
+	if !canReserve {
+		return nil, pkgErrors.InsufficientStock().
+			WithContext("product_id", req.ProductID).
+			WithContext("requested_quantity", req.Quantity)
 	}
 
 	if !product.IsAvailable() {
@@ -437,7 +489,7 @@ func (uc *cartUseCase) addToGuestCartInTransaction(ctx context.Context, sessionI
 	reservation.SetExpiration(15)
 
 	// Check if stock can be reserved first
-	canReserve, err := uc.stockReservationService.CanReserveStock(ctx, req.ProductID, quantityToReserve)
+	canReserve, err = uc.stockReservationService.CanReserveStock(ctx, req.ProductID, quantityToReserve)
 	if err != nil {
 		return nil, pkgErrors.Wrap(err, pkgErrors.ErrCodeInternalError, "Failed to check stock reservation availability")
 	}

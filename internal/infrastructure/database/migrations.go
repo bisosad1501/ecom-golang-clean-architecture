@@ -932,3 +932,42 @@ func migration009Down(db *gorm.DB) error {
 	log.Println("✅ Removed payment method field from orders table")
 	return nil
 }
+
+// migration010Up adds weight field to order_items table
+func migration010Up(db *gorm.DB) error {
+	log.Println("🔧 Adding weight field to order_items table...")
+
+	sqls := []string{
+		// Add weight column to order_items table
+		"ALTER TABLE order_items ADD COLUMN IF NOT EXISTS weight NUMERIC DEFAULT 0",
+	}
+
+	for _, sql := range sqls {
+		if err := db.Exec(sql).Error; err != nil {
+			return fmt.Errorf("failed to execute SQL: %s, error: %w", sql, err)
+		}
+	}
+
+	log.Println("✅ Added weight field to order_items table")
+	return nil
+}
+
+// migration010Down removes weight field from order_items table
+func migration010Down(db *gorm.DB) error {
+	log.Println("🔧 Removing weight field from order_items table...")
+
+	sqls := []string{
+		// Remove weight column from order_items table
+		"ALTER TABLE order_items DROP COLUMN IF EXISTS weight",
+	}
+
+	for _, sql := range sqls {
+		if err := db.Exec(sql).Error; err != nil {
+			// Log error but continue with other operations
+			log.Printf("Warning: Failed to execute SQL: %s, error: %v", sql, err)
+		}
+	}
+
+	log.Println("✅ Removed weight field from order_items table")
+	return nil
+}

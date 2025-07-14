@@ -26,6 +26,7 @@ type InventoryRepository interface {
 
 	// Stock operations
 	UpdateStock(ctx context.Context, inventoryID uuid.UUID, quantityChange int, reason string) error
+	SyncWithProductStock(ctx context.Context, inventoryID uuid.UUID, productStock int, reason string) error
 	ReserveStock(ctx context.Context, inventoryID uuid.UUID, quantity int) error
 	ReleaseReservation(ctx context.Context, inventoryID uuid.UUID, quantity int) error
 	GetAvailableStock(ctx context.Context, productID uuid.UUID) (int, error)

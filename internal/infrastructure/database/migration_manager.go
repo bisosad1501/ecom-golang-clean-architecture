@@ -249,6 +249,12 @@ func getMigrations() []Migration {
 			Up:      migration009Up,
 			Down:    migration009Down,
 		},
+		{
+			Version: "010_add_weight_to_order_items",
+			Name:    "Add weight field to order_items table",
+			Up:      migration010Up,
+			Down:    migration010Down,
+		},
 		// Temporarily disabled due to product_tags issue
 		// {
 		// 	Version: "006_enhance_search",

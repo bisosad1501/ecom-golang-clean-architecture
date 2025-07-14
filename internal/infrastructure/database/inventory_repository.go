@@ -77,6 +77,57 @@ func (r *inventoryRepository) UpdateStock(ctx context.Context, inventoryID uuid.
 	})
 }
 
+// SyncWithProductStock synchronizes inventory quantity with product stock
+func (r *inventoryRepository) SyncWithProductStock(ctx context.Context, inventoryID uuid.UUID, productStock int, reason string) error {
+	return r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		// Get current inventory state
+		var inventory entities.Inventory
+		if err := tx.First(&inventory, "id = ?", inventoryID).Error; err != nil {
+			return err
+		}
+
+		// Calculate the difference
+		quantityDifference := productStock - inventory.QuantityOnHand
+
+		// Update inventory to match product stock
+		err := tx.Model(&entities.Inventory{}).
+			Where("id = ?", inventoryID).
+			Updates(map[string]interface{}{
+				"quantity_on_hand":   productStock,
+				"quantity_available": gorm.Expr("? - quantity_reserved", productStock),
+				"last_movement_at":   time.Now(),
+				"updated_at":         time.Now(),
+			}).Error
+		if err != nil {
+			return err
+		}
+
+		// Create movement record for tracking if there's a difference
+		if quantityDifference != 0 {
+			movement := &entities.InventoryMovement{
+				ID:             uuid.New(),
+				InventoryID:    inventoryID,
+				Type:           entities.InventoryMovementTypeAdjust,
+				Reason:         entities.InventoryMovementReason(reason),
+				Quantity:       quantityDifference,
+				UnitCost:       inventory.AverageCost,
+				TotalCost:      float64(quantityDifference) * inventory.AverageCost,
+				QuantityBefore: inventory.QuantityOnHand,
+				QuantityAfter:  productStock,
+				ReferenceType:  "product_stock_sync",
+				Notes:          "Synchronized with product stock after order confirmation",
+				CreatedAt:      time.Now(),
+			}
+
+			if err := tx.Create(movement).Error; err != nil {
+				return err
+			}
+		}
+
+		return nil
+	})
+}
+
 // ReserveStock reserves stock
 func (r *inventoryRepository) ReserveStock(ctx context.Context, inventoryID uuid.UUID, quantity int) error {
 	return r.db.WithContext(ctx).Model(&entities.Inventory{}).

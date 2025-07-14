@@ -137,7 +137,7 @@ func (s *stockReservationService) ConfirmReservations(ctx context.Context, order
 			return fmt.Errorf("failed to get product %s: %w", reservation.ProductID, err)
 		}
 
-		// Reduce actual stock
+		// Reduce actual stock in Product entity
 		if err := product.ReduceStock(reservation.Quantity); err != nil {
 			return fmt.Errorf("failed to reduce stock for product %s: %w", product.Name, err)
 		}
@@ -147,14 +147,15 @@ func (s *stockReservationService) ConfirmReservations(ctx context.Context, order
 			return fmt.Errorf("failed to update stock for product %s: %w", product.Name, err)
 		}
 
-		// Record inventory movement for stock reduction
+		// Record inventory movement for tracking purposes only (don't double reduce)
 		if s.inventoryRepo != nil {
 			// Try to get inventory record for the product
 			inventory, err := s.inventoryRepo.GetByProductID(ctx, reservation.ProductID)
 			if err == nil {
-				// Update inventory stock levels
-				if err := s.inventoryRepo.UpdateStock(ctx, inventory.ID, -reservation.Quantity, "order_confirmed"); err != nil {
-					fmt.Printf("Warning: Failed to update inventory for product %s: %v\n", reservation.ProductID, err)
+				// Sync inventory quantity with product stock (don't subtract again)
+				// This ensures inventory.quantity_on_hand matches product.stock
+				if err := s.inventoryRepo.SyncWithProductStock(ctx, inventory.ID, product.Stock, "stock_sync_after_order_confirmation"); err != nil {
+					fmt.Printf("Warning: Failed to sync inventory with product stock for product %s: %v\n", reservation.ProductID, err)
 				}
 			}
 		}

@@ -366,6 +366,7 @@ func (uc *orderUseCase) validateAddress(addr AddressRequest, addressType string)
 
 // createOrderInTransaction handles order creation within a transaction
 func (uc *orderUseCase) createOrderInTransaction(ctx context.Context, tx *gorm.DB, userID uuid.UUID, req CreateOrderRequest) (*OrderResponse, error) {
+
 	// Validate request data
 	if err := uc.validateCreateOrderRequest(req); err != nil {
 		return nil, pkgErrors.Wrap(err, pkgErrors.ErrCodeInvalidInput, "Invalid order request")
@@ -554,7 +555,7 @@ func (uc *orderUseCase) createOrderInTransaction(ctx context.Context, tx *gorm.D
 	// Release existing cart reservations first to avoid double reservation
 	if err := uc.stockReservationService.ReleaseReservations(ctx, userID); err != nil {
 		// Log warning but don't fail the transaction
-		fmt.Printf("Warning: Failed to release cart reservations: %v\n", err)
+		// Note: This is a non-critical operation
 	}
 
 	// Reserve stock for order within transaction
@@ -581,12 +582,12 @@ func (uc *orderUseCase) createOrderInTransaction(ctx context.Context, tx *gorm.D
 	// Create events within transaction to ensure consistency
 	if err := uc.orderEventService.CreateOrderCreatedEvent(ctx, order, &userID); err != nil {
 		// Log warning but don't fail the transaction for event creation
-		fmt.Printf("Warning: Failed to create order created event: %v\n", err)
+		// Note: Event creation failure is non-critical
 	}
 
 	if err := uc.orderEventService.CreateInventoryReservedEvent(ctx, order.ID, cart.Items, &userID); err != nil {
 		// Log warning but don't fail the transaction for event creation
-		fmt.Printf("Warning: Failed to create inventory reserved event: %v\n", err)
+		// Note: Event creation failure is non-critical
 	}
 
 	// Get created order with relations
@@ -765,7 +766,7 @@ func (uc *orderUseCase) UpdateOrderStatus(ctx context.Context, orderID uuid.UUID
 
 	// Create status changed event
 	if err := uc.orderEventService.CreateStatusChangedEvent(ctx, orderID, oldStatus, status, nil); err != nil {
-		fmt.Printf("Warning: Failed to create status changed event: %v\n", err)
+		// Note: Event creation failure is non-critical
 	}
 
 	return uc.toOrderResponse(order), nil
@@ -796,42 +797,31 @@ func (uc *orderUseCase) CancelOrder(ctx context.Context, orderID uuid.UUID) (*Or
 	switch {
 	case order.IsPaid() && order.Status == entities.OrderStatusConfirmed:
 		// Order is paid and confirmed - need to restore actual stock
-		fmt.Printf("🔄 Restoring actual stock for paid order %s\n", order.OrderNumber)
 		for _, item := range order.Items {
 			product, err := uc.productRepo.GetByID(ctx, item.ProductID)
 			if err != nil {
-				fmt.Printf("❌ Failed to get product %s for stock restoration: %v\n", item.ProductID, err)
 				continue
 			}
 
 			if err := product.IncreaseStock(item.Quantity); err != nil {
-				fmt.Printf("❌ Failed to increase stock for product %s: %v\n", product.Name, err)
 				continue
 			}
 			if err := uc.productRepo.UpdateStock(ctx, item.ProductID, product.Stock); err != nil {
-				fmt.Printf("❌ Failed to restore stock for product %s: %v\n", product.Name, err)
 				continue
 			}
-			fmt.Printf("✅ Restored %d units of %s\n", item.Quantity, product.Name)
 		}
 
 	case !order.IsPaid() && order.HasInventoryReserved():
 		// Order is not paid but has reservations - release reservations
-		fmt.Printf("🔄 Releasing stock reservations for unpaid order %s\n", order.OrderNumber)
 		if err := uc.stockReservationService.ReleaseReservations(ctx, orderID); err != nil {
-			fmt.Printf("❌ Failed to release stock reservations for order %s: %v\n", orderID, err)
 			// Don't fail the cancellation, but log the error
-		} else {
-			fmt.Printf("✅ Released stock reservations for order %s\n", order.OrderNumber)
 		}
 
 	case !order.IsPaid() && !order.HasInventoryReserved():
 		// Order is not paid and no reservations (possibly expired) - nothing to do
-		fmt.Printf("ℹ️ Order %s has no active reservations to release\n", order.OrderNumber)
 
 	default:
-		fmt.Printf("⚠️ Unexpected order state for cancellation: OrderID=%s, IsPaid=%v, HasReservation=%v, Status=%s\n",
-			orderID, order.IsPaid(), order.HasInventoryReserved(), order.Status)
+		// Unexpected order state for cancellation
 	}
 
 	// Release order reservation flags
@@ -842,12 +832,12 @@ func (uc *orderUseCase) CancelOrder(ctx context.Context, orderID uuid.UUID) (*Or
 
 	// Create cancelled event
 	if err := uc.orderEventService.CreateCancelledEvent(ctx, orderID, "Order cancelled by user", nil); err != nil {
-		fmt.Printf("Warning: Failed to create cancelled event: %v\n", err)
+		// Note: Event creation failure is non-critical
 	}
 
 	// Create inventory released event
 	if err := uc.orderEventService.CreateInventoryReleasedEvent(ctx, orderID, "Order cancelled", nil); err != nil {
-		fmt.Printf("Warning: Failed to create inventory released event: %v\n", err)
+		// Note: Event creation failure is non-critical
 	}
 
 	return uc.UpdateOrderStatus(ctx, orderID, entities.OrderStatusCancelled)
@@ -1050,7 +1040,7 @@ func (uc *orderUseCase) UpdateShippingInfo(ctx context.Context, orderID uuid.UUI
 
 	// Create shipped event
 	if err := uc.orderEventService.CreateShippedEvent(ctx, orderID, req.TrackingNumber, req.Carrier, nil); err != nil {
-		fmt.Printf("Warning: Failed to create shipped event: %v\n", err)
+		// Note: Event creation failure is non-critical
 	}
 
 	return uc.toOrderResponse(order), nil
