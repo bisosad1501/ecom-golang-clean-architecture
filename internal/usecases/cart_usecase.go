@@ -96,19 +96,22 @@ type UpdateCartItemRequest struct {
 
 // CartResponse represents cart response
 type CartResponse struct {
-	ID        uuid.UUID          `json:"id"`
-	UserID    uuid.UUID          `json:"user_id"`
-	SessionID *string            `json:"session_id,omitempty"`
-	Items     []CartItemResponse `json:"items"`
-	ItemCount int                `json:"item_count"`
-	Subtotal  float64            `json:"subtotal"`
-	Total     float64            `json:"total"`
-	Status    string             `json:"status"`
-	Currency  string             `json:"currency"`
-	Notes     string             `json:"notes,omitempty"`
-	ExpiresAt *time.Time         `json:"expires_at,omitempty"`
-	CreatedAt time.Time          `json:"created_at"`
-	UpdatedAt time.Time          `json:"updated_at"`
+	ID             uuid.UUID          `json:"id"`
+	UserID         *uuid.UUID         `json:"user_id,omitempty"`         // Nullable for guest carts
+	SessionID      *string            `json:"session_id,omitempty"`
+	Items          []CartItemResponse `json:"items"`
+	ItemCount      int                `json:"item_count"`
+	Subtotal       float64            `json:"subtotal"`
+	TaxAmount      float64            `json:"tax_amount"`                // Added missing field
+	ShippingAmount float64            `json:"shipping_amount"`           // Added missing field
+	Total          float64            `json:"total"`
+	Status         string             `json:"status"`
+	Currency       string             `json:"currency"`
+	Notes          string             `json:"notes,omitempty"`
+	ExpiresAt      *time.Time         `json:"expires_at,omitempty"`
+	IsGuest        bool               `json:"is_guest"`                  // Added helper field
+	CreatedAt      time.Time          `json:"created_at"`
+	UpdatedAt      time.Time          `json:"updated_at"`
 }
 
 // CartItemResponse represents cart item response
@@ -678,24 +681,22 @@ func (uc *cartUseCase) ClearCart(ctx context.Context, userID uuid.UUID) error {
 
 // toCartResponse converts cart entity to response
 func (uc *cartUseCase) toCartResponse(cart *entities.Cart) *CartResponse {
-	var userID uuid.UUID
-	if cart.UserID != nil {
-		userID = *cart.UserID
-	}
-
 	response := &CartResponse{
-		ID:        cart.ID,
-		UserID:    userID,
-		SessionID: cart.SessionID,
-		ItemCount: cart.ItemCount,
-		Subtotal:  cart.Subtotal,
-		Total:     cart.Total,
-		Status:    cart.Status,
-		Currency:  cart.Currency,
-		Notes:     cart.Notes,
-		ExpiresAt: cart.ExpiresAt,
-		CreatedAt: cart.CreatedAt,
-		UpdatedAt: cart.UpdatedAt,
+		ID:             cart.ID,
+		UserID:         cart.UserID,                    // Now properly nullable
+		SessionID:      cart.SessionID,
+		ItemCount:      cart.ItemCount,
+		Subtotal:       cart.Subtotal,
+		TaxAmount:      cart.TaxAmount,                 // Added missing field
+		ShippingAmount: cart.ShippingAmount,            // Added missing field
+		Total:          cart.Total,
+		Status:         cart.Status,
+		Currency:       cart.Currency,
+		Notes:          cart.Notes,
+		ExpiresAt:      cart.ExpiresAt,
+		IsGuest:        cart.IsGuest(),                 // Added helper field
+		CreatedAt:      cart.CreatedAt,
+		UpdatedAt:      cart.UpdatedAt,
 	}
 
 	// Convert items

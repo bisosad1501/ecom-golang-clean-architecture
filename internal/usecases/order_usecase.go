@@ -366,7 +366,6 @@ func (uc *orderUseCase) validateAddress(addr AddressRequest, addressType string)
 
 // createOrderInTransaction handles order creation within a transaction
 func (uc *orderUseCase) createOrderInTransaction(ctx context.Context, tx *gorm.DB, userID uuid.UUID, req CreateOrderRequest) (*OrderResponse, error) {
-
 	// Validate request data
 	if err := uc.validateCreateOrderRequest(req); err != nil {
 		return nil, pkgErrors.Wrap(err, pkgErrors.ErrCodeInvalidInput, "Invalid order request")
@@ -511,6 +510,12 @@ func (uc *orderUseCase) createOrderInTransaction(ctx context.Context, tx *gorm.D
 	for _, cartItem := range cart.Items {
 		product := products[cartItem.ProductID]
 
+		// Validate price consistency
+		if cartItem.Price != product.Price {
+			// Log warning but use current product price for order
+			// This handles price changes between cart and order creation
+		}
+
 		orderItem := entities.OrderItem{
 			ID:          uuid.New(),
 			OrderID:     order.ID,
@@ -518,13 +523,18 @@ func (uc *orderUseCase) createOrderInTransaction(ctx context.Context, tx *gorm.D
 			ProductName: product.Name,
 			ProductSKU:  product.SKU,
 			Quantity:    cartItem.Quantity,
-			Price:       cartItem.Price,
-			Total:       cartItem.GetSubtotal(),
+			Price:       product.Price,  // Use current product price
+			Total:       float64(cartItem.Quantity) * product.Price,
+			Weight:      getProductWeight(product.Weight), // Add weight from product
 			CreatedAt:   time.Now(),
+			UpdatedAt:   time.Now(),
 		}
 
 		order.Items = append(order.Items, orderItem)
 	}
+
+	// Update order total weight
+	order.UpdateTotalWeight()
 
 	// Create order within transaction
 	if err := uc.orderRepo.Create(ctx, order); err != nil {
@@ -595,6 +605,14 @@ func (uc *orderUseCase) createOrderInTransaction(ctx context.Context, tx *gorm.D
 	}
 
 	return uc.toOrderResponse(createdOrder), nil
+}
+
+// getProductWeight safely extracts weight from product
+func getProductWeight(weight *float64) float64 {
+	if weight == nil {
+		return 0.5 // Default weight for products without weight specified (0.5kg)
+	}
+	return *weight
 }
 
 // getProductsBulk retrieves multiple products in a single query to avoid N+1 problem

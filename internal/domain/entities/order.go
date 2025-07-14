@@ -123,6 +123,7 @@ type Order struct {
 	TrackingNumber       string     `json:"tracking_number"`
 	TrackingURL          string     `json:"tracking_url"`
 	Carrier              string     `json:"carrier"`
+	TotalWeight          float64    `json:"total_weight" gorm:"default:0"`        // Added total weight field
 	EstimatedDelivery    *time.Time `json:"estimated_delivery"`
 	ActualDelivery       *time.Time `json:"actual_delivery"`
 	DeliveryInstructions string     `json:"delivery_instructions" gorm:"type:text"`
@@ -185,6 +186,7 @@ type OrderItem struct {
 	Total       float64   `json:"total" gorm:"not null"`
 	Weight      float64   `json:"weight" gorm:"default:0"` // Individual item weight for shipping calculation
 	CreatedAt   time.Time `json:"created_at" gorm:"autoCreateTime"`
+	UpdatedAt   time.Time `json:"updated_at" gorm:"autoUpdateTime"` // Added missing UpdatedAt field
 }
 
 // TableName returns the table name for OrderItem entity
@@ -463,6 +465,19 @@ func (o *Order) Validate() error {
 		return fmt.Errorf("currency is required")
 	}
 
+	// Validate delivery attempts
+	if o.DeliveryAttempts < 0 {
+		return fmt.Errorf("delivery attempts cannot be negative")
+	}
+	if o.DeliveryAttempts > 5 {
+		return fmt.Errorf("delivery attempts cannot exceed 5")
+	}
+
+	// Validate total weight
+	if o.TotalWeight < 0 {
+		return fmt.Errorf("total weight cannot be negative")
+	}
+
 	// Validate order items
 	for i, item := range o.Items {
 		if err := item.Validate(); err != nil {
@@ -609,6 +624,21 @@ func (o *Order) GetItemCount() int {
 	return count
 }
 
+// GetTotalWeight calculates the total weight of all items in the order
+func (o *Order) GetTotalWeight() float64 {
+	totalWeight := 0.0
+	for _, item := range o.Items {
+		totalWeight += item.Weight * float64(item.Quantity)
+	}
+	return totalWeight
+}
+
+// UpdateTotalWeight updates the total weight field
+func (o *Order) UpdateTotalWeight() {
+	o.TotalWeight = o.GetTotalWeight()
+	o.UpdatedAt = time.Now()
+}
+
 // CalculateTotal calculates the total amount of the order
 func (o *Order) CalculateTotal() {
 	o.Total = o.Subtotal + o.TaxAmount + o.ShippingAmount + o.TipAmount - o.DiscountAmount
@@ -717,10 +747,25 @@ func (o *Order) AutoSyncPaymentStatus() {
 	} else if hasProcessingPayments {
 		o.PaymentStatus = PaymentStatusProcessing
 	} else if isCODOrder {
-		o.PaymentStatus = PaymentStatusAwaitingPayment
+		// For COD orders, check if any payment is marked as paid (when delivered)
+		hasPaidCOD := false
+		for _, payment := range o.Payments {
+			if payment.Status == PaymentStatusPaid && payment.Method == PaymentMethodCash {
+				hasPaidCOD = true
+				break
+			}
+		}
+		if hasPaidCOD {
+			o.PaymentStatus = PaymentStatusPaid
+		} else {
+			o.PaymentStatus = PaymentStatusAwaitingPayment
+		}
 	} else {
 		o.PaymentStatus = PaymentStatusPending
 	}
+
+	// Update timestamp
+	o.UpdatedAt = time.Now()
 }
 
 // CanBeShipped checks if the order can be shipped

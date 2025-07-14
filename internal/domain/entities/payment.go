@@ -187,11 +187,16 @@ func (p *Payment) Validate() error {
 		return fmt.Errorf("refund_amount cannot exceed payment amount")
 	}
 
-	// Validate net amount calculation with floating point tolerance
+	// Auto-calculate net amount if not set
 	expectedNetAmount := p.Amount - p.ProcessingFee - p.GatewayFee
-	const epsilon = 0.01
-	if p.NetAmount != 0 && math.Abs(p.NetAmount - expectedNetAmount) > epsilon {
-		return fmt.Errorf("net_amount %.2f does not match calculated net_amount %.2f", p.NetAmount, expectedNetAmount)
+	if p.NetAmount == 0 {
+		p.NetAmount = expectedNetAmount
+	} else {
+		// Validate net amount calculation with floating point tolerance
+		const epsilon = 0.01
+		if math.Abs(p.NetAmount - expectedNetAmount) > epsilon {
+			return fmt.Errorf("net_amount %.2f does not match calculated net_amount %.2f", p.NetAmount, expectedNetAmount)
+		}
 	}
 
 	// Validate COD specific rules
@@ -310,11 +315,19 @@ func (p *Payment) MarkAsProcessed(transactionID string) {
 	}
 }
 
+// CalculateNetAmount calculates and updates the net amount
+func (p *Payment) CalculateNetAmount() {
+	p.NetAmount = p.Amount - p.ProcessingFee - p.GatewayFee
+	if p.NetAmount < 0 {
+		p.NetAmount = 0
+	}
+}
+
 // SetFees sets the processing and gateway fees
 func (p *Payment) SetFees(processingFee, gatewayFee float64) {
 	p.ProcessingFee = processingFee
 	p.GatewayFee = gatewayFee
-	p.NetAmount = p.Amount - processingFee - gatewayFee
+	p.CalculateNetAmount()
 	p.UpdatedAt = time.Now()
 }
 

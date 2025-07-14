@@ -227,6 +227,10 @@ func (c *Cart) Validate() error {
 	}
 
 	// Validate items
+	if len(c.Items) > 50 {
+		return fmt.Errorf("cart cannot have more than 50 items")
+	}
+
 	for i, item := range c.Items {
 		if err := item.Validate(); err != nil {
 			return fmt.Errorf("item %d validation failed: %w", i, err)
@@ -395,6 +399,9 @@ func (ci *CartItem) CalculateTotal() {
 func (ci *CartItem) Validate() error {
 	if ci.Quantity <= 0 {
 		return fmt.Errorf("quantity must be greater than 0")
+	}
+	if ci.Quantity > 100 {
+		return fmt.Errorf("quantity cannot exceed 100 per item")
 	}
 	if ci.Price < 0 {
 		return fmt.Errorf("price cannot be negative")

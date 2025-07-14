@@ -2,6 +2,9 @@ package entities
 
 import (
 	"fmt"
+	"regexp"
+	"strconv"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -60,6 +63,46 @@ type ShippingMethod struct {
 // TableName returns the table name for ShippingMethod entity
 func (ShippingMethod) TableName() string {
 	return "shipping_methods"
+}
+
+// Validate validates shipping method data
+func (sm *ShippingMethod) Validate() error {
+	if sm.Name == "" {
+		return fmt.Errorf("shipping method name is required")
+	}
+	if sm.Carrier == "" {
+		return fmt.Errorf("carrier is required")
+	}
+	if sm.BaseCost < 0 {
+		return fmt.Errorf("base cost cannot be negative")
+	}
+	if sm.CostPerKg < 0 {
+		return fmt.Errorf("cost per kg cannot be negative")
+	}
+	if sm.CostPerKm < 0 {
+		return fmt.Errorf("cost per km cannot be negative")
+	}
+	if sm.FreeShippingMin < 0 {
+		return fmt.Errorf("free shipping minimum cannot be negative")
+	}
+	if sm.MinDeliveryDays < 0 {
+		return fmt.Errorf("minimum delivery days cannot be negative")
+	}
+	if sm.MaxDeliveryDays < sm.MinDeliveryDays {
+		return fmt.Errorf("maximum delivery days cannot be less than minimum delivery days")
+	}
+	if sm.MaxWeight < 0 {
+		return fmt.Errorf("maximum weight cannot be negative")
+	}
+
+	// Validate dimensions format if present
+	if sm.MaxDimensions != "" {
+		if err := validateDimensionsFormat(sm.MaxDimensions); err != nil {
+			return fmt.Errorf("invalid max dimensions format: %w", err)
+		}
+	}
+
+	return nil
 }
 
 // CalculateCost calculates shipping cost based on weight, distance, and order value
@@ -372,6 +415,46 @@ func (Shipment) TableName() string {
 	return "shipments"
 }
 
+// Validate validates shipment data
+func (s *Shipment) Validate() error {
+	if s.OrderID == uuid.Nil {
+		return fmt.Errorf("order ID is required")
+	}
+	if s.ShippingMethodID == uuid.Nil {
+		return fmt.Errorf("shipping method ID is required")
+	}
+	if s.Carrier == "" {
+		return fmt.Errorf("carrier is required")
+	}
+	if s.Weight < 0 {
+		return fmt.Errorf("weight cannot be negative")
+	}
+	if s.PackageCount <= 0 {
+		return fmt.Errorf("package count must be greater than 0")
+	}
+	if s.InsuranceValue < 0 {
+		return fmt.Errorf("insurance value cannot be negative")
+	}
+	if s.ShippingCost < 0 {
+		return fmt.Errorf("shipping cost cannot be negative")
+	}
+	if s.InsuranceCost < 0 {
+		return fmt.Errorf("insurance cost cannot be negative")
+	}
+	if s.TotalCost < 0 {
+		return fmt.Errorf("total cost cannot be negative")
+	}
+
+	// Validate dimensions format if present
+	if s.Dimensions != "" {
+		if err := validateDimensionsFormat(s.Dimensions); err != nil {
+			return fmt.Errorf("invalid dimensions format: %w", err)
+		}
+	}
+
+	return nil
+}
+
 // IsDelivered checks if shipment is delivered
 func (s *Shipment) IsDelivered() bool {
 	return s.Status == ShipmentStatusDelivered
@@ -572,6 +655,45 @@ func (r *Return) IsApproved() bool {
 // IsCompleted checks if return is completed
 func (r *Return) IsCompleted() bool {
 	return r.Status == ReturnStatusCompleted
+}
+
+// validateDimensionsFormat validates dimensions format (LxWxH)
+func validateDimensionsFormat(dimensions string) error {
+	if dimensions == "" {
+		return nil
+	}
+
+	// Expected format: "LxWxH" where L, W, H are numbers (can be decimal)
+	pattern := `^\d+(\.\d+)?x\d+(\.\d+)?x\d+(\.\d+)?$`
+	matched, err := regexp.MatchString(pattern, dimensions)
+	if err != nil {
+		return fmt.Errorf("regex error: %w", err)
+	}
+
+	if !matched {
+		return fmt.Errorf("dimensions must be in format 'LxWxH' (e.g., '10x5x3' or '10.5x5.2x3.1')")
+	}
+
+	// Parse and validate individual dimensions
+	parts := strings.Split(dimensions, "x")
+	if len(parts) != 3 {
+		return fmt.Errorf("dimensions must have exactly 3 parts (LxWxH)")
+	}
+
+	for _, part := range parts {
+		value, err := strconv.ParseFloat(part, 64)
+		if err != nil {
+			return fmt.Errorf("invalid dimension value '%s': %w", part, err)
+		}
+		if value <= 0 {
+			return fmt.Errorf("dimension values must be greater than 0")
+		}
+		if value > 1000 {
+			return fmt.Errorf("dimension values cannot exceed 1000")
+		}
+	}
+
+	return nil
 }
 
 // CanBeProcessed checks if return can be processed
