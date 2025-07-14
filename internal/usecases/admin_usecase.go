@@ -1080,7 +1080,7 @@ func (uc *adminUseCase) GetOrderDetails(ctx context.Context, orderID uuid.UUID) 
 
 	// Sync payment status based on current payments
 	oldPaymentStatus := order.PaymentStatus
-	order.SyncPaymentStatus()
+	order.SyncPaymentStatus(entities.PaymentStatusPaid)
 	if oldPaymentStatus != order.PaymentStatus {
 		// Update order if payment status changed
 		if err := uc.orderRepo.Update(ctx, order); err != nil {

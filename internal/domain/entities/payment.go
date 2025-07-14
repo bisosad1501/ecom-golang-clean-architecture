@@ -2,6 +2,7 @@ package entities
 
 import (
 	"fmt"
+	"math"
 	"time"
 
 	"github.com/google/uuid"
@@ -69,6 +70,7 @@ type Payment struct {
 	// Timestamps
 	ProcessedAt       *time.Time    `json:"processed_at"`
 	RefundedAt        *time.Time    `json:"refunded_at"`
+	FailedAt          *time.Time    `json:"failed_at"`
 
 	// Refund information
 	RefundAmount      float64       `json:"refund_amount" gorm:"default:0"`
@@ -185,9 +187,10 @@ func (p *Payment) Validate() error {
 		return fmt.Errorf("refund_amount cannot exceed payment amount")
 	}
 
-	// Validate net amount calculation
+	// Validate net amount calculation with floating point tolerance
 	expectedNetAmount := p.Amount - p.ProcessingFee - p.GatewayFee
-	if p.NetAmount != 0 && p.NetAmount != expectedNetAmount {
+	const epsilon = 0.01
+	if p.NetAmount != 0 && math.Abs(p.NetAmount - expectedNetAmount) > epsilon {
 		return fmt.Errorf("net_amount %.2f does not match calculated net_amount %.2f", p.NetAmount, expectedNetAmount)
 	}
 
@@ -232,6 +235,65 @@ func (p *Payment) IsPending() bool {
 // IsRefunded checks if the payment is refunded
 func (p *Payment) IsRefunded() bool {
 	return p.Status == PaymentStatusRefunded
+}
+
+// CanTransitionTo checks if payment can transition to the given status
+func (p *Payment) CanTransitionTo(newStatus PaymentStatus) bool {
+	switch p.Status {
+	case PaymentStatusPending:
+		return newStatus == PaymentStatusProcessing || newStatus == PaymentStatusPaid ||
+			   newStatus == PaymentStatusFailed || newStatus == PaymentStatusCancelled
+	case PaymentStatusProcessing:
+		return newStatus == PaymentStatusPaid || newStatus == PaymentStatusFailed ||
+			   newStatus == PaymentStatusCancelled
+	case PaymentStatusAwaitingPayment:
+		return newStatus == PaymentStatusPaid || newStatus == PaymentStatusCancelled
+	case PaymentStatusPaid, PaymentStatusCompleted:
+		return newStatus == PaymentStatusRefunded
+	case PaymentStatusPartiallyPaid:
+		return newStatus == PaymentStatusPaid || newStatus == PaymentStatusRefunded
+	case PaymentStatusFailed, PaymentStatusRefunded, PaymentStatusCancelled:
+		return false // Terminal states
+	default:
+		return false
+	}
+}
+
+// TransitionTo transitions payment to new status with validation
+func (p *Payment) TransitionTo(newStatus PaymentStatus) error {
+	if !p.CanTransitionTo(newStatus) {
+		return fmt.Errorf("cannot transition payment from %s to %s", p.Status, newStatus)
+	}
+
+	p.Status = newStatus
+	p.UpdatedAt = time.Now()
+
+	// Update related fields based on status
+	switch newStatus {
+	case PaymentStatusProcessing:
+		// No additional fields to update
+	case PaymentStatusPaid, PaymentStatusCompleted:
+		if p.ProcessedAt == nil {
+			now := time.Now()
+			p.ProcessedAt = &now
+		}
+		// Calculate net amount if not set
+		if p.NetAmount == 0 {
+			p.NetAmount = p.Amount - p.ProcessingFee - p.GatewayFee
+		}
+	case PaymentStatusRefunded:
+		if p.RefundedAt == nil {
+			now := time.Now()
+			p.RefundedAt = &now
+		}
+	case PaymentStatusFailed, PaymentStatusCancelled:
+		if p.FailedAt == nil {
+			now := time.Now()
+			p.FailedAt = &now
+		}
+	}
+
+	return nil
 }
 
 // MarkAsProcessed marks the payment as processed
@@ -623,4 +685,78 @@ func (pm *PaymentMethodEntity) Deactivate() {
 	pm.IsActive = false
 	pm.IsDefault = false
 	pm.UpdatedAt = time.Now()
+}
+
+// Validate validates payment method data
+func (pm *PaymentMethodEntity) Validate() error {
+	// Validate required fields
+	if pm.UserID == uuid.Nil {
+		return fmt.Errorf("user ID is required")
+	}
+
+	if pm.Type == "" {
+		return fmt.Errorf("payment method type is required")
+	}
+
+	if pm.GatewayToken == "" {
+		return fmt.Errorf("gateway token is required")
+	}
+
+	// Validate card-specific fields
+	if pm.IsCard() {
+		if pm.Last4 == "" {
+			return fmt.Errorf("last 4 digits are required for card payments")
+		}
+
+		if len(pm.Last4) != 4 {
+			return fmt.Errorf("last 4 digits must be exactly 4 characters")
+		}
+
+		if pm.Brand == "" {
+			return fmt.Errorf("card brand is required for card payments")
+		}
+
+		// Validate expiry date
+		if pm.ExpiryMonth < 1 || pm.ExpiryMonth > 12 {
+			return fmt.Errorf("expiry month must be between 1 and 12")
+		}
+
+		currentYear := time.Now().Year()
+		if pm.ExpiryYear < currentYear || pm.ExpiryYear > currentYear+20 {
+			return fmt.Errorf("expiry year must be between %d and %d", currentYear, currentYear+20)
+		}
+
+		// Check if card is expired
+		if pm.IsExpired() {
+			return fmt.Errorf("card is expired")
+		}
+	}
+
+	// Validate gateway
+	validGateways := map[string]bool{
+		"stripe": true,
+		"paypal": true,
+		"square": true,
+		"cod":    true,
+	}
+
+	if !validGateways[pm.Gateway] {
+		return fmt.Errorf("invalid gateway: %s", pm.Gateway)
+	}
+
+	// Validate fingerprint
+	if pm.Fingerprint == "" {
+		return fmt.Errorf("fingerprint is required for security")
+	}
+
+	return nil
+}
+
+// MaskSensitiveData masks sensitive data for API responses
+func (pm *PaymentMethodEntity) MaskSensitiveData() {
+	// Clear sensitive fields
+	pm.GatewayToken = "***"
+	pm.GatewayCustomerID = "***"
+	pm.BillingAddress = "***"
+	pm.Fingerprint = "***"
 }

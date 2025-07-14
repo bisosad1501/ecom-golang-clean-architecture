@@ -940,22 +940,22 @@ func (uc *searchUseCase) GetEnhancedAutocomplete(ctx context.Context, req Enhanc
 	response := &EnhancedAutocompleteResponse{}
 
 	// Get suggestions by type
-	if len(req.Types) == 0 || contains(req.Types, "product") {
+	if len(req.Types) == 0 || containsString(req.Types, "product") {
 		products, _ := uc.searchRepo.GetProductSuggestions(ctx, req.Query, req.Limit/4)
 		response.Products = uc.convertToAutocompleteSuggestions(products)
 	}
 
-	if len(req.Types) == 0 || contains(req.Types, "category") {
+	if len(req.Types) == 0 || containsString(req.Types, "category") {
 		categories, _ := uc.searchRepo.GetCategorySuggestions(ctx, req.Query, req.Limit/4)
 		response.Categories = uc.convertToAutocompleteSuggestions(categories)
 	}
 
-	if len(req.Types) == 0 || contains(req.Types, "brand") {
+	if len(req.Types) == 0 || containsString(req.Types, "brand") {
 		brands, _ := uc.searchRepo.GetBrandSuggestions(ctx, req.Query, req.Limit/4)
 		response.Brands = uc.convertToAutocompleteSuggestions(brands)
 	}
 
-	if len(req.Types) == 0 || contains(req.Types, "query") {
+	if len(req.Types) == 0 || containsString(req.Types, "query") {
 		queries, _ := uc.searchRepo.GetAutocompleteEntries(ctx, req.Query, []string{"query"}, req.Limit/4)
 		response.Queries = uc.convertToAutocompleteSuggestions(queries)
 	}
@@ -1151,7 +1151,7 @@ func (uc *searchUseCase) convertToAutocompleteSuggestions(entries []*entities.Au
 	return suggestions
 }
 
-func contains(slice []string, item string) bool {
+func containsString(slice []string, item string) bool {
 	for _, s := range slice {
 		if s == item {
 			return true

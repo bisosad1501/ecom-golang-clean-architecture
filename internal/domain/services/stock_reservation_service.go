@@ -25,6 +25,9 @@ type StockReservationService interface {
 	// Release reservations
 	ReleaseReservations(ctx context.Context, orderID uuid.UUID) error
 
+	// Transfer cart reservations to order atomically
+	TransferCartReservationsToOrder(ctx context.Context, userID, orderID uuid.UUID, items []entities.CartItem) error
+
 	// Check if stock can be reserved
 	CanReserveStock(ctx context.Context, productID uuid.UUID, quantity int) (bool, error)
 
@@ -232,6 +235,87 @@ func (s *stockReservationService) AtomicReserveStock(ctx context.Context, reserv
 		// Create reservation atomically within the same transaction
 		if err := s.reservationRepo.Create(txCtx, reservation); err != nil {
 			return fmt.Errorf("failed to create stock reservation: %w", err)
+		}
+
+		return nil
+	})
+}
+
+// TransferCartReservationsToOrder atomically transfers cart reservations to order reservations
+func (s *stockReservationService) TransferCartReservationsToOrder(ctx context.Context, userID, orderID uuid.UUID, items []entities.CartItem) error {
+	return s.reservationRepo.WithTransaction(ctx, func(txCtx context.Context) error {
+		// Get existing cart reservations for this user
+		allReservations, err := s.reservationRepo.GetByUserID(txCtx, userID)
+		if err != nil {
+			return fmt.Errorf("failed to get user reservations: %w", err)
+		}
+
+		// Filter for cart reservations
+		var cartReservations []*entities.StockReservation
+		for _, reservation := range allReservations {
+			if reservation.Type == entities.ReservationTypeCart {
+				cartReservations = append(cartReservations, reservation)
+			}
+		}
+
+		// Create map of cart reservations by product ID for quick lookup
+		cartReservationMap := make(map[uuid.UUID]*entities.StockReservation)
+		for _, reservation := range cartReservations {
+			if reservation.Status == entities.ReservationStatusActive {
+				cartReservationMap[reservation.ProductID] = reservation
+			}
+		}
+
+		// Create new order reservations
+		var orderReservations []*entities.StockReservation
+		for _, item := range items {
+			// Check if we have a cart reservation for this product
+			cartReservation, hasCartReservation := cartReservationMap[item.ProductID]
+
+			// Verify stock availability for the full quantity needed
+			canReserve, err := s.CanReserveStock(txCtx, item.ProductID, item.Quantity)
+			if err != nil {
+				return fmt.Errorf("failed to check stock availability for product %s: %w", item.ProductID, err)
+			}
+
+			if !canReserve {
+				return fmt.Errorf("insufficient stock for product %s: requested %d", item.ProductID, item.Quantity)
+			}
+
+			// Create order reservation
+			orderReservation := &entities.StockReservation{
+				ID:        uuid.New(),
+				ProductID: item.ProductID,
+				OrderID:   &orderID,
+				UserID:    &userID,
+				Quantity:  item.Quantity,
+				Type:      entities.ReservationTypeOrder,
+				Status:    entities.ReservationStatusActive,
+				Notes:     fmt.Sprintf("Transferred from cart to order %s", orderID.String()),
+				CreatedAt: time.Now(),
+				UpdatedAt: time.Now(),
+			}
+			orderReservation.SetExpiration(30) // 30 minutes for order reservation
+
+			orderReservations = append(orderReservations, orderReservation)
+
+			// Mark cart reservation for release if it exists
+			if hasCartReservation {
+				cartReservation.Release()
+			}
+		}
+
+		// Create order reservations in batch
+		if err := s.reservationRepo.CreateBatch(txCtx, orderReservations); err != nil {
+			return fmt.Errorf("failed to create order reservations: %w", err)
+		}
+
+		// Release cart reservations
+		for _, cartReservation := range cartReservationMap {
+			if err := s.reservationRepo.Update(txCtx, cartReservation); err != nil {
+				// Log warning but don't fail transaction
+				continue
+			}
 		}
 
 		return nil

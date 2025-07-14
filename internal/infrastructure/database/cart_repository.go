@@ -2,6 +2,7 @@ package database
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	"ecom-golang-clean-architecture/internal/domain/entities"
@@ -30,25 +31,36 @@ func (r *cartRepository) updateCartCalculatedFields(ctx context.Context, tx *gor
 
 	err := tx.WithContext(ctx).
 		Table("cart_items ci").
-		Select("COALESCE(SUM(ci.quantity * ci.price), 0) as subtotal, COALESCE(SUM(ci.quantity), 0) as item_count").
+		Select("COALESCE(SUM(ci.total), 0) as subtotal, COALESCE(SUM(ci.quantity), 0) as item_count").
 		Where("ci.cart_id = ?", cartID).
 		Scan(&result).Error
 
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to calculate cart totals: %w", err)
 	}
 
 	// Get current cart to preserve tax and shipping amounts
 	var currentCart entities.Cart
 	if err := tx.WithContext(ctx).Select("tax_amount", "shipping_amount").Where("id = ?", cartID).First(&currentCart).Error; err != nil {
-		return err
+		if err == gorm.ErrRecordNotFound {
+			return fmt.Errorf("cart not found: %s", cartID)
+		}
+		return fmt.Errorf("failed to get cart: %w", err)
 	}
 
 	// Calculate total including tax and shipping
 	total := result.Subtotal + currentCart.TaxAmount + currentCart.ShippingAmount
 
+	// Validate calculated values
+	if result.Subtotal < 0 {
+		return fmt.Errorf("calculated subtotal cannot be negative: %.2f", result.Subtotal)
+	}
+	if result.ItemCount < 0 {
+		return fmt.Errorf("calculated item count cannot be negative: %d", result.ItemCount)
+	}
+
 	// Update cart with calculated values only if they changed
-	return tx.WithContext(ctx).
+	updateResult := tx.WithContext(ctx).
 		Model(&entities.Cart{}).
 		Where("id = ?", cartID).
 		Where("subtotal != ? OR total != ? OR item_count != ?", result.Subtotal, total, result.ItemCount).
@@ -57,7 +69,13 @@ func (r *cartRepository) updateCartCalculatedFields(ctx context.Context, tx *gor
 			"total":      total,
 			"item_count": result.ItemCount,
 			"updated_at": time.Now(),
-		}).Error
+		})
+
+	if updateResult.Error != nil {
+		return fmt.Errorf("failed to update cart calculated fields: %w", updateResult.Error)
+	}
+
+	return nil
 }
 
 // Create creates a new cart

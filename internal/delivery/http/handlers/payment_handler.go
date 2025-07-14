@@ -1,8 +1,10 @@
 package handlers
 
 import (
+	"fmt"
 	"net/http"
 	"strconv"
+	"strings"
 
 	"ecom-golang-clean-architecture/internal/domain/entities"
 	"ecom-golang-clean-architecture/internal/usecases"
@@ -25,6 +27,23 @@ func NewPaymentHandler(paymentUseCase usecases.PaymentUseCase) *PaymentHandler {
 
 // ProcessPayment processes a payment
 func (h *PaymentHandler) ProcessPayment(c *gin.Context) {
+	// Check authentication
+	userIDInterface, exists := c.Get("user_id")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, ErrorResponse{
+			Error: "Authentication required",
+		})
+		return
+	}
+
+	userID, ok := userIDInterface.(uuid.UUID)
+	if !ok {
+		c.JSON(http.StatusBadRequest, ErrorResponse{
+			Error: "Invalid user ID format",
+		})
+		return
+	}
+
 	var req usecases.ProcessPaymentRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, ErrorResponse{
@@ -34,9 +53,19 @@ func (h *PaymentHandler) ProcessPayment(c *gin.Context) {
 		return
 	}
 
+	// Validate request
+	if err := validateProcessPaymentRequest(&req, userID); err != nil {
+		c.JSON(http.StatusBadRequest, ErrorResponse{
+			Error:   "Invalid payment request",
+			Details: err.Error(),
+		})
+		return
+	}
+
 	payment, err := h.paymentUseCase.ProcessPayment(c.Request.Context(), req)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, ErrorResponse{
+		statusCode := getPaymentErrorStatusCode(err)
+		c.JSON(statusCode, ErrorResponse{
 			Error:   "Failed to process payment",
 			Details: err.Error(),
 		})
@@ -671,4 +700,99 @@ func (h *PaymentHandler) ConfirmPaymentSuccess(c *gin.Context) {
 	c.JSON(http.StatusOK, SuccessResponse{
 		Message: "Payment confirmation processed successfully",
 	})
+}
+
+// validateProcessPaymentRequest validates process payment request
+func validateProcessPaymentRequest(req *usecases.ProcessPaymentRequest, userID uuid.UUID) error {
+	// Validate order ID
+	if req.OrderID == uuid.Nil {
+		return fmt.Errorf("order ID is required")
+	}
+
+	// Validate amount
+	if req.Amount <= 0 {
+		return fmt.Errorf("payment amount must be greater than 0")
+	}
+
+	if req.Amount > 999999.99 {
+		return fmt.Errorf("payment amount cannot exceed $999,999.99")
+	}
+
+	// Validate currency
+	if req.Currency == "" {
+		req.Currency = "USD" // Set default
+	} else if len(req.Currency) != 3 {
+		return fmt.Errorf("currency must be a 3-letter ISO code")
+	}
+
+	// Validate payment method
+	validMethods := map[entities.PaymentMethod]bool{
+		entities.PaymentMethodCreditCard:   true,
+		entities.PaymentMethodDebitCard:    true,
+		entities.PaymentMethodPayPal:       true,
+		entities.PaymentMethodStripe:       true,
+		entities.PaymentMethodApplePay:     true,
+		entities.PaymentMethodGooglePay:    true,
+		entities.PaymentMethodBankTransfer: true,
+		entities.PaymentMethodCash:         true,
+	}
+
+	if !validMethods[req.Method] {
+		return fmt.Errorf("invalid payment method: %s", req.Method)
+	}
+
+	// Validate payment token for non-COD payments
+	if req.Method != entities.PaymentMethodCash && req.PaymentToken == "" {
+		return fmt.Errorf("payment token is required for %s payments", req.Method)
+	}
+
+	// Validate COD payments
+	if req.Method == entities.PaymentMethodCash {
+		if req.PaymentToken != "" {
+			return fmt.Errorf("payment token should not be provided for COD payments")
+		}
+	}
+
+	return nil
+}
+
+// getPaymentErrorStatusCode returns appropriate HTTP status code for payment errors
+func getPaymentErrorStatusCode(err error) int {
+	if err == nil {
+		return http.StatusOK
+	}
+
+	errorMsg := strings.ToLower(err.Error())
+
+	// Authentication/Authorization errors
+	if strings.Contains(errorMsg, "unauthorized") || strings.Contains(errorMsg, "access denied") {
+		return http.StatusUnauthorized
+	}
+
+	// Validation errors
+	if strings.Contains(errorMsg, "invalid") || strings.Contains(errorMsg, "validation") {
+		return http.StatusBadRequest
+	}
+
+	// Not found errors
+	if strings.Contains(errorMsg, "not found") {
+		return http.StatusNotFound
+	}
+
+	// Payment specific errors
+	if strings.Contains(errorMsg, "insufficient funds") || strings.Contains(errorMsg, "declined") {
+		return http.StatusPaymentRequired
+	}
+
+	if strings.Contains(errorMsg, "duplicate") || strings.Contains(errorMsg, "already processed") {
+		return http.StatusConflict
+	}
+
+	// Rate limiting
+	if strings.Contains(errorMsg, "rate limit") || strings.Contains(errorMsg, "too many requests") {
+		return http.StatusTooManyRequests
+	}
+
+	// Default to internal server error
+	return http.StatusInternalServerError
 }

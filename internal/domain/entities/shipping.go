@@ -1,6 +1,7 @@
 package entities
 
 import (
+	"fmt"
 	"time"
 
 	"github.com/google/uuid"
@@ -63,27 +64,128 @@ func (ShippingMethod) TableName() string {
 
 // CalculateCost calculates shipping cost based on weight, distance, and order value
 func (sm *ShippingMethod) CalculateCost(weight float64, distance float64, orderValue float64) float64 {
-	// Check if eligible for free shipping
+	// Validate inputs
+	if weight < 0 {
+		weight = 0
+	}
+	if distance < 0 {
+		distance = 100 // Default distance for unknown locations
+	}
+	if orderValue < 0 {
+		orderValue = 0
+	}
+
+	// Check if method is available for this weight
+	if !sm.IsAvailableForWeight(weight) {
+		return -1 // Return -1 to indicate method not available
+	}
+
+	// Check if eligible for free shipping (exact match or greater)
 	if sm.FreeShippingMin > 0 && orderValue >= sm.FreeShippingMin {
 		return 0
 	}
-	
+
 	cost := sm.BaseCost
-	
-	if sm.CostPerKg > 0 {
+
+	// Add weight-based cost
+	if sm.CostPerKg > 0 && weight > 0 {
 		cost += weight * sm.CostPerKg
 	}
-	
-	if sm.CostPerKm > 0 {
+
+	// Add distance-based cost
+	if sm.CostPerKm > 0 && distance > 0 {
 		cost += distance * sm.CostPerKm
 	}
-	
-	return cost
+
+	// Ensure cost is not negative
+	if cost < 0 {
+		cost = 0
+	}
+
+	// Round to 2 decimal places
+	return float64(int(cost*100+0.5)) / 100
 }
 
 // IsAvailableForWeight checks if method supports the given weight
 func (sm *ShippingMethod) IsAvailableForWeight(weight float64) bool {
 	return sm.MaxWeight == 0 || weight <= sm.MaxWeight
+}
+
+// EstimateDeliveryTime estimates delivery time based on distance and method type
+func (sm *ShippingMethod) EstimateDeliveryTime(distance float64) (minDays, maxDays int) {
+	// Base delivery time from method configuration
+	minDays = sm.MinDeliveryDays
+	maxDays = sm.MaxDeliveryDays
+
+	// Adjust based on distance (for domestic shipping)
+	if distance > 0 {
+		// Add extra days for long distances
+		if distance > 1000 { // > 1000km
+			extraDays := int(distance/1000) // 1 extra day per 1000km
+			if extraDays > 3 {
+				extraDays = 3 // Cap at 3 extra days
+			}
+			minDays += extraDays
+			maxDays += extraDays
+		}
+	}
+
+	// Adjust based on method type
+	switch sm.Type {
+	case ShippingMethodSameDay:
+		minDays = 0
+		maxDays = 0
+	case ShippingMethodOvernight:
+		minDays = 1
+		maxDays = 1
+	case ShippingMethodExpress:
+		if minDays > 3 {
+			minDays = 3
+		}
+		if maxDays > 5 {
+			maxDays = 5
+		}
+	case ShippingMethodStandard:
+		// Use configured values
+	case ShippingMethodPickup:
+		minDays = 0
+		maxDays = 1
+	}
+
+	// Ensure minimum values
+	if minDays < 0 {
+		minDays = 0
+	}
+	if maxDays < minDays {
+		maxDays = minDays
+	}
+
+	return minDays, maxDays
+}
+
+// GetEstimatedDeliveryDate calculates estimated delivery date
+func (sm *ShippingMethod) GetEstimatedDeliveryDate(distance float64) (minDate, maxDate time.Time) {
+	minDays, maxDays := sm.EstimateDeliveryTime(distance)
+
+	now := time.Now()
+
+	// Skip weekends for business days calculation
+	minDate = addBusinessDays(now, minDays)
+	maxDate = addBusinessDays(now, maxDays)
+
+	return minDate, maxDate
+}
+
+// addBusinessDays adds business days to a date (skipping weekends)
+func addBusinessDays(date time.Time, days int) time.Time {
+	for days > 0 {
+		date = date.AddDate(0, 0, 1)
+		// Skip weekends
+		if date.Weekday() != time.Saturday && date.Weekday() != time.Sunday {
+			days--
+		}
+	}
+	return date
 }
 
 // ShippingZone represents shipping zones for rate calculation
@@ -149,18 +251,38 @@ func (ShippingRate) TableName() string {
 
 // CalculateCost calculates shipping cost for this rate
 func (sr *ShippingRate) CalculateCost(weight float64, orderValue float64) float64 {
+	// Validate inputs
+	if weight < 0 {
+		weight = 0
+	}
+	if orderValue < 0 {
+		orderValue = 0
+	}
+
+	// Check if rate is applicable
+	if !sr.IsApplicable(weight, orderValue) {
+		return -1 // Return -1 to indicate rate not applicable
+	}
+
 	// Check if eligible for free shipping
 	if sr.FreeShippingMin > 0 && orderValue >= sr.FreeShippingMin {
 		return 0
 	}
-	
+
 	cost := sr.BaseCost
-	
-	if sr.CostPerKg > 0 {
+
+	// Add weight-based cost
+	if sr.CostPerKg > 0 && weight > 0 {
 		cost += weight * sr.CostPerKg
 	}
-	
-	return cost
+
+	// Ensure cost is not negative
+	if cost < 0 {
+		cost = 0
+	}
+
+	// Round to 2 decimal places
+	return float64(int(cost*100+0.5)) / 100
 }
 
 // IsApplicable checks if rate applies to given weight and order value
@@ -267,6 +389,79 @@ func (s *Shipment) GetDeliveryDays() int {
 		return 0
 	}
 	return int(s.ActualDelivery.Sub(*s.ShippedAt).Hours() / 24)
+}
+
+// CanTransitionTo checks if shipment can transition to the given status
+func (s *Shipment) CanTransitionTo(newStatus ShipmentStatus) bool {
+	switch s.Status {
+	case ShipmentStatusPending:
+		return newStatus == ShipmentStatusProcessing || newStatus == ShipmentStatusCancelled
+	case ShipmentStatusProcessing:
+		return newStatus == ShipmentStatusShipped || newStatus == ShipmentStatusCancelled
+	case ShipmentStatusShipped:
+		return newStatus == ShipmentStatusInTransit || newStatus == ShipmentStatusDelivered ||
+			   newStatus == ShipmentStatusFailed || newStatus == ShipmentStatusReturned
+	case ShipmentStatusInTransit:
+		return newStatus == ShipmentStatusOutForDelivery || newStatus == ShipmentStatusDelivered ||
+			   newStatus == ShipmentStatusFailed || newStatus == ShipmentStatusReturned
+	case ShipmentStatusOutForDelivery:
+		return newStatus == ShipmentStatusDelivered || newStatus == ShipmentStatusFailed ||
+			   newStatus == ShipmentStatusReturned
+	case ShipmentStatusDelivered, ShipmentStatusFailed, ShipmentStatusReturned, ShipmentStatusCancelled:
+		return false // Terminal states
+	default:
+		return false
+	}
+}
+
+// TransitionTo transitions shipment to new status with validation
+func (s *Shipment) TransitionTo(newStatus ShipmentStatus) error {
+	if !s.CanTransitionTo(newStatus) {
+		return fmt.Errorf("cannot transition shipment from %s to %s", s.Status, newStatus)
+	}
+
+	s.Status = newStatus
+	s.UpdatedAt = time.Now()
+
+	// Update related fields based on status
+	switch newStatus {
+	case ShipmentStatusShipped:
+		if s.ShippedAt == nil {
+			now := time.Now()
+			s.ShippedAt = &now
+		}
+	case ShipmentStatusDelivered:
+		if s.ActualDelivery == nil {
+			now := time.Now()
+			s.ActualDelivery = &now
+		}
+	}
+
+	return nil
+}
+
+// IsOverdue checks if shipment is overdue based on estimated delivery
+func (s *Shipment) IsOverdue() bool {
+	if s.EstimatedDelivery == nil {
+		return false
+	}
+
+	// Only consider overdue if not yet delivered
+	if s.Status == ShipmentStatusDelivered {
+		return false
+	}
+
+	// Check if current time is past estimated delivery + grace period
+	gracePeriod := 24 * time.Hour // 1 day grace period
+	return time.Now().After(s.EstimatedDelivery.Add(gracePeriod))
+}
+
+// UpdateEstimatedDelivery updates estimated delivery based on shipping method
+func (s *Shipment) UpdateEstimatedDelivery(distance float64) {
+	if s.ShippingMethod.ID != uuid.Nil {
+		_, maxDate := s.ShippingMethod.GetEstimatedDeliveryDate(distance)
+		s.EstimatedDelivery = &maxDate
+	}
 }
 
 // ShipmentTracking represents tracking events for a shipment

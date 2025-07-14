@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"fmt"
 	"net/http"
 	"strconv"
 
@@ -61,9 +62,19 @@ func (h *OrderHandler) CreateOrder(c *gin.Context) {
 		return
 	}
 
+	// Validate request fields
+	if err := validateCreateOrderRequest(&req); err != nil {
+		c.JSON(http.StatusBadRequest, ErrorResponse{
+			Error:   "Invalid request data",
+			Details: err.Error(),
+		})
+		return
+	}
+
 	order, err := h.orderUseCase.CreateOrder(c.Request.Context(), userID, req)
 	if err != nil {
-		c.JSON(getErrorStatusCode(err), ErrorResponse{
+		statusCode := getErrorStatusCode(err)
+		c.JSON(statusCode, ErrorResponse{
 			Error: err.Error(),
 		})
 		return
@@ -579,4 +590,52 @@ func (h *OrderHandler) GetOrderEvents(c *gin.Context) {
 		Message: "Order events retrieved successfully",
 		Data:    events,
 	})
+}
+
+// validateCreateOrderRequest validates create order request
+func validateCreateOrderRequest(req *usecases.CreateOrderRequest) error {
+	// Validate payment method
+	validPaymentMethods := map[entities.PaymentMethod]bool{
+		entities.PaymentMethodCreditCard: true,
+		entities.PaymentMethodDebitCard:  true,
+		entities.PaymentMethodPayPal:     true,
+		entities.PaymentMethodCash:       true,
+		entities.PaymentMethodBankTransfer: true,
+	}
+
+	if !validPaymentMethods[req.PaymentMethod] {
+		return fmt.Errorf("invalid payment method: %s", req.PaymentMethod)
+	}
+
+	// Validate financial amounts
+	if req.TaxRate < 0 || req.TaxRate > 1 {
+		return fmt.Errorf("tax rate must be between 0 and 1, got: %.4f", req.TaxRate)
+	}
+
+	if req.ShippingCost < 0 {
+		return fmt.Errorf("shipping cost cannot be negative, got: %.2f", req.ShippingCost)
+	}
+
+	if req.DiscountAmount < 0 {
+		return fmt.Errorf("discount amount cannot be negative, got: %.2f", req.DiscountAmount)
+	}
+
+	// Validate shipping address (required)
+	if req.ShippingAddress.FirstName == "" {
+		return fmt.Errorf("shipping address first name is required")
+	}
+	if req.ShippingAddress.LastName == "" {
+		return fmt.Errorf("shipping address last name is required")
+	}
+		if req.ShippingAddress.Address1 == "" {
+			return fmt.Errorf("shipping address line 1 is required")
+		}
+		if req.ShippingAddress.City == "" {
+			return fmt.Errorf("shipping address city is required")
+		}
+	if req.ShippingAddress.Country == "" {
+		return fmt.Errorf("shipping address country is required")
+	}
+
+	return nil
 }

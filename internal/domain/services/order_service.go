@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/rand"
 	"fmt"
+	"math"
 	"math/big"
 	"time"
 
@@ -34,18 +35,20 @@ func (s *orderService) GenerateUniqueOrderNumber(ctx context.Context) (string, e
 	const maxAttempts = 10
 
 	for attempt := 0; attempt < maxAttempts; attempt++ {
-		// Generate order number with format: ORD-YYYYMMDD-XXXXXX
+		// Generate order number with format: ORD-YYYYMMDD-HHMMSS-XXXX
 		now := time.Now()
 		dateStr := now.Format("20060102")
+		timeStr := now.Format("150405") // HHMMSS format
 
-		// Generate cryptographically secure random 6-digit number
-		randomBig, err := rand.Int(rand.Reader, big.NewInt(900000))
+		// Generate cryptographically secure random 4-digit number
+		// Using smaller random part since we have time component for uniqueness
+		randomBig, err := rand.Int(rand.Reader, big.NewInt(9000))
 		if err != nil {
 			return "", fmt.Errorf("failed to generate random number: %w", err)
 		}
-		randomNum := randomBig.Int64() + 100000
+		randomNum := randomBig.Int64() + 1000
 
-		orderNumber := fmt.Sprintf("ORD-%s-%d", dateStr, randomNum)
+		orderNumber := fmt.Sprintf("ORD-%s-%s-%d", dateStr, timeStr, randomNum)
 
 		// Check if order number already exists
 		exists, err := s.orderRepo.ExistsByOrderNumber(ctx, orderNumber)
@@ -56,6 +59,11 @@ func (s *orderService) GenerateUniqueOrderNumber(ctx context.Context) (string, e
 		if !exists {
 			return orderNumber, nil
 		}
+
+		// Add small delay between attempts to reduce collision probability
+		if attempt < maxAttempts-1 {
+			time.Sleep(time.Millisecond * 10)
+		}
 	}
 
 	return "", fmt.Errorf("failed to generate unique order number after %d attempts", maxAttempts)
@@ -63,22 +71,47 @@ func (s *orderService) GenerateUniqueOrderNumber(ctx context.Context) (string, e
 
 // CalculateOrderTotal calculates the order totals
 func (s *orderService) CalculateOrderTotal(items []entities.CartItem, taxRate, shippingCost, discountAmount float64) (subtotal, taxAmount, total float64) {
+	// Validate inputs
+	if taxRate < 0 {
+		taxRate = 0
+	}
+	if taxRate > 1 { // Assume tax rate is percentage (0.1 = 10%)
+		taxRate = taxRate / 100
+	}
+	if shippingCost < 0 {
+		shippingCost = 0
+	}
+	if discountAmount < 0 {
+		discountAmount = 0
+	}
+
 	// Calculate subtotal
 	for _, item := range items {
 		subtotal += item.GetSubtotal()
 	}
-	
-	// Calculate tax amount
+
+	// Calculate tax amount (round to 2 decimal places)
 	taxAmount = subtotal * taxRate
-	
+	taxAmount = float64(int(taxAmount*100+0.5)) / 100
+
 	// Calculate total
 	total = subtotal + taxAmount + shippingCost - discountAmount
-	
+
+	// Ensure discount doesn't exceed subtotal + tax + shipping
+	maxDiscount := subtotal + taxAmount + shippingCost
+	if discountAmount > maxDiscount {
+		discountAmount = maxDiscount
+		total = 0
+	} else {
+		// Round total to 2 decimal places
+		total = float64(int(total*100+0.5)) / 100
+	}
+
 	// Ensure total is not negative
 	if total < 0 {
 		total = 0
 	}
-	
+
 	return subtotal, taxAmount, total
 }
 
@@ -122,9 +155,10 @@ func (s *orderService) ValidateOrderItems(items []entities.CartItem) error {
 		}
 		productIDs[productIDStr] = true
 
-		// Validate calculated total
+		// Validate calculated total with floating point tolerance
 		expectedTotal := float64(item.Quantity) * item.Price
-		if item.GetSubtotal() != expectedTotal {
+		const epsilon = 0.01
+		if math.Abs(item.GetSubtotal() - expectedTotal) > epsilon {
 			return fmt.Errorf("item %d: subtotal %.2f does not match calculated subtotal %.2f", i+1, item.GetSubtotal(), expectedTotal)
 		}
 

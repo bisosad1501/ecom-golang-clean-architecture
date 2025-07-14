@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"net/http"
+	"regexp"
 
 	"ecom-golang-clean-architecture/internal/usecases"
 	"github.com/gin-gonic/gin"
@@ -60,9 +61,9 @@ func (h *CartHandler) GetCart(c *gin.Context) {
 
 	// Guest user - check for session ID
 	sessionID := c.GetHeader("X-Session-ID")
-	if sessionID == "" {
+	if !validateSessionID(sessionID) {
 		c.JSON(http.StatusBadRequest, ErrorResponse{
-			Error: "Session ID is required for guest cart",
+			Error: "Valid session ID is required for guest cart",
 		})
 		return
 	}
@@ -465,4 +466,20 @@ type ConflictingItem struct {
 	UserPrice       float64 `json:"user_price"`
 	GuestPrice      float64 `json:"guest_price"`
 	PriceDifference float64 `json:"price_difference"`
+}
+
+// validateSessionID validates the format of session ID
+func validateSessionID(sessionID string) bool {
+	if sessionID == "" {
+		return false
+	}
+
+	// Check length (should be reasonable)
+	if len(sessionID) < 10 || len(sessionID) > 100 {
+		return false
+	}
+
+	// Check for basic alphanumeric format (allow hyphens for UUIDs)
+	matched, _ := regexp.MatchString(`^[a-zA-Z0-9\-_]+$`, sessionID)
+	return matched
 }

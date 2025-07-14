@@ -2,6 +2,7 @@ package entities
 
 import (
 	"fmt"
+	"math"
 	"time"
 
 	"github.com/google/uuid"
@@ -102,6 +103,16 @@ func (c *Cart) UpdateCalculatedFieldsForce() {
 	c.UpdatedAt = time.Now()
 }
 
+// RecalculateWithTaxAndShipping recalculates cart totals with tax and shipping
+func (c *Cart) RecalculateWithTaxAndShipping(taxAmount, shippingAmount float64) {
+	c.Subtotal = c.GetTotal()
+	c.TaxAmount = taxAmount
+	c.ShippingAmount = shippingAmount
+	c.Total = c.Subtotal + c.TaxAmount + c.ShippingAmount
+	c.ItemCount = c.GetItemCount()
+	c.UpdatedAt = time.Now()
+}
+
 // SetExpiration sets cart expiration (default 7 days for logged in, 1 day for guest)
 func (c *Cart) SetExpiration() {
 	var hours int
@@ -120,6 +131,28 @@ func (c *Cart) IsExpired() bool {
 		return false
 	}
 	return time.Now().After(*c.ExpiresAt)
+}
+
+// IsNearExpiration checks if cart will expire within the next hour
+func (c *Cart) IsNearExpiration() bool {
+	if c.ExpiresAt == nil {
+		return false
+	}
+	return time.Now().Add(time.Hour).After(*c.ExpiresAt)
+}
+
+// ExtendExpiration extends cart expiration by specified hours
+func (c *Cart) ExtendExpiration(hours int) {
+	if hours <= 0 {
+		hours = 24 // Default extension
+	}
+	if c.ExpiresAt == nil {
+		c.SetExpiration()
+	} else {
+		newExpiry := c.ExpiresAt.Add(time.Duration(hours) * time.Hour)
+		c.ExpiresAt = &newExpiry
+	}
+	c.UpdatedAt = time.Now()
 }
 
 // MarkAsAbandoned marks the cart as abandoned
@@ -200,18 +233,21 @@ func (c *Cart) Validate() error {
 		}
 	}
 
-	// Validate calculated fields consistency
+	// Validate calculated fields consistency with floating point tolerance
 	expectedSubtotal := c.GetTotal()
 	expectedItemCount := c.GetItemCount()
 	expectedTotal := c.Subtotal + c.TaxAmount + c.ShippingAmount
 
-	if c.Subtotal != expectedSubtotal {
+	// Use small epsilon for floating point comparison
+	const epsilon = 0.01
+
+	if abs(c.Subtotal - expectedSubtotal) > epsilon {
 		return fmt.Errorf("subtotal %.2f does not match calculated subtotal %.2f", c.Subtotal, expectedSubtotal)
 	}
 	if c.ItemCount != expectedItemCount {
 		return fmt.Errorf("item_count %d does not match calculated item_count %d", c.ItemCount, expectedItemCount)
 	}
-	if c.Total != expectedTotal {
+	if abs(c.Total - expectedTotal) > epsilon {
 		return fmt.Errorf("total %.2f does not match calculated total %.2f (subtotal %.2f + tax %.2f + shipping %.2f)",
 			c.Total, expectedTotal, c.Subtotal, c.TaxAmount, c.ShippingAmount)
 	}
@@ -366,11 +402,17 @@ func (ci *CartItem) Validate() error {
 	if ci.Total < 0 {
 		return fmt.Errorf("total cannot be negative")
 	}
-	// Verify that total matches price * quantity
+	// Verify that total matches price * quantity with floating point tolerance
 	expectedTotal := ci.Price * float64(ci.Quantity)
-	if ci.Total != expectedTotal {
+	const epsilon = 0.01
+	if abs(ci.Total - expectedTotal) > epsilon {
 		return fmt.Errorf("total %.2f does not match price %.2f * quantity %d = %.2f",
 			ci.Total, ci.Price, ci.Quantity, expectedTotal)
 	}
 	return nil
+}
+
+// abs returns the absolute value of a float64
+func abs(x float64) float64 {
+	return math.Abs(x)
 }

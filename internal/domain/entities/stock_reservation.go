@@ -1,6 +1,7 @@
 package entities
 
 import (
+	"fmt"
 	"time"
 
 	"github.com/google/uuid"
@@ -119,4 +120,79 @@ func (sr *StockReservation) GetRemainingTime() time.Duration {
 		return 0
 	}
 	return time.Until(sr.ExpiresAt)
+}
+
+// IsNearExpiration checks if reservation will expire within the next 5 minutes
+func (sr *StockReservation) IsNearExpiration() bool {
+	if sr.IsExpired() {
+		return false
+	}
+	return sr.GetRemainingTime() <= 5*time.Minute
+}
+
+// Validate validates the stock reservation
+func (sr *StockReservation) Validate() error {
+	if sr.ProductID == uuid.Nil {
+		return fmt.Errorf("product ID is required")
+	}
+
+	if sr.Quantity <= 0 {
+		return fmt.Errorf("quantity must be greater than 0")
+	}
+
+	if sr.Quantity > 1000 {
+		return fmt.Errorf("quantity cannot exceed 1000")
+	}
+
+	if sr.Type == "" {
+		return fmt.Errorf("reservation type is required")
+	}
+
+	// Validate type-specific requirements
+	switch sr.Type {
+	case ReservationTypeOrder:
+		if sr.OrderID == nil {
+			return fmt.Errorf("order ID is required for order reservations")
+		}
+	case ReservationTypeCart:
+		if sr.UserID == nil && sr.SessionID == nil {
+			return fmt.Errorf("either user ID or session ID is required for cart reservations")
+		}
+	}
+
+	// Validate expiration time
+	if sr.ExpiresAt.IsZero() {
+		return fmt.Errorf("expiration time is required")
+	}
+
+	if sr.ExpiresAt.Before(time.Now()) {
+		return fmt.Errorf("expiration time cannot be in the past")
+	}
+
+	return nil
+}
+
+// CanTransitionTo checks if reservation can transition to the given status
+func (sr *StockReservation) CanTransitionTo(newStatus StockReservationStatus) bool {
+	switch sr.Status {
+	case ReservationStatusActive:
+		return newStatus == ReservationStatusConfirmed ||
+			   newStatus == ReservationStatusReleased ||
+			   newStatus == ReservationStatusExpired
+	case ReservationStatusConfirmed:
+		return newStatus == ReservationStatusReleased
+	case ReservationStatusReleased, ReservationStatusExpired:
+		return false // Terminal states
+	default:
+		return false
+	}
+}
+
+// AutoExpireIfNeeded automatically expires the reservation if it's past expiration time
+func (sr *StockReservation) AutoExpireIfNeeded() bool {
+	if sr.Status == ReservationStatusActive && sr.IsExpired() {
+		sr.MarkExpired()
+		return true
+	}
+	return false
 }

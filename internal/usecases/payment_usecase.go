@@ -3,6 +3,7 @@ package usecases
 import (
 	"context"
 	"fmt"
+	"strings"
 	"time"
 
 	"ecom-golang-clean-architecture/internal/domain/entities"
@@ -319,10 +320,39 @@ func (uc *paymentUseCase) ProcessPayment(ctx context.Context, req ProcessPayment
 		return nil, fmt.Errorf("payment amount cannot exceed $999,999.99")
 	}
 
-	// Check if payment amount exceeds remaining balance
-	remainingAmount := order.GetRemainingAmount()
-	if req.Amount > remainingAmount {
+	// Get existing payments for this order to calculate remaining amount
+	existingPayments, err := uc.paymentRepo.GetAllByOrderID(ctx, req.OrderID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get existing payments: %w", err)
+	}
+
+	// Calculate total paid amount from successful payments
+	totalPaid := 0.0
+	if existingPayments != nil {
+		for _, p := range existingPayments {
+			if p.Status == entities.PaymentStatusPaid || p.Status == entities.PaymentStatusCompleted {
+				totalPaid += p.Amount
+			}
+		}
+	}
+
+	// Calculate remaining amount with floating point tolerance
+	remainingAmount := order.Total - totalPaid
+	const epsilon = 0.01
+	if req.Amount > remainingAmount + epsilon {
 		return nil, fmt.Errorf("payment amount %.2f exceeds remaining balance %.2f", req.Amount, remainingAmount)
+	}
+
+	// Check for duplicate payments (same amount within short time window)
+	if existingPayments != nil {
+		for _, p := range existingPayments {
+			if p.Amount == req.Amount && p.Status == entities.PaymentStatusPending {
+				timeDiff := time.Since(p.CreatedAt)
+				if timeDiff < 5*time.Minute {
+					return nil, fmt.Errorf("duplicate payment detected: same amount %.2f within 5 minutes", req.Amount)
+				}
+			}
+		}
 	}
 
 	// Validate currency
@@ -434,11 +464,31 @@ func (uc *paymentUseCase) ProcessPayment(ctx context.Context, req ProcessPayment
 	}
 
 	if err != nil {
-		payment.MarkAsFailed(err.Error())
-		if err := uc.paymentRepo.Update(ctx, payment); err != nil {
-			return nil, err
+		// Categorize error types for better handling
+		errorMessage := err.Error()
+
+		// Check if it's a temporary error that can be retried
+		isRetryable := isRetryableError(err)
+
+		if isRetryable {
+			// For retryable errors, keep status as pending for potential retry
+			payment.Status = entities.PaymentStatusPending
+			payment.FailureReason = fmt.Sprintf("Retryable error: %s", errorMessage)
+		} else {
+			// For permanent errors, mark as failed
+			payment.MarkAsFailed(errorMessage)
 		}
-		return nil, err
+
+		// Store gateway response for debugging
+		if gatewayResp != nil {
+			payment.GatewayResponse = gatewayResp.Message
+		}
+
+		if updateErr := uc.paymentRepo.Update(ctx, payment); updateErr != nil {
+			return nil, fmt.Errorf("failed to update payment after gateway error: %w", updateErr)
+		}
+
+		return nil, fmt.Errorf("payment processing failed: %w", err)
 	}
 
 	// Update payment with gateway response
@@ -461,7 +511,7 @@ func (uc *paymentUseCase) ProcessPayment(ctx context.Context, req ProcessPayment
 		}
 
 		// Sync payment status based on all payments
-		order.SyncPaymentStatus()
+		order.SyncPaymentStatus(payment.Status)
 		if err := uc.orderRepo.Update(ctx, order); err != nil {
 			return nil, err
 		}
@@ -559,7 +609,7 @@ func (uc *paymentUseCase) updatePaymentStatusInTransaction(ctx context.Context, 
 
 	// Sync payment status based on all payments
 	oldPaymentStatus := order.PaymentStatus
-	order.SyncPaymentStatus()
+	order.SyncPaymentStatus(status)
 
 	// Update order status if payment is completed
 	if status == entities.PaymentStatusPaid && order.Status == entities.OrderStatusPending && order.IsFullyPaid() {
@@ -976,7 +1026,7 @@ func (uc *paymentUseCase) confirmPaymentInTransaction(ctx context.Context, sessi
 	oldPaymentStatus := order.PaymentStatus
 
 	// Sync payment status based on all payments
-	order.SyncPaymentStatus()
+	order.SyncPaymentStatus(entities.PaymentStatusPaid)
 	// Update order status to confirmed if it was pending and fully paid
 	if order.Status == entities.OrderStatusPending && order.IsFullyPaid() {
 		order.Status = entities.OrderStatusConfirmed
@@ -1059,7 +1109,7 @@ func (uc *paymentUseCase) handlePaymentIntentSucceeded(ctx context.Context, even
 		return fmt.Errorf("failed to reload order: %v", err)
 	}
 
-	order.SyncPaymentStatus()
+	order.SyncPaymentStatus(entities.PaymentStatusPaid)
 	if order.Status == entities.OrderStatusPending && order.IsFullyPaid() {
 		order.Status = entities.OrderStatusConfirmed
 
@@ -1523,7 +1573,7 @@ func (uc *paymentUseCase) ConfirmPaymentSuccess(ctx context.Context, orderID, us
 	oldStatus := order.Status
 	oldPaymentStatus := order.PaymentStatus
 
-	order.SyncPaymentStatus()
+	order.SyncPaymentStatus(entities.PaymentStatusPaid)
 	if order.Status == entities.OrderStatusPending && order.IsFullyPaid() {
 		order.Status = entities.OrderStatusConfirmed
 
@@ -1602,3 +1652,36 @@ func (uc *paymentUseCase) getGatewayForMethod(method entities.PaymentMethod) str
 		return "stripe" // Default gateway
 	}
 }
+
+// isRetryableError checks if an error is retryable
+func isRetryableError(err error) bool {
+	if err == nil {
+		return false
+	}
+
+	errorMsg := err.Error()
+
+	// Network-related errors that can be retried
+	retryableErrors := []string{
+		"timeout",
+		"connection refused",
+		"network unreachable",
+		"temporary failure",
+		"service unavailable",
+		"rate limit",
+		"too many requests",
+		"internal server error",
+		"gateway timeout",
+		"bad gateway",
+	}
+
+	for _, retryableErr := range retryableErrors {
+		if strings.Contains(errorMsg, retryableErr) {
+			return true
+		}
+	}
+
+	return false
+}
+
+

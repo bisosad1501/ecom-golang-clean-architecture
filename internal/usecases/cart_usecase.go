@@ -329,11 +329,33 @@ func (uc *cartUseCase) addToCartInTransaction(ctx context.Context, userID uuid.U
 			WithContext("requested_quantity", quantityToReserve)
 	}
 
-	// Create or update cart item
+	// Create stock reservation first to ensure availability
+	reservation := &entities.StockReservation{
+		ID:        uuid.New(),
+		ProductID: req.ProductID,
+		UserID:    &userID,
+		Quantity:  quantityToReserve,
+		Type:      entities.ReservationTypeCart,
+		Status:    entities.ReservationStatusActive,
+		Notes:     fmt.Sprintf("Reserved for cart %s", cart.ID.String()),
+		CreatedAt: time.Now(),
+		UpdatedAt: time.Now(),
+	}
+	reservation.SetExpiration(30) // Reserve for 30 minutes
+
+	// Use atomic stock reservation to prevent race conditions
+	if err := uc.stockReservationService.AtomicReserveStock(ctx, reservation); err != nil {
+		return nil, pkgErrors.Wrap(err, pkgErrors.ErrCodeInsufficientStock, "Failed to reserve stock")
+	}
+
+	// Now update cart item since stock is reserved
 	if existingItem != nil {
 		// Check total quantity after adding new quantity
 		totalQuantity := existingItem.Quantity + req.Quantity
 		if totalQuantity > 100 { // Max quantity per item
+			// Release the reservation we just made
+			reservation.Release()
+			uc.stockReservationService.ReleaseReservations(ctx, userID)
 			return nil, pkgErrors.InvalidInput(fmt.Sprintf("Total quantity %d exceeds maximum allowed (100)", totalQuantity))
 		}
 
@@ -344,6 +366,9 @@ func (uc *cartUseCase) addToCartInTransaction(ctx context.Context, userID uuid.U
 		existingItem.UpdatedAt = time.Now()
 
 		if err := uc.cartRepo.UpdateItem(ctx, existingItem); err != nil {
+			// Release reservation on failure
+			reservation.Release()
+			uc.stockReservationService.ReleaseReservations(ctx, userID)
 			return nil, pkgErrors.Wrap(err, pkgErrors.ErrCodeInternalError, "Failed to update cart item")
 		}
 	} else {
@@ -361,26 +386,11 @@ func (uc *cartUseCase) addToCartInTransaction(ctx context.Context, userID uuid.U
 		cartItem.CalculateTotal()
 
 		if err := uc.cartRepo.AddItem(ctx, cart.ID, cartItem); err != nil {
+			// Release reservation on failure
+			reservation.Release()
+			uc.stockReservationService.ReleaseReservations(ctx, userID)
 			return nil, pkgErrors.Wrap(err, pkgErrors.ErrCodeInternalError, "Failed to add item to cart")
 		}
-	}
-
-	// Create stock reservation
-	reservation := &entities.StockReservation{
-		ID:        uuid.New(),
-		ProductID: req.ProductID,
-		UserID:    &userID, // Convert to pointer
-		Quantity:  quantityToReserve,
-		Type:      entities.ReservationTypeCart,
-		Status:    entities.ReservationStatusActive,
-		Notes:     "Reserved for cart",
-		CreatedAt: time.Now(),
-		UpdatedAt: time.Now(),
-	}
-	reservation.SetExpiration(30) // Reserve for 30 minutes
-
-	if err := uc.stockReservationService.ReserveStockForCart(ctx, reservation); err != nil {
-		return nil, pkgErrors.Wrap(err, pkgErrors.ErrCodeInternalError, "Failed to create stock reservation")
 	}
 
 	// Get updated cart
@@ -910,11 +920,30 @@ func (uc *cartUseCase) MergeGuestCartWithStrategy(ctx context.Context, userID uu
 func (uc *cartUseCase) mergeCartItems(ctx context.Context, userCart, guestCart *entities.Cart) (*CartResponse, error) {
 	// Merge guest cart items into user cart
 	for _, guestItem := range guestCart.Items {
+		// Validate product availability
+		product, err := uc.productRepo.GetByID(ctx, guestItem.ProductID)
+		if err != nil {
+			// Skip unavailable products but log warning
+			continue
+		}
+		if !product.IsAvailable() {
+			// Skip unavailable products
+			continue
+		}
+
 		existingItem := userCart.GetItem(guestItem.ProductID)
 		if existingItem != nil {
-			// Update quantity and price
-			existingItem.Quantity += guestItem.Quantity
-			existingItem.Price = guestItem.Price // Use latest price
+			// Check if merged quantity exceeds maximum
+			newQuantity := existingItem.Quantity + guestItem.Quantity
+			if newQuantity > 100 {
+				// Cap at maximum allowed quantity
+				newQuantity = 100
+			}
+
+			// Update quantity and use current product price
+			existingItem.Quantity = newQuantity
+			existingItem.Price = product.Price // Use current price
+			existingItem.CalculateTotal()
 			existingItem.UpdatedAt = time.Now()
 
 			if err := uc.cartRepo.UpdateItem(ctx, existingItem); err != nil {
@@ -927,7 +956,7 @@ func (uc *cartUseCase) mergeCartItems(ctx context.Context, userCart, guestCart *
 				CartID:    userCart.ID,
 				ProductID: guestItem.ProductID,
 				Quantity:  guestItem.Quantity,
-				Price:     guestItem.Price,
+				Price:     product.Price, // Use current price
 				CreatedAt: time.Now(),
 				UpdatedAt: time.Now(),
 			}

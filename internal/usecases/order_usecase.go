@@ -552,31 +552,29 @@ func (uc *orderUseCase) createOrderInTransaction(ctx context.Context, tx *gorm.D
 		}
 	}
 
-	// Release existing cart reservations first to avoid double reservation
-	if err := uc.stockReservationService.ReleaseReservations(ctx, userID); err != nil {
-		// Log warning but don't fail the transaction
-		// Note: This is a non-critical operation
-	}
-
-	// Reserve stock for order within transaction
-	if err := uc.stockReservationService.ReserveStockForOrder(ctx, order.ID, userID, cart.Items); err != nil {
-		return nil, pkgErrors.Wrap(err, pkgErrors.ErrCodeInsufficientStock, "Failed to reserve stock")
+	// Atomic operation: Reserve stock for order and release cart reservations
+	// This prevents race conditions between cart and order reservations
+	if err := uc.stockReservationService.TransferCartReservationsToOrder(ctx, userID, order.ID, cart.Items); err != nil {
+		return nil, pkgErrors.Wrap(err, pkgErrors.ErrCodeInsufficientStock, "Failed to transfer stock reservations")
 	}
 
 	// Mark order as having inventory reserved
 	order.InventoryReserved = true
+	order.SetReservationTimeout(30) // 30 minutes for order reservation
 	if err := uc.orderRepo.Update(ctx, order); err != nil {
 		return nil, pkgErrors.Wrap(err, pkgErrors.ErrCodeInternalError, "Failed to update order inventory status")
 	}
 
-	// Mark cart as converted and clear items
+	// Mark cart as converted and clear items atomically
 	cart.MarkAsConverted()
 	if err := uc.cartRepo.Update(ctx, cart); err != nil {
 		return nil, pkgErrors.Wrap(err, pkgErrors.ErrCodeInternalError, "Failed to update cart status")
 	}
 
+	// Clear cart items after successful order creation
 	if err := uc.cartRepo.ClearCart(ctx, cart.ID); err != nil {
-		return nil, pkgErrors.Wrap(err, pkgErrors.ErrCodeInternalError, "Failed to clear cart")
+		// Log warning but don't fail transaction - cart is already marked as converted
+		// This is a cleanup operation that can be retried later
 	}
 
 	// Create events within transaction to ensure consistency

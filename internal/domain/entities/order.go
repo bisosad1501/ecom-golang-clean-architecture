@@ -2,6 +2,7 @@ package entities
 
 import (
 	"fmt"
+	"math"
 	"os"
 	"strconv"
 	"time"
@@ -212,9 +213,10 @@ func (oi *OrderItem) Validate() error {
 		return fmt.Errorf("total cannot be negative")
 	}
 
-	// Verify that total matches price * quantity
+	// Verify that total matches price * quantity with floating point tolerance
 	expectedTotal := oi.Price * float64(oi.Quantity)
-	if oi.Total != expectedTotal {
+	const epsilon = 0.01
+	if math.Abs(oi.Total - expectedTotal) > epsilon {
 		return fmt.Errorf("total %.2f does not match price %.2f * quantity %d = %.2f",
 			oi.Total, oi.Price, oi.Quantity, expectedTotal)
 	}
@@ -449,9 +451,10 @@ func (o *Order) Validate() error {
 		return fmt.Errorf("total cannot be negative")
 	}
 
-	// Validate total calculation
+	// Validate total calculation with floating point tolerance
 	expectedTotal := o.Subtotal + o.TaxAmount + o.ShippingAmount + o.TipAmount - o.DiscountAmount
-	if o.Total != expectedTotal {
+	const epsilon = 0.01
+	if math.Abs(o.Total - expectedTotal) > epsilon {
 		return fmt.Errorf("total %.2f does not match calculated total %.2f", o.Total, expectedTotal)
 	}
 
@@ -480,6 +483,97 @@ func (o *Order) Validate() error {
 	}
 
 	return nil
+}
+
+// CanTransitionTo checks if order can transition to the given status
+func (o *Order) CanTransitionTo(newStatus OrderStatus) bool {
+	switch o.Status {
+	case OrderStatusPending:
+		return newStatus == OrderStatusConfirmed || newStatus == OrderStatusCancelled
+	case OrderStatusConfirmed:
+		return newStatus == OrderStatusProcessing || newStatus == OrderStatusCancelled
+	case OrderStatusProcessing:
+		return newStatus == OrderStatusReadyToShip || newStatus == OrderStatusCancelled
+	case OrderStatusReadyToShip:
+		return newStatus == OrderStatusShipped || newStatus == OrderStatusCancelled
+	case OrderStatusShipped:
+		return newStatus == OrderStatusOutForDelivery || newStatus == OrderStatusDelivered || newStatus == OrderStatusReturned
+	case OrderStatusOutForDelivery:
+		return newStatus == OrderStatusDelivered || newStatus == OrderStatusReturned
+	case OrderStatusDelivered:
+		return newStatus == OrderStatusReturned || newStatus == OrderStatusExchanged || newStatus == OrderStatusRefunded
+	case OrderStatusCancelled, OrderStatusRefunded, OrderStatusReturned, OrderStatusExchanged:
+		return false // Terminal states
+	default:
+		return false
+	}
+}
+
+// TransitionTo transitions order to new status with validation
+func (o *Order) TransitionTo(newStatus OrderStatus) error {
+	if !o.CanTransitionTo(newStatus) {
+		return fmt.Errorf("cannot transition from %s to %s", o.Status, newStatus)
+	}
+
+	o.Status = newStatus
+	o.UpdatedAt = time.Now()
+
+	// Update related fields based on status
+	switch newStatus {
+	case OrderStatusProcessing:
+		if o.ProcessedAt == nil {
+			now := time.Now()
+			o.ProcessedAt = &now
+		}
+	case OrderStatusShipped:
+		if o.ShippedAt == nil {
+			now := time.Now()
+			o.ShippedAt = &now
+		}
+	case OrderStatusDelivered:
+		if o.ActualDelivery == nil {
+			now := time.Now()
+			o.ActualDelivery = &now
+		}
+	}
+
+	// Sync fulfillment status with order status
+	o.syncFulfillmentStatus()
+
+	return nil
+}
+
+// syncFulfillmentStatus syncs fulfillment status with order status
+func (o *Order) syncFulfillmentStatus() {
+	switch o.Status {
+	case OrderStatusPending, OrderStatusConfirmed:
+		o.FulfillmentStatus = FulfillmentStatusPending
+	case OrderStatusProcessing:
+		o.FulfillmentStatus = FulfillmentStatusProcessing
+	case OrderStatusReadyToShip:
+		o.FulfillmentStatus = FulfillmentStatusPacked
+	case OrderStatusShipped, OrderStatusOutForDelivery:
+		o.FulfillmentStatus = FulfillmentStatusShipped
+	case OrderStatusDelivered:
+		o.FulfillmentStatus = FulfillmentStatusDelivered
+	case OrderStatusReturned:
+		o.FulfillmentStatus = FulfillmentStatusReturned
+	case OrderStatusCancelled:
+		o.FulfillmentStatus = FulfillmentStatusCancelled
+	}
+}
+
+// SyncPaymentStatus syncs order payment status with actual payment status
+func (o *Order) SyncPaymentStatus(paymentStatus PaymentStatus) {
+	o.PaymentStatus = paymentStatus
+	o.UpdatedAt = time.Now()
+
+	// Auto-transition order status based on payment status
+	if paymentStatus == PaymentStatusCompleted && o.Status == OrderStatusPending {
+		o.TransitionTo(OrderStatusConfirmed)
+	} else if paymentStatus == PaymentStatusFailed && o.Status == OrderStatusPending {
+		o.TransitionTo(OrderStatusCancelled)
+	}
 }
 
 // Call ValidateTimeouts when creating new order (example constructor)
@@ -577,8 +671,8 @@ func (o *Order) GetRemainingAmount() float64 {
 	return remaining
 }
 
-// SyncPaymentStatus synchronizes the order payment status with actual payments
-func (o *Order) SyncPaymentStatus() {
+// AutoSyncPaymentStatus automatically synchronizes the order payment status with actual payments
+func (o *Order) AutoSyncPaymentStatus() {
 	// If no payments exist, determine status based on payment method
 	if len(o.Payments) == 0 {
 		if o.PaymentMethod == PaymentMethodCash {
