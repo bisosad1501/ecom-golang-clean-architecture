@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"fmt"
 	"net/http"
 	"strconv"
 
@@ -13,6 +14,21 @@ import (
 // UserHandler handles user-related HTTP requests
 type UserHandler struct {
 	userUseCase usecases.UserUseCase
+}
+
+// getUserIDFromContext extracts user ID from gin context
+func (h *UserHandler) getUserIDFromContext(c *gin.Context) (uuid.UUID, error) {
+	userIDValue, exists := c.Get("user_id")
+	if !exists {
+		return uuid.Nil, fmt.Errorf("user ID not found in token")
+	}
+
+	userID, ok := userIDValue.(uuid.UUID)
+	if !ok {
+		return uuid.Nil, fmt.Errorf("invalid user ID format")
+	}
+
+	return userID, nil
 }
 
 // NewUserHandler creates a new user handler
@@ -104,18 +120,10 @@ func (h *UserHandler) Login(c *gin.Context) {
 // @Failure 404 {object} ErrorResponse
 // @Router /users/profile [get]
 func (h *UserHandler) GetProfile(c *gin.Context) {
-	userIDStr, exists := c.Get("user_id")
-	if !exists {
-		c.JSON(http.StatusUnauthorized, ErrorResponse{
-			Error: "User ID not found in token",
-		})
-		return
-	}
-
-	userID, err := uuid.Parse(userIDStr.(string))
+	userID, err := h.getUserIDFromContext(c)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, ErrorResponse{
-			Error: "Invalid user ID",
+		c.JSON(http.StatusUnauthorized, ErrorResponse{
+			Error: err.Error(),
 		})
 		return
 	}
@@ -146,7 +154,7 @@ func (h *UserHandler) GetProfile(c *gin.Context) {
 // @Failure 401 {object} ErrorResponse
 // @Router /users/profile [put]
 func (h *UserHandler) UpdateProfile(c *gin.Context) {
-	userIDStr, exists := c.Get("user_id")
+	userIDValue, exists := c.Get("user_id")
 	if !exists {
 		c.JSON(http.StatusUnauthorized, ErrorResponse{
 			Error: "User ID not found in token",
@@ -154,10 +162,10 @@ func (h *UserHandler) UpdateProfile(c *gin.Context) {
 		return
 	}
 
-	userID, err := uuid.Parse(userIDStr.(string))
-	if err != nil {
+	userID, ok := userIDValue.(uuid.UUID)
+	if !ok {
 		c.JSON(http.StatusBadRequest, ErrorResponse{
-			Error: "Invalid user ID",
+			Error: "Invalid user ID format",
 		})
 		return
 	}

@@ -37,9 +37,10 @@ func SetupRoutes(
 	productFilterHandler *handlers.ProductFilterHandler,
 ) {
 	// Apply global middleware
+	router.Use(gin.Recovery()) // Add panic recovery middleware
+	router.Use(middleware.CORSMiddleware(&cfg.CORS)) // Enable CORS
 	router.Use(middleware.SecurityHeadersMiddleware())
 	router.Use(middleware.RequestSizeLimitMiddleware(10 << 20)) // 10MB limit
-	router.Use(middleware.CORSMiddleware(&cfg.CORS))
 	router.Use(middleware.LoggingMiddleware())
 	router.Use(middleware.RequestIDMiddleware())
 	router.Use(middleware.ErrorHandlerMiddleware())

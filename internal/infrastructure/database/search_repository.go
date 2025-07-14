@@ -1491,10 +1491,10 @@ func (r *searchRepository) getDynamicPriceRangeFacet(ctx context.Context, params
 		rangeQuery := facetQuery
 
 		if ranges[i].Min != nil {
-			rangeQuery = rangeQuery.Where("current_price >= ?", *ranges[i].Min)
+			rangeQuery = rangeQuery.Where("price >= ?", *ranges[i].Min)
 		}
 		if ranges[i].Max != nil {
-			rangeQuery = rangeQuery.Where("current_price <= ?", *ranges[i].Max)
+			rangeQuery = rangeQuery.Where("price <= ?", *ranges[i].Max)
 		}
 
 		rangeQuery.Count(&count)
@@ -1514,7 +1514,7 @@ func (r *searchRepository) getDynamicPriceRangeFacet(ctx context.Context, params
 
 // getDynamicStatusFacets gets status facets with dynamic counts
 func (r *searchRepository) getDynamicStatusFacets(ctx context.Context, params repositories.EnhancedSearchParams, baseQuery *gorm.DB) ([]repositories.DynamicStatusFacet, error) {
-	// facetQuery := r.buildFacetBaseQuery(params)
+	// Use baseQuery for status facets
 
 	type StatusCount struct {
 		Status       string `json:"status"`

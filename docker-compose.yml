@@ -60,10 +60,11 @@ services:
       - GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID}
       - GOOGLE_CLIENT_SECRET=${GOOGLE_CLIENT_SECRET}
       - GOOGLE_REDIRECT_URL=http://localhost:8080/api/v1/auth/google/callback
-      - FACEBOOK_APP_ID=${FACEBOOK_APP_ID}
-      - FACEBOOK_APP_SECRET=${FACEBOOK_APP_SECRET}
+      - FACEBOOK_APP_ID=${FACEBOOK_APP_ID:-disabled}
+      - FACEBOOK_APP_SECRET=${FACEBOOK_APP_SECRET:-disabled}
       - FACEBOOK_REDIRECT_URL=http://localhost:8080/api/v1/auth/facebook/callback
       - CORS_ALLOWED_METHODS=GET,POST,PUT,PATCH,DELETE,OPTIONS
+      - CORS_ALLOWED_HEADERS=Content-Type,Authorization,X-Session-ID,x-session-id
     volumes:
       - uploads_data:/app/uploads
     depends_on:
