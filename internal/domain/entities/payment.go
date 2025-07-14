@@ -92,6 +92,128 @@ func (Payment) TableName() string {
 	return "payments"
 }
 
+// Validate validates the payment entity
+func (p *Payment) Validate() error {
+	// Validate required fields
+	if p.OrderID == uuid.Nil {
+		return fmt.Errorf("order_id is required")
+	}
+
+	if p.UserID == uuid.Nil {
+		return fmt.Errorf("user_id is required")
+	}
+
+	if p.Amount <= 0 {
+		return fmt.Errorf("amount must be greater than 0")
+	}
+
+	if p.Amount > 999999.99 {
+		return fmt.Errorf("amount cannot exceed $999,999.99")
+	}
+
+	if p.Currency == "" {
+		return fmt.Errorf("currency is required")
+	}
+
+	if len(p.Currency) != 3 {
+		return fmt.Errorf("currency must be a 3-letter ISO code")
+	}
+
+	// Validate payment method
+	validMethods := []PaymentMethod{
+		PaymentMethodCreditCard,
+		PaymentMethodDebitCard,
+		PaymentMethodPayPal,
+		PaymentMethodStripe,
+		PaymentMethodApplePay,
+		PaymentMethodGooglePay,
+		PaymentMethodBankTransfer,
+		PaymentMethodCash,
+	}
+
+	isValidMethod := false
+	for _, method := range validMethods {
+		if p.Method == method {
+			isValidMethod = true
+			break
+		}
+	}
+
+	if !isValidMethod {
+		return fmt.Errorf("invalid payment method: %s", p.Method)
+	}
+
+	// Validate payment status
+	validStatuses := []PaymentStatus{
+		PaymentStatusPending,
+		PaymentStatusProcessing,
+		PaymentStatusAwaitingPayment,
+		PaymentStatusPaid,
+		PaymentStatusCompleted,
+		PaymentStatusPartiallyPaid,
+		PaymentStatusFailed,
+		PaymentStatusRefunded,
+		PaymentStatusCancelled,
+	}
+
+	isValidStatus := false
+	for _, status := range validStatuses {
+		if p.Status == status {
+			isValidStatus = true
+			break
+		}
+	}
+
+	if !isValidStatus {
+		return fmt.Errorf("invalid payment status: %s", p.Status)
+	}
+
+	// Validate fees
+	if p.ProcessingFee < 0 {
+		return fmt.Errorf("processing_fee cannot be negative")
+	}
+
+	if p.GatewayFee < 0 {
+		return fmt.Errorf("gateway_fee cannot be negative")
+	}
+
+	if p.RefundAmount < 0 {
+		return fmt.Errorf("refund_amount cannot be negative")
+	}
+
+	if p.RefundAmount > p.Amount {
+		return fmt.Errorf("refund_amount cannot exceed payment amount")
+	}
+
+	// Validate net amount calculation
+	expectedNetAmount := p.Amount - p.ProcessingFee - p.GatewayFee
+	if p.NetAmount != 0 && p.NetAmount != expectedNetAmount {
+		return fmt.Errorf("net_amount %.2f does not match calculated net_amount %.2f", p.NetAmount, expectedNetAmount)
+	}
+
+	// Validate COD specific rules
+	if p.Method == PaymentMethodCash {
+		if p.Status != PaymentStatusAwaitingPayment && p.Status != PaymentStatusPaid && p.Status != PaymentStatusCancelled {
+			return fmt.Errorf("COD payments can only have status: awaiting_payment, paid, or cancelled")
+		}
+
+		if p.Gateway != "cod" && p.Gateway != "" {
+			return fmt.Errorf("COD payments should use 'cod' gateway")
+		}
+	}
+
+	// Validate status transitions
+	if p.Status == PaymentStatusPaid && p.ProcessedAt == nil {
+		return fmt.Errorf("paid payments must have processed_at timestamp")
+	}
+
+	if p.Status == PaymentStatusRefunded && p.RefundedAt == nil {
+		return fmt.Errorf("refunded payments must have refunded_at timestamp")
+	}
+
+	return nil
+}
+
 // IsSuccessful checks if the payment is successful
 func (p *Payment) IsSuccessful() bool {
 	return p.Status == PaymentStatusPaid

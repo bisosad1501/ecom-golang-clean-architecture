@@ -442,6 +442,7 @@ func SetupRoutes(
 				orders.POST("/:id/cancel", orderHandler.CancelOrder)
 				orders.GET("/:id/events", orderHandler.GetOrderEvents)
 				orders.POST("/:id/notes", orderHandler.AddOrderNote)
+				orders.GET("/:id/payments", paymentHandler.GetOrderPayments)
 				// orders.GET("/:id/invoice", orderHandler.GetOrderInvoice) // TODO: Implement GetOrderInvoice method
 				// orders.POST("/:id/reorder", orderHandler.ReorderItems) // TODO: Implement ReorderItems method
 			}

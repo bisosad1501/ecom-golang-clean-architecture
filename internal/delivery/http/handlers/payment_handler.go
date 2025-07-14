@@ -77,7 +77,7 @@ func (h *PaymentHandler) GetPayment(c *gin.Context) {
 
 // GetOrderPayments retrieves all payments for an order
 func (h *PaymentHandler) GetOrderPayments(c *gin.Context) {
-	orderIDStr := c.Param("order_id")
+	orderIDStr := c.Param("id")
 	orderID, err := uuid.Parse(orderIDStr)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, ErrorResponse{

@@ -315,23 +315,63 @@ func (uc *paymentUseCase) ProcessPayment(ctx context.Context, req ProcessPayment
 		return nil, fmt.Errorf("payment amount must be greater than 0")
 	}
 
+	if req.Amount > 999999.99 {
+		return nil, fmt.Errorf("payment amount cannot exceed $999,999.99")
+	}
+
 	// Check if payment amount exceeds remaining balance
 	remainingAmount := order.GetRemainingAmount()
 	if req.Amount > remainingAmount {
 		return nil, fmt.Errorf("payment amount %.2f exceeds remaining balance %.2f", req.Amount, remainingAmount)
 	}
 
+	// Validate currency
+	if req.Currency == "" {
+		req.Currency = "USD" // Default currency
+	}
+
+	if len(req.Currency) != 3 {
+		return nil, fmt.Errorf("currency must be a 3-letter ISO code")
+	}
+
+	// Validate order status
+	if order.Status == entities.OrderStatusCancelled {
+		return nil, fmt.Errorf("cannot process payment for cancelled order")
+	}
+
+	if order.Status == entities.OrderStatusDelivered {
+		return nil, fmt.Errorf("cannot process payment for delivered order")
+	}
+
+	if order.Status == entities.OrderStatusRefunded {
+		return nil, fmt.Errorf("cannot process payment for refunded order")
+	}
+
+	// Determine initial payment status based on method
+	var initialStatus entities.PaymentStatus
+	if req.Method == entities.PaymentMethodCash {
+		initialStatus = entities.PaymentStatusAwaitingPayment
+	} else {
+		initialStatus = entities.PaymentStatusPending
+	}
+
 	// Create payment record
 	payment := &entities.Payment{
 		ID:        uuid.New(),
 		OrderID:   req.OrderID,
-		UserID:    order.UserID, // Add missing UserID
+		UserID:    order.UserID,
 		Amount:    req.Amount,
 		Currency:  req.Currency,
 		Method:    req.Method,
-		Status:    entities.PaymentStatusPending,
+		Status:    initialStatus,
+		Gateway:   uc.getGatewayForMethod(req.Method),
 		CreatedAt: time.Now(),
 		UpdatedAt: time.Now(),
+	}
+
+	// Validate payment entity
+	if err := payment.Validate(); err != nil {
+		return nil, fmt.Errorf("payment validation failed: %w", err)
 	}
 
 	// Save payment record
@@ -374,6 +414,21 @@ func (uc *paymentUseCase) ProcessPayment(ctx context.Context, req ProcessPayment
 			return nil, fmt.Errorf("paypal service not configured")
 		}
 		gatewayResp, err = uc.paypalService.ProcessPayment(ctx, gatewayReq)
+	case entities.PaymentMethodCash:
+		// COD payments don't need gateway processing
+		// Just mark as awaiting payment (will be marked as paid when delivered)
+		gatewayResp = &PaymentGatewayResponse{
+			Success:       true,
+			TransactionID: fmt.Sprintf("COD-%s", payment.ID.String()[:8]),
+			ExternalID:    "",
+			Message:       "COD payment created successfully",
+		}
+	case entities.PaymentMethodCreditCard, entities.PaymentMethodDebitCard:
+		// Default to Stripe for credit/debit cards
+		if uc.stripeService == nil {
+			return nil, fmt.Errorf("stripe service not configured")
+		}
+		gatewayResp, err = uc.stripeService.ProcessPayment(ctx, gatewayReq)
 	default:
 		return nil, fmt.Errorf("unsupported payment method: %s", req.Method)
 	}
@@ -388,8 +443,16 @@ func (uc *paymentUseCase) ProcessPayment(ctx context.Context, req ProcessPayment
 
 	// Update payment with gateway response
 	if gatewayResp.Success {
-		payment.MarkAsProcessed(gatewayResp.TransactionID)
-		payment.ExternalID = gatewayResp.ExternalID
+		// For COD payments, keep status as awaiting_payment
+		if req.Method == entities.PaymentMethodCash {
+			payment.TransactionID = gatewayResp.TransactionID
+			payment.ExternalID = gatewayResp.ExternalID
+			// Status remains awaiting_payment for COD
+		} else {
+			// For online payments, mark as processed
+			payment.MarkAsProcessed(gatewayResp.TransactionID)
+			payment.ExternalID = gatewayResp.ExternalID
+		}
 
 		// Reload order with payments to sync payment status
 		order, err = uc.orderRepo.GetByID(ctx, order.ID)
@@ -433,16 +496,18 @@ func (uc *paymentUseCase) GetPayment(ctx context.Context, id uuid.UUID) (*Paymen
 
 // GetOrderPayments gets all payments for an order
 func (uc *paymentUseCase) GetOrderPayments(ctx context.Context, orderID uuid.UUID) ([]*PaymentResponse, error) {
-	payment, err := uc.paymentRepo.GetByOrderID(ctx, orderID)
+	payments, err := uc.paymentRepo.GetByOrderID(ctx, orderID)
 	if err != nil {
 		return nil, err
 	}
 
-	if payment == nil {
+	if payments == nil {
 		return []*PaymentResponse{}, nil
 	}
 
-	return []*PaymentResponse{uc.toPaymentResponse(payment)}, nil
+	// Convert single payment to slice for backward compatibility
+	// Note: This suggests the repository method should return []Payment instead of *Payment
+	return []*PaymentResponse{uc.toPaymentResponse(payments)}, nil
 }
 
 // UpdatePaymentStatus updates payment status
@@ -1442,5 +1507,25 @@ func (uc *paymentUseCase) toPaymentMethodResponse(pm *entities.PaymentMethodEnti
 		CreatedAt:     pm.CreatedAt,
 		UpdatedAt:     pm.UpdatedAt,
 		LastUsedAt:    pm.LastUsedAt,
+	}
+}
+
+// getGatewayForMethod returns the appropriate gateway for a payment method
+func (uc *paymentUseCase) getGatewayForMethod(method entities.PaymentMethod) string {
+	switch method {
+	case entities.PaymentMethodStripe, entities.PaymentMethodCreditCard, entities.PaymentMethodDebitCard:
+		return "stripe"
+	case entities.PaymentMethodPayPal:
+		return "paypal"
+	case entities.PaymentMethodApplePay:
+		return "apple_pay"
+	case entities.PaymentMethodGooglePay:
+		return "google_pay"
+	case entities.PaymentMethodBankTransfer:
+		return "bank_transfer"
+	case entities.PaymentMethodCash:
+		return "cod"
+	default:
+		return "stripe" // Default gateway
 	}
 }
