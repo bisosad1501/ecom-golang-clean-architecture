@@ -258,8 +258,21 @@ func (h *UserHandler) ChangePassword(c *gin.Context) {
 // @Failure 403 {object} ErrorResponse
 // @Router /admin/users [get]
 func (h *UserHandler) GetUsers(c *gin.Context) {
-	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "10"))
-	offset, _ := strconv.Atoi(c.DefaultQuery("offset", "0"))
+	// Parse and validate pagination parameters
+	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
+	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "0")) // 0 means use default
+
+	// Validate and normalize pagination for admin users
+	page, limit, err := usecases.ValidateAndNormalizePaginationForEntity(page, limit, "admin_users")
+	if err != nil {
+		c.JSON(http.StatusBadRequest, ErrorResponse{
+			Error: err.Error(),
+		})
+		return
+	}
+
+	// Convert to offset for repository
+	offset := (page - 1) * limit
 
 	usersResponse, err := h.userUseCase.GetUsers(c.Request.Context(), limit, offset)
 	if err != nil {
@@ -269,8 +282,29 @@ func (h *UserHandler) GetUsers(c *gin.Context) {
 		return
 	}
 
-	// Calculate pagination using standardized function
+	// Create pagination context
+	context := &usecases.EcommercePaginationContext{
+		EntityType: "admin_users",
+	}
+
+	// Calculate pagination using enhanced function
 	pagination := usecases.NewPaginationInfoFromOffset(offset, limit, usersResponse.Total)
+
+	// Apply ecommerce enhancements
+	if context != nil {
+		// Adjust page sizes based on entity type
+		pagination.PageSizes = []int{10, 25, 50, 100} // Admin-friendly sizes
+
+		// Check if cursor pagination should be used
+		pagination.UseCursor = usecases.ShouldUseCursorPagination(usersResponse.Total, context.EntityType)
+
+		// Generate cache key
+		cacheParams := map[string]interface{}{
+			"page":  pagination.Page,
+			"limit": pagination.Limit,
+		}
+		pagination.CacheKey = usecases.GenerateCacheKey("admin_users", "", cacheParams)
+	}
 
 	c.JSON(http.StatusOK, PaginatedResponse{
 		Data:       usersResponse.Users,

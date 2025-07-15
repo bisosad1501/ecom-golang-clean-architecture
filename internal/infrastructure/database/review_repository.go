@@ -598,7 +598,7 @@ func (r *reviewRepository) applyFilters(query *gorm.DB, filter entities.ReviewFi
 		query = query.Limit(filter.Limit)
 	}
 
-	if filter.Offset > 0 {
+	if filter.Offset >= 0 {
 		query = query.Offset(filter.Offset)
 	}
 

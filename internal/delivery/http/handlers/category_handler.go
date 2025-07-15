@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"ecom-golang-clean-architecture/internal/usecases"
+
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 )
@@ -104,10 +105,10 @@ func (h *CategoryHandler) GetCategory(c *gin.Context) {
 func (h *CategoryHandler) GetCategories(c *gin.Context) {
 	// Parse and validate pagination parameters
 	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
-	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "20"))
+	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "0")) // 0 means use default
 
-	// Validate and normalize pagination
-	page, limit, err := usecases.ValidateAndNormalizePagination(page, limit)
+	// Validate and normalize pagination for categories
+	page, limit, err := usecases.ValidateAndNormalizePaginationForEntity(page, limit, "categories")
 	if err != nil {
 		c.JSON(http.StatusBadRequest, ErrorResponse{
 			Error: err.Error(),
@@ -399,13 +400,13 @@ func (h *CategoryHandler) GetCategoryLandingPage(c *gin.Context) {
 
 	req := usecases.GetCategoryLandingPageRequest{
 		CategoryID:                 categoryID,
-		Page:                      page,
-		Limit:                     limit,
-		SortBy:                    sortBy,
-		SortOrder:                 sortOrder,
+		Page:                       page,
+		Limit:                      limit,
+		SortBy:                     sortBy,
+		SortOrder:                  sortOrder,
 		IncludeSubcategoryProducts: includeSubcategoryProducts,
-		IncludeFeatured:           includeFeatured,
-		FeaturedLimit:             featuredLimit,
+		IncludeFeatured:            includeFeatured,
+		FeaturedLimit:              featuredLimit,
 	}
 
 	response, err := h.categoryUseCase.GetCategoryLandingPage(c.Request.Context(), req)
@@ -549,8 +550,21 @@ func (h *CategoryHandler) SearchCategories(c *gin.Context) {
 		return
 	}
 
-	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "20"))
-	offset, _ := strconv.Atoi(c.DefaultQuery("offset", "0"))
+	// Parse and validate pagination parameters
+	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
+	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "0")) // 0 means use default
+
+	// Validate and normalize pagination for categories
+	page, limit, err := usecases.ValidateAndNormalizePaginationForEntity(page, limit, "categories")
+	if err != nil {
+		c.JSON(http.StatusBadRequest, ErrorResponse{
+			Error: err.Error(),
+		})
+		return
+	}
+
+	// Convert to offset for repository
+	offset := (page - 1) * limit
 
 	req := usecases.SearchCategoriesRequest{
 		Query:  query,

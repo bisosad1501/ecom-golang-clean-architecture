@@ -499,7 +499,29 @@ func (uc *notificationUseCase) GetUserNotifications(ctx context.Context, userID 
 		EntityType: "notifications",
 		UserID:     userID.String(),
 	}
-	pagination := NewEcommercePaginationInfo((req.Offset/req.Limit)+1, req.Limit, total, context)
+
+	// Use proper offset-to-page conversion
+	pagination := NewPaginationInfoFromOffset(req.Offset, req.Limit, total)
+
+	// Apply ecommerce enhancements
+	if context != nil {
+		// Adjust page sizes based on entity type
+		pagination.PageSizes = []int{10, 15, 30} // Notification-friendly sizes
+
+		// Check if cursor pagination should be used
+		pagination.UseCursor = ShouldUseCursorPagination(total, context.EntityType)
+
+		// Generate cache key
+		cacheParams := map[string]interface{}{
+			"page":    pagination.Page,
+			"limit":   pagination.Limit,
+			"user_id": context.UserID,
+		}
+		if req.IsRead != nil {
+			cacheParams["is_read"] = *req.IsRead
+		}
+		pagination.CacheKey = GenerateCacheKey("notifications", context.UserID, cacheParams)
+	}
 
 	return &NotificationsListResponse{
 		Notifications: responses,

@@ -275,7 +275,34 @@ func (uc *reviewUseCase) GetProductReviews(ctx context.Context, productID uuid.U
 	context := &EcommercePaginationContext{
 		EntityType: "reviews",
 	}
-	pagination := NewEcommercePaginationInfo((req.Offset/req.Limit)+1, req.Limit, totalCount, context)
+
+	// Use proper offset-to-page conversion
+	pagination := NewPaginationInfoFromOffset(req.Offset, req.Limit, totalCount)
+
+	// Apply ecommerce enhancements
+	if context != nil {
+		// Adjust page sizes based on entity type
+		pagination.PageSizes = []int{5, 10, 20} // Smaller sizes for detailed content
+
+		// Check if cursor pagination should be used
+		pagination.UseCursor = ShouldUseCursorPagination(totalCount, context.EntityType)
+
+		// Generate cache key
+		cacheParams := map[string]interface{}{
+			"page":  pagination.Page,
+			"limit": pagination.Limit,
+		}
+		if req.Rating != nil {
+			cacheParams["rating"] = *req.Rating
+		}
+		if req.IsVerified != nil {
+			cacheParams["is_verified"] = *req.IsVerified
+		}
+		if req.SortBy != "" {
+			cacheParams["sort_by"] = req.SortBy
+		}
+		pagination.CacheKey = GenerateCacheKey("reviews", "", cacheParams)
+	}
 
 	return &ReviewsResponse{
 		Reviews:    responses,
@@ -493,7 +520,29 @@ func (uc *reviewUseCase) GetUserReviews(ctx context.Context, userID uuid.UUID, r
 		EntityType: "reviews",
 		UserID:     userID.String(),
 	}
-	pagination := NewEcommercePaginationInfo((req.Offset/req.Limit)+1, req.Limit, totalCount, context)
+
+	// Use proper offset-to-page conversion
+	pagination := NewPaginationInfoFromOffset(req.Offset, req.Limit, totalCount)
+
+	// Apply ecommerce enhancements
+	if context != nil {
+		// Adjust page sizes based on entity type
+		pagination.PageSizes = []int{5, 10, 20} // Smaller sizes for detailed content
+
+		// Check if cursor pagination should be used
+		pagination.UseCursor = ShouldUseCursorPagination(totalCount, context.EntityType)
+
+		// Generate cache key
+		cacheParams := map[string]interface{}{
+			"page":    pagination.Page,
+			"limit":   pagination.Limit,
+			"user_id": context.UserID,
+		}
+		if req.Rating != nil {
+			cacheParams["rating"] = *req.Rating
+		}
+		pagination.CacheKey = GenerateCacheKey("user_reviews", context.UserID, cacheParams)
+	}
 
 	return &ReviewsResponse{
 		Reviews:    responses,
@@ -631,7 +680,28 @@ func (uc *reviewUseCase) GetPendingReviews(ctx context.Context, req GetReviewsRe
 	context := &EcommercePaginationContext{
 		EntityType: "reviews",
 	}
-	pagination := NewEcommercePaginationInfo((req.Offset/req.Limit)+1, req.Limit, totalCount, context)
+
+	// Use proper offset-to-page conversion
+	pagination := NewPaginationInfoFromOffset(req.Offset, req.Limit, totalCount)
+
+	// Apply ecommerce enhancements
+	if context != nil {
+		// Adjust page sizes based on entity type
+		pagination.PageSizes = []int{5, 10, 20} // Smaller sizes for detailed content
+
+		// Check if cursor pagination should be used
+		pagination.UseCursor = ShouldUseCursorPagination(totalCount, context.EntityType)
+
+		// Generate cache key
+		cacheParams := map[string]interface{}{
+			"page":  pagination.Page,
+			"limit": pagination.Limit,
+		}
+		if req.Rating != nil {
+			cacheParams["rating"] = *req.Rating
+		}
+		pagination.CacheKey = GenerateCacheKey("admin_reviews", "", cacheParams)
+	}
 
 	return &ReviewsResponse{
 		Reviews:    responses,

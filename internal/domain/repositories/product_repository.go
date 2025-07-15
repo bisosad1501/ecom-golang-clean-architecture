@@ -55,6 +55,9 @@ type ProductRepository interface {
 	// Search searches products based on criteria
 	Search(ctx context.Context, params ProductSearchParams) ([]*entities.Product, error)
 
+	// SearchCount counts products based on search criteria (matches Search method filters)
+	SearchCount(ctx context.Context, params ProductSearchParams) (int64, error)
+
 	// Count returns the total number of products
 	Count(ctx context.Context) (int64, error)
 
@@ -152,6 +155,9 @@ type BrandRepository interface {
 
 	// Search searches brands
 	Search(ctx context.Context, query string, limit, offset int) ([]*entities.Brand, error)
+
+	// CountSearch counts brands matching search query
+	CountSearch(ctx context.Context, query string) (int64, error)
 
 	// ExistsBySlug checks if a brand exists with the given slug
 	ExistsBySlug(ctx context.Context, slug string) (bool, error)
@@ -275,8 +281,6 @@ type CategoryRepository interface {
 	GetCategoryPerformanceMetrics(ctx context.Context, categoryID uuid.UUID) (*CategoryPerformanceMetrics, error)
 	GetCategorySalesStats(ctx context.Context, categoryID uuid.UUID, timeRange string) (*CategorySalesStats, error)
 
-
-
 	// GetProductCountByCategory returns product count for each category (including descendants)
 	GetProductCountByCategory(ctx context.Context, categoryID uuid.UUID) (int64, error)
 
@@ -306,19 +310,19 @@ type CategoryReorderRequest struct {
 
 // CategoryAnalytics represents comprehensive category analytics
 type CategoryAnalytics struct {
-	CategoryID       uuid.UUID                 `json:"category_id"`
-	CategoryName     string                    `json:"category_name"`
-	ProductCount     int64                     `json:"product_count"`
-	ActiveProducts   int64                     `json:"active_products"`
-	InactiveProducts int64                     `json:"inactive_products"`
-	TotalViews       int64                     `json:"total_views"`
-	TotalSales       int64                     `json:"total_sales"`
-	Revenue          float64                   `json:"revenue"`
-	AveragePrice     float64                   `json:"average_price"`
-	ConversionRate   float64                   `json:"conversion_rate"`
-	TopProducts      []ProductPerformance      `json:"top_products"`
-	SalesHistory     []SalesDataPoint          `json:"sales_history"`
-	ViewsHistory     []ViewsDataPoint          `json:"views_history"`
+	CategoryID       uuid.UUID            `json:"category_id"`
+	CategoryName     string               `json:"category_name"`
+	ProductCount     int64                `json:"product_count"`
+	ActiveProducts   int64                `json:"active_products"`
+	InactiveProducts int64                `json:"inactive_products"`
+	TotalViews       int64                `json:"total_views"`
+	TotalSales       int64                `json:"total_sales"`
+	Revenue          float64              `json:"revenue"`
+	AveragePrice     float64              `json:"average_price"`
+	ConversionRate   float64              `json:"conversion_rate"`
+	TopProducts      []ProductPerformance `json:"top_products"`
+	SalesHistory     []SalesDataPoint     `json:"sales_history"`
+	ViewsHistory     []ViewsDataPoint     `json:"views_history"`
 }
 
 // CategoryStats represents category statistics for ranking
@@ -350,27 +354,27 @@ type CategoryPerformanceMetrics struct {
 
 // CategorySalesStats represents sales statistics for a category
 type CategorySalesStats struct {
-	CategoryID      uuid.UUID        `json:"category_id"`
-	CategoryName    string           `json:"category_name"`
-	TimeRange       string           `json:"time_range"`
-	TotalSales      int64            `json:"total_sales"`
-	TotalRevenue    float64          `json:"total_revenue"`
-	AverageOrderValue float64        `json:"average_order_value"`
+	CategoryID         uuid.UUID      `json:"category_id"`
+	CategoryName       string         `json:"category_name"`
+	TimeRange          string         `json:"time_range"`
+	TotalSales         int64          `json:"total_sales"`
+	TotalRevenue       float64        `json:"total_revenue"`
+	AverageOrderValue  float64        `json:"average_order_value"`
 	TopSellingProducts []ProductSales `json:"top_selling_products"`
-	SalesByPeriod   []PeriodSales    `json:"sales_by_period"`
-	GrowthMetrics   GrowthMetrics    `json:"growth_metrics"`
+	SalesByPeriod      []PeriodSales  `json:"sales_by_period"`
+	GrowthMetrics      GrowthMetrics  `json:"growth_metrics"`
 }
 
 // ProductPerformance represents product performance data
 type ProductPerformance struct {
-	ProductID    uuid.UUID `json:"product_id"`
-	ProductName  string    `json:"product_name"`
-	SKU          string    `json:"sku"`
-	Sales        int64     `json:"sales"`
-	Revenue      float64   `json:"revenue"`
-	Views        int64     `json:"views"`
-	Rating       float64   `json:"rating"`
-	ReviewCount  int64     `json:"review_count"`
+	ProductID   uuid.UUID `json:"product_id"`
+	ProductName string    `json:"product_name"`
+	SKU         string    `json:"sku"`
+	Sales       int64     `json:"sales"`
+	Revenue     float64   `json:"revenue"`
+	Views       int64     `json:"views"`
+	Rating      float64   `json:"rating"`
+	ReviewCount int64     `json:"review_count"`
 }
 
 // ProductSales represents product sales data
@@ -384,9 +388,9 @@ type ProductSales struct {
 
 // SalesDataPoint represents a sales data point over time
 type SalesDataPoint struct {
-	Date     string  `json:"date"`
-	Sales    int64   `json:"sales"`
-	Revenue  float64 `json:"revenue"`
+	Date    string  `json:"date"`
+	Sales   int64   `json:"sales"`
+	Revenue float64 `json:"revenue"`
 }
 
 // ViewsDataPoint represents a views data point over time
@@ -397,10 +401,10 @@ type ViewsDataPoint struct {
 
 // PeriodSales represents sales data for a specific period
 type PeriodSales struct {
-	Period   string  `json:"period"`
-	Sales    int64   `json:"sales"`
-	Revenue  float64 `json:"revenue"`
-	Orders   int64   `json:"orders"`
+	Period  string  `json:"period"`
+	Sales   int64   `json:"sales"`
+	Revenue float64 `json:"revenue"`
+	Orders  int64   `json:"orders"`
 }
 
 // GrowthMetrics represents growth metrics
@@ -421,14 +425,14 @@ type SearchSuggestions struct {
 
 // ProductSuggestion represents a product suggestion
 type ProductSuggestion struct {
-	ID          uuid.UUID `json:"id"`
-	Name        string    `json:"name"`
-	SKU         string    `json:"sku"`
-	Price       float64   `json:"price"`
-	Image       string    `json:"image"`
-	CategoryID  uuid.UUID `json:"category_id"`
-	Category    string    `json:"category"`
-	Relevance   float64   `json:"relevance"`
+	ID         uuid.UUID `json:"id"`
+	Name       string    `json:"name"`
+	SKU        string    `json:"sku"`
+	Price      float64   `json:"price"`
+	Image      string    `json:"image"`
+	CategoryID uuid.UUID `json:"category_id"`
+	Category   string    `json:"category"`
+	Relevance  float64   `json:"relevance"`
 }
 
 // CategorySuggestion represents a category suggestion

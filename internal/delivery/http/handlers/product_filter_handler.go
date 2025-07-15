@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"ecom-golang-clean-architecture/internal/usecases"
+
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 )
@@ -132,10 +133,10 @@ func (h *ProductFilterHandler) FilterProducts(c *gin.Context) {
 
 	// Parse and validate pagination
 	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
-	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "20"))
+	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "0")) // 0 means use default
 
-	// Validate and normalize pagination
-	page, limit, err := usecases.ValidateAndNormalizePagination(page, limit)
+	// Validate and normalize pagination for products
+	page, limit, err := usecases.ValidateAndNormalizePaginationForEntity(page, limit, "products")
 	if err != nil {
 		c.JSON(http.StatusBadRequest, ErrorResponse{
 			Error: err.Error(),
@@ -152,7 +153,7 @@ func (h *ProductFilterHandler) FilterProducts(c *gin.Context) {
 			req.IncludeFacets = val
 		}
 	}
-	
+
 	if facetLimit, err := strconv.Atoi(c.DefaultQuery("facet_limit", "10")); err == nil {
 		req.FacetLimit = facetLimit
 	} else {
@@ -171,7 +172,7 @@ func (h *ProductFilterHandler) FilterProducts(c *gin.Context) {
 	// Track filter usage
 	userID := getUserIDFromContext(c)
 	sessionID := getSessionIDFromContext(c)
-	
+
 	// Track major filters
 	totalCount := result.Pagination.Total
 	if req.Query != "" {

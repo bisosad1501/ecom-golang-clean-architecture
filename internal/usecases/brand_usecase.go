@@ -9,6 +9,7 @@ import (
 	"ecom-golang-clean-architecture/internal/domain/entities"
 	"ecom-golang-clean-architecture/internal/domain/repositories"
 	"ecom-golang-clean-architecture/pkg/utils"
+
 	"github.com/google/uuid"
 )
 
@@ -59,8 +60,8 @@ type UpdateBrandRequest struct {
 
 // GetBrandsRequest represents get brands request
 type GetBrandsRequest struct {
-	Limit    int  `json:"limit" validate:"omitempty,min=1,max=100"`
-	Offset   int  `json:"offset" validate:"omitempty,min=0"`
+	Limit    int   `json:"limit" validate:"omitempty,min=1,max=100"`
+	Offset   int   `json:"offset" validate:"omitempty,min=0"`
 	IsActive *bool `json:"is_active"`
 }
 
@@ -264,8 +265,29 @@ func (uc *brandUseCase) GetBrands(ctx context.Context, req GetBrandsRequest) (*G
 		brandResponses[i] = *uc.toBrandResponse(brand)
 	}
 
-	// Create pagination info
+	// Create pagination context
+	context := &EcommercePaginationContext{
+		EntityType: "brands",
+	}
+
+	// Create pagination info with enhanced features
 	pagination := NewPaginationInfoFromOffset(req.Offset, req.Limit, total)
+
+	// Apply ecommerce enhancements
+	if context != nil {
+		// Adjust page sizes based on entity type
+		pagination.PageSizes = []int{10, 20, 50, 100} // Default sizes for brands
+
+		// Check if cursor pagination should be used
+		pagination.UseCursor = ShouldUseCursorPagination(total, context.EntityType)
+
+		// Generate cache key
+		cacheParams := map[string]interface{}{
+			"page":  pagination.Page,
+			"limit": pagination.Limit,
+		}
+		pagination.CacheKey = GenerateCacheKey("brands", "", cacheParams)
+	}
 
 	return &GetBrandsResponse{
 		Brands:     brandResponses,
@@ -283,6 +305,13 @@ func (uc *brandUseCase) SearchBrands(ctx context.Context, req SearchBrandsReques
 		req.Offset = 0
 	}
 
+	// Get total count for search
+	total, err := uc.brandRepo.CountSearch(ctx, req.Query)
+	if err != nil {
+		return nil, err
+	}
+
+	// Get brands
 	brands, err := uc.brandRepo.Search(ctx, req.Query, req.Limit, req.Offset)
 	if err != nil {
 		return nil, err
@@ -296,7 +325,7 @@ func (uc *brandUseCase) SearchBrands(ctx context.Context, req SearchBrandsReques
 
 	return &BrandsListResponse{
 		Brands: brandResponses,
-		Total:  int64(len(brands)), // For search, we return actual count
+		Total:  total,
 		Limit:  req.Limit,
 		Offset: req.Offset,
 	}, nil

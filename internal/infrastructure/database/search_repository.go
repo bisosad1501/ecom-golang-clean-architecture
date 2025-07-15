@@ -372,10 +372,72 @@ func (r *searchRepository) FullTextSearch(ctx context.Context, params repositori
 			Group("products.id")
 	}
 
-	// Count total results
+	// Count total results using a separate query to avoid side effects
 	var total int64
-	countQuery := query
-	if err := countQuery.Model(&entities.Product{}).Count(&total).Error; err != nil {
+	countQuery := r.db.WithContext(ctx).Model(&entities.Product{})
+
+	// Apply the same filters as the main query for accurate count
+	if params.Query != "" {
+		searchVector := "to_tsvector('english', coalesce(name, '') || ' ' || coalesce(description, '') || ' ' || coalesce(short_description, '') || ' ' || coalesce(sku, '') || ' ' || coalesce(keywords, ''))"
+		searchQuery := "plainto_tsquery('english', ?)"
+		fuzzyCondition := "(name % ? OR sku % ?)"
+		exactCondition := "(name ILIKE ? OR sku ILIKE ?)"
+		synonymCondition := r.buildSynonymCondition(params.Query)
+
+		searchCondition := fmt.Sprintf(
+			"(%s @@ %s) OR %s OR %s",
+			searchVector, searchQuery, fuzzyCondition, exactCondition,
+		)
+
+		if synonymCondition != "" {
+			searchCondition += " OR " + synonymCondition
+		}
+
+		countQuery = countQuery.Where(searchCondition,
+			params.Query,
+			params.Query, params.Query,
+			"%"+params.Query+"%", "%"+params.Query+"%",
+		)
+	}
+
+	// Apply all other filters to count query
+	if len(params.CategoryIDs) > 0 {
+		countQuery = countQuery.Where("category_id IN ?", params.CategoryIDs)
+	}
+	if len(params.BrandIDs) > 0 {
+		countQuery = countQuery.Where("brand_id IN ?", params.BrandIDs)
+	}
+	if params.MinPrice != nil {
+		countQuery = countQuery.Where("COALESCE(sale_price, price) >= ?", *params.MinPrice)
+	}
+	if params.MaxPrice != nil {
+		countQuery = countQuery.Where("COALESCE(sale_price, price) <= ?", *params.MaxPrice)
+	}
+	if params.InStock != nil {
+		if *params.InStock {
+			countQuery = countQuery.Where("stock > 0")
+		} else {
+			countQuery = countQuery.Where("stock <= 0")
+		}
+	}
+	if params.Featured != nil {
+		countQuery = countQuery.Where("featured = ?", *params.Featured)
+	}
+	if params.OnSale != nil {
+		if *params.OnSale {
+			countQuery = countQuery.Where("sale_price IS NOT NULL AND sale_price > 0")
+		} else {
+			countQuery = countQuery.Where("sale_price IS NULL OR sale_price = 0")
+		}
+	}
+	if len(params.Tags) > 0 {
+		countQuery = countQuery.Joins("JOIN product_tag_associations pta ON products.id = pta.product_id").
+			Joins("JOIN tags t ON pta.product_tag_id = t.id").
+			Where("t.name IN ?", params.Tags).
+			Group("products.id")
+	}
+
+	if err := countQuery.Count(&total).Error; err != nil {
 		return nil, 0, err
 	}
 
@@ -383,11 +445,11 @@ func (r *searchRepository) FullTextSearch(ctx context.Context, params repositori
 	orderBy := r.buildSortOrder(params.SortBy, params.SortOrder, params.Query)
 	query = query.Order(orderBy)
 
-	// Apply pagination
+	// Apply pagination with proper validation
 	if params.Limit > 0 {
 		query = query.Limit(params.Limit)
 	}
-	if params.Offset > 0 {
+	if params.Offset >= 0 {
 		query = query.Offset(params.Offset)
 	}
 

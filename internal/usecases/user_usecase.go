@@ -201,7 +201,7 @@ type UsersListResponse struct {
 type UserSessionsResponse struct {
 	Sessions   []*UserSessionResponse `json:"sessions"`
 	Total      int64                  `json:"total"`
-	Pagination Pagination             `json:"pagination"`
+	Pagination PaginationInfo         `json:"pagination"`
 }
 
 // UserSessionResponse represents user session response
@@ -220,7 +220,7 @@ type UserSessionResponse struct {
 type UserActivityResponse struct {
 	Activities []*UserActivityItem `json:"activities"`
 	Total      int64               `json:"total"`
-	Pagination Pagination          `json:"pagination"`
+	Pagination PaginationInfo      `json:"pagination"`
 }
 
 // UserActivityItem represents user activity item
@@ -435,10 +435,10 @@ func (uc *userUseCase) Login(ctx context.Context, req LoginRequest) (*LoginRespo
 		ID:           uuid.New(),
 		UserID:       user.ID,
 		SessionToken: token,
-		DeviceInfo:   "", // TODO: Extract from request
+		DeviceInfo:   "",          // TODO: Extract from request
 		IPAddress:    "127.0.0.1", // Default IP for now, TODO: Extract from request
-		UserAgent:    "", // TODO: Extract from request
-		Location:     "", // TODO: Extract from request
+		UserAgent:    "",          // TODO: Extract from request
+		Location:     "",          // TODO: Extract from request
 		IsActive:     true,
 		LastActivity: time.Now(),
 		ExpiresAt:    time.Now().Add(time.Hour * 24),
@@ -657,17 +657,13 @@ func (uc *userUseCase) GetUserSessions(ctx context.Context, userID uuid.UUID, li
 	// Get total count (simplified)
 	total := int64(len(sessions))
 
+	// Create pagination info using the standardized function
+	pagination := NewPaginationInfoFromOffset(offset, limit, total)
+
 	return &UserSessionsResponse{
-		Sessions: sessionResponses,
-		Total:    total,
-		Pagination: Pagination{
-			Page:       (offset / limit) + 1,
-			Limit:      limit,
-			Total:      total,
-			TotalPages: int((total + int64(limit) - 1) / int64(limit)),
-			HasNext:    offset+limit < int(total),
-			HasPrev:    offset > 0,
-		},
+		Sessions:   sessionResponses,
+		Total:      total,
+		Pagination: *pagination,
 	}, nil
 }
 
@@ -1549,25 +1545,25 @@ func (uc *userUseCase) GetPersonalization(ctx context.Context, userID uuid.UUID)
 	// TODO: Implement personalization retrieval from repository
 	// For now, return default personalization
 	return &PersonalizationResponse{
-		ID:                   uuid.New(),
-		UserID:               userID,
-		CategoryPreferences:  make(map[string]float64),
-		BrandPreferences:     make(map[string]float64),
+		ID:                  uuid.New(),
+		UserID:              userID,
+		CategoryPreferences: make(map[string]float64),
+		BrandPreferences:    make(map[string]float64),
 		PriceRangePreference: PriceRangePreference{
 			MinPrice: 0,
 			MaxPrice: 1000,
 			Currency: "USD",
 		},
-		AverageOrderValue:    0,
+		AverageOrderValue:     0,
 		PreferredShoppingTime: "evening",
-		ShoppingFrequency:    "weekly",
-		RecommendationEngine: "collaborative",
-		PersonalizationLevel: "medium",
-		TotalViews:           0,
-		TotalSearches:        0,
-		UniqueProductsViewed: 0,
-		CreatedAt:            time.Now(),
-		UpdatedAt:            time.Now(),
+		ShoppingFrequency:     "weekly",
+		RecommendationEngine:  "collaborative",
+		PersonalizationLevel:  "medium",
+		TotalViews:            0,
+		TotalSearches:         0,
+		UniqueProductsViewed:  0,
+		CreatedAt:             time.Now(),
+		UpdatedAt:             time.Now(),
 	}, nil
 }
 
@@ -1698,15 +1694,15 @@ func (uc *userUseCase) GetProfileAnalytics(ctx context.Context, userID uuid.UUID
 	return &ProfileAnalyticsResponse{
 		UserID: userID,
 		Overview: struct {
-			TotalViews           int       `json:"total_views"`
-			TotalSearches        int       `json:"total_searches"`
-			TotalOrders          int       `json:"total_orders"`
-			TotalSpent           float64   `json:"total_spent"`
-			AverageOrderValue    float64   `json:"average_order_value"`
-			LastActivity         time.Time `json:"last_activity"`
-			MemberSince          time.Time `json:"member_since"`
-			EngagementScore      float64   `json:"engagement_score"`
-			LoyaltyScore         float64   `json:"loyalty_score"`
+			TotalViews        int       `json:"total_views"`
+			TotalSearches     int       `json:"total_searches"`
+			TotalOrders       int       `json:"total_orders"`
+			TotalSpent        float64   `json:"total_spent"`
+			AverageOrderValue float64   `json:"average_order_value"`
+			LastActivity      time.Time `json:"last_activity"`
+			MemberSince       time.Time `json:"member_since"`
+			EngagementScore   float64   `json:"engagement_score"`
+			LoyaltyScore      float64   `json:"loyalty_score"`
 		}{
 			TotalViews:        0,
 			TotalSearches:     0,
@@ -1766,13 +1762,13 @@ func (uc *userUseCase) GetActivitySummary(ctx context.Context, userID uuid.UUID,
 			EndDate:   now,
 		},
 		Summary: struct {
-			Views         int     `json:"views"`
-			Searches      int     `json:"searches"`
-			Orders        int     `json:"orders"`
-			AmountSpent   float64 `json:"amount_spent"`
-			TimeSpent     int     `json:"time_spent"`
-			PagesVisited  int     `json:"pages_visited"`
-			UniqueProducts int    `json:"unique_products"`
+			Views          int     `json:"views"`
+			Searches       int     `json:"searches"`
+			Orders         int     `json:"orders"`
+			AmountSpent    float64 `json:"amount_spent"`
+			TimeSpent      int     `json:"time_spent"`
+			PagesVisited   int     `json:"pages_visited"`
+			UniqueProducts int     `json:"unique_products"`
 		}{
 			Views:          0,
 			Searches:       0,
@@ -1789,13 +1785,13 @@ func (uc *userUseCase) GetActivitySummary(ctx context.Context, userID uuid.UUID,
 
 // Search history request/response types
 type TrackSearchRequest struct {
-	UserID    uuid.UUID `json:"user_id" validate:"required"`
-	Query     string    `json:"query" validate:"required"`
+	UserID    uuid.UUID              `json:"user_id" validate:"required"`
+	Query     string                 `json:"query" validate:"required"`
 	Filters   map[string]interface{} `json:"filters,omitempty"`
-	Results   int       `json:"results"`
-	Clicked   bool      `json:"clicked"`
-	IPAddress string    `json:"ip_address,omitempty"`
-	UserAgent string    `json:"user_agent,omitempty"`
+	Results   int                    `json:"results"`
+	Clicked   bool                   `json:"clicked"`
+	IPAddress string                 `json:"ip_address,omitempty"`
+	UserAgent string                 `json:"user_agent,omitempty"`
 }
 
 type SearchHistoryRequest struct {
@@ -1832,36 +1828,36 @@ type PopularSearchItem struct {
 
 // Saved searches request/response types
 type CreateSavedSearchRequest struct {
-	UserID         uuid.UUID              `json:"user_id" validate:"required"`
-	Name           string                 `json:"name" validate:"required"`
-	Query          string                 `json:"query" validate:"required"`
-	Filters        map[string]interface{} `json:"filters,omitempty"`
-	PriceAlert     bool                   `json:"price_alert"`
-	StockAlert     bool                   `json:"stock_alert"`
-	NewItemAlert   bool                   `json:"new_item_alert"`
-	MaxPrice       *float64               `json:"max_price,omitempty"`
-	MinPrice       *float64               `json:"min_price,omitempty"`
-	EmailNotify    bool                   `json:"email_notify"`
-	PushNotify     bool                   `json:"push_notify"`
+	UserID       uuid.UUID              `json:"user_id" validate:"required"`
+	Name         string                 `json:"name" validate:"required"`
+	Query        string                 `json:"query" validate:"required"`
+	Filters      map[string]interface{} `json:"filters,omitempty"`
+	PriceAlert   bool                   `json:"price_alert"`
+	StockAlert   bool                   `json:"stock_alert"`
+	NewItemAlert bool                   `json:"new_item_alert"`
+	MaxPrice     *float64               `json:"max_price,omitempty"`
+	MinPrice     *float64               `json:"min_price,omitempty"`
+	EmailNotify  bool                   `json:"email_notify"`
+	PushNotify   bool                   `json:"push_notify"`
 }
 
 type SavedSearchResponse struct {
-	ID             uuid.UUID              `json:"id"`
-	Name           string                 `json:"name"`
-	Query          string                 `json:"query"`
-	Filters        map[string]interface{} `json:"filters,omitempty"`
-	IsActive       bool                   `json:"is_active"`
-	PriceAlert     bool                   `json:"price_alert"`
-	StockAlert     bool                   `json:"stock_alert"`
-	NewItemAlert   bool                   `json:"new_item_alert"`
-	MaxPrice       *float64               `json:"max_price,omitempty"`
-	MinPrice       *float64               `json:"min_price,omitempty"`
-	EmailNotify    bool                   `json:"email_notify"`
-	PushNotify     bool                   `json:"push_notify"`
-	LastChecked    *time.Time             `json:"last_checked,omitempty"`
-	LastNotified   *time.Time             `json:"last_notified,omitempty"`
-	CreatedAt      time.Time              `json:"created_at"`
-	UpdatedAt      time.Time              `json:"updated_at"`
+	ID           uuid.UUID              `json:"id"`
+	Name         string                 `json:"name"`
+	Query        string                 `json:"query"`
+	Filters      map[string]interface{} `json:"filters,omitempty"`
+	IsActive     bool                   `json:"is_active"`
+	PriceAlert   bool                   `json:"price_alert"`
+	StockAlert   bool                   `json:"stock_alert"`
+	NewItemAlert bool                   `json:"new_item_alert"`
+	MaxPrice     *float64               `json:"max_price,omitempty"`
+	MinPrice     *float64               `json:"min_price,omitempty"`
+	EmailNotify  bool                   `json:"email_notify"`
+	PushNotify   bool                   `json:"push_notify"`
+	LastChecked  *time.Time             `json:"last_checked,omitempty"`
+	LastNotified *time.Time             `json:"last_notified,omitempty"`
+	CreatedAt    time.Time              `json:"created_at"`
+	UpdatedAt    time.Time              `json:"updated_at"`
 }
 
 type GetSavedSearchesRequest struct {
@@ -1876,19 +1872,19 @@ type GetSavedSearchesResponse struct {
 }
 
 type UpdateSavedSearchRequest struct {
-	UserID         uuid.UUID              `json:"user_id" validate:"required"`
-	SavedSearchID  uuid.UUID              `json:"saved_search_id" validate:"required"`
-	Name           *string                `json:"name,omitempty"`
-	Query          *string                `json:"query,omitempty"`
-	Filters        map[string]interface{} `json:"filters,omitempty"`
-	IsActive       *bool                  `json:"is_active,omitempty"`
-	PriceAlert     *bool                  `json:"price_alert,omitempty"`
-	StockAlert     *bool                  `json:"stock_alert,omitempty"`
-	NewItemAlert   *bool                  `json:"new_item_alert,omitempty"`
-	MaxPrice       *float64               `json:"max_price,omitempty"`
-	MinPrice       *float64               `json:"min_price,omitempty"`
-	EmailNotify    *bool                  `json:"email_notify,omitempty"`
-	PushNotify     *bool                  `json:"push_notify,omitempty"`
+	UserID        uuid.UUID              `json:"user_id" validate:"required"`
+	SavedSearchID uuid.UUID              `json:"saved_search_id" validate:"required"`
+	Name          *string                `json:"name,omitempty"`
+	Query         *string                `json:"query,omitempty"`
+	Filters       map[string]interface{} `json:"filters,omitempty"`
+	IsActive      *bool                  `json:"is_active,omitempty"`
+	PriceAlert    *bool                  `json:"price_alert,omitempty"`
+	StockAlert    *bool                  `json:"stock_alert,omitempty"`
+	NewItemAlert  *bool                  `json:"new_item_alert,omitempty"`
+	MaxPrice      *float64               `json:"max_price,omitempty"`
+	MinPrice      *float64               `json:"min_price,omitempty"`
+	EmailNotify   *bool                  `json:"email_notify,omitempty"`
+	PushNotify    *bool                  `json:"push_notify,omitempty"`
 }
 
 type SavedSearchExecutionResponse struct {
@@ -1925,46 +1921,46 @@ type BrowsingHistoryResponse struct {
 }
 
 type BrowsingHistoryItem struct {
-	ID           uuid.UUID `json:"id"`
-	ProductID    uuid.UUID `json:"product_id"`
-	ProductName  string    `json:"product_name"`
-	ProductImage string    `json:"product_image,omitempty"`
+	ID           uuid.UUID  `json:"id"`
+	ProductID    uuid.UUID  `json:"product_id"`
+	ProductName  string     `json:"product_name"`
+	ProductImage string     `json:"product_image,omitempty"`
 	CategoryID   *uuid.UUID `json:"category_id,omitempty"`
-	CategoryName string    `json:"category_name,omitempty"`
-	ViewDuration int       `json:"view_duration"`
-	Source       string    `json:"source"`
-	CreatedAt    time.Time `json:"created_at"`
+	CategoryName string     `json:"category_name,omitempty"`
+	ViewDuration int        `json:"view_duration"`
+	Source       string     `json:"source"`
+	CreatedAt    time.Time  `json:"created_at"`
 }
 
 // Personalization request/response types
 type PersonalizationResponse struct {
-	ID                   uuid.UUID              `json:"id"`
-	UserID               uuid.UUID              `json:"user_id"`
-	CategoryPreferences  map[string]float64     `json:"category_preferences"`
-	BrandPreferences     map[string]float64     `json:"brand_preferences"`
-	PriceRangePreference PriceRangePreference   `json:"price_range_preference"`
-	AverageOrderValue    float64                `json:"average_order_value"`
-	PreferredShoppingTime string                `json:"preferred_shopping_time"`
-	ShoppingFrequency    string                 `json:"shopping_frequency"`
-	RecommendationEngine string                 `json:"recommendation_engine"`
-	PersonalizationLevel string                 `json:"personalization_level"`
-	TotalViews           int                    `json:"total_views"`
-	TotalSearches        int                    `json:"total_searches"`
-	UniqueProductsViewed int                    `json:"unique_products_viewed"`
-	LastAnalyzed         *time.Time             `json:"last_analyzed,omitempty"`
-	CreatedAt            time.Time              `json:"created_at"`
-	UpdatedAt            time.Time              `json:"updated_at"`
+	ID                    uuid.UUID            `json:"id"`
+	UserID                uuid.UUID            `json:"user_id"`
+	CategoryPreferences   map[string]float64   `json:"category_preferences"`
+	BrandPreferences      map[string]float64   `json:"brand_preferences"`
+	PriceRangePreference  PriceRangePreference `json:"price_range_preference"`
+	AverageOrderValue     float64              `json:"average_order_value"`
+	PreferredShoppingTime string               `json:"preferred_shopping_time"`
+	ShoppingFrequency     string               `json:"shopping_frequency"`
+	RecommendationEngine  string               `json:"recommendation_engine"`
+	PersonalizationLevel  string               `json:"personalization_level"`
+	TotalViews            int                  `json:"total_views"`
+	TotalSearches         int                  `json:"total_searches"`
+	UniqueProductsViewed  int                  `json:"unique_products_viewed"`
+	LastAnalyzed          *time.Time           `json:"last_analyzed,omitempty"`
+	CreatedAt             time.Time            `json:"created_at"`
+	UpdatedAt             time.Time            `json:"updated_at"`
 }
 
 type UpdatePersonalizationRequest struct {
-	UserID                uuid.UUID              `json:"user_id" validate:"required"`
-	CategoryPreferences   map[string]float64     `json:"category_preferences,omitempty"`
-	BrandPreferences      map[string]float64     `json:"brand_preferences,omitempty"`
-	PriceRangePreference  *PriceRangePreference  `json:"price_range_preference,omitempty"`
-	PreferredShoppingTime *string                `json:"preferred_shopping_time,omitempty"`
-	ShoppingFrequency     *string                `json:"shopping_frequency,omitempty"`
-	RecommendationEngine  *string                `json:"recommendation_engine,omitempty"`
-	PersonalizationLevel  *string                `json:"personalization_level,omitempty"`
+	UserID                uuid.UUID             `json:"user_id" validate:"required"`
+	CategoryPreferences   map[string]float64    `json:"category_preferences,omitempty"`
+	BrandPreferences      map[string]float64    `json:"brand_preferences,omitempty"`
+	PriceRangePreference  *PriceRangePreference `json:"price_range_preference,omitempty"`
+	PreferredShoppingTime *string               `json:"preferred_shopping_time,omitempty"`
+	ShoppingFrequency     *string               `json:"shopping_frequency,omitempty"`
+	RecommendationEngine  *string               `json:"recommendation_engine,omitempty"`
+	PersonalizationLevel  *string               `json:"personalization_level,omitempty"`
 }
 
 type PriceRangePreference struct {
@@ -1974,42 +1970,42 @@ type PriceRangePreference struct {
 }
 
 type PersonalizedRecommendationsRequest struct {
-	UserID     uuid.UUID `json:"user_id" validate:"required"`
-	Type       string    `json:"type"` // products, categories, brands
-	Limit      int       `json:"limit,omitempty"`
-	CategoryID *uuid.UUID `json:"category_id,omitempty"`
+	UserID     uuid.UUID   `json:"user_id" validate:"required"`
+	Type       string      `json:"type"` // products, categories, brands
+	Limit      int         `json:"limit,omitempty"`
+	CategoryID *uuid.UUID  `json:"category_id,omitempty"`
 	Exclude    []uuid.UUID `json:"exclude,omitempty"` // Exclude specific items
 }
 
 type PersonalizedRecommendationsResponse struct {
-	Type            string                    `json:"type"`
+	Type            string                       `json:"type"`
 	Recommendations []PersonalizedRecommendation `json:"recommendations"`
-	Algorithm       string                    `json:"algorithm"`
-	GeneratedAt     time.Time                 `json:"generated_at"`
+	Algorithm       string                       `json:"algorithm"`
+	GeneratedAt     time.Time                    `json:"generated_at"`
 }
 
 type PersonalizedRecommendation struct {
-	ID          uuid.UUID `json:"id"`
-	Type        string    `json:"type"` // product, category, brand
-	Name        string    `json:"name"`
-	Description string    `json:"description,omitempty"`
-	Image       string    `json:"image,omitempty"`
-	Price       *float64  `json:"price,omitempty"`
-	Score       float64   `json:"score"`
-	Reason      string    `json:"reason"`
+	ID          uuid.UUID              `json:"id"`
+	Type        string                 `json:"type"` // product, category, brand
+	Name        string                 `json:"name"`
+	Description string                 `json:"description,omitempty"`
+	Image       string                 `json:"image,omitempty"`
+	Price       *float64               `json:"price,omitempty"`
+	Score       float64                `json:"score"`
+	Reason      string                 `json:"reason"`
 	Metadata    map[string]interface{} `json:"metadata,omitempty"`
 }
 
 type UserBehaviorAnalysisResponse struct {
-	UserID           uuid.UUID                `json:"user_id"`
-	TopCategories    []CategoryPreference     `json:"top_categories"`
-	TopBrands        []BrandPreference        `json:"top_brands"`
-	PriceAnalysis    PriceAnalysis            `json:"price_analysis"`
-	ShoppingPatterns ShoppingPatterns         `json:"shopping_patterns"`
-	EngagementScore  float64                  `json:"engagement_score"`
-	LoyaltyScore     float64                  `json:"loyalty_score"`
-	Insights         []BehaviorInsight        `json:"insights"`
-	AnalyzedAt       time.Time                `json:"analyzed_at"`
+	UserID           uuid.UUID            `json:"user_id"`
+	TopCategories    []CategoryPreference `json:"top_categories"`
+	TopBrands        []BrandPreference    `json:"top_brands"`
+	PriceAnalysis    PriceAnalysis        `json:"price_analysis"`
+	ShoppingPatterns ShoppingPatterns     `json:"shopping_patterns"`
+	EngagementScore  float64              `json:"engagement_score"`
+	LoyaltyScore     float64              `json:"loyalty_score"`
+	Insights         []BehaviorInsight    `json:"insights"`
+	AnalyzedAt       time.Time            `json:"analyzed_at"`
 }
 
 type CategoryPreference struct {
@@ -2037,34 +2033,34 @@ type PriceAnalysis struct {
 }
 
 type ShoppingPatterns struct {
-	PreferredDays       []string `json:"preferred_days"`
-	PreferredHours      []int    `json:"preferred_hours"`
+	PreferredDays        []string `json:"preferred_days"`
+	PreferredHours       []int    `json:"preferred_hours"`
 	AverageSessionLength float64  `json:"average_session_length"`
-	PagesPerSession     float64  `json:"average_pages_per_session"`
-	ConversionRate      float64  `json:"conversion_rate"`
+	PagesPerSession      float64  `json:"average_pages_per_session"`
+	ConversionRate       float64  `json:"conversion_rate"`
 }
 
 type BehaviorInsight struct {
-	Type        string    `json:"type"` // trend, preference, opportunity
-	Title       string    `json:"title"`
-	Description string    `json:"description"`
-	Confidence  float64   `json:"confidence"`
-	ActionItems []string  `json:"action_items,omitempty"`
+	Type        string   `json:"type"` // trend, preference, opportunity
+	Title       string   `json:"title"`
+	Description string   `json:"description"`
+	Confidence  float64  `json:"confidence"`
+	ActionItems []string `json:"action_items,omitempty"`
 }
 
 // Profile analytics request/response types
 type ProfileAnalyticsResponse struct {
 	UserID   uuid.UUID `json:"user_id"`
 	Overview struct {
-		TotalViews           int       `json:"total_views"`
-		TotalSearches        int       `json:"total_searches"`
-		TotalOrders          int       `json:"total_orders"`
-		TotalSpent           float64   `json:"total_spent"`
-		AverageOrderValue    float64   `json:"average_order_value"`
-		LastActivity         time.Time `json:"last_activity"`
-		MemberSince          time.Time `json:"member_since"`
-		EngagementScore      float64   `json:"engagement_score"`
-		LoyaltyScore         float64   `json:"loyalty_score"`
+		TotalViews        int       `json:"total_views"`
+		TotalSearches     int       `json:"total_searches"`
+		TotalOrders       int       `json:"total_orders"`
+		TotalSpent        float64   `json:"total_spent"`
+		AverageOrderValue float64   `json:"average_order_value"`
+		LastActivity      time.Time `json:"last_activity"`
+		MemberSince       time.Time `json:"member_since"`
+		EngagementScore   float64   `json:"engagement_score"`
+		LoyaltyScore      float64   `json:"loyalty_score"`
 	} `json:"overview"`
 
 	ActivityTrends []ActivityTrendData `json:"activity_trends"`
@@ -2072,11 +2068,11 @@ type ProfileAnalyticsResponse struct {
 	TopBrands      []BrandStats        `json:"top_brands"`
 
 	Preferences struct {
-		Theme                string  `json:"theme"`
-		Language             string  `json:"language"`
-		Currency             string  `json:"currency"`
-		NotificationsEnabled bool    `json:"notifications_enabled"`
-		PersonalizationLevel string  `json:"personalization_level"`
+		Theme                string `json:"theme"`
+		Language             string `json:"language"`
+		Currency             string `json:"currency"`
+		NotificationsEnabled bool   `json:"notifications_enabled"`
+		PersonalizationLevel string `json:"personalization_level"`
 	} `json:"preferences"`
 }
 
@@ -2089,13 +2085,13 @@ type ActivitySummaryResponse struct {
 	} `json:"period"`
 
 	Summary struct {
-		Views         int     `json:"views"`
-		Searches      int     `json:"searches"`
-		Orders        int     `json:"orders"`
-		AmountSpent   float64 `json:"amount_spent"`
-		TimeSpent     int     `json:"time_spent"` // in minutes
-		PagesVisited  int     `json:"pages_visited"`
-		UniqueProducts int    `json:"unique_products"`
+		Views          int     `json:"views"`
+		Searches       int     `json:"searches"`
+		Orders         int     `json:"orders"`
+		AmountSpent    float64 `json:"amount_spent"`
+		TimeSpent      int     `json:"time_spent"` // in minutes
+		PagesVisited   int     `json:"pages_visited"`
+		UniqueProducts int     `json:"unique_products"`
 	} `json:"summary"`
 
 	DailyActivity []DailyActivityData `json:"daily_activity"`
@@ -2103,11 +2099,11 @@ type ActivitySummaryResponse struct {
 }
 
 type ActivityTrendData struct {
-	Date   time.Time `json:"date"`
-	Views  int       `json:"views"`
-	Searches int     `json:"searches"`
-	Orders int       `json:"orders"`
-	Spent  float64   `json:"spent"`
+	Date     time.Time `json:"date"`
+	Views    int       `json:"views"`
+	Searches int       `json:"searches"`
+	Orders   int       `json:"orders"`
+	Spent    float64   `json:"spent"`
 }
 
 type CategoryStats struct {

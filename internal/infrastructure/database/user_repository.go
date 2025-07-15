@@ -207,11 +207,11 @@ func (r *userRepository) GetUsersWithFilters(ctx context.Context, filters reposi
 		query = query.Order("created_at DESC")
 	}
 
-	// Apply pagination
+	// Apply pagination with proper validation
 	if filters.Limit > 0 {
 		query = query.Limit(filters.Limit)
 	}
-	if filters.Offset > 0 {
+	if filters.Offset >= 0 {
 		query = query.Offset(filters.Offset)
 	}
 

@@ -165,11 +165,11 @@ func (r *orderRepository) Search(ctx context.Context, params repositories.OrderS
 	}
 	query = query.Order(orderBy)
 
-	// Apply pagination
+	// Apply pagination with proper validation
 	if params.Limit > 0 {
 		query = query.Limit(params.Limit)
 	}
-	if params.Offset > 0 {
+	if params.Offset >= 0 {
 		query = query.Offset(params.Offset)
 	}
 

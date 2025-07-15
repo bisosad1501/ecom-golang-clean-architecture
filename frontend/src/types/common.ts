@@ -35,6 +35,10 @@ export interface PaginatedResponse<T = any> {
     // SEO and UX fields
     canonical_url?: string
     page_sizes?: number[]
+
+    // Performance and caching fields
+    use_cursor?: boolean
+    cache_key?: string
   }
 }
 

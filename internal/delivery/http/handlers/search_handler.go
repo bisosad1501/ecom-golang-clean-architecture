@@ -8,6 +8,7 @@ import (
 
 	"ecom-golang-clean-architecture/internal/domain/entities"
 	"ecom-golang-clean-architecture/internal/usecases"
+
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 )
@@ -260,10 +261,10 @@ func (h *SearchHandler) FullTextSearch(c *gin.Context) {
 
 	// Parse and validate pagination
 	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
-	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "20"))
+	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "0")) // 0 means use default
 
-	// Validate and normalize pagination
-	page, limit, err := usecases.ValidateAndNormalizePagination(page, limit)
+	// Validate and normalize pagination for search
+	page, limit, err := usecases.ValidateAndNormalizePaginationForEntity(page, limit, "search")
 	if err != nil {
 		c.JSON(http.StatusBadRequest, ErrorResponse{
 			Error: err.Error(),
@@ -310,7 +311,7 @@ func (h *SearchHandler) GetSearchSuggestions(c *gin.Context) {
 
 	// Parse and validate pagination parameters
 	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
-	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "10"))
+	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "0")) // 0 means use default
 
 	// Validate and normalize pagination for search
 	page, limit, err := usecases.ValidateAndNormalizePaginationForEntity(page, limit, "search")
@@ -1193,8 +1194,6 @@ func (h *SearchHandler) EnhancedSearch(c *gin.Context) {
 		Data: response,
 	})
 }
-
-
 
 // SaveSearchHistory handles saving search history
 // @Summary Save search history

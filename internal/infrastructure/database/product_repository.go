@@ -291,11 +291,11 @@ func (r *productRepository) Search(ctx context.Context, params repositories.Prod
 	orderBy := r.buildSortOrder(params.SortBy, params.SortOrder, params.Query)
 	query = query.Order(orderBy)
 
-	// Apply pagination
+	// Apply pagination with proper validation
 	if params.Limit > 0 {
 		query = query.Limit(params.Limit)
 	}
-	if params.Offset > 0 {
+	if params.Offset >= 0 {
 		query = query.Offset(params.Offset)
 	}
 
@@ -308,6 +308,81 @@ func (r *productRepository) Search(ctx context.Context, params repositories.Prod
 func (r *productRepository) Count(ctx context.Context) (int64, error) {
 	var count int64
 	err := r.db.WithContext(ctx).Model(&entities.Product{}).Count(&count).Error
+	return count, err
+}
+
+// SearchCount counts products based on search criteria (matches Search method filters)
+func (r *productRepository) SearchCount(ctx context.Context, params repositories.ProductSearchParams) (int64, error) {
+	query := r.db.WithContext(ctx).Model(&entities.Product{})
+
+	// Apply the same filters as Search method
+	if params.Query != "" {
+		// Use PostgreSQL full-text search for better performance and relevance
+		searchVector := "to_tsvector('english', coalesce(name, '') || ' ' || coalesce(description, '') || ' ' || coalesce(short_description, '') || ' ' || coalesce(sku, '') || ' ' || coalesce(keywords, ''))"
+		searchQuery := "plainto_tsquery('english', ?)"
+
+		// Combine full-text search with ILIKE for partial matches
+		query = query.Where(
+			fmt.Sprintf("(%s @@ %s) OR name ILIKE ? OR description ILIKE ? OR sku ILIKE ?", searchVector, searchQuery),
+			params.Query, "%"+params.Query+"%", "%"+params.Query+"%", "%"+params.Query+"%",
+		)
+	}
+
+	// Enhanced category filter with recursive search (includes subcategories)
+	if params.CategoryID != nil {
+		// Get all descendant categories using recursive CTE
+		categoryQuery := `
+			WITH RECURSIVE category_tree AS (
+				-- Base case: start with the given category
+				SELECT id FROM categories WHERE id = $1 AND is_active = true
+
+				UNION ALL
+
+				-- Recursive case: find all children
+				SELECT c.id FROM categories c
+				INNER JOIN category_tree ct ON c.parent_id = ct.id
+				WHERE c.is_active = true
+			)
+			SELECT id FROM category_tree
+		`
+
+		var categoryIDs []uuid.UUID
+		rows, err := r.db.WithContext(ctx).Raw(categoryQuery, *params.CategoryID).Rows()
+		if err != nil {
+			return 0, err
+		}
+		defer rows.Close()
+
+		for rows.Next() {
+			var id uuid.UUID
+			if err := rows.Scan(&id); err != nil {
+				return 0, err
+			}
+			categoryIDs = append(categoryIDs, id)
+		}
+
+		if len(categoryIDs) > 0 {
+			query = query.Where("category_id IN ?", categoryIDs)
+		} else {
+			// If no categories found, still filter by the original category
+			query = query.Where("category_id = ?", *params.CategoryID)
+		}
+	}
+
+	if params.MinPrice != nil {
+		query = query.Where("price >= ?", *params.MinPrice)
+	}
+
+	if params.MaxPrice != nil {
+		query = query.Where("price <= ?", *params.MaxPrice)
+	}
+
+	if params.Status != nil {
+		query = query.Where("status = ?", *params.Status)
+	}
+
+	var count int64
+	err := query.Count(&count).Error
 	return count, err
 }
 
@@ -789,11 +864,11 @@ func (r *productRepository) SearchAdvanced(ctx context.Context, params repositor
 		query = query.Order("created_at DESC")
 	}
 
-	// Apply pagination
+	// Apply pagination with proper validation
 	if params.Limit > 0 {
 		query = query.Limit(params.Limit)
 	}
-	if params.Offset > 0 {
+	if params.Offset >= 0 {
 		query = query.Offset(params.Offset)
 	}
 

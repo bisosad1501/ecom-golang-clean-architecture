@@ -5,6 +5,7 @@ import (
 	"strconv"
 
 	"ecom-golang-clean-architecture/internal/usecases"
+
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 )
@@ -52,7 +53,7 @@ func (h *WishlistHandler) GetWishlist(c *gin.Context) {
 
 	// Parse and validate pagination parameters
 	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
-	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "12"))
+	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "0")) // 0 means use default
 
 	// Validate and normalize pagination for wishlist
 	page, limit, err = usecases.ValidateAndNormalizePaginationForEntity(page, limit, "wishlist")

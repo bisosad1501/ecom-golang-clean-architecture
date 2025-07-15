@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"ecom-golang-clean-architecture/internal/usecases"
+
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 )
@@ -99,16 +100,16 @@ func (h *ProductHandler) GetProduct(c *gin.Context) {
 // @Accept json
 // @Produce json
 // @Param page query int false "Page number" default(1)
-// @Param limit query int false "Items per page" default(20)
+// @Param limit query int false "Items per page" default(12)
 // @Success 200 {object} PaginatedResponse
 // @Router /products [get]
 func (h *ProductHandler) GetProducts(c *gin.Context) {
 	// Parse and validate pagination parameters
 	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
-	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "20"))
+	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "0")) // 0 means use default
 
-	// Validate and normalize pagination
-	page, limit, err := usecases.ValidateAndNormalizePagination(page, limit)
+	// Validate and normalize pagination for products
+	page, limit, err := usecases.ValidateAndNormalizePaginationForEntity(page, limit, "products")
 	if err != nil {
 		c.JSON(http.StatusBadRequest, ErrorResponse{
 			Error: err.Error(),
@@ -116,7 +117,7 @@ func (h *ProductHandler) GetProducts(c *gin.Context) {
 		return
 	}
 
-	// Convert to offset for repository
+	// Convert page to offset for repository
 	offset := (page - 1) * limit
 
 	req := usecases.GetProductsRequest{
@@ -151,17 +152,33 @@ func (h *ProductHandler) GetProducts(c *gin.Context) {
 // @Param status query string false "Product status"
 // @Param sort_by query string false "Sort by field" default(created_at)
 // @Param sort_order query string false "Sort order" default(desc)
-// @Param limit query int false "Limit" default(10)
-// @Param offset query int false "Offset" default(0)
-// @Success 200 {array} usecases.ProductResponse
+// @Param page query int false "Page number" default(1)
+// @Param limit query int false "Items per page" default(20)
+// @Success 200 {object} PaginatedResponse
 // @Router /products/search [get]
 func (h *ProductHandler) SearchProducts(c *gin.Context) {
+	// Parse and validate pagination parameters
+	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
+	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "0")) // 0 means use default
+
+	// Validate and normalize pagination for search
+	page, limit, err := usecases.ValidateAndNormalizePaginationForEntity(page, limit, "search")
+	if err != nil {
+		c.JSON(http.StatusBadRequest, ErrorResponse{
+			Error: err.Error(),
+		})
+		return
+	}
+
+	// Convert to offset for repository
+	offset := (page - 1) * limit
+
 	req := usecases.SearchProductsRequest{
 		Query:     c.Query("q"),
 		SortBy:    c.DefaultQuery("sort_by", "created_at"),
 		SortOrder: c.DefaultQuery("sort_order", "desc"),
-		Limit:     10,
-		Offset:    0,
+		Limit:     limit,
+		Offset:    offset,
 	}
 
 	if categoryIDStr := c.Query("category_id"); categoryIDStr != "" {
@@ -182,19 +199,8 @@ func (h *ProductHandler) SearchProducts(c *gin.Context) {
 		}
 	}
 
-	if limitStr := c.Query("limit"); limitStr != "" {
-		if limit, err := strconv.Atoi(limitStr); err == nil {
-			req.Limit = limit
-		}
-	}
-
-	if offsetStr := c.Query("offset"); offsetStr != "" {
-		if offset, err := strconv.Atoi(offsetStr); err == nil {
-			req.Offset = offset
-		}
-	}
-
-	products, err := h.productUseCase.SearchProducts(c.Request.Context(), req)
+	// Use the new paginated search method
+	response, err := h.productUseCase.SearchProductsPaginated(c.Request.Context(), req)
 	if err != nil {
 		c.JSON(getErrorStatusCode(err), ErrorResponse{
 			Error: err.Error(),
@@ -202,8 +208,9 @@ func (h *ProductHandler) SearchProducts(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusOK, SuccessResponse{
-		Data: products,
+	c.JSON(http.StatusOK, PaginatedResponse{
+		Data:       response.Products,
+		Pagination: response.Pagination,
 	})
 }
 
@@ -236,7 +243,7 @@ func (h *ProductHandler) UpdateProduct(c *gin.Context) {
 	// Get user info from middleware
 	userID, _ := c.Get("user_id")
 	role, _ := c.Get("role")
-	
+
 	fmt.Printf("UpdateProduct: ProductID=%s, UserID=%v, Role=%v\n", productID.String(), userID, role)
 
 	// Parse the request
@@ -307,7 +314,7 @@ func (h *ProductHandler) PatchProduct(c *gin.Context) {
 	// Get user info from middleware
 	userID, _ := c.Get("user_id")
 	role, _ := c.Get("role")
-	
+
 	fmt.Printf("PatchProduct: ProductID=%s, UserID=%v, Role=%v\n", productID.String(), userID, role)
 
 	// Parse the request
@@ -406,10 +413,23 @@ func (h *ProductHandler) GetProductsByCategory(c *gin.Context) {
 		return
 	}
 
-	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "10"))
-	offset, _ := strconv.Atoi(c.DefaultQuery("offset", "0"))
+	// Parse and validate pagination parameters
+	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
+	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "0")) // 0 means use default
 
-	products, err := h.productUseCase.GetProductsByCategory(c.Request.Context(), categoryID, limit, offset)
+	// Validate and normalize pagination for products
+	page, limit, err = usecases.ValidateAndNormalizePaginationForEntity(page, limit, "products")
+	if err != nil {
+		c.JSON(http.StatusBadRequest, ErrorResponse{
+			Error: err.Error(),
+		})
+		return
+	}
+
+	// Convert to offset for repository
+	offset := (page - 1) * limit
+
+	response, err := h.productUseCase.GetProductsByCategory(c.Request.Context(), categoryID, limit, offset)
 	if err != nil {
 		c.JSON(getErrorStatusCode(err), ErrorResponse{
 			Error: err.Error(),
@@ -417,8 +437,9 @@ func (h *ProductHandler) GetProductsByCategory(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusOK, SuccessResponse{
-		Data: products,
+	c.JSON(http.StatusOK, PaginatedResponse{
+		Data:       response.Products,
+		Pagination: response.Pagination,
 	})
 }
 
@@ -481,12 +502,12 @@ func (h *ProductHandler) validateUpdateProductRequest(req *usecases.UpdateProduc
 			return fmt.Errorf("name cannot exceed 255 characters")
 		}
 	}
-	
+
 	// Validate description
 	if req.Description != nil && len(*req.Description) > 2000 {
 		return fmt.Errorf("description cannot exceed 2000 characters")
 	}
-	
+
 	// Validate price fields (validation moved to usecase for better business logic)
 	// Keep basic validation here for early feedback
 	if req.Price != nil && *req.Price <= 0 {
@@ -498,17 +519,17 @@ func (h *ProductHandler) validateUpdateProductRequest(req *usecases.UpdateProduc
 	if req.CostPrice != nil && *req.CostPrice < 0 {
 		return fmt.Errorf("cost price cannot be negative")
 	}
-	
+
 	// Validate stock
 	if req.Stock != nil && *req.Stock < 0 {
 		return fmt.Errorf("stock cannot be negative")
 	}
-	
+
 	// Validate weight
 	if req.Weight != nil && *req.Weight <= 0 {
 		return fmt.Errorf("weight must be greater than 0")
 	}
-	
+
 	// Validate dimensions
 	if req.Dimensions != nil {
 		if req.Dimensions.Length <= 0 {
@@ -521,7 +542,7 @@ func (h *ProductHandler) validateUpdateProductRequest(req *usecases.UpdateProduc
 			return fmt.Errorf("dimension height must be greater than 0")
 		}
 	}
-	
+
 	// Validate images
 	if req.Images != nil {
 		if len(req.Images) > 10 { // Reasonable limit
@@ -539,7 +560,7 @@ func (h *ProductHandler) validateUpdateProductRequest(req *usecases.UpdateProduc
 			}
 		}
 	}
-	
+
 	// Validate tags
 	if req.Tags != nil {
 		if len(req.Tags) > 20 { // Reasonable limit
@@ -554,16 +575,16 @@ func (h *ProductHandler) validateUpdateProductRequest(req *usecases.UpdateProduc
 			}
 		}
 	}
-	
+
 	// Validate that at least one field is being updated
-	if req.Name == nil && req.Description == nil && req.Price == nil && 
-	   req.ComparePrice == nil && req.CostPrice == nil && req.Stock == nil &&
-	   req.Weight == nil && req.CategoryID == nil && req.Status == nil &&
-	   req.IsDigital == nil && req.Dimensions == nil && req.Images == nil &&
-	   req.Tags == nil {
+	if req.Name == nil && req.Description == nil && req.Price == nil &&
+		req.ComparePrice == nil && req.CostPrice == nil && req.Stock == nil &&
+		req.Weight == nil && req.CategoryID == nil && req.Status == nil &&
+		req.IsDigital == nil && req.Dimensions == nil && req.Images == nil &&
+		req.Tags == nil {
 		return fmt.Errorf("at least one field must be provided for update")
 	}
-	
+
 	return nil
 }
 
@@ -578,12 +599,12 @@ func (h *ProductHandler) validatePatchProductRequest(req *usecases.PatchProductR
 			return fmt.Errorf("name cannot exceed 255 characters")
 		}
 	}
-	
+
 	// Validate description if provided
 	if req.Description != nil && len(*req.Description) > 2000 {
 		return fmt.Errorf("description cannot exceed 2000 characters")
 	}
-	
+
 	// Validate price fields if provided
 	if req.Price != nil && *req.Price <= 0 {
 		return fmt.Errorf("price must be greater than 0")
@@ -594,17 +615,17 @@ func (h *ProductHandler) validatePatchProductRequest(req *usecases.PatchProductR
 	if req.CostPrice != nil && *req.CostPrice < 0 {
 		return fmt.Errorf("cost price cannot be negative")
 	}
-	
+
 	// Validate stock if provided
 	if req.Stock != nil && *req.Stock < 0 {
 		return fmt.Errorf("stock cannot be negative")
 	}
-	
+
 	// Validate weight if provided
 	if req.Weight != nil && *req.Weight <= 0 {
 		return fmt.Errorf("weight must be greater than 0")
 	}
-	
+
 	// Validate dimensions if provided
 	if req.Dimensions != nil {
 		if req.Dimensions.Length <= 0 {
@@ -617,7 +638,7 @@ func (h *ProductHandler) validatePatchProductRequest(req *usecases.PatchProductR
 			return fmt.Errorf("dimension height must be greater than 0")
 		}
 	}
-	
+
 	// Validate images if provided
 	if req.Images != nil {
 		if len(*req.Images) > 10 { // Reasonable limit
@@ -635,7 +656,7 @@ func (h *ProductHandler) validatePatchProductRequest(req *usecases.PatchProductR
 			}
 		}
 	}
-	
+
 	// Validate tags if provided
 	if req.Tags != nil {
 		if len(*req.Tags) > 20 { // Reasonable limit
@@ -650,10 +671,10 @@ func (h *ProductHandler) validatePatchProductRequest(req *usecases.PatchProductR
 			}
 		}
 	}
-	
+
 	// For PATCH, we don't require at least one field (unlike PUT)
 	// This allows for edge cases where user might want to trigger validation only
-	
+
 	return nil
 }
 
@@ -670,7 +691,7 @@ func (h *ProductHandler) validatePatchProductRequest(req *usecases.PatchProductR
 func (h *ProductHandler) GetFeaturedProducts(c *gin.Context) {
 	// Parse and validate pagination parameters
 	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
-	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "12"))
+	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "0")) // 0 means use default
 
 	// Validate and normalize pagination for products
 	page, limit, err := usecases.ValidateAndNormalizePaginationForEntity(page, limit, "products")
@@ -757,7 +778,7 @@ func (h *ProductHandler) GetRelatedProducts(c *gin.Context) {
 
 	// Parse and validate pagination parameters
 	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
-	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "12"))
+	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "0")) // 0 means use default
 
 	// Validate and normalize pagination for products
 	page, limit, err = usecases.ValidateAndNormalizePaginationForEntity(page, limit, "products")
@@ -812,7 +833,7 @@ func (h *ProductHandler) GetProductFilters(c *gin.Context) {
 			"min": 0,
 			"max": 10000,
 		},
-		"brands": []map[string]interface{}{},
+		"brands":     []map[string]interface{}{},
 		"attributes": []map[string]interface{}{},
 	}
 
@@ -938,4 +959,3 @@ func (h *ProductHandler) GetSearchHistory(c *gin.Context) {
 		Data: history,
 	})
 }
-

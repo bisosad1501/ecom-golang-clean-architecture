@@ -5,6 +5,7 @@ import (
 	"strconv"
 
 	"ecom-golang-clean-architecture/internal/usecases"
+
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 )
@@ -54,7 +55,7 @@ func (h *InventoryHandler) GetInventory(c *gin.Context) {
 
 	c.JSON(http.StatusOK, SuccessResponse{
 		Message: "Inventory retrieved successfully",
-		Data: inventory,
+		Data:    inventory,
 	})
 }
 
@@ -80,7 +81,7 @@ func (h *InventoryHandler) GetInventories(c *gin.Context) {
 
 	// Parse and validate pagination parameters
 	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
-	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "20"))
+	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "0")) // 0 means use default
 
 	// Validate and normalize pagination
 	page, limit, err = usecases.ValidateAndNormalizePagination(page, limit)
@@ -110,7 +111,7 @@ func (h *InventoryHandler) GetInventories(c *gin.Context) {
 
 	c.JSON(http.StatusOK, SuccessResponse{
 		Message: "Inventories retrieved successfully",
-		Data: inventories,
+		Data:    inventories,
 	})
 }
 
@@ -146,7 +147,7 @@ func (h *InventoryHandler) UpdateInventory(c *gin.Context) {
 
 	c.JSON(http.StatusOK, SuccessResponse{
 		Message: "Inventory updated successfully",
-		Data: inventory,
+		Data:    inventory,
 	})
 }
 
@@ -172,7 +173,7 @@ func (h *InventoryHandler) AdjustStock(c *gin.Context) {
 
 	c.JSON(http.StatusOK, SuccessResponse{
 		Message: "Stock adjusted successfully",
-		Data: movement,
+		Data:    movement,
 	})
 }
 
@@ -197,7 +198,7 @@ func (h *InventoryHandler) GetLowStockItems(c *gin.Context) {
 
 	c.JSON(http.StatusOK, SuccessResponse{
 		Message: "Low stock items retrieved successfully",
-		Data: items,
+		Data:    items,
 	})
 }
 
@@ -223,7 +224,7 @@ func (h *InventoryHandler) TransferStock(c *gin.Context) {
 
 	c.JSON(http.StatusOK, SuccessResponse{
 		Message: "Stock transferred successfully",
-		Data: nil,
+		Data:    nil,
 	})
 }
 
@@ -248,7 +249,7 @@ func (h *InventoryHandler) GetMovements(c *gin.Context) {
 
 	c.JSON(http.StatusOK, SuccessResponse{
 		Message: "Movements retrieved successfully",
-		Data: movements,
+		Data:    movements,
 	})
 }
 
@@ -274,7 +275,7 @@ func (h *InventoryHandler) RecordMovement(c *gin.Context) {
 
 	c.JSON(http.StatusCreated, SuccessResponse{
 		Message: "Movement recorded successfully",
-		Data: movement,
+		Data:    movement,
 	})
 }
 
@@ -303,7 +304,7 @@ func (h *InventoryHandler) GetStockAlerts(c *gin.Context) {
 
 	c.JSON(http.StatusOK, SuccessResponse{
 		Message: "Stock alerts retrieved successfully",
-		Data: alerts,
+		Data:    alerts,
 	})
 }
 
@@ -375,6 +376,6 @@ func (h *InventoryHandler) GetOutOfStockItems(c *gin.Context) {
 
 	c.JSON(http.StatusOK, SuccessResponse{
 		Message: "Out of stock items retrieved successfully",
-		Data: items,
+		Data:    items,
 	})
 }

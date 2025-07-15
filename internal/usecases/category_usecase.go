@@ -548,8 +548,29 @@ func (uc *categoryUseCase) GetCategories(ctx context.Context, req GetCategoriesR
 		responses[i] = uc.toCategoryResponse(category)
 	}
 
-	// Create pagination info
+	// Create pagination context
+	context := &EcommercePaginationContext{
+		EntityType: "categories",
+	}
+
+	// Create pagination info with enhanced features
 	pagination := NewPaginationInfoFromOffset(req.Offset, req.Limit, total)
+
+	// Apply ecommerce enhancements
+	if context != nil {
+		// Adjust page sizes based on entity type
+		pagination.PageSizes = []int{10, 20, 50} // List-friendly sizes for categories
+
+		// Check if cursor pagination should be used
+		pagination.UseCursor = ShouldUseCursorPagination(total, context.EntityType)
+
+		// Generate cache key
+		cacheParams := map[string]interface{}{
+			"page":  pagination.Page,
+			"limit": pagination.Limit,
+		}
+		pagination.CacheKey = GenerateCacheKey("categories", "", cacheParams)
+	}
 
 	return &GetCategoriesResponse{
 		Categories: responses,

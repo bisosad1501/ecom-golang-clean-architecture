@@ -183,7 +183,8 @@ type ProductUseCase interface {
 	DeleteProduct(ctx context.Context, id uuid.UUID) error
 	GetProducts(ctx context.Context, req GetProductsRequest) (*GetProductsResponse, error)
 	SearchProducts(ctx context.Context, req SearchProductsRequest) ([]*ProductResponse, error)
-	GetProductsByCategory(ctx context.Context, categoryID uuid.UUID, limit, offset int) ([]*ProductResponse, error)
+	SearchProductsPaginated(ctx context.Context, req SearchProductsRequest) (*GetProductsResponse, error)
+	GetProductsByCategory(ctx context.Context, categoryID uuid.UUID, limit, offset int) (*GetProductsResponse, error)
 	UpdateStock(ctx context.Context, productID uuid.UUID, stock int) error
 
 	// Search autocomplete and suggestions
@@ -1220,8 +1221,29 @@ func (uc *productUseCase) GetProducts(ctx context.Context, req GetProductsReques
 		responses[i] = uc.toProductResponse(product)
 	}
 
-	// Create pagination info
+	// Create pagination context
+	context := &EcommercePaginationContext{
+		EntityType: "products",
+	}
+
+	// Create pagination info with enhanced features
 	pagination := NewPaginationInfoFromOffset(req.Offset, req.Limit, total)
+
+	// Apply ecommerce enhancements
+	if context != nil {
+		// Adjust page sizes based on entity type
+		pagination.PageSizes = []int{12, 24, 48, 96} // Grid-friendly sizes for products
+
+		// Check if cursor pagination should be used
+		pagination.UseCursor = ShouldUseCursorPagination(total, context.EntityType)
+
+		// Generate cache key
+		cacheParams := map[string]interface{}{
+			"page":  pagination.Page,
+			"limit": pagination.Limit,
+		}
+		pagination.CacheKey = GenerateCacheKey("products", "", cacheParams)
+	}
 
 	return &GetProductsResponse{
 		Products:   responses,
@@ -1257,9 +1279,29 @@ func (uc *productUseCase) SearchProducts(ctx context.Context, req SearchProducts
 	return responses, nil
 }
 
-// GetProductsByCategory gets products by category (same as original)
-func (uc *productUseCase) GetProductsByCategory(ctx context.Context, categoryID uuid.UUID, limit, offset int) ([]*ProductResponse, error) {
-	products, err := uc.productRepo.GetByCategory(ctx, categoryID, limit, offset)
+// SearchProductsPaginated searches products with pagination info
+func (uc *productUseCase) SearchProductsPaginated(ctx context.Context, req SearchProductsRequest) (*GetProductsResponse, error) {
+	params := repositories.ProductSearchParams{
+		Query:      req.Query,
+		CategoryID: req.CategoryID,
+		MinPrice:   req.MinPrice,
+		MaxPrice:   req.MaxPrice,
+		Status:     req.Status,
+		Tags:       req.Tags,
+		SortBy:     req.SortBy,
+		SortOrder:  req.SortOrder,
+		Limit:      req.Limit,
+		Offset:     req.Offset,
+	}
+
+	// Get total count using the new SearchCount method
+	total, err := uc.productRepo.SearchCount(ctx, params)
+	if err != nil {
+		return nil, err
+	}
+
+	// Get products
+	products, err := uc.productRepo.Search(ctx, params)
 	if err != nil {
 		return nil, err
 	}
@@ -1269,7 +1311,89 @@ func (uc *productUseCase) GetProductsByCategory(ctx context.Context, categoryID 
 		responses[i] = uc.toProductResponse(product)
 	}
 
-	return responses, nil
+	// Create pagination context
+	context := &EcommercePaginationContext{
+		EntityType: "products",
+	}
+
+	// Create pagination info with enhanced features
+	pagination := NewPaginationInfoFromOffset(req.Offset, req.Limit, total)
+
+	// Apply ecommerce enhancements
+	if context != nil {
+		// Adjust page sizes based on entity type
+		pagination.PageSizes = []int{12, 24, 48, 96} // Grid-friendly sizes for products
+
+		// Check if cursor pagination should be used
+		pagination.UseCursor = ShouldUseCursorPagination(total, context.EntityType)
+
+		// Generate cache key
+		cacheParams := map[string]interface{}{
+			"page":  pagination.Page,
+			"limit": pagination.Limit,
+			"query": req.Query,
+		}
+		if req.CategoryID != nil {
+			cacheParams["category_id"] = *req.CategoryID
+		}
+		pagination.CacheKey = GenerateCacheKey("product_search", "", cacheParams)
+	}
+
+	return &GetProductsResponse{
+		Products:   responses,
+		Pagination: pagination,
+	}, nil
+}
+
+// GetProductsByCategory gets products by category with pagination
+func (uc *productUseCase) GetProductsByCategory(ctx context.Context, categoryID uuid.UUID, limit, offset int) (*GetProductsResponse, error) {
+	// Get products
+	products, err := uc.productRepo.GetByCategory(ctx, categoryID, limit, offset)
+	if err != nil {
+		return nil, err
+	}
+
+	// Get total count for the category
+	total, err := uc.productRepo.CountByCategory(ctx, categoryID)
+	if err != nil {
+		return nil, err
+	}
+
+	// Convert to responses
+	responses := make([]*ProductResponse, len(products))
+	for i, product := range products {
+		responses[i] = uc.toProductResponse(product)
+	}
+
+	// Create pagination context
+	context := &EcommercePaginationContext{
+		EntityType: "products",
+	}
+
+	// Create pagination info with enhanced features
+	pagination := NewPaginationInfoFromOffset(offset, limit, total)
+
+	// Apply ecommerce enhancements
+	if context != nil {
+		// Adjust page sizes based on entity type
+		pagination.PageSizes = []int{12, 24, 48, 96} // Grid-friendly sizes for products
+
+		// Check if cursor pagination should be used
+		pagination.UseCursor = ShouldUseCursorPagination(total, context.EntityType)
+
+		// Generate cache key
+		cacheParams := map[string]interface{}{
+			"page":        pagination.Page,
+			"limit":       pagination.Limit,
+			"category_id": categoryID.String(),
+		}
+		pagination.CacheKey = GenerateCacheKey("products_by_category", "", cacheParams)
+	}
+
+	return &GetProductsResponse{
+		Products:   responses,
+		Pagination: pagination,
+	}, nil
 }
 
 // UpdateStock updates product stock (same as original)

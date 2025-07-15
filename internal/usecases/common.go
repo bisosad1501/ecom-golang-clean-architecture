@@ -15,18 +15,18 @@ const (
 	MinLimit     = 1
 
 	// Ecommerce-specific pagination limits
-	ProductsPerPage     = 12  // Standard grid layout (3x4 or 4x3)
-	OrdersPerPage       = 10  // Order history
-	ReviewsPerPage      = 5   // Product reviews
+	ProductsPerPage      = 12 // Standard grid layout (3x4 or 4x3)
+	OrdersPerPage        = 10 // Order history
+	ReviewsPerPage       = 5  // Product reviews
 	NotificationsPerPage = 15 // User notifications
 	SearchResultsPerPage = 20 // Search results
-	WishlistPerPage     = 12  // Wishlist items
-	AdminUsersPerPage   = 25  // Admin user management
-	AdminOrdersPerPage  = 20  // Admin order management
+	WishlistPerPage      = 12 // Wishlist items
+	AdminUsersPerPage    = 25 // Admin user management
+	AdminOrdersPerPage   = 20 // Admin order management
 
 	// Large dataset limits
-	MaxSearchResults    = 1000 // Maximum search results to prevent performance issues
-	MaxOrderHistory     = 500  // Maximum order history per user
+	MaxSearchResults = 1000 // Maximum search results to prevent performance issues
+	MaxOrderHistory  = 500  // Maximum order history per user
 )
 
 // PaginationRequest represents pagination request parameters
@@ -45,10 +45,10 @@ type PaginationInfo struct {
 	HasPrev    bool  `json:"has_prev"`
 
 	// Enhanced ecommerce fields
-	StartIndex int    `json:"start_index"` // 1-based index of first item on current page
-	EndIndex   int    `json:"end_index"`   // 1-based index of last item on current page
-	NextPage   *int   `json:"next_page"`   // Next page number (null if no next page)
-	PrevPage   *int   `json:"prev_page"`   // Previous page number (null if no previous page)
+	StartIndex int  `json:"start_index"` // 1-based index of first item on current page
+	EndIndex   int  `json:"end_index"`   // 1-based index of last item on current page
+	NextPage   *int `json:"next_page"`   // Next page number (null if no next page)
+	PrevPage   *int `json:"prev_page"`   // Previous page number (null if no previous page)
 
 	// SEO and UX fields
 	CanonicalURL string `json:"canonical_url,omitempty"` // SEO canonical URL
@@ -60,15 +60,15 @@ type PaginationInfo struct {
 	UseCursor  bool    `json:"use_cursor"`            // Whether cursor pagination is being used
 
 	// Performance and caching fields
-	CacheKey    string `json:"cache_key"`    // Cache key for this pagination result
-	CacheTTL    int    `json:"cache_ttl"`    // Cache TTL in seconds
-	IsCached    bool   `json:"is_cached"`    // Whether this result is from cache
-	QueryTime   int    `json:"query_time"`   // Query execution time in milliseconds
+	CacheKey  string `json:"cache_key"`  // Cache key for this pagination result
+	CacheTTL  int    `json:"cache_ttl"`  // Cache TTL in seconds
+	IsCached  bool   `json:"is_cached"`  // Whether this result is from cache
+	QueryTime int    `json:"query_time"` // Query execution time in milliseconds
 }
 
 // EcommercePaginationContext provides context for business logic
 type EcommercePaginationContext struct {
-	EntityType    string `json:"entity_type"`    // "products", "orders", "reviews", etc.
+	EntityType    string `json:"entity_type"` // "products", "orders", "reviews", etc.
 	UserID        string `json:"user_id,omitempty"`
 	CategoryID    string `json:"category_id,omitempty"`
 	SearchQuery   string `json:"search_query,omitempty"`
@@ -102,7 +102,7 @@ func ValidateAndNormalizePaginationForEntity(page, limit int, entityType string)
 		page = 1
 	}
 
-	// Set entity-specific default limit if not provided
+	// Set entity-specific default limit if not provided or invalid
 	if limit <= 0 {
 		switch entityType {
 		case "products":
@@ -121,17 +121,21 @@ func ValidateAndNormalizePaginationForEntity(page, limit int, entityType string)
 			limit = AdminUsersPerPage
 		case "admin_orders":
 			limit = AdminOrdersPerPage
+		case "categories":
+			limit = DefaultLimit // Use default for categories
+		case "brands":
+			limit = DefaultLimit // Use default for brands
 		default:
 			limit = DefaultLimit
 		}
-	}
-
-	// Validate limit bounds
-	if limit < MinLimit {
-		limit = MinLimit
-	}
-	if limit > MaxLimit {
-		limit = MaxLimit
+	} else {
+		// Validate limit bounds for provided values
+		if limit < MinLimit {
+			limit = MinLimit
+		}
+		if limit > MaxLimit {
+			limit = MaxLimit
+		}
 	}
 
 	return page, limit, nil
@@ -144,13 +148,21 @@ func NewPaginationInfo(page, limit int, total int64) *PaginationInfo {
 
 	// Calculate total pages (ceiling division)
 	totalPages := int((total + int64(limit) - 1) / int64(limit))
-	if totalPages < 1 {
+	if totalPages < 1 && total > 0 {
 		totalPages = 1
+	} else if total == 0 {
+		totalPages = 0
 	}
 
 	// Ensure page doesn't exceed total pages
 	if page > totalPages && totalPages > 0 {
 		page = totalPages
+	}
+
+	// Handle edge case when total is 0
+	if total == 0 {
+		page = 1
+		totalPages = 0
 	}
 
 	// Calculate start and end indices (1-based)
@@ -166,30 +178,30 @@ func NewPaginationInfo(page, limit int, total int64) *PaginationInfo {
 
 	// Calculate next and previous page numbers
 	var nextPage, prevPage *int
-	if page < totalPages {
+	hasNext := page < totalPages && totalPages > 0
+	hasPrev := page > 1 && totalPages > 0
+
+	if hasNext {
 		next := page + 1
 		nextPage = &next
 	}
-	if page > 1 {
+	if hasPrev {
 		prev := page - 1
 		prevPage = &prev
 	}
-
-	// Standard page sizes for ecommerce
-	pageSizes := []int{12, 24, 48, 96}
 
 	return &PaginationInfo{
 		Page:       page,
 		Limit:      limit,
 		Total:      total,
 		TotalPages: totalPages,
-		HasNext:    page < totalPages,
-		HasPrev:    page > 1,
+		HasNext:    hasNext,
+		HasPrev:    hasPrev,
 		StartIndex: startIndex,
 		EndIndex:   endIndex,
 		NextPage:   nextPage,
 		PrevPage:   prevPage,
-		PageSizes:  pageSizes,
+		PageSizes:  []int{10, 20, 50, 100}, // Default page sizes, will be overridden by entity-specific logic
 	}
 }
 
@@ -247,11 +259,21 @@ func NewEcommercePaginationInfo(page, limit int, total int64, ctx *EcommercePagi
 		case "products":
 			pagination.PageSizes = []int{12, 24, 48, 96} // Grid-friendly sizes
 		case "orders":
-			pagination.PageSizes = []int{10, 20, 50}     // List-friendly sizes
+			pagination.PageSizes = []int{10, 20, 50} // List-friendly sizes
 		case "reviews":
-			pagination.PageSizes = []int{5, 10, 20}      // Smaller sizes for detailed content
+			pagination.PageSizes = []int{5, 10, 20} // Smaller sizes for detailed content
 		case "search":
-			pagination.PageSizes = []int{20, 40, 60}     // Search result sizes
+			pagination.PageSizes = []int{20, 40, 60} // Search result sizes
+		case "categories":
+			pagination.PageSizes = []int{10, 20, 50} // List-friendly sizes for categories
+		case "admin_users":
+			pagination.PageSizes = []int{10, 25, 50, 100} // Admin-friendly sizes
+		case "admin_orders":
+			pagination.PageSizes = []int{10, 20, 50} // List-friendly sizes for admin orders
+		case "brands":
+			pagination.PageSizes = []int{10, 20, 50, 100} // Default sizes for brands
+		case "notifications":
+			pagination.PageSizes = []int{10, 15, 30} // Notification-friendly sizes
 		default:
 			pagination.PageSizes = []int{10, 20, 50, 100}
 		}
@@ -281,6 +303,53 @@ func NewEcommercePaginationInfo(page, limit int, total int64, ctx *EcommercePagi
 	}
 
 	return pagination
+}
+
+// ApplyEcommerceEnhancements applies entity-specific enhancements to pagination
+func ApplyEcommerceEnhancements(pagination *PaginationInfo, entityType string, userID string, extraParams map[string]interface{}) {
+	if pagination == nil {
+		return
+	}
+
+	// Adjust page sizes based on entity type
+	switch entityType {
+	case "products":
+		pagination.PageSizes = []int{12, 24, 48, 96} // Grid-friendly sizes
+	case "orders":
+		pagination.PageSizes = []int{10, 20, 50} // List-friendly sizes
+	case "reviews":
+		pagination.PageSizes = []int{5, 10, 20} // Smaller sizes for detailed content
+	case "search":
+		pagination.PageSizes = []int{20, 40, 60} // Search result sizes
+	case "categories":
+		pagination.PageSizes = []int{10, 20, 50} // List-friendly sizes for categories
+	case "admin_users":
+		pagination.PageSizes = []int{10, 25, 50, 100} // Admin-friendly sizes
+	case "admin_orders":
+		pagination.PageSizes = []int{10, 20, 50} // List-friendly sizes for admin orders
+	case "brands":
+		pagination.PageSizes = []int{10, 20, 50, 100} // Default sizes for brands
+	case "notifications":
+		pagination.PageSizes = []int{10, 15, 30} // Notification-friendly sizes
+	default:
+		pagination.PageSizes = []int{10, 20, 50, 100}
+	}
+
+	// Check if cursor pagination should be used
+	pagination.UseCursor = ShouldUseCursorPagination(pagination.Total, entityType)
+
+	// Generate cache key
+	cacheParams := map[string]interface{}{
+		"page":  pagination.Page,
+		"limit": pagination.Limit,
+	}
+
+	// Add extra parameters
+	for k, v := range extraParams {
+		cacheParams[k] = v
+	}
+
+	pagination.CacheKey = GenerateCacheKey(entityType, userID, cacheParams)
 }
 
 // ToOffset converts page-based pagination to offset
@@ -364,9 +433,9 @@ func ShouldUseCursorPagination(total int64, entityType string) bool {
 	case "products":
 		return total > 10000 // Large product catalogs
 	case "orders":
-		return total > 5000  // Large order history
+		return total > 5000 // Large order history
 	case "search":
-		return total > 1000  // Large search results
+		return total > 1000 // Large search results
 	default:
 		return total > 10000
 	}
@@ -498,5 +567,3 @@ type TopProductsResponse struct {
 	Period   string        `json:"period"`
 	Total    int64         `json:"total"`
 }
-
-

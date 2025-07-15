@@ -6,6 +6,7 @@ import (
 
 	"ecom-golang-clean-architecture/internal/domain/entities"
 	"ecom-golang-clean-architecture/internal/domain/repositories"
+
 	"github.com/google/uuid"
 	"gorm.io/gorm"
 )
@@ -79,7 +80,7 @@ func (r *brandRepository) List(ctx context.Context, limit, offset int) ([]*entit
 func (r *brandRepository) Search(ctx context.Context, query string, limit, offset int) ([]*entities.Brand, error) {
 	var brands []*entities.Brand
 	searchQuery := "%" + strings.ToLower(query) + "%"
-	
+
 	err := r.db.WithContext(ctx).
 		Where("LOWER(name) LIKE ? OR LOWER(description) LIKE ?", searchQuery, searchQuery).
 		Order("name ASC").
@@ -87,6 +88,18 @@ func (r *brandRepository) Search(ctx context.Context, query string, limit, offse
 		Offset(offset).
 		Find(&brands).Error
 	return brands, err
+}
+
+// CountSearch counts brands matching search query
+func (r *brandRepository) CountSearch(ctx context.Context, query string) (int64, error) {
+	var count int64
+	searchQuery := "%" + strings.ToLower(query) + "%"
+
+	err := r.db.WithContext(ctx).
+		Model(&entities.Brand{}).
+		Where("LOWER(name) LIKE ? OR LOWER(description) LIKE ?", searchQuery, searchQuery).
+		Count(&count).Error
+	return count, err
 }
 
 // ExistsBySlug checks if a brand exists with the given slug

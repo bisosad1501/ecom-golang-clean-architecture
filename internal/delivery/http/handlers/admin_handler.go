@@ -819,6 +819,26 @@ func (h *AdminHandler) GetOrders(c *gin.Context) {
 		return
 	}
 
+	// Handle pagination: if page is provided, calculate offset
+	if req.Page > 0 {
+		// Validate and normalize pagination for admin orders
+		page, limit, err := usecases.ValidateAndNormalizePaginationForEntity(req.Page, req.Limit, "admin_orders")
+		if err != nil {
+			c.JSON(http.StatusBadRequest, ErrorResponse{
+				Error: err.Error(),
+			})
+			return
+		}
+		req.Page = page
+		req.Limit = limit
+		req.Offset = (page - 1) * limit
+	} else if req.Offset == 0 && req.Limit == 0 {
+		// Set defaults if no pagination provided
+		req.Page = 1
+		req.Limit = 20 // AdminOrdersPerPage default
+		req.Offset = 0
+	}
+
 	orders, err := h.adminUseCase.GetOrders(c.Request.Context(), req)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, ErrorResponse{

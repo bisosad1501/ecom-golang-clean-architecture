@@ -139,6 +139,7 @@ type AdminUsersRequest struct {
 	Search    string               `json:"search,omitempty"`
 	SortBy    string               `json:"sort_by,omitempty" validate:"omitempty,oneof=name email created_at last_login"`
 	SortOrder string               `json:"sort_order,omitempty" validate:"omitempty,oneof=asc desc"`
+	Page      int                  `json:"page" validate:"min=1"`
 	Limit     int                  `json:"limit" validate:"min=1,max=100"`
 	Offset    int                  `json:"offset" validate:"min=0"`
 }
@@ -181,16 +182,17 @@ type CustomerAnalyticsRequest struct {
 }
 
 type AdminOrdersRequest struct {
-	Status        *entities.OrderStatus   `json:"status,omitempty"`
-	PaymentStatus *entities.PaymentStatus `json:"payment_status,omitempty"`
-	UserID        *uuid.UUID              `json:"user_id,omitempty"`
-	DateFrom      *time.Time              `json:"date_from,omitempty"`
-	DateTo        *time.Time              `json:"date_to,omitempty"`
-	Search        string                  `json:"search,omitempty"`
-	SortBy        string                  `json:"sort_by,omitempty" validate:"omitempty,oneof=created_at total status"`
-	SortOrder     string                  `json:"sort_order,omitempty" validate:"omitempty,oneof=asc desc"`
-	Limit         int                     `json:"limit" validate:"min=1,max=100"`
-	Offset        int                     `json:"offset" validate:"min=0"`
+	Status        *entities.OrderStatus   `json:"status,omitempty" form:"status"`
+	PaymentStatus *entities.PaymentStatus `json:"payment_status,omitempty" form:"payment_status"`
+	UserID        *uuid.UUID              `json:"user_id,omitempty" form:"user_id"`
+	DateFrom      *time.Time              `json:"date_from,omitempty" form:"date_from"`
+	DateTo        *time.Time              `json:"date_to,omitempty" form:"date_to"`
+	Search        string                  `json:"search,omitempty" form:"search"`
+	SortBy        string                  `json:"sort_by,omitempty" form:"sort_by" validate:"omitempty,oneof=created_at total status"`
+	SortOrder     string                  `json:"sort_order,omitempty" form:"sort_order" validate:"omitempty,oneof=asc desc"`
+	Page          int                     `json:"page" form:"page" validate:"min=1"`
+	Limit         int                     `json:"limit" form:"limit" validate:"min=1,max=100"`
+	Offset        int                     `json:"offset" form:"offset" validate:"min=0"`
 }
 
 type AdminProductsRequest struct {
@@ -200,6 +202,7 @@ type AdminProductsRequest struct {
 	LowStock   *bool                   `json:"low_stock,omitempty"`
 	SortBy     string                  `json:"sort_by,omitempty" validate:"omitempty,oneof=name price stock created_at"`
 	SortOrder  string                  `json:"sort_order,omitempty" validate:"omitempty,oneof=asc desc"`
+	Page       int                     `json:"page" validate:"min=1"`
 	Limit      int                     `json:"limit" validate:"min=1,max=100"`
 	Offset     int                     `json:"offset" validate:"min=0"`
 }
@@ -1368,10 +1371,29 @@ func (uc *adminUseCase) GetOrders(ctx context.Context, req AdminOrdersRequest) (
 		}
 	}
 
+	// Create pagination with ecommerce enhancements
+	pagination := NewPaginationInfoFromOffset(req.Offset, req.Limit, int64(totalCount))
+
+	// Apply ecommerce enhancements for admin orders
+	extraParams := make(map[string]interface{})
+	if req.Status != nil {
+		extraParams["status"] = *req.Status
+	}
+	if req.PaymentStatus != nil {
+		extraParams["payment_status"] = *req.PaymentStatus
+	}
+	if req.UserID != nil {
+		extraParams["user_id"] = req.UserID.String()
+	}
+	if req.Search != "" {
+		extraParams["search"] = req.Search
+	}
+	ApplyEcommerceEnhancements(pagination, "admin_orders", "", extraParams)
+
 	response := &AdminOrdersResponse{
 		Orders:     orderResponses,
 		Total:      int64(totalCount),
-		Pagination: NewPaginationInfoFromOffset(req.Offset, req.Limit, int64(totalCount)),
+		Pagination: pagination,
 	}
 
 	return response, nil

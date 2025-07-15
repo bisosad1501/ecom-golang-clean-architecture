@@ -724,8 +724,21 @@ func (uc *orderUseCase) GetUserOrdersWithFilters(ctx context.Context, userID uui
 	}
 
 	// Calculate pagination metadata using enhanced function
-	page := (req.Offset / req.Limit) + 1
-	pagination := NewEcommercePaginationInfo(page, req.Limit, totalCount, context)
+	// Use proper offset-to-page conversion
+	pagination := NewPaginationInfoFromOffset(req.Offset, req.Limit, totalCount)
+
+	// Apply ecommerce enhancements
+	if context != nil {
+		extraParams := make(map[string]interface{})
+		extraParams["user_id"] = context.UserID
+		if req.Status != nil {
+			extraParams["status"] = *req.Status
+		}
+		if req.PaymentStatus != nil {
+			extraParams["payment_status"] = *req.PaymentStatus
+		}
+		ApplyEcommerceEnhancements(pagination, context.EntityType, context.UserID, extraParams)
+	}
 
 	return &PaginatedOrderResponse{
 		Data:       responses,
@@ -907,8 +920,20 @@ func (uc *orderUseCase) GetOrders(ctx context.Context, req GetOrdersRequest) (*G
 	}
 
 	// Calculate pagination metadata using enhanced function
-	page := (req.Offset / req.Limit) + 1
-	pagination := NewEcommercePaginationInfo(page, req.Limit, totalCount, context)
+	// Use proper offset-to-page conversion
+	pagination := NewPaginationInfoFromOffset(req.Offset, req.Limit, totalCount)
+
+	// Apply ecommerce enhancements
+	if context != nil {
+		extraParams := make(map[string]interface{})
+		if req.Status != nil {
+			extraParams["status"] = *req.Status
+		}
+		if req.PaymentStatus != nil {
+			extraParams["payment_status"] = *req.PaymentStatus
+		}
+		ApplyEcommerceEnhancements(pagination, context.EntityType, "", extraParams)
+	}
 
 	return &GetOrdersResponse{
 		Orders:     responses,

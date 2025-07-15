@@ -383,7 +383,7 @@ func (r *categoryRepository) ListWithFilters(ctx context.Context, filters reposi
 	if filters.Limit > 0 {
 		query = query.Limit(filters.Limit)
 	}
-	if filters.Offset > 0 {
+	if filters.Offset >= 0 {
 		query = query.Offset(filters.Offset)
 	}
 

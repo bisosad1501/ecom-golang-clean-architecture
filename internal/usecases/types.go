@@ -403,8 +403,5 @@ type DateRangeResponse struct {
 // PaginationResponse represents pagination response (alias for consistency)
 type PaginationResponse = PaginationInfo
 
-// Pagination represents pagination information (alias for backward compatibility)
-type Pagination = PaginationInfo
-
 // Note: Notification types are defined in notification_usecase.go to avoid duplication
 // Note: Payment types are defined in payment_usecase.go to avoid duplication

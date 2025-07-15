@@ -5,6 +5,7 @@ import (
 	"strconv"
 
 	"ecom-golang-clean-architecture/internal/usecases"
+
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 )
@@ -154,7 +155,7 @@ func (h *BrandHandler) GetBrands(c *gin.Context) {
 
 	// Convert to offset for repository
 	offset := (page - 1) * limit
-	
+
 	var isActive *bool
 	if activeStr := c.Query("is_active"); activeStr != "" {
 		if active, err := strconv.ParseBool(activeStr); err == nil {
@@ -202,8 +203,21 @@ func (h *BrandHandler) SearchBrands(c *gin.Context) {
 		return
 	}
 
-	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "10"))
-	offset, _ := strconv.Atoi(c.DefaultQuery("offset", "0"))
+	// Parse and validate pagination parameters
+	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
+	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "0")) // 0 means use default
+
+	// Validate and normalize pagination for brands
+	page, limit, err := usecases.ValidateAndNormalizePaginationForEntity(page, limit, "brands")
+	if err != nil {
+		c.JSON(http.StatusBadRequest, ErrorResponse{
+			Error: err.Error(),
+		})
+		return
+	}
+
+	// Convert to offset for repository
+	offset := (page - 1) * limit
 
 	req := usecases.SearchBrandsRequest{
 		Query:  query,
@@ -235,8 +249,21 @@ func (h *BrandHandler) SearchBrands(c *gin.Context) {
 // @Success 200 {object} usecases.BrandsListResponse
 // @Router /brands/active [get]
 func (h *BrandHandler) GetActiveBrands(c *gin.Context) {
-	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "10"))
-	offset, _ := strconv.Atoi(c.DefaultQuery("offset", "0"))
+	// Parse and validate pagination parameters
+	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
+	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "0")) // 0 means use default
+
+	// Validate and normalize pagination for brands
+	page, limit, err := usecases.ValidateAndNormalizePaginationForEntity(page, limit, "brands")
+	if err != nil {
+		c.JSON(http.StatusBadRequest, ErrorResponse{
+			Error: err.Error(),
+		})
+		return
+	}
+
+	// Convert to offset for repository
+	offset := (page - 1) * limit
 
 	brands, err := h.brandUseCase.GetActiveBrands(c.Request.Context(), limit, offset)
 	if err != nil {

@@ -215,7 +215,7 @@ func (h *OrderHandler) GetUserOrders(c *gin.Context) {
 
 	// Parse and validate pagination parameters
 	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
-	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "10"))
+	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "0")) // 0 means use default
 
 	// Validate and normalize pagination for orders
 	page, limit, err := usecases.ValidateAndNormalizePaginationForEntity(page, limit, "orders")
@@ -605,10 +605,10 @@ func (h *OrderHandler) GetOrderEvents(c *gin.Context) {
 func validateCreateOrderRequest(req *usecases.CreateOrderRequest) error {
 	// Validate payment method
 	validPaymentMethods := map[entities.PaymentMethod]bool{
-		entities.PaymentMethodCreditCard: true,
-		entities.PaymentMethodDebitCard:  true,
-		entities.PaymentMethodPayPal:     true,
-		entities.PaymentMethodCash:       true,
+		entities.PaymentMethodCreditCard:   true,
+		entities.PaymentMethodDebitCard:    true,
+		entities.PaymentMethodPayPal:       true,
+		entities.PaymentMethodCash:         true,
 		entities.PaymentMethodBankTransfer: true,
 	}
 
@@ -636,12 +636,12 @@ func validateCreateOrderRequest(req *usecases.CreateOrderRequest) error {
 	if req.ShippingAddress.LastName == "" {
 		return fmt.Errorf("shipping address last name is required")
 	}
-		if req.ShippingAddress.Address1 == "" {
-			return fmt.Errorf("shipping address line 1 is required")
-		}
-		if req.ShippingAddress.City == "" {
-			return fmt.Errorf("shipping address city is required")
-		}
+	if req.ShippingAddress.Address1 == "" {
+		return fmt.Errorf("shipping address line 1 is required")
+	}
+	if req.ShippingAddress.City == "" {
+		return fmt.Errorf("shipping address city is required")
+	}
 	if req.ShippingAddress.Country == "" {
 		return fmt.Errorf("shipping address country is required")
 	}
