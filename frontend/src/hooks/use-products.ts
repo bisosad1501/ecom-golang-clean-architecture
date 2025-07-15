@@ -1,6 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { productService, ProductsParams, CreateProductRequest, UpdateProductRequest } from '@/lib/services/products'
-import { Product, PaginatedResponse } from '@/types'
+
 import { toast } from 'sonner'
 
 // Query keys
@@ -25,10 +25,8 @@ export function useProducts(params: ProductsParams = {}) {
   return useQuery({
     queryKey: productKeys.list(params),
     queryFn: async () => {
-      console.log('useProducts: Fetching products with params:', params)
       try {
         const result = await productService.getProducts(params)
-        console.log('useProducts: Successfully fetched products:', result)
         return result
       } catch (error) {
         console.error('useProducts: Error fetching products:', error)

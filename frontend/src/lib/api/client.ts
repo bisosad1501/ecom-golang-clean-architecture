@@ -1,7 +1,7 @@
 // ===== UNIFIED API CLIENT =====
 
-import { API_CONFIG, HTTP_STATUS, STORAGE_KEYS } from '@/constants'
-import type { ApiResponse, ErrorResponse } from '@/types'
+import { API_CONFIG, STORAGE_KEYS } from '@/constants'
+import type { ErrorResponse } from '@/types'
 
 // Request configuration interface
 export interface RequestConfig extends RequestInit {
@@ -85,7 +85,7 @@ export class ApiClient {
 
     // Add authorization header if token exists and not skipped
     if (this.token && !config.skipAuth) {
-      headers['Authorization'] = `Bearer ${this.token}`
+      (headers as Record<string, string>)['Authorization'] = `Bearer ${this.token}`
     }
 
     return headers
@@ -184,8 +184,8 @@ export class ApiClient {
         return null as T
       }
 
-      const data: ApiResponse<T> = await response.json()
-      
+      const data: any = await response.json()
+
       // Handle API response format
       if (data.success === false) {
         throw new ApiError(
@@ -196,7 +196,16 @@ export class ApiClient {
         )
       }
 
-      return data.data || (data as T)
+      // Handle different response formats:
+      // 1. ApiResponse format: { data: T, success: boolean, message?: string }
+      // 2. Direct response format: T (like PaginatedResponse)
+      if (data.data !== undefined && data.success !== undefined) {
+        // This is an ApiResponse wrapper
+        return data.data
+      } else {
+        // This is a direct response (like PaginatedResponse)
+        return data as T
+      }
     }
 
     return this.retryRequest(requestFn, retries)

@@ -1,5 +1,5 @@
 import { apiClient, buildQueryString, getPaginated } from '@/lib/api'
-import { Product, PaginatedResponse, ProductFilters, ApiResponse } from '@/types'
+import { ProductFilters } from '@/types'
 
 export interface ProductsParams extends ProductFilters {
   page?: number
@@ -86,8 +86,7 @@ export interface UpdateProductRequest extends Partial<CreateProductRequest> {}
 
 class ProductService {
   // Get all products with filters and pagination
-  async getProducts(params: ProductsParams = {}): Promise<PaginatedResponse<Product>> {
-    console.log('ProductService.getProducts called with params:', params)
+  async getProducts(params: ProductsParams = {}): Promise<any> {
     try {
       // Build query parameters
       const queryParams: Record<string, any> = {}
@@ -110,11 +109,15 @@ class ProductService {
       if (params.product_type) queryParams.product_type = params.product_type
       if (params.brand_id) queryParams.brand_id = params.brand_id
 
-      const response = await apiClient.get<PaginatedResponse<Product>>('/products', queryParams)
-      console.log('ProductService.getProducts response:', response)
+      // Build query string
+      const queryString = Object.keys(queryParams).length > 0
+        ? '?' + new URLSearchParams(queryParams).toString()
+        : ''
 
-      // Backend already returns the correct pagination structure
-      return response.data
+      const response = await apiClient.get(`/products${queryString}`)
+
+      // API client already returns the correct data structure
+      return response
     } catch (error) {
       console.error('ProductService.getProducts error:', error)
       throw error
@@ -122,31 +125,31 @@ class ProductService {
   }
 
   // Get single product by ID
-  async getProduct(id: string): Promise<Product> {
-    const response = await apiClient.get<Product>(`/products/${id}`)
-    return response.data
+  async getProduct(id: string): Promise<any> {
+    const response = await apiClient.get(`/products/${id}`)
+    return response
   }
 
   // Get product by slug
-  async getProductBySlug(slug: string): Promise<Product> {
-    const response = await apiClient.get<Product>(`/products/slug/${slug}`)
-    return response.data
+  async getProductBySlug(slug: string): Promise<any> {
+    const response = await apiClient.get(`/products/slug/${slug}`)
+    return response
   }
 
   // Get featured products
-  async getFeaturedProducts(limit = 8): Promise<Product[]> {
-    const response = await apiClient.get<Product[]>(`/products/featured?limit=${limit}`)
-    return response.data || []
+  async getFeaturedProducts(limit = 8): Promise<any> {
+    const response = await apiClient.get(`/products/featured?limit=${limit}`)
+    return response || []
   }
 
   // Get related products
-  async getRelatedProducts(productId: string, limit = 4): Promise<Product[]> {
-    const response = await apiClient.get<Product[]>(`/products/${productId}/related?limit=${limit}`)
-    return response.data || []
+  async getRelatedProducts(productId: string, limit = 4): Promise<any> {
+    const response = await apiClient.get(`/products/${productId}/related?limit=${limit}`)
+    return response || []
   }
 
   // Get products by category
-  async getProductsByCategory(categoryId: string, params: ProductsParams = {}): Promise<PaginatedResponse<Product>> {
+  async getProductsByCategory(categoryId: string, params: ProductsParams = {}): Promise<any> {
     // Build query parameters
     const queryParams: Record<string, any> = { category_id: categoryId }
 
@@ -167,12 +170,17 @@ class ProductService {
     if (params.product_type) queryParams.product_type = params.product_type
     if (params.brand_id) queryParams.brand_id = params.brand_id
 
-    const response = await apiClient.get<PaginatedResponse<Product>>(`/products/category/${categoryId}`, queryParams)
-    return response.data
+    // Build query string
+    const queryString = Object.keys(queryParams).length > 0
+      ? '?' + new URLSearchParams(queryParams).toString()
+      : ''
+
+    const response = await apiClient.get(`/products/category/${categoryId}${queryString}`)
+    return response
   }
 
   // Search products
-  async searchProducts(query: string, params: ProductsParams = {}): Promise<PaginatedResponse<Product>> {
+  async searchProducts(query: string, params: ProductsParams = {}): Promise<any> {
     // Build query parameters
     const queryParams: Record<string, any> = { q: query }
 
@@ -193,18 +201,23 @@ class ProductService {
     if (params.product_type) queryParams.product_type = params.product_type
     if (params.brand_id) queryParams.brand_id = params.brand_id
 
-    const response = await apiClient.get<PaginatedResponse<Product>>('/products/search', queryParams)
-    return response.data
+    // Build query string
+    const queryString = Object.keys(queryParams).length > 0
+      ? '?' + new URLSearchParams(queryParams).toString()
+      : ''
+
+    const response = await apiClient.get(`/products/search${queryString}`)
+    return response
   }
 
   // Get product suggestions for autocomplete
-  async getProductSuggestions(query: string, limit = 5): Promise<Product[]> {
-    const response = await apiClient.get<Product[]>(`/products/suggestions?q=${query}&limit=${limit}`)
-    return response.data || []
+  async getProductSuggestions(query: string, limit = 5): Promise<any> {
+    const response = await apiClient.get(`/products/suggestions?q=${query}&limit=${limit}`)
+    return response || []
   }
 
   // Admin methods
-  async getAdminProducts(params: ProductsParams = {}): Promise<PaginatedResponse<Product>> {
+  async getAdminProducts(params: ProductsParams = {}): Promise<any> {
     console.log('ProductService.getAdminProducts called with params:', params)
     try {
       // Build query parameters
@@ -228,18 +241,23 @@ class ProductService {
       if (params.product_type) queryParams.product_type = params.product_type
       if (params.brand_id) queryParams.brand_id = params.brand_id
 
-      const response = await apiClient.get<PaginatedResponse<Product>>('/admin/products', queryParams)
+      // Build query string
+      const queryString = Object.keys(queryParams).length > 0
+        ? '?' + new URLSearchParams(queryParams).toString()
+        : ''
+
+      const response = await apiClient.get(`/admin/products${queryString}`)
       console.log('ProductService.getAdminProducts response:', response)
 
-      // Backend already returns the correct pagination structure
-      return response.data
+      // API client already returns the correct data structure
+      return response
     } catch (error) {
       console.error('ProductService.getAdminProducts error:', error)
       throw error
     }
   }
 
-  async createProduct(data: CreateProductRequest): Promise<Product> {
+  async createProduct(data: CreateProductRequest): Promise<any> {
     // FE: Tự động generate slug nếu chưa có
     if (!data.slug || validateSlug(data.slug)) {
       data.slug = generateSlug(data.name)
@@ -247,11 +265,11 @@ class ProductService {
     // FE: Validate lại slug
     const slugError = validateSlug(data.slug)
     if (slugError) throw new Error(slugError)
-    const response = await apiClient.post<Product>('/admin/products', data)
-    return response.data
+    const response = await apiClient.post('/admin/products', data)
+    return response
   }
 
-  async updateProduct(id: string, data: UpdateProductRequest): Promise<Product> {
+  async updateProduct(id: string, data: UpdateProductRequest): Promise<any> {
     // FE: Tự động generate slug nếu chưa có
     if (!data.slug && data.name) {
       data.slug = generateSlug(data.name as string)
@@ -261,8 +279,8 @@ class ProductService {
       const slugError = validateSlug(data.slug)
       if (slugError) throw new Error(slugError)
     }
-    const response = await apiClient.put<Product>(`/admin/products/${id}`, data)
-    return response.data
+    const response = await apiClient.put(`/admin/products/${id}`, data)
+    return response
   }
 
   async deleteProduct(id: string): Promise<void> {
@@ -277,9 +295,9 @@ class ProductService {
     }
   }
 
-  async uploadProductImage(productId: string, file: File): Promise<{ url: string }> {
-    const response = await apiClient.upload<{ url: string }>(`/admin/products/${productId}/images`, file)
-    return response.data
+  async uploadProductImage(productId: string, file: File): Promise<any> {
+    const response = await apiClient.upload(`/admin/products/${productId}/images`, file)
+    return response
   }
 
   async deleteProductImage(productId: string, imageId: string): Promise<void> {
@@ -287,20 +305,20 @@ class ProductService {
   }
 
   // Inventory management
-  async updateStock(productId: string, quantity: number): Promise<Product> {
-    const response = await apiClient.patch<Product>(`/admin/products/${productId}/stock`, { quantity })
-    return response.data
+  async updateStock(productId: string, quantity: number): Promise<any> {
+    const response = await apiClient.patch(`/admin/products/${productId}/stock`, { quantity })
+    return response
   }
 
   async getInventory(productId: string): Promise<any> {
     const response = await apiClient.get(`/admin/products/${productId}/inventory`)
-    return response.data
+    return response
   }
 
   // Product analytics
   async getProductAnalytics(productId: string, period = '30d'): Promise<any> {
     const response = await apiClient.get(`/admin/products/${productId}/analytics?period=${period}`)
-    return response.data
+    return response
   }
 
   // Bulk operations
@@ -324,20 +342,20 @@ class ProductService {
     return response.data
   }
 
-  async importProducts(file: File): Promise<{ success: number; errors: any[] }> {
-    const response = await apiClient.upload<{ success: number; errors: any[] }>('/admin/products/import', file)
-    return response.data
+  async importProducts(file: File): Promise<any> {
+    const response = await apiClient.upload('/admin/products/import', file)
+    return response
   }
 
   // Product reviews
   async getProductReviews(productId: string, params: { page?: number; limit?: number } = {}): Promise<any> {
     const response = await getPaginated(`/products/${productId}/reviews`, params)
-    return response.data
+    return response
   }
 
   async createReview(productId: string, data: { rating: number; title?: string; comment?: string }): Promise<any> {
     const response = await apiClient.post(`/products/${productId}/reviews`, data)
-    return response.data
+    return response
   }
 
   // Wishlist
@@ -350,15 +368,15 @@ class ProductService {
   }
 
   // Product comparison
-  async compareProducts(productIds: string[]): Promise<Product[]> {
-    const response = await apiClient.post<Product[]>('/products/compare', { product_ids: productIds })
-    return response.data
+  async compareProducts(productIds: string[]): Promise<any> {
+    const response = await apiClient.post('/products/compare', { product_ids: productIds })
+    return response
   }
 
   // Recently viewed products
-  async getRecentlyViewed(limit = 10): Promise<Product[]> {
-    const response = await apiClient.get<Product[]>(`/products/recently-viewed?limit=${limit}`)
-    return response.data
+  async getRecentlyViewed(limit = 10): Promise<any> {
+    const response = await apiClient.get(`/products/recently-viewed?limit=${limit}`)
+    return response
   }
 
   async addToRecentlyViewed(productId: string): Promise<void> {
