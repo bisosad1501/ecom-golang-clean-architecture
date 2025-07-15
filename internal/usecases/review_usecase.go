@@ -26,6 +26,7 @@ type ReviewUseCase interface {
 
 	// Admin operations
 	ApproveReview(ctx context.Context, reviewID uuid.UUID) error
+	HideReview(ctx context.Context, reviewID uuid.UUID) error
 	RejectReview(ctx context.Context, reviewID uuid.UUID) error
 	GetPendingReviews(ctx context.Context, req GetReviewsRequest) (*ReviewsResponse, error)
 }
