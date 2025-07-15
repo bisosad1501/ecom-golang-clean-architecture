@@ -89,30 +89,32 @@ class ProductService {
   async getProducts(params: ProductsParams = {}): Promise<PaginatedResponse<Product>> {
     console.log('ProductService.getProducts called with params:', params)
     try {
-      const response = await apiClient.get<Product[]>('/products')
+      // Build query parameters
+      const queryParams: Record<string, any> = {}
+
+      // Add pagination parameters
+      if (params.page) queryParams.page = params.page
+      if (params.limit) queryParams.limit = params.limit
+
+      // Add search and filter parameters
+      if (params.search) queryParams.search = params.search
+      if (params.category_id) queryParams.category_id = params.category_id
+      if (params.min_price) queryParams.min_price = params.min_price
+      if (params.max_price) queryParams.max_price = params.max_price
+      if (params.rating) queryParams.rating = params.rating
+      if (params.sort_by) queryParams.sort_by = params.sort_by
+      if (params.sort_order) queryParams.sort_order = params.sort_order
+      if (params.featured !== undefined) queryParams.featured = params.featured
+      if (params.on_sale !== undefined) queryParams.on_sale = params.on_sale
+      if (params.stock_status) queryParams.stock_status = params.stock_status
+      if (params.product_type) queryParams.product_type = params.product_type
+      if (params.brand_id) queryParams.brand_id = params.brand_id
+
+      const response = await apiClient.get<PaginatedResponse<Product>>('/products', queryParams)
       console.log('ProductService.getProducts response:', response)
-      console.log('ProductService.getProducts response.data:', response.data)
-      
-      // Backend response structure: { data: Product[] }
-      const products = response.data || []
-      console.log('ProductService.getProducts products array:', products)
-      console.log('ProductService.getProducts products length:', products.length)
-      
-      // Transform backend response to match frontend expectations
-      const paginatedResponse: PaginatedResponse<Product> = {
-        data: products,
-        pagination: {
-          page: params.page || 1,
-          limit: params.limit || 10,
-          total: products.length,
-          total_pages: 1,
-          has_next: false,
-          has_prev: false,
-        }
-      }
-      
-      console.log('ProductService.getProducts transformed response:', paginatedResponse)
-      return paginatedResponse
+
+      // Backend already returns the correct pagination structure
+      return response.data
     } catch (error) {
       console.error('ProductService.getProducts error:', error)
       throw error
@@ -145,36 +147,54 @@ class ProductService {
 
   // Get products by category
   async getProductsByCategory(categoryId: string, params: ProductsParams = {}): Promise<PaginatedResponse<Product>> {
-    const response = await apiClient.get<Product[]>(`/products/category/${categoryId}`)
-    return {
-      data: response.data || [],
-      pagination: {
-        page: params.page || 1,
-        limit: params.limit || 10,
-        total: response.data?.length || 0,
-        total_pages: 1,
-        has_next: false,
-        has_prev: false,
-      }
-    }
+    // Build query parameters
+    const queryParams: Record<string, any> = { category_id: categoryId }
+
+    // Add pagination parameters
+    if (params.page) queryParams.page = params.page
+    if (params.limit) queryParams.limit = params.limit
+
+    // Add other filter parameters
+    if (params.search) queryParams.search = params.search
+    if (params.min_price) queryParams.min_price = params.min_price
+    if (params.max_price) queryParams.max_price = params.max_price
+    if (params.rating) queryParams.rating = params.rating
+    if (params.sort_by) queryParams.sort_by = params.sort_by
+    if (params.sort_order) queryParams.sort_order = params.sort_order
+    if (params.featured !== undefined) queryParams.featured = params.featured
+    if (params.on_sale !== undefined) queryParams.on_sale = params.on_sale
+    if (params.stock_status) queryParams.stock_status = params.stock_status
+    if (params.product_type) queryParams.product_type = params.product_type
+    if (params.brand_id) queryParams.brand_id = params.brand_id
+
+    const response = await apiClient.get<PaginatedResponse<Product>>(`/products/category/${categoryId}`, queryParams)
+    return response.data
   }
 
   // Search products
   async searchProducts(query: string, params: ProductsParams = {}): Promise<PaginatedResponse<Product>> {
-    const response = await apiClient.get<Product[]>('/products/search', {
-      params: { ...params, search: query }
-    })
-    return {
-      data: response.data || [],
-      pagination: {
-        page: params.page || 1,
-        limit: params.limit || 10,
-        total: response.data?.length || 0,
-        total_pages: 1,
-        has_next: false,
-        has_prev: false,
-      }
-    }
+    // Build query parameters
+    const queryParams: Record<string, any> = { q: query }
+
+    // Add pagination parameters
+    if (params.page) queryParams.page = params.page
+    if (params.limit) queryParams.limit = params.limit
+
+    // Add filter parameters
+    if (params.category_id) queryParams.category_id = params.category_id
+    if (params.min_price) queryParams.min_price = params.min_price
+    if (params.max_price) queryParams.max_price = params.max_price
+    if (params.rating) queryParams.rating = params.rating
+    if (params.sort_by) queryParams.sort_by = params.sort_by
+    if (params.sort_order) queryParams.sort_order = params.sort_order
+    if (params.featured !== undefined) queryParams.featured = params.featured
+    if (params.on_sale !== undefined) queryParams.on_sale = params.on_sale
+    if (params.stock_status) queryParams.stock_status = params.stock_status
+    if (params.product_type) queryParams.product_type = params.product_type
+    if (params.brand_id) queryParams.brand_id = params.brand_id
+
+    const response = await apiClient.get<PaginatedResponse<Product>>('/products/search', queryParams)
+    return response.data
   }
 
   // Get product suggestions for autocomplete
@@ -187,14 +207,31 @@ class ProductService {
   async getAdminProducts(params: ProductsParams = {}): Promise<PaginatedResponse<Product>> {
     console.log('ProductService.getAdminProducts called with params:', params)
     try {
-      const queryString = buildQueryString(params)
-      const endpoint = `/admin/products${queryString ? `?${queryString}` : ''}`
-      console.log('ProductService.getAdminProducts endpoint:', endpoint)
-      
-      const response = await apiClient.get<PaginatedResponse<Product>>(endpoint)
+      // Build query parameters
+      const queryParams: Record<string, any> = {}
+
+      // Add pagination parameters
+      if (params.page) queryParams.page = params.page
+      if (params.limit) queryParams.limit = params.limit
+
+      // Add search and filter parameters
+      if (params.search) queryParams.search = params.search
+      if (params.category_id) queryParams.category_id = params.category_id
+      if (params.min_price) queryParams.min_price = params.min_price
+      if (params.max_price) queryParams.max_price = params.max_price
+      if (params.rating) queryParams.rating = params.rating
+      if (params.sort_by) queryParams.sort_by = params.sort_by
+      if (params.sort_order) queryParams.sort_order = params.sort_order
+      if (params.featured !== undefined) queryParams.featured = params.featured
+      if (params.on_sale !== undefined) queryParams.on_sale = params.on_sale
+      if (params.stock_status) queryParams.stock_status = params.stock_status
+      if (params.product_type) queryParams.product_type = params.product_type
+      if (params.brand_id) queryParams.brand_id = params.brand_id
+
+      const response = await apiClient.get<PaginatedResponse<Product>>('/admin/products', queryParams)
       console.log('ProductService.getAdminProducts response:', response)
-      console.log('ProductService.getAdminProducts response.data:', response.data)
-      
+
+      // Backend already returns the correct pagination structure
       return response.data
     } catch (error) {
       console.error('ProductService.getAdminProducts error:', error)
