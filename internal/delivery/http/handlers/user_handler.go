@@ -269,20 +269,12 @@ func (h *UserHandler) GetUsers(c *gin.Context) {
 		return
 	}
 
-	// Calculate pagination
-	page := (offset / limit) + 1
-	totalPages := int((usersResponse.Total + int64(limit) - 1) / int64(limit))
+	// Calculate pagination using standardized function
+	pagination := usecases.NewPaginationInfoFromOffset(offset, limit, usersResponse.Total)
 
 	c.JSON(http.StatusOK, PaginatedResponse{
-		Data: usersResponse.Users,
-		Pagination: Pagination{
-			Page:       page,
-			Limit:      limit,
-			Total:      usersResponse.Total,
-			TotalPages: totalPages,
-			HasNext:    page < totalPages,
-			HasPrev:    page > 1,
-		},
+		Data:       usersResponse.Users,
+		Pagination: pagination,
 	})
 }
 

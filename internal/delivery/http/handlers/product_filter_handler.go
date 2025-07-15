@@ -129,18 +129,22 @@ func (h *ProductFilterHandler) FilterProducts(c *gin.Context) {
 	// Parse sorting and pagination
 	req.SortBy = c.DefaultQuery("sort_by", "created_at")
 	req.SortOrder = c.DefaultQuery("sort_order", "desc")
-	
-	if page, err := strconv.Atoi(c.DefaultQuery("page", "1")); err == nil {
-		req.Page = page
-	} else {
-		req.Page = 1
+
+	// Parse and validate pagination
+	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
+	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "20"))
+
+	// Validate and normalize pagination
+	page, limit, err := usecases.ValidateAndNormalizePagination(page, limit)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, ErrorResponse{
+			Error: err.Error(),
+		})
+		return
 	}
-	
-	if limit, err := strconv.Atoi(c.DefaultQuery("limit", "20")); err == nil {
-		req.Limit = limit
-	} else {
-		req.Limit = 20
-	}
+
+	req.Page = page
+	req.Limit = limit
 
 	// Parse facet options
 	if includeFacets := c.Query("include_facets"); includeFacets != "" {

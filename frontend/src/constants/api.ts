@@ -188,14 +188,33 @@ export const SUCCESS_MESSAGES = {
   ORDER_CANCELLED: 'Order cancelled successfully!',
 } as const
 
-// Pagination defaults
+// Pagination defaults (synchronized with backend)
 export const PAGINATION = {
   DEFAULT_PAGE: 1,
-  DEFAULT_LIMIT: 12,
+  DEFAULT_LIMIT: 20,
   MAX_LIMIT: 100,
+  MIN_LIMIT: 1,
+
+  // Entity-specific limits (matching backend)
   PRODUCTS_PER_PAGE: 12,
   ORDERS_PER_PAGE: 10,
-  USERS_PER_PAGE: 20,
+  REVIEWS_PER_PAGE: 5,
+  NOTIFICATIONS_PER_PAGE: 15,
+  SEARCH_RESULTS_PER_PAGE: 20,
+  WISHLIST_PER_PAGE: 12,
+  ADMIN_USERS_PER_PAGE: 25,
+  ADMIN_ORDERS_PER_PAGE: 20,
+
+  // Page size options for UI
+  PRODUCT_PAGE_SIZES: [12, 24, 48, 96],
+  ORDER_PAGE_SIZES: [10, 20, 50],
+  REVIEW_PAGE_SIZES: [5, 10, 20],
+  SEARCH_PAGE_SIZES: [20, 40, 60],
+  DEFAULT_PAGE_SIZES: [10, 20, 50, 100],
+
+  // Performance limits
+  MAX_SEARCH_RESULTS: 1000,
+  MAX_ORDER_HISTORY: 500,
 } as const
 
 // File upload limits

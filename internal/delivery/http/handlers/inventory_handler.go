@@ -78,8 +78,19 @@ func (h *InventoryHandler) GetInventories(c *gin.Context) {
 		return
 	}
 
+	// Parse and validate pagination parameters
 	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
-	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "10"))
+	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "20"))
+
+	// Validate and normalize pagination
+	page, limit, err = usecases.ValidateAndNormalizePagination(page, limit)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, ErrorResponse{
+			Error: err.Error(),
+		})
+		return
+	}
+
 	search := c.Query("search")
 
 	req := usecases.GetInventoriesRequest{

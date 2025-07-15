@@ -75,6 +75,12 @@ type GetProductsRequest struct {
 	Offset int `json:"offset" validate:"min=0"`
 }
 
+// GetProductsResponse represents paginated products response
+type GetProductsResponse struct {
+	Products   []*ProductResponse `json:"products"`
+	Pagination *PaginationInfo    `json:"pagination"`
+}
+
 type SearchProductsRequest struct {
 	Query      string                  `json:"query"`
 	CategoryID *uuid.UUID              `json:"category_id"`
@@ -156,7 +162,7 @@ type ProductUseCase interface {
 	UpdateProduct(ctx context.Context, id uuid.UUID, req UpdateProductRequest) (*ProductResponse, error)
 	PatchProduct(ctx context.Context, id uuid.UUID, req PatchProductRequest) (*ProductResponse, error)
 	DeleteProduct(ctx context.Context, id uuid.UUID) error
-	GetProducts(ctx context.Context, req GetProductsRequest) ([]*ProductResponse, error)
+	GetProducts(ctx context.Context, req GetProductsRequest) (*GetProductsResponse, error)
 	SearchProducts(ctx context.Context, req SearchProductsRequest) ([]*ProductResponse, error)
 	GetProductsByCategory(ctx context.Context, categoryID uuid.UUID, limit, offset int) ([]*ProductResponse, error)
 	UpdateStock(ctx context.Context, productID uuid.UUID, stock int) error
@@ -1170,19 +1176,33 @@ func (uc *productUseCase) DeleteProduct(ctx context.Context, id uuid.UUID) error
 	return uc.productRepo.Delete(ctx, id)
 }
 
-// GetProducts gets list of products (same as original)
-func (uc *productUseCase) GetProducts(ctx context.Context, req GetProductsRequest) ([]*ProductResponse, error) {
+// GetProducts gets list of products with pagination
+func (uc *productUseCase) GetProducts(ctx context.Context, req GetProductsRequest) (*GetProductsResponse, error) {
+	// Get total count
+	total, err := uc.productRepo.Count(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	// Get products
 	products, err := uc.productRepo.List(ctx, req.Limit, req.Offset)
 	if err != nil {
 		return nil, err
 	}
 
+	// Convert to responses
 	responses := make([]*ProductResponse, len(products))
 	for i, product := range products {
 		responses[i] = uc.toProductResponse(product)
 	}
 
-	return responses, nil
+	// Create pagination info
+	pagination := NewPaginationInfoFromOffset(req.Offset, req.Limit, total)
+
+	return &GetProductsResponse{
+		Products:   responses,
+		Pagination: pagination,
+	}, nil
 }
 
 // SearchProducts searches products (same as original)

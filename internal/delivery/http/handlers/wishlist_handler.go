@@ -50,15 +50,28 @@ func (h *WishlistHandler) GetWishlist(c *gin.Context) {
 		return
 	}
 
-	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "10"))
-	offset, _ := strconv.Atoi(c.DefaultQuery("offset", "0"))
+	// Parse and validate pagination parameters
+	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
+	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "12"))
+
+	// Validate and normalize pagination for wishlist
+	page, limit, err = usecases.ValidateAndNormalizePaginationForEntity(page, limit, "wishlist")
+	if err != nil {
+		c.JSON(http.StatusBadRequest, ErrorResponse{
+			Error: err.Error(),
+		})
+		return
+	}
+
+	// Convert to offset for repository
+	offset := (page - 1) * limit
 
 	req := usecases.GetWishlistRequest{
 		Limit:  limit,
 		Offset: offset,
 	}
 
-	wishlist, err := h.wishlistUseCase.GetWishlist(c.Request.Context(), userID, req)
+	response, err := h.wishlistUseCase.GetWishlist(c.Request.Context(), userID, req)
 	if err != nil {
 		c.JSON(getErrorStatusCode(err), ErrorResponse{
 			Error: err.Error(),
@@ -66,8 +79,9 @@ func (h *WishlistHandler) GetWishlist(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusOK, SuccessResponse{
-		Data: wishlist,
+	c.JSON(http.StatusOK, PaginatedResponse{
+		Data:       response.Items,
+		Pagination: response.Pagination,
 	})
 }
 

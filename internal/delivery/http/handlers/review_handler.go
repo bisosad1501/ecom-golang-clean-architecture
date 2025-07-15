@@ -186,22 +186,24 @@ func (h *ReviewHandler) GetProductReviews(c *gin.Context) {
 		return
 	}
 
+	// Parse and validate pagination parameters
+	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
+	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "5"))
+
+	// Validate and normalize pagination for reviews
+	page, limit, err = usecases.ValidateAndNormalizePaginationForEntity(page, limit, "reviews")
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	// Convert to offset for repository
+	offset := (page - 1) * limit
+
 	// Parse query parameters
 	req := usecases.GetReviewsRequest{
-		Limit:  20,
-		Offset: 0,
-	}
-
-	if limitStr := c.Query("limit"); limitStr != "" {
-		if limit, err := strconv.Atoi(limitStr); err == nil && limit > 0 && limit <= 100 {
-			req.Limit = limit
-		}
-	}
-
-	if offsetStr := c.Query("offset"); offsetStr != "" {
-		if offset, err := strconv.Atoi(offsetStr); err == nil && offset >= 0 {
-			req.Offset = offset
-		}
+		Limit:  limit,
+		Offset: offset,
 	}
 
 	if ratingStr := c.Query("rating"); ratingStr != "" {
@@ -220,13 +222,16 @@ func (h *ReviewHandler) GetProductReviews(c *gin.Context) {
 	req.SortBy = c.Query("sort_by")
 	req.SortOrder = c.Query("sort_order")
 
-	reviews, err := h.reviewUseCase.GetProductReviews(c.Request.Context(), productID, req)
+	response, err := h.reviewUseCase.GetProductReviews(c.Request.Context(), productID, req)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to get product reviews"})
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{"data": reviews})
+	c.JSON(http.StatusOK, PaginatedResponse{
+		Data:       response.Reviews,
+		Pagination: response.Pagination,
+	})
 }
 
 // GetUserReviews gets reviews by a user
@@ -238,22 +243,24 @@ func (h *ReviewHandler) GetUserReviews(c *gin.Context) {
 		return
 	}
 
+	// Parse and validate pagination parameters
+	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
+	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "5"))
+
+	// Validate and normalize pagination for reviews
+	page, limit, err = usecases.ValidateAndNormalizePaginationForEntity(page, limit, "reviews")
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	// Convert to offset for repository
+	offset := (page - 1) * limit
+
 	// Parse query parameters
 	req := usecases.GetReviewsRequest{
-		Limit:  20,
-		Offset: 0,
-	}
-
-	if limitStr := c.Query("limit"); limitStr != "" {
-		if limit, err := strconv.Atoi(limitStr); err == nil && limit > 0 && limit <= 100 {
-			req.Limit = limit
-		}
-	}
-
-	if offsetStr := c.Query("offset"); offsetStr != "" {
-		if offset, err := strconv.Atoi(offsetStr); err == nil && offset >= 0 {
-			req.Offset = offset
-		}
+		Limit:  limit,
+		Offset: offset,
 	}
 
 	if ratingStr := c.Query("rating"); ratingStr != "" {
@@ -265,13 +272,16 @@ func (h *ReviewHandler) GetUserReviews(c *gin.Context) {
 	req.SortBy = c.Query("sort_by")
 	req.SortOrder = c.Query("sort_order")
 
-	reviews, err := h.reviewUseCase.GetUserReviews(c.Request.Context(), userID, req)
+	response, err := h.reviewUseCase.GetUserReviews(c.Request.Context(), userID, req)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to get user reviews"})
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{"data": reviews})
+	c.JSON(http.StatusOK, PaginatedResponse{
+		Data:       response.Reviews,
+		Pagination: response.Pagination,
+	})
 }
 
 // VoteReview votes on a review

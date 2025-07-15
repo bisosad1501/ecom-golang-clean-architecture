@@ -86,14 +86,23 @@ func (h *NotificationHandler) GetUserNotifications(c *gin.Context) {
 	}
 
 	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
-	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "10"))
+	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "15"))
+
+	// Validate and normalize pagination for notifications
+	page, limit, err := usecases.ValidateAndNormalizePaginationForEntity(page, limit, "notifications")
+	if err != nil {
+		c.JSON(http.StatusBadRequest, ErrorResponse{
+			Error: err.Error(),
+		})
+		return
+	}
 
 	req := usecases.GetUserNotificationsRequest{
 		Limit:  limit,
 		Offset: (page - 1) * limit,
 	}
 
-	notifications, err := h.notificationUseCase.GetUserNotifications(c.Request.Context(), userID.(uuid.UUID), req)
+	response, err := h.notificationUseCase.GetUserNotifications(c.Request.Context(), userID.(uuid.UUID), req)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, ErrorResponse{
 			Error:   "Failed to get notifications",
@@ -102,9 +111,9 @@ func (h *NotificationHandler) GetUserNotifications(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusOK, SuccessResponse{
-		Message: "Notifications retrieved successfully",
-		Data: notifications,
+	c.JSON(http.StatusOK, PaginatedResponse{
+		Data:       response.Notifications,
+		Pagination: response.Pagination,
 	})
 }
 

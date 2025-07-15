@@ -228,8 +228,19 @@ func (h *CouponHandler) ApplyCoupon(c *gin.Context) {
 
 // ListCoupons returns paginated list of coupons
 func (h *CouponHandler) ListCoupons(c *gin.Context) {
+	// Parse and validate pagination parameters
 	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
-	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "10"))
+	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "20"))
+
+	// Validate and normalize pagination
+	page, limit, err := usecases.ValidateAndNormalizePagination(page, limit)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, ErrorResponse{
+			Error: err.Error(),
+		})
+		return
+	}
+
 	search := c.Query("search")
 	sortBy := c.DefaultQuery("sort_by", "created_at")
 	sortOrder := c.DefaultQuery("sort_order", "desc")

@@ -4,6 +4,7 @@ import (
 	"net/http"
 
 	"ecom-golang-clean-architecture/internal/domain/entities"
+	"ecom-golang-clean-architecture/internal/usecases"
 	pkgErrors "ecom-golang-clean-architecture/pkg/errors"
 )
 
@@ -21,19 +22,12 @@ type ErrorResponse struct {
 
 // PaginatedResponse represents a paginated API response
 type PaginatedResponse struct {
-	Data       interface{} `json:"data"`
-	Pagination Pagination  `json:"pagination"`
+	Data       interface{}              `json:"data"`
+	Pagination *usecases.PaginationInfo `json:"pagination"`
 }
 
-// Pagination represents pagination metadata
-type Pagination struct {
-	Page       int   `json:"page"`
-	Limit      int   `json:"limit"`
-	Total      int64 `json:"total"`
-	TotalPages int   `json:"total_pages"`
-	HasNext    bool  `json:"has_next"`
-	HasPrev    bool  `json:"has_prev"`
-}
+// Pagination represents pagination metadata (alias for backward compatibility)
+type Pagination = usecases.PaginationInfo
 
 // getErrorStatusCode returns appropriate HTTP status code for domain errors
 func getErrorStatusCode(err error) int {

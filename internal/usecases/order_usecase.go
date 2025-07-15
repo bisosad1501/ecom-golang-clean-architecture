@@ -119,20 +119,10 @@ type GetUserOrdersRequest struct {
 	Offset        int                     `json:"offset" validate:"min=0"`
 }
 
-// PaginationMeta represents pagination metadata
-type PaginationMeta struct {
-	Page       int   `json:"page"`
-	Limit      int   `json:"limit"`
-	Total      int64 `json:"total"`
-	TotalPages int   `json:"total_pages"`
-	HasNext    bool  `json:"has_next"`
-	HasPrev    bool  `json:"has_prev"`
-}
-
 // PaginatedOrderResponse represents a paginated order response
 type PaginatedOrderResponse struct {
 	Data       []*OrderResponse `json:"data"`
-	Pagination PaginationMeta   `json:"pagination"`
+	Pagination *PaginationInfo  `json:"pagination"`
 }
 
 // AddressRequest represents address request
@@ -721,21 +711,8 @@ func (uc *orderUseCase) GetUserOrdersWithFilters(ctx context.Context, userID uui
 		responses[i] = uc.toOrderResponse(order)
 	}
 
-	// Calculate pagination metadata
-	page := (req.Offset / req.Limit) + 1
-	totalPages := int((totalCount + int64(req.Limit) - 1) / int64(req.Limit)) // Ceiling division
-	if totalPages == 0 {
-		totalPages = 1
-	}
-
-	pagination := PaginationMeta{
-		Page:       page,
-		Limit:      req.Limit,
-		Total:      totalCount,
-		TotalPages: totalPages,
-		HasNext:    req.Offset+req.Limit < int(totalCount),
-		HasPrev:    req.Offset > 0,
-	}
+	// Calculate pagination metadata using standardized function
+	pagination := NewPaginationInfoFromOffset(req.Offset, req.Limit, totalCount)
 
 	return &PaginatedOrderResponse{
 		Data:       responses,

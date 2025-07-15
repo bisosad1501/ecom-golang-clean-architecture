@@ -128,9 +128,7 @@ type ReviewImageResponse struct {
 // ReviewsResponse represents reviews list response
 type ReviewsResponse struct {
 	Reviews    []*ReviewResponse `json:"reviews"`
-	TotalCount int64             `json:"total_count"`
-	Limit      int               `json:"limit"`
-	Offset     int               `json:"offset"`
+	Pagination *PaginationInfo   `json:"pagination"`
 }
 
 // ProductRatingSummaryResponse represents product rating summary
@@ -273,11 +271,15 @@ func (uc *reviewUseCase) GetProductReviews(ctx context.Context, productID uuid.U
 		responses[i] = uc.toReviewResponse(review, nil)
 	}
 
+	// Create pagination info using enhanced function
+	context := &EcommercePaginationContext{
+		EntityType: "reviews",
+	}
+	pagination := NewEcommercePaginationInfo((req.Offset/req.Limit)+1, req.Limit, totalCount, context)
+
 	return &ReviewsResponse{
 		Reviews:    responses,
-		TotalCount: totalCount,
-		Limit:      req.Limit,
-		Offset:     req.Offset,
+		Pagination: pagination,
 	}, nil
 }
 
@@ -486,11 +488,16 @@ func (uc *reviewUseCase) GetUserReviews(ctx context.Context, userID uuid.UUID, r
 		responses[i] = uc.toReviewResponse(review, nil)
 	}
 
+	// Create pagination info using enhanced function
+	context := &EcommercePaginationContext{
+		EntityType: "reviews",
+		UserID:     userID.String(),
+	}
+	pagination := NewEcommercePaginationInfo((req.Offset/req.Limit)+1, req.Limit, totalCount, context)
+
 	return &ReviewsResponse{
 		Reviews:    responses,
-		TotalCount: totalCount,
-		Limit:      req.Limit,
-		Offset:     req.Offset,
+		Pagination: pagination,
 	}, nil
 }
 
@@ -620,10 +627,14 @@ func (uc *reviewUseCase) GetPendingReviews(ctx context.Context, req GetReviewsRe
 		responses[i] = uc.toReviewResponse(review, nil)
 	}
 
+	// Create pagination info using enhanced function
+	context := &EcommercePaginationContext{
+		EntityType: "reviews",
+	}
+	pagination := NewEcommercePaginationInfo((req.Offset/req.Limit)+1, req.Limit, totalCount, context)
+
 	return &ReviewsResponse{
 		Reviews:    responses,
-		TotalCount: totalCount,
-		Limit:      req.Limit,
-		Offset:     req.Offset,
+		Pagination: pagination,
 	}, nil
 }

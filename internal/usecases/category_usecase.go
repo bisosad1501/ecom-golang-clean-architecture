@@ -21,7 +21,7 @@ type CategoryUseCase interface {
 	GetCategory(ctx context.Context, id uuid.UUID) (*CategoryResponse, error)
 	UpdateCategory(ctx context.Context, id uuid.UUID, req UpdateCategoryRequest) (*CategoryResponse, error)
 	DeleteCategory(ctx context.Context, id uuid.UUID) error
-	GetCategories(ctx context.Context, req GetCategoriesRequest) ([]*CategoryResponse, error)
+	GetCategories(ctx context.Context, req GetCategoriesRequest) (*GetCategoriesResponse, error)
 	GetCategoryTree(ctx context.Context) ([]*CategoryResponse, error)
 	GetRootCategories(ctx context.Context) ([]*CategoryResponse, error)
 	GetCategoryChildren(ctx context.Context, parentID uuid.UUID) ([]*CategoryResponse, error)
@@ -137,6 +137,12 @@ type CategorySEORequest struct {
 type GetCategoriesRequest struct {
 	Limit  int `json:"limit" validate:"min=1,max=100"`
 	Offset int `json:"offset" validate:"min=0"`
+}
+
+// GetCategoriesResponse represents paginated categories response
+type GetCategoriesResponse struct {
+	Categories []*CategoryResponse `json:"categories"`
+	Pagination *PaginationInfo     `json:"pagination"`
 }
 
 // GetCategoryLandingPageRequest represents category landing page request
@@ -522,19 +528,33 @@ func (uc *categoryUseCase) DeleteCategory(ctx context.Context, id uuid.UUID) err
 	return nil
 }
 
-// GetCategories gets list of categories
-func (uc *categoryUseCase) GetCategories(ctx context.Context, req GetCategoriesRequest) ([]*CategoryResponse, error) {
+// GetCategories gets list of categories with pagination
+func (uc *categoryUseCase) GetCategories(ctx context.Context, req GetCategoriesRequest) (*GetCategoriesResponse, error) {
+	// Get total count
+	total, err := uc.categoryRepo.Count(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	// Get categories
 	categories, err := uc.categoryRepo.List(ctx, req.Limit, req.Offset)
 	if err != nil {
 		return nil, err
 	}
 
+	// Convert to responses
 	responses := make([]*CategoryResponse, len(categories))
 	for i, category := range categories {
 		responses[i] = uc.toCategoryResponse(category)
 	}
 
-	return responses, nil
+	// Create pagination info
+	pagination := NewPaginationInfoFromOffset(req.Offset, req.Limit, total)
+
+	return &GetCategoriesResponse{
+		Categories: responses,
+		Pagination: pagination,
+	}, nil
 }
 
 // GetCategoryTree gets the category tree

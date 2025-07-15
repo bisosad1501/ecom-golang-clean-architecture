@@ -494,11 +494,18 @@ func (uc *notificationUseCase) GetUserNotifications(ctx context.Context, userID 
 		responses[i] = uc.toNotificationResponse(notification)
 	}
 
+	// Create pagination info using enhanced function
+	context := &EcommercePaginationContext{
+		EntityType: "notifications",
+		UserID:     userID.String(),
+	}
+	pagination := NewEcommercePaginationInfo((req.Offset/req.Limit)+1, req.Limit, total, context)
+
 	return &NotificationsListResponse{
 		Notifications: responses,
 		Total:         total,
 		UnreadCount:   unreadCount,
-		Pagination:    NewPaginationInfo(req.Offset, req.Limit, total),
+		Pagination:    pagination,
 	}, nil
 }
 

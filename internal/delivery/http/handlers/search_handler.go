@@ -258,18 +258,21 @@ func (h *SearchHandler) FullTextSearch(c *gin.Context) {
 		}
 	}
 
-	// Parse pagination
-	if pageStr := c.Query("page"); pageStr != "" {
-		if page, err := strconv.Atoi(pageStr); err == nil && page > 0 {
-			req.Page = page
-		}
+	// Parse and validate pagination
+	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
+	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "20"))
+
+	// Validate and normalize pagination
+	page, limit, err := usecases.ValidateAndNormalizePagination(page, limit)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, ErrorResponse{
+			Error: err.Error(),
+		})
+		return
 	}
 
-	if limitStr := c.Query("limit"); limitStr != "" {
-		if limit, err := strconv.Atoi(limitStr); err == nil && limit > 0 && limit <= 100 {
-			req.Limit = limit
-		}
-	}
+	req.Page = page
+	req.Limit = limit
 
 	// Perform search
 	response, err := h.searchUseCase.FullTextSearch(c.Request.Context(), req)

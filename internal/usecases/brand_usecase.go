@@ -19,7 +19,7 @@ type BrandUseCase interface {
 	GetBrandBySlug(ctx context.Context, slug string) (*BrandResponse, error)
 	UpdateBrand(ctx context.Context, id uuid.UUID, req UpdateBrandRequest) (*BrandResponse, error)
 	DeleteBrand(ctx context.Context, id uuid.UUID) error
-	GetBrands(ctx context.Context, req GetBrandsRequest) (*BrandsListResponse, error)
+	GetBrands(ctx context.Context, req GetBrandsRequest) (*GetBrandsResponse, error)
 	SearchBrands(ctx context.Context, req SearchBrandsRequest) (*BrandsListResponse, error)
 	GetActiveBrands(ctx context.Context, limit, offset int) (*BrandsListResponse, error)
 	GetPopularBrands(ctx context.Context, limit int) ([]*BrandResponse, error)
@@ -62,6 +62,12 @@ type GetBrandsRequest struct {
 	Limit    int  `json:"limit" validate:"omitempty,min=1,max=100"`
 	Offset   int  `json:"offset" validate:"omitempty,min=0"`
 	IsActive *bool `json:"is_active"`
+}
+
+// GetBrandsResponse represents paginated brands response
+type GetBrandsResponse struct {
+	Brands     []BrandResponse `json:"brands"`
+	Pagination *PaginationInfo `json:"pagination"`
 }
 
 // SearchBrandsRequest represents search brands request
@@ -223,10 +229,10 @@ func (uc *brandUseCase) DeleteBrand(ctx context.Context, id uuid.UUID) error {
 }
 
 // GetBrands gets brands with pagination
-func (uc *brandUseCase) GetBrands(ctx context.Context, req GetBrandsRequest) (*BrandsListResponse, error) {
+func (uc *brandUseCase) GetBrands(ctx context.Context, req GetBrandsRequest) (*GetBrandsResponse, error) {
 	// Set defaults
 	if req.Limit <= 0 {
-		req.Limit = 10
+		req.Limit = 20
 	}
 	if req.Offset < 0 {
 		req.Offset = 0
@@ -258,11 +264,12 @@ func (uc *brandUseCase) GetBrands(ctx context.Context, req GetBrandsRequest) (*B
 		brandResponses[i] = *uc.toBrandResponse(brand)
 	}
 
-	return &BrandsListResponse{
-		Brands: brandResponses,
-		Total:  total,
-		Limit:  req.Limit,
-		Offset: req.Offset,
+	// Create pagination info
+	pagination := NewPaginationInfoFromOffset(req.Offset, req.Limit, total)
+
+	return &GetBrandsResponse{
+		Brands:     brandResponses,
+		Pagination: pagination,
 	}, nil
 }
 

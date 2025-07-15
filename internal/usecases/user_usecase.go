@@ -714,17 +714,13 @@ func (uc *userUseCase) GetUserActivity(ctx context.Context, userID uuid.UUID, li
 	// Get total count (simplified)
 	total := int64(len(activities))
 
+	// Create pagination info using standardized function
+	pagination := NewPaginationInfoFromOffset(offset, limit, total)
+
 	return &UserActivityResponse{
 		Activities: activityItems,
 		Total:      total,
-		Pagination: Pagination{
-			Page:       (offset / limit) + 1,
-			Limit:      limit,
-			Total:      total,
-			TotalPages: int((total + int64(limit) - 1) / int64(limit)),
-			HasNext:    offset+limit < int(total),
-			HasPrev:    offset > 0,
-		},
+		Pagination: *pagination,
 	}, nil
 }
 

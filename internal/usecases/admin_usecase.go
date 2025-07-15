@@ -1366,7 +1366,7 @@ func (uc *adminUseCase) GetOrders(ctx context.Context, req AdminOrdersRequest) (
 	response := &AdminOrdersResponse{
 		Orders:     orderResponses,
 		Total:      int64(totalCount),
-		Pagination: NewPaginationInfo(req.Offset, req.Limit, int64(totalCount)),
+		Pagination: NewPaginationInfoFromOffset(req.Offset, req.Limit, int64(totalCount)),
 	}
 
 	return response, nil
@@ -1762,7 +1762,7 @@ func (uc *adminUseCase) GetUsers(ctx context.Context, req AdminUsersRequest) (*A
 		}
 	}
 
-	pagination := NewPaginationInfo(req.Offset, req.Limit, total)
+	pagination := NewPaginationInfoFromOffset(req.Offset, req.Limit, total)
 
 	response := &AdminUsersResponse{
 		Users:      users,
@@ -1820,7 +1820,7 @@ func (uc *adminUseCase) GetUserActivity(ctx context.Context, userID uuid.UUID, r
 	}
 
 	total := int64(len(activities))
-	pagination := NewPaginationInfo(req.Offset, req.Limit, total)
+	pagination := NewPaginationInfoFromOffset(req.Offset, req.Limit, total)
 
 	response := &ActivityResponse{
 		Activities: activities,
@@ -1892,7 +1892,7 @@ func (uc *adminUseCase) GetProducts(ctx context.Context, req AdminProductsReques
 	}
 
 	total := int64(len(products))
-	pagination := NewPaginationInfo(req.Offset, req.Limit, total)
+	pagination := NewPaginationInfoFromOffset(req.Offset, req.Limit, total)
 
 	response := &AdminProductsResponse{
 		Products:   products,
@@ -1997,7 +1997,7 @@ func (uc *adminUseCase) SearchCustomers(ctx context.Context, req CustomerSearchR
 		facets = nil
 	}
 
-	pagination := NewPaginationInfo(req.Offset, req.Limit, total)
+	pagination := NewPaginationInfoFromOffset(req.Offset, req.Limit, total)
 
 	response := &CustomerSearchResponse{
 		Customers:  customers,

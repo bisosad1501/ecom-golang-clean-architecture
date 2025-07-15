@@ -133,14 +133,27 @@ func (h *BrandHandler) GetBrandBySlug(c *gin.Context) {
 // @Tags brands
 // @Accept json
 // @Produce json
-// @Param limit query int false "Limit" default(10)
-// @Param offset query int false "Offset" default(0)
+// @Param page query int false "Page number" default(1)
+// @Param limit query int false "Items per page" default(20)
 // @Param is_active query bool false "Filter by active status"
-// @Success 200 {object} usecases.BrandsListResponse
+// @Success 200 {object} PaginatedResponse
 // @Router /brands [get]
 func (h *BrandHandler) GetBrands(c *gin.Context) {
-	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "10"))
-	offset, _ := strconv.Atoi(c.DefaultQuery("offset", "0"))
+	// Parse and validate pagination parameters
+	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
+	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "20"))
+
+	// Validate and normalize pagination
+	page, limit, err := usecases.ValidateAndNormalizePagination(page, limit)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, ErrorResponse{
+			Error: err.Error(),
+		})
+		return
+	}
+
+	// Convert to offset for repository
+	offset := (page - 1) * limit
 	
 	var isActive *bool
 	if activeStr := c.Query("is_active"); activeStr != "" {
@@ -155,7 +168,7 @@ func (h *BrandHandler) GetBrands(c *gin.Context) {
 		IsActive: isActive,
 	}
 
-	brands, err := h.brandUseCase.GetBrands(c.Request.Context(), req)
+	response, err := h.brandUseCase.GetBrands(c.Request.Context(), req)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, ErrorResponse{
 			Error: err.Error(),
@@ -163,8 +176,9 @@ func (h *BrandHandler) GetBrands(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusOK, SuccessResponse{
-		Data: brands,
+	c.JSON(http.StatusOK, PaginatedResponse{
+		Data:       response.Brands,
+		Pagination: response.Pagination,
 	})
 }
 

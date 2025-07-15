@@ -51,9 +51,7 @@ type WishlistItemResponse struct {
 // WishlistResponse represents wishlist response
 type WishlistResponse struct {
 	Items      []*WishlistItemResponse `json:"items"`
-	TotalCount int64                   `json:"total_count"`
-	Limit      int                     `json:"limit"`
-	Offset     int                     `json:"offset"`
+	Pagination *PaginationInfo         `json:"pagination"`
 }
 
 // AddToWishlist adds a product to user's wishlist
@@ -173,11 +171,16 @@ func (uc *wishlistUseCase) GetWishlist(ctx context.Context, userID uuid.UUID, re
 		}
 	}
 
+	// Create pagination info using enhanced function
+	context := &EcommercePaginationContext{
+		EntityType: "wishlist",
+		UserID:     userID.String(),
+	}
+	pagination := NewEcommercePaginationInfo((req.Offset/req.Limit)+1, req.Limit, totalCount, context)
+
 	return &WishlistResponse{
 		Items:      items,
-		TotalCount: totalCount,
-		Limit:      req.Limit,
-		Offset:     req.Offset,
+		Pagination: pagination,
 	}, nil
 }
 

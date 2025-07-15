@@ -15,7 +15,7 @@ export interface ApiResponse<T = any> {
   errors?: string[]
 }
 
-// Paginated response
+// Enhanced paginated response (matching backend)
 export interface PaginatedResponse<T = any> {
   data: T[]
   pagination: {
@@ -25,7 +25,27 @@ export interface PaginatedResponse<T = any> {
     total_pages: number
     has_next: boolean
     has_prev: boolean
+
+    // Enhanced ecommerce fields
+    start_index: number
+    end_index: number
+    next_page?: number
+    prev_page?: number
+
+    // SEO and UX fields
+    canonical_url?: string
+    page_sizes?: number[]
   }
+}
+
+// Ecommerce pagination context
+export interface EcommercePaginationContext {
+  entity_type: string
+  user_id?: string
+  category_id?: string
+  search_query?: string
+  sort_by?: string
+  filter_applied?: boolean
 }
 
 // Generic list response

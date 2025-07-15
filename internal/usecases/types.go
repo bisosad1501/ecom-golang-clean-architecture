@@ -400,18 +400,11 @@ type DateRangeResponse struct {
 	To   time.Time `json:"to"`
 }
 
-// PaginationResponse represents pagination response
+// PaginationResponse represents pagination response (alias for consistency)
 type PaginationResponse = PaginationInfo
 
-// Pagination represents pagination information
-type Pagination struct {
-	Page       int   `json:"page"`
-	Limit      int   `json:"limit"`
-	Total      int64 `json:"total"`
-	TotalPages int   `json:"total_pages"`
-	HasNext    bool  `json:"has_next"`
-	HasPrev    bool  `json:"has_prev"`
-}
+// Pagination represents pagination information (alias for backward compatibility)
+type Pagination = PaginationInfo
 
 // Note: Notification types are defined in notification_usecase.go to avoid duplication
 // Note: Payment types are defined in payment_usecase.go to avoid duplication
