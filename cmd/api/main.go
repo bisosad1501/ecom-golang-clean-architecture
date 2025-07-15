@@ -10,9 +10,9 @@ import (
 	"ecom-golang-clean-architecture/internal/domain/storage"
 	"ecom-golang-clean-architecture/internal/infrastructure/config"
 	"ecom-golang-clean-architecture/internal/infrastructure/database"
-	"ecom-golang-clean-architecture/internal/infrastructure/repositories"
 	"ecom-golang-clean-architecture/internal/infrastructure/oauth"
 	"ecom-golang-clean-architecture/internal/infrastructure/payment"
+	"ecom-golang-clean-architecture/internal/infrastructure/repositories"
 	infraServices "ecom-golang-clean-architecture/internal/infrastructure/services"
 	localStorage "ecom-golang-clean-architecture/internal/infrastructure/storage"
 	"ecom-golang-clean-architecture/internal/usecases"
@@ -200,7 +200,7 @@ func main() {
 
 	// Initialize all use cases
 	couponUseCase := usecases.NewCouponUseCase(couponRepo, userRepo)
-	reviewUseCase := usecases.NewReviewUseCase(reviewRepo, reviewVoteRepo, productRatingRepo, productRepo, orderRepo)
+	reviewUseCase := usecases.NewReviewUseCase(reviewRepo, reviewVoteRepo, productRatingRepo, productRepo, orderRepo, userRepo)
 	wishlistUseCase := usecases.NewWishlistUseCase(wishlistRepo, productRepo)
 	inventoryUseCase := usecases.NewInventoryUseCase(inventoryRepo, productRepo, warehouseRepo)
 	addressUseCase := usecases.NewAddressUseCase(addressRepo)
