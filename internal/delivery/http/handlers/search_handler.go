@@ -295,8 +295,9 @@ func (h *SearchHandler) FullTextSearch(c *gin.Context) {
 // @Accept json
 // @Produce json
 // @Param q query string true "Search query"
-// @Param limit query int false "Number of suggestions" default(10)
-// @Success 200 {array} string
+// @Param page query int false "Page number" default(1)
+// @Param limit query int false "Number of suggestions per page" default(10)
+// @Success 200 {object} PaginatedResponse
 // @Router /search/suggestions [get]
 func (h *SearchHandler) GetSearchSuggestions(c *gin.Context) {
 	query := c.Query("q")
@@ -307,9 +308,21 @@ func (h *SearchHandler) GetSearchSuggestions(c *gin.Context) {
 		return
 	}
 
+	// Parse and validate pagination parameters
+	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
 	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "10"))
 
-	suggestions, err := h.searchUseCase.GetSearchSuggestions(c.Request.Context(), query, limit)
+	// Validate and normalize pagination for search
+	page, limit, err := usecases.ValidateAndNormalizePaginationForEntity(page, limit, "search")
+	if err != nil {
+		c.JSON(http.StatusBadRequest, ErrorResponse{
+			Error: err.Error(),
+		})
+		return
+	}
+
+	// Get search suggestions with pagination
+	response, err := h.searchUseCase.GetSearchSuggestionsPaginated(c.Request.Context(), query, page, limit)
 	if err != nil {
 		c.JSON(getErrorStatusCode(err), ErrorResponse{
 			Error: err.Error(),
@@ -317,8 +330,9 @@ func (h *SearchHandler) GetSearchSuggestions(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusOK, SuccessResponse{
-		Data: suggestions,
+	c.JSON(http.StatusOK, PaginatedResponse{
+		Data:       response.Suggestions,
+		Pagination: response.Pagination,
 	})
 }
 
@@ -449,14 +463,28 @@ func (h *SearchHandler) GetSearchAnalytics(c *gin.Context) {
 // @Accept json
 // @Produce json
 // @Param period query string false "Period (daily, weekly, monthly)" default(daily)
-// @Param limit query int false "Number of terms" default(10)
-// @Success 200 {array} usecases.PopularSearchResponse
+// @Param page query int false "Page number" default(1)
+// @Param limit query int false "Number of terms per page" default(10)
+// @Success 200 {object} PaginatedResponse
 // @Router /search/popular [get]
 func (h *SearchHandler) GetPopularSearchTerms(c *gin.Context) {
 	period := c.DefaultQuery("period", "daily")
+
+	// Parse and validate pagination parameters
+	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
 	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "10"))
 
-	terms, err := h.searchUseCase.GetPopularSearchTerms(c.Request.Context(), limit, period)
+	// Validate and normalize pagination for search
+	page, limit, err := usecases.ValidateAndNormalizePaginationForEntity(page, limit, "search")
+	if err != nil {
+		c.JSON(http.StatusBadRequest, ErrorResponse{
+			Error: err.Error(),
+		})
+		return
+	}
+
+	// Get popular search terms with pagination
+	response, err := h.searchUseCase.GetPopularSearchTermsPaginated(c.Request.Context(), page, limit, period)
 	if err != nil {
 		c.JSON(getErrorStatusCode(err), ErrorResponse{
 			Error: err.Error(),
@@ -464,8 +492,9 @@ func (h *SearchHandler) GetPopularSearchTerms(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusOK, SuccessResponse{
-		Data: terms,
+	c.JSON(http.StatusOK, PaginatedResponse{
+		Data:       response.Terms,
+		Pagination: response.Pagination,
 	})
 }
 
@@ -781,13 +810,26 @@ type TrackAutocompleteRequest struct {
 // @Tags search
 // @Accept json
 // @Produce json
-// @Param limit query int false "Limit" default(20)
-// @Success 200 {object} []usecases.TrendingSearchResponse
+// @Param page query int false "Page number" default(1)
+// @Param limit query int false "Number of terms per page" default(20)
+// @Success 200 {object} PaginatedResponse
 // @Router /search/trending [get]
 func (h *SearchHandler) GetTrendingSearches(c *gin.Context) {
+	// Parse and validate pagination parameters
+	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
 	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "20"))
 
-	trending, err := h.searchUseCase.GetTrendingSearches(c.Request.Context(), limit)
+	// Validate and normalize pagination for search
+	page, limit, err := usecases.ValidateAndNormalizePaginationForEntity(page, limit, "search")
+	if err != nil {
+		c.JSON(http.StatusBadRequest, ErrorResponse{
+			Error: err.Error(),
+		})
+		return
+	}
+
+	// Get trending searches with pagination
+	response, err := h.searchUseCase.GetTrendingSearchesPaginated(c.Request.Context(), page, limit)
 	if err != nil {
 		c.JSON(getErrorStatusCode(err), ErrorResponse{
 			Error: err.Error(),
@@ -795,8 +837,9 @@ func (h *SearchHandler) GetTrendingSearches(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusOK, SuccessResponse{
-		Data: trending,
+	c.JSON(http.StatusOK, PaginatedResponse{
+		Data:       response.Trends,
+		Pagination: response.Pagination,
 	})
 }
 

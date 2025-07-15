@@ -1,7 +1,11 @@
 package usecases
 
 import (
+	"encoding/base64"
 	"fmt"
+	"sort"
+	"strconv"
+	"strings"
 )
 
 // Constants for pagination
@@ -49,6 +53,17 @@ type PaginationInfo struct {
 	// SEO and UX fields
 	CanonicalURL string `json:"canonical_url,omitempty"` // SEO canonical URL
 	PageSizes    []int  `json:"page_sizes,omitempty"`    // Available page sizes for UX
+
+	// Cursor pagination support
+	NextCursor *string `json:"next_cursor,omitempty"` // Cursor for next page
+	PrevCursor *string `json:"prev_cursor,omitempty"` // Cursor for previous page
+	UseCursor  bool    `json:"use_cursor"`            // Whether cursor pagination is being used
+
+	// Performance and caching fields
+	CacheKey    string `json:"cache_key"`    // Cache key for this pagination result
+	CacheTTL    int    `json:"cache_ttl"`    // Cache TTL in seconds
+	IsCached    bool   `json:"is_cached"`    // Whether this result is from cache
+	QueryTime   int    `json:"query_time"`   // Query execution time in milliseconds
 }
 
 // EcommercePaginationContext provides context for business logic
@@ -59,6 +74,7 @@ type EcommercePaginationContext struct {
 	SearchQuery   string `json:"search_query,omitempty"`
 	SortBy        string `json:"sort_by,omitempty"`
 	FilterApplied bool   `json:"filter_applied"`
+	Period        string `json:"period,omitempty"` // For time-based data: daily, weekly, monthly, etc.
 }
 
 // ValidateAndNormalizePagination validates and normalizes pagination parameters
@@ -177,6 +193,25 @@ func NewPaginationInfo(page, limit int, total int64) *PaginationInfo {
 	}
 }
 
+// NewEcommercePaginationInfoWithCursor creates enhanced pagination info with cursor support
+func NewEcommercePaginationInfoWithCursor(page, limit int, total int64, ctx *EcommercePaginationContext, firstID, lastID string, timestamp int64) *PaginationInfo {
+	pagination := NewEcommercePaginationInfo(page, limit, total, ctx)
+
+	// Add cursor support if enabled
+	if pagination.UseCursor {
+		if pagination.HasNext && lastID != "" {
+			nextCursor := GenerateCursor(lastID, timestamp)
+			pagination.NextCursor = &nextCursor
+		}
+		if pagination.HasPrev && firstID != "" {
+			prevCursor := GenerateCursor(firstID, timestamp)
+			pagination.PrevCursor = &prevCursor
+		}
+	}
+
+	return pagination
+}
+
 // NewPaginationInfoFromOffset creates pagination info from offset-based parameters
 func NewPaginationInfoFromOffset(offset, limit int, total int64) *PaginationInfo {
 	// Validate inputs
@@ -194,10 +229,10 @@ func NewPaginationInfoFromOffset(offset, limit int, total int64) *PaginationInfo
 }
 
 // NewEcommercePaginationInfo creates enhanced pagination with business context
-func NewEcommercePaginationInfo(page, limit int, total int64, context *EcommercePaginationContext) *PaginationInfo {
+func NewEcommercePaginationInfo(page, limit int, total int64, ctx *EcommercePaginationContext) *PaginationInfo {
 	// Use entity-specific validation
-	if context != nil {
-		page, limit, _ = ValidateAndNormalizePaginationForEntity(page, limit, context.EntityType)
+	if ctx != nil {
+		page, limit, _ = ValidateAndNormalizePaginationForEntity(page, limit, ctx.EntityType)
 	} else {
 		page, limit, _ = ValidateAndNormalizePagination(page, limit)
 	}
@@ -206,9 +241,9 @@ func NewEcommercePaginationInfo(page, limit int, total int64, context *Ecommerce
 	pagination := NewPaginationInfo(page, limit, total)
 
 	// Add business logic enhancements
-	if context != nil {
+	if ctx != nil {
 		// Adjust page sizes based on entity type
-		switch context.EntityType {
+		switch ctx.EntityType {
 		case "products":
 			pagination.PageSizes = []int{12, 24, 48, 96} // Grid-friendly sizes
 		case "orders":
@@ -221,10 +256,27 @@ func NewEcommercePaginationInfo(page, limit int, total int64, context *Ecommerce
 			pagination.PageSizes = []int{10, 20, 50, 100}
 		}
 
+		// Check if cursor pagination should be used
+		pagination.UseCursor = ShouldUseCursorPagination(total, ctx.EntityType)
+
+		// Generate cache key
+		cacheParams := map[string]interface{}{
+			"page":  page,
+			"limit": limit,
+		}
+		if ctx.SearchQuery != "" {
+			cacheParams["query"] = ctx.SearchQuery
+		}
+		if ctx.CategoryID != "" {
+			cacheParams["category"] = ctx.CategoryID
+		}
+		pagination.CacheKey = GenerateCacheKey(ctx.EntityType, ctx.UserID, cacheParams)
+		pagination.CacheTTL = GetCacheTTL(ctx.EntityType)
+
 		// Generate canonical URL for SEO (if needed)
-		if context.SearchQuery != "" || context.CategoryID != "" {
+		if ctx.SearchQuery != "" || ctx.CategoryID != "" {
 			// This would be implemented based on your URL structure
-			// pagination.CanonicalURL = generateCanonicalURL(context)
+			// pagination.CanonicalURL = generateCanonicalURL(ctx)
 		}
 	}
 
@@ -317,6 +369,75 @@ func ShouldUseCursorPagination(total int64, entityType string) bool {
 		return total > 1000  // Large search results
 	default:
 		return total > 10000
+	}
+}
+
+// GenerateCursor creates a cursor for pagination
+func GenerateCursor(id string, timestamp int64) string {
+	// Simple cursor format: base64(id:timestamp)
+	cursor := fmt.Sprintf("%s:%d", id, timestamp)
+	return base64.StdEncoding.EncodeToString([]byte(cursor))
+}
+
+// ParseCursor parses a cursor to extract ID and timestamp
+func ParseCursor(cursor string) (string, int64, error) {
+	if cursor == "" {
+		return "", 0, nil
+	}
+
+	decoded, err := base64.StdEncoding.DecodeString(cursor)
+	if err != nil {
+		return "", 0, fmt.Errorf("invalid cursor format")
+	}
+
+	parts := strings.Split(string(decoded), ":")
+	if len(parts) != 2 {
+		return "", 0, fmt.Errorf("invalid cursor format")
+	}
+
+	timestamp, err := strconv.ParseInt(parts[1], 10, 64)
+	if err != nil {
+		return "", 0, fmt.Errorf("invalid cursor timestamp")
+	}
+
+	return parts[0], timestamp, nil
+}
+
+// GenerateCacheKey creates a cache key for pagination results
+func GenerateCacheKey(entityType, userID string, params map[string]interface{}) string {
+	// Create a deterministic cache key
+	keys := make([]string, 0, len(params))
+	for k := range params {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+
+	var parts []string
+	parts = append(parts, "pagination", entityType)
+	if userID != "" {
+		parts = append(parts, "user", userID)
+	}
+
+	for _, k := range keys {
+		parts = append(parts, k, fmt.Sprintf("%v", params[k]))
+	}
+
+	return strings.Join(parts, ":")
+}
+
+// GetCacheTTL returns appropriate cache TTL for entity type
+func GetCacheTTL(entityType string) int {
+	switch entityType {
+	case "products":
+		return 300 // 5 minutes for products
+	case "orders":
+		return 60 // 1 minute for orders (more dynamic)
+	case "search":
+		return 180 // 3 minutes for search results
+	case "analytics":
+		return 600 // 10 minutes for analytics
+	default:
+		return 300 // Default 5 minutes
 	}
 }
 

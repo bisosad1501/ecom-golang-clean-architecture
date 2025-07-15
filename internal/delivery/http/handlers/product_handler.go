@@ -663,20 +663,26 @@ func (h *ProductHandler) validatePatchProductRequest(req *usecases.PatchProductR
 // @Tags products
 // @Accept json
 // @Produce json
-// @Param limit query int false "Limit" default(10)
-// @Param offset query int false "Offset" default(0)
-// @Success 200 {array} usecases.ProductResponse
+// @Param page query int false "Page number" default(1)
+// @Param limit query int false "Number of products per page" default(12)
+// @Success 200 {object} PaginatedResponse
 // @Router /products/featured [get]
 func (h *ProductHandler) GetFeaturedProducts(c *gin.Context) {
-	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "10"))
-	offset, _ := strconv.Atoi(c.DefaultQuery("offset", "0"))
+	// Parse and validate pagination parameters
+	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
+	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "12"))
 
-	req := usecases.GetProductsRequest{
-		Limit:  limit,
-		Offset: offset,
+	// Validate and normalize pagination for products
+	page, limit, err := usecases.ValidateAndNormalizePaginationForEntity(page, limit, "products")
+	if err != nil {
+		c.JSON(http.StatusBadRequest, ErrorResponse{
+			Error: err.Error(),
+		})
+		return
 	}
 
-	products, err := h.productUseCase.GetProducts(c.Request.Context(), req)
+	// Get featured products with pagination
+	response, err := h.productUseCase.GetFeaturedProductsPaginated(c.Request.Context(), page, limit)
 	if err != nil {
 		c.JSON(getErrorStatusCode(err), ErrorResponse{
 			Error: err.Error(),
@@ -684,9 +690,9 @@ func (h *ProductHandler) GetFeaturedProducts(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusOK, SuccessResponse{
-		Message: "Featured products retrieved successfully",
-		Data:    products,
+	c.JSON(http.StatusOK, PaginatedResponse{
+		Data:       response.Products,
+		Pagination: response.Pagination,
 	})
 }
 
@@ -696,20 +702,26 @@ func (h *ProductHandler) GetFeaturedProducts(c *gin.Context) {
 // @Tags products
 // @Accept json
 // @Produce json
-// @Param limit query int false "Limit" default(10)
-// @Param offset query int false "Offset" default(0)
-// @Success 200 {array} usecases.ProductResponse
+// @Param page query int false "Page number" default(1)
+// @Param limit query int false "Number of products per page" default(12)
+// @Success 200 {object} PaginatedResponse
 // @Router /products/trending [get]
 func (h *ProductHandler) GetTrendingProducts(c *gin.Context) {
-	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "10"))
-	offset, _ := strconv.Atoi(c.DefaultQuery("offset", "0"))
+	// Parse and validate pagination parameters
+	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
+	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "12"))
 
-	req := usecases.GetProductsRequest{
-		Limit:  limit,
-		Offset: offset,
+	// Validate and normalize pagination for products
+	page, limit, err := usecases.ValidateAndNormalizePaginationForEntity(page, limit, "products")
+	if err != nil {
+		c.JSON(http.StatusBadRequest, ErrorResponse{
+			Error: err.Error(),
+		})
+		return
 	}
 
-	products, err := h.productUseCase.GetProducts(c.Request.Context(), req)
+	// Get trending products with pagination
+	response, err := h.productUseCase.GetTrendingProductsPaginated(c.Request.Context(), page, limit)
 	if err != nil {
 		c.JSON(getErrorStatusCode(err), ErrorResponse{
 			Error: err.Error(),
@@ -717,9 +729,9 @@ func (h *ProductHandler) GetTrendingProducts(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusOK, SuccessResponse{
-		Message: "Trending products retrieved successfully",
-		Data:    products,
+	c.JSON(http.StatusOK, PaginatedResponse{
+		Data:       response.Products,
+		Pagination: response.Pagination,
 	})
 }
 
@@ -730,8 +742,9 @@ func (h *ProductHandler) GetTrendingProducts(c *gin.Context) {
 // @Accept json
 // @Produce json
 // @Param id path string true "Product ID"
-// @Param limit query int false "Limit" default(10)
-// @Success 200 {array} usecases.ProductResponse
+// @Param page query int false "Page number" default(1)
+// @Param limit query int false "Number of products per page" default(12)
+// @Success 200 {object} PaginatedResponse
 // @Router /products/{id}/related [get]
 func (h *ProductHandler) GetRelatedProducts(c *gin.Context) {
 	productID, err := uuid.Parse(c.Param("id"))
@@ -742,10 +755,21 @@ func (h *ProductHandler) GetRelatedProducts(c *gin.Context) {
 		return
 	}
 
-	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "10"))
+	// Parse and validate pagination parameters
+	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
+	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "12"))
 
-	// Get the product first to find its category
-	product, err := h.productUseCase.GetProduct(c.Request.Context(), productID)
+	// Validate and normalize pagination for products
+	page, limit, err = usecases.ValidateAndNormalizePaginationForEntity(page, limit, "products")
+	if err != nil {
+		c.JSON(http.StatusBadRequest, ErrorResponse{
+			Error: err.Error(),
+		})
+		return
+	}
+
+	// Get related products with pagination
+	response, err := h.productUseCase.GetRelatedProductsPaginated(c.Request.Context(), productID, page, limit)
 	if err != nil {
 		c.JSON(getErrorStatusCode(err), ErrorResponse{
 			Error: err.Error(),
@@ -753,18 +777,9 @@ func (h *ProductHandler) GetRelatedProducts(c *gin.Context) {
 		return
 	}
 
-	// Use category to find related products
-	products, err := h.productUseCase.GetProductsByCategory(c.Request.Context(), product.Category.ID, limit, 0)
-	if err != nil {
-		c.JSON(getErrorStatusCode(err), ErrorResponse{
-			Error: err.Error(),
-		})
-		return
-	}
-
-	c.JSON(http.StatusOK, SuccessResponse{
-		Message: "Related products retrieved successfully",
-		Data:    products,
+	c.JSON(http.StatusOK, PaginatedResponse{
+		Data:       response.Products,
+		Pagination: response.Pagination,
 	})
 }
 

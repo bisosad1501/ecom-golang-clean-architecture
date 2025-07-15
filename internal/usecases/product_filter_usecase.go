@@ -61,12 +61,9 @@ type AdvancedFilterRequest struct {
 
 // FilteredProductResponse represents filtered product response
 type FilteredProductResponse struct {
-	Products []*ProductResponse           `json:"products"`
-	Facets   *repositories.FilterFacets   `json:"facets,omitempty"`
-	Total    int64                        `json:"total"`
-	Page     int                          `json:"page"`
-	Limit    int                          `json:"limit"`
-	Pages    int                          `json:"pages"`
+	Products   []*ProductResponse         `json:"products"`
+	Facets     *repositories.FilterFacets `json:"facets,omitempty"`
+	Pagination *PaginationInfo            `json:"pagination"`
 }
 
 // FilterSetRequest represents a filter set request
@@ -164,23 +161,19 @@ func (uc *productFilterUseCase) FilterProducts(ctx context.Context, req Advanced
 		convertedProducts[i] = uc.mapProductToResponse(product)
 	}
 
-	// Calculate pagination
-	page := req.Page
-	if page < 1 {
-		page = 1
+	// Create pagination context
+	context := &EcommercePaginationContext{
+		EntityType:  "products",
+		SearchQuery: req.Query,
 	}
-	if limit < 1 {
-		limit = 20
-	}
-	pages := int((result.Total + int64(limit) - 1) / int64(limit))
-	
+
+	// Create enhanced pagination info
+	pagination := NewEcommercePaginationInfo(req.Page, req.Limit, result.Total, context)
+
 	response := &FilteredProductResponse{
-		Products: convertedProducts,
-		Facets:   result.Facets,
-		Total:    result.Total,
-		Page:     page,
-		Limit:    limit,
-		Pages:    pages,
+		Products:   convertedProducts,
+		Facets:     result.Facets,
+		Pagination: pagination,
 	}
 	
 	return response, nil

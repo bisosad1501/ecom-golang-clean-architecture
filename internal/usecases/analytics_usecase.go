@@ -36,7 +36,9 @@ type AnalyticsUseCase interface {
 	// Real-time analytics
 	GetRealTimeMetrics(ctx context.Context) (*RealTimeMetricsResponse, error)
 	GetTopProducts(ctx context.Context, period string, limit int) ([]*TopProductResponse, error)
+	GetTopProductsPaginated(ctx context.Context, period string, page, limit int) (*TopProductsPaginatedResponse, error)
 	GetTopCategories(ctx context.Context, period string, limit int) ([]*TopCategoryResponse, error)
+	GetTopCategoriesPaginated(ctx context.Context, period string, page, limit int) (*TopCategoriesPaginatedResponse, error)
 	GetRecentOrders(ctx context.Context, limit int) ([]*RecentOrderResponse, error)
 }
 
@@ -347,12 +349,26 @@ type TopProductResponse struct {
 	Revenue     float64   `json:"revenue"`
 }
 
+// TopProductsPaginatedResponse represents paginated top products
+type TopProductsPaginatedResponse struct {
+	Products   []*TopProductResponse `json:"products"`
+	Pagination *PaginationInfo       `json:"pagination"`
+	Period     string                `json:"period"`
+}
+
 type TopCategoryResponse struct {
 	CategoryID   uuid.UUID `json:"category_id"`
 	CategoryName string    `json:"category_name"`
 	Views        int64     `json:"views"`
 	Sales        int64     `json:"sales"`
 	Revenue      float64   `json:"revenue"`
+}
+
+// TopCategoriesPaginatedResponse represents paginated top categories
+type TopCategoriesPaginatedResponse struct {
+	Categories []*TopCategoryResponse `json:"categories"`
+	Pagination *PaginationInfo        `json:"pagination"`
+	Period     string                 `json:"period"`
 }
 
 type RecentOrderResponse struct {
@@ -674,6 +690,43 @@ func (uc *analyticsUseCase) GetTopProducts(ctx context.Context, period string, l
 	return products, nil
 }
 
+// GetTopProductsPaginated gets top products with pagination
+func (uc *analyticsUseCase) GetTopProductsPaginated(ctx context.Context, period string, page, limit int) (*TopProductsPaginatedResponse, error) {
+	// Get all top products (in real implementation, this would be optimized)
+	allProducts, err := uc.GetTopProducts(ctx, period, limit*10) // Get more to simulate pagination
+	if err != nil {
+		return nil, err
+	}
+
+	// Calculate pagination
+	total := int64(len(allProducts))
+	offset := (page - 1) * limit
+
+	// Get products for current page
+	var products []*TopProductResponse
+	if offset < len(allProducts) {
+		end := offset + limit
+		if end > len(allProducts) {
+			end = len(allProducts)
+		}
+		products = allProducts[offset:end]
+	}
+
+	// Create pagination context
+	context := &EcommercePaginationContext{
+		EntityType: "analytics",
+	}
+
+	// Create enhanced pagination info
+	pagination := NewEcommercePaginationInfo(page, limit, total, context)
+
+	return &TopProductsPaginatedResponse{
+		Products:   products,
+		Pagination: pagination,
+		Period:     period,
+	}, nil
+}
+
 // GetTopCategories gets top categories
 func (uc *analyticsUseCase) GetTopCategories(ctx context.Context, period string, limit int) ([]*TopCategoryResponse, error) {
 	// Mock implementation for top categories
@@ -695,6 +748,43 @@ func (uc *analyticsUseCase) GetTopCategories(ctx context.Context, period string,
 	}
 
 	return categories, nil
+}
+
+// GetTopCategoriesPaginated gets top categories with pagination
+func (uc *analyticsUseCase) GetTopCategoriesPaginated(ctx context.Context, period string, page, limit int) (*TopCategoriesPaginatedResponse, error) {
+	// Get all top categories (in real implementation, this would be optimized)
+	allCategories, err := uc.GetTopCategories(ctx, period, limit*10) // Get more to simulate pagination
+	if err != nil {
+		return nil, err
+	}
+
+	// Calculate pagination
+	total := int64(len(allCategories))
+	offset := (page - 1) * limit
+
+	// Get categories for current page
+	var categories []*TopCategoryResponse
+	if offset < len(allCategories) {
+		end := offset + limit
+		if end > len(allCategories) {
+			end = len(allCategories)
+		}
+		categories = allCategories[offset:end]
+	}
+
+	// Create pagination context
+	context := &EcommercePaginationContext{
+		EntityType: "analytics",
+	}
+
+	// Create enhanced pagination info
+	pagination := NewEcommercePaginationInfo(page, limit, total, context)
+
+	return &TopCategoriesPaginatedResponse{
+		Categories: categories,
+		Pagination: pagination,
+		Period:     period,
+	}, nil
 }
 
 // GetRecentOrders gets recent orders

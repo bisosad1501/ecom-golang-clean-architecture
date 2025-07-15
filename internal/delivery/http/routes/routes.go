@@ -471,7 +471,7 @@ func SetupRoutes(
 			// Address routes
 			addresses := protected.Group("/addresses")
 			{
-				// addresses.GET("", addressHandler.GetUserAddresses) // TODO: Implement GetUserAddresses method
+				addresses.GET("", addressHandler.GetAddresses)
 				addresses.POST("", addressHandler.CreateAddress)
 				addresses.GET("/:id", addressHandler.GetAddress)
 				addresses.PUT("/:id", addressHandler.UpdateAddress)

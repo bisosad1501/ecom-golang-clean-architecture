@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"net/http"
+	"strconv"
 
 	"ecom-golang-clean-architecture/internal/domain/entities"
 	"ecom-golang-clean-architecture/internal/usecases"
@@ -80,11 +81,13 @@ func (h *AddressHandler) CreateAddress(c *gin.Context) {
 // @Accept json
 // @Produce json
 // @Security BearerAuth
-// @Success 200 {array} usecases.AddressResponse
+// @Param page query int false "Page number" default(1)
+// @Param limit query int false "Number of addresses per page" default(10)
+// @Success 200 {object} PaginatedResponse
 // @Failure 401 {object} ErrorResponse
 // @Router /addresses [get]
 func (h *AddressHandler) GetAddresses(c *gin.Context) {
-	userIDStr, exists := c.Get("user_id")
+	userIDInterface, exists := c.Get("user_id")
 	if !exists {
 		c.JSON(http.StatusUnauthorized, ErrorResponse{
 			Error: "User ID not found in token",
@@ -92,15 +95,29 @@ func (h *AddressHandler) GetAddresses(c *gin.Context) {
 		return
 	}
 
-	userID, err := uuid.Parse(userIDStr.(string))
-	if err != nil {
+	userID, ok := userIDInterface.(uuid.UUID)
+	if !ok {
 		c.JSON(http.StatusBadRequest, ErrorResponse{
-			Error: "Invalid user ID",
+			Error: "Invalid user ID format",
 		})
 		return
 	}
 
-	addresses, err := h.addressUseCase.GetUserAddresses(c.Request.Context(), userID)
+	// Parse and validate pagination parameters
+	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
+	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "10"))
+
+	// Validate and normalize pagination
+	page, limit, err := usecases.ValidateAndNormalizePagination(page, limit)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, ErrorResponse{
+			Error: err.Error(),
+		})
+		return
+	}
+
+	// Get user addresses with pagination
+	response, err := h.addressUseCase.GetUserAddressesPaginated(c.Request.Context(), userID, page, limit)
 	if err != nil {
 		c.JSON(getErrorStatusCode(err), ErrorResponse{
 			Error: err.Error(),
@@ -108,8 +125,9 @@ func (h *AddressHandler) GetAddresses(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusOK, SuccessResponse{
-		Data: addresses,
+	c.JSON(http.StatusOK, PaginatedResponse{
+		Data:       response.Addresses,
+		Pagination: response.Pagination,
 	})
 }
 

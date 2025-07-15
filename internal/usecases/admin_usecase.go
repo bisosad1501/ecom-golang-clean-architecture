@@ -20,6 +20,7 @@ type AdminUseCase interface {
 
 	// User management
 	GetUsers(ctx context.Context, req AdminUsersRequest) (*AdminUsersResponse, error)
+	GetUsersPaginated(ctx context.Context, req AdminUsersRequest, page int) (*AdminUsersResponse, error)
 	UpdateUserStatus(ctx context.Context, userID uuid.UUID, status entities.UserStatus) error
 	UpdateUserRole(ctx context.Context, userID uuid.UUID, role entities.UserRole) error
 	GetUserActivity(ctx context.Context, userID uuid.UUID, req ActivityRequest) (*ActivityResponse, error)
@@ -54,6 +55,7 @@ type AdminUseCase interface {
 
 	// Customer search and segmentation
 	SearchCustomers(ctx context.Context, req CustomerSearchRequest) (*CustomerSearchResponse, error)
+	SearchCustomersPaginated(ctx context.Context, req CustomerSearchRequest, page int) (*CustomerSearchResponse, error)
 	GetCustomerSegments(ctx context.Context) (*CustomerSegmentsResponse, error)
 	GetCustomerAnalytics(ctx context.Context, req CustomerAnalyticsRequest) (*CustomerAnalyticsResponse, error)
 	GetHighValueCustomers(ctx context.Context, limit int) (*HighValueCustomersResponse, error)
@@ -367,30 +369,33 @@ type SystemStatsResponse struct {
 	} `json:"cache"`
 }
 
+// AdminUserResponse represents a single user in admin responses
+type AdminUserResponse struct {
+	ID               uuid.UUID           `json:"id"`
+	Email            string              `json:"email"`
+	FirstName        string              `json:"first_name"`
+	LastName         string              `json:"last_name"`
+	Role             entities.UserRole   `json:"role"`
+	Status           entities.UserStatus `json:"status"`
+	IsActive         bool                `json:"is_active"`
+	EmailVerified    bool                `json:"email_verified"`
+	PhoneVerified    bool                `json:"phone_verified"`
+	TwoFactorEnabled bool                `json:"two_factor_enabled"`
+	LastLogin        *time.Time          `json:"last_login"`
+	LastActivity     *time.Time          `json:"last_activity"`
+	OrderCount       int64               `json:"order_count"`
+	TotalSpent       float64             `json:"total_spent"`
+	LoyaltyPoints    int                 `json:"loyalty_points"`
+	MembershipTier   string              `json:"membership_tier"`
+	CustomerSegment  string              `json:"customer_segment"`
+	SecurityLevel    string              `json:"security_level"`
+	CreatedAt        time.Time           `json:"created_at"`
+}
+
 type AdminUsersResponse struct {
-	Users []struct {
-		ID               uuid.UUID           `json:"id"`
-		Email            string              `json:"email"`
-		FirstName        string              `json:"first_name"`
-		LastName         string              `json:"last_name"`
-		Role             entities.UserRole   `json:"role"`
-		Status           entities.UserStatus `json:"status"`
-		IsActive         bool                `json:"is_active"`
-		EmailVerified    bool                `json:"email_verified"`
-		PhoneVerified    bool                `json:"phone_verified"`
-		TwoFactorEnabled bool                `json:"two_factor_enabled"`
-		LastLogin        *time.Time          `json:"last_login"`
-		LastActivity     *time.Time          `json:"last_activity"`
-		OrderCount       int64               `json:"order_count"`
-		TotalSpent       float64             `json:"total_spent"`
-		LoyaltyPoints    int                 `json:"loyalty_points"`
-		MembershipTier   string              `json:"membership_tier"`
-		CustomerSegment  string              `json:"customer_segment"`
-		SecurityLevel    string              `json:"security_level"`
-		CreatedAt        time.Time           `json:"created_at"`
-	} `json:"users"`
-	Total      int64           `json:"total"`
-	Pagination *PaginationInfo `json:"pagination"`
+	Users      []AdminUserResponse `json:"users"`
+	Total      int64               `json:"total"`
+	Pagination *PaginationInfo     `json:"pagination"`
 }
 
 type AdminOrdersResponse struct {
@@ -1690,27 +1695,7 @@ func (uc *adminUseCase) GetUsers(ctx context.Context, req AdminUsersRequest) (*A
 	}
 
 	// Transform entities to response format
-	users := make([]struct {
-		ID               uuid.UUID           `json:"id"`
-		Email            string              `json:"email"`
-		FirstName        string              `json:"first_name"`
-		LastName         string              `json:"last_name"`
-		Role             entities.UserRole   `json:"role"`
-		Status           entities.UserStatus `json:"status"`
-		IsActive         bool                `json:"is_active"`
-		EmailVerified    bool                `json:"email_verified"`
-		PhoneVerified    bool                `json:"phone_verified"`
-		TwoFactorEnabled bool                `json:"two_factor_enabled"`
-		LastLogin        *time.Time          `json:"last_login"`
-		LastActivity     *time.Time          `json:"last_activity"`
-		OrderCount       int64               `json:"order_count"`
-		TotalSpent       float64             `json:"total_spent"`
-		LoyaltyPoints    int                 `json:"loyalty_points"`
-		MembershipTier   string              `json:"membership_tier"`
-		CustomerSegment  string              `json:"customer_segment"`
-		SecurityLevel    string              `json:"security_level"`
-		CreatedAt        time.Time           `json:"created_at"`
-	}, len(usersWithStats))
+	users := make([]AdminUserResponse, len(usersWithStats))
 
 	for i, user := range usersWithStats {
 		// Get order stats for this user
@@ -1719,34 +1704,14 @@ func (uc *adminUseCase) GetUsers(ctx context.Context, req AdminUsersRequest) (*A
 			stats = &entities.UserOrderStats{TotalOrders: 0, TotalSpent: 0}
 		}
 
-		users[i] = struct {
-			ID               uuid.UUID           `json:"id"`
-			Email            string              `json:"email"`
-			FirstName        string              `json:"first_name"`
-			LastName         string              `json:"last_name"`
-			Role             entities.UserRole   `json:"role"`
-			Status           entities.UserStatus `json:"status"`
-			IsActive         bool                `json:"is_active"`
-			EmailVerified    bool                `json:"email_verified"`
-			PhoneVerified    bool                `json:"phone_verified"`
-			TwoFactorEnabled bool                `json:"two_factor_enabled"`
-			LastLogin        *time.Time          `json:"last_login"`
-			LastActivity     *time.Time          `json:"last_activity"`
-			OrderCount       int64               `json:"order_count"`
-			TotalSpent       float64             `json:"total_spent"`
-			LoyaltyPoints    int                 `json:"loyalty_points"`
-			MembershipTier   string              `json:"membership_tier"`
-			CustomerSegment  string              `json:"customer_segment"`
-			SecurityLevel    string              `json:"security_level"`
-			CreatedAt        time.Time           `json:"created_at"`
-		}{
+		users[i] = AdminUserResponse{
 			ID:               user.ID,
 			Email:            user.Email,
 			FirstName:        user.FirstName,
 			LastName:         user.LastName,
 			Role:             user.Role,
 			Status:           user.Status,
-			IsActive:         user.IsActive,
+			IsActive:         user.Status == entities.UserStatusActive,
 			EmailVerified:    user.EmailVerified,
 			PhoneVerified:    user.PhoneVerified,
 			TwoFactorEnabled: user.TwoFactorEnabled,
@@ -1763,6 +1728,93 @@ func (uc *adminUseCase) GetUsers(ctx context.Context, req AdminUsersRequest) (*A
 	}
 
 	pagination := NewPaginationInfoFromOffset(req.Offset, req.Limit, total)
+
+	response := &AdminUsersResponse{
+		Users:      users,
+		Total:      total,
+		Pagination: pagination,
+	}
+
+	return response, nil
+}
+
+// GetUsersPaginated gets users for admin with enhanced pagination
+func (uc *adminUseCase) GetUsersPaginated(ctx context.Context, req AdminUsersRequest, page int) (*AdminUsersResponse, error) {
+	// Build user filters from request
+	filters := repositories.UserFilters{
+		Role:      req.Role,
+		Status:    req.Status,
+		Search:    req.Search,
+		SortBy:    req.SortBy,
+		SortOrder: req.SortOrder,
+		Limit:     req.Limit,
+		Offset:    req.Offset,
+	}
+
+	// Set default sorting if not provided
+	if filters.SortBy == "" {
+		filters.SortBy = "created_at"
+		filters.SortOrder = "desc"
+	}
+
+	// Get users with filters
+	userEntities, err := uc.userRepo.GetUsersWithFilters(ctx, filters)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get users with filters: %w", err)
+	}
+
+	// Get total count with filters
+	total, err := uc.userRepo.CountUsersWithFilters(ctx, filters)
+	if err != nil {
+		return nil, fmt.Errorf("failed to count users with filters: %w", err)
+	}
+
+	// Get users with order statistics for better performance
+	usersWithStats, statsMap, err := uc.userRepo.GetUsersWithOrderStats(ctx, req.Limit, req.Offset)
+	if err != nil {
+		// Fallback to basic user data if stats query fails
+		usersWithStats = userEntities
+		statsMap = make(map[uuid.UUID]*entities.UserOrderStats)
+	}
+
+	// Transform to admin user responses
+	users := make([]AdminUserResponse, len(usersWithStats))
+	for i, user := range usersWithStats {
+		stats := statsMap[user.ID]
+		if stats == nil {
+			stats = &entities.UserOrderStats{TotalOrders: 0, TotalSpent: 0}
+		}
+
+		users[i] = AdminUserResponse{
+			ID:               user.ID,
+			Email:            user.Email,
+			FirstName:        user.FirstName,
+			LastName:         user.LastName,
+			Role:             user.Role,
+			Status:           user.Status,
+			IsActive:         user.Status == entities.UserStatusActive,
+			EmailVerified:    user.EmailVerified,
+			PhoneVerified:    user.PhoneVerified,
+			TwoFactorEnabled: user.TwoFactorEnabled,
+			LastLogin:        user.LastLoginAt,
+			LastActivity:     user.LastActivityAt,
+			OrderCount:       stats.TotalOrders,
+			TotalSpent:       stats.TotalSpent,
+			LoyaltyPoints:    user.LoyaltyPoints,
+			MembershipTier:   user.MembershipTier,
+			CustomerSegment:  user.GetCustomerSegment(),
+			SecurityLevel:    user.GetSecurityLevel(),
+			CreatedAt:        user.CreatedAt,
+		}
+	}
+
+	// Create pagination context
+	context := &EcommercePaginationContext{
+		EntityType: "admin_users",
+	}
+
+	// Create enhanced pagination info
+	pagination := NewEcommercePaginationInfo(page, req.Limit, total, context)
 
 	response := &AdminUsersResponse{
 		Users:      users,
@@ -1998,6 +2050,106 @@ func (uc *adminUseCase) SearchCustomers(ctx context.Context, req CustomerSearchR
 	}
 
 	pagination := NewPaginationInfoFromOffset(req.Offset, req.Limit, total)
+
+	response := &CustomerSearchResponse{
+		Customers:  customers,
+		Total:      total,
+		Pagination: pagination,
+		Facets:     facets,
+	}
+
+	return response, nil
+}
+
+// SearchCustomersPaginated performs advanced customer search with enhanced pagination
+func (uc *adminUseCase) SearchCustomersPaginated(ctx context.Context, req CustomerSearchRequest, page int) (*CustomerSearchResponse, error) {
+	// Build user filters from request
+	filters := repositories.UserFilters{
+		Role:      &[]entities.UserRole{entities.UserRoleCustomer}[0],
+		Status:    req.Status,
+		Search:    req.Query,
+		SortBy:    req.SortBy,
+		SortOrder: req.SortOrder,
+		Limit:     req.Limit,
+		Offset:    req.Offset,
+	}
+
+	// Set default sorting if not provided
+	if filters.SortBy == "" {
+		filters.SortBy = "created_at"
+		filters.SortOrder = "desc"
+	}
+
+	// Get users with filters
+	userEntities, err := uc.userRepo.GetUsersWithFilters(ctx, filters)
+	if err != nil {
+		return nil, fmt.Errorf("failed to search customers: %w", err)
+	}
+
+	// Get total count with filters
+	total, err := uc.userRepo.CountUsersWithFilters(ctx, filters)
+	if err != nil {
+		return nil, fmt.Errorf("failed to count customers: %w", err)
+	}
+
+	// Get users with order statistics
+	usersWithStats, statsMap, err := uc.userRepo.GetUsersWithOrderStats(ctx, req.Limit, req.Offset)
+	if err != nil {
+		// Fallback to basic user data if stats query fails
+		usersWithStats = userEntities
+		statsMap = make(map[uuid.UUID]*entities.UserOrderStats)
+	}
+
+	// Transform to customer search results
+	customers := make([]CustomerSearchResult, len(usersWithStats))
+	for i, user := range usersWithStats {
+		stats := statsMap[user.ID]
+		if stats == nil {
+			stats = &entities.UserOrderStats{TotalOrders: 0, TotalSpent: 0}
+		}
+
+		customers[i] = CustomerSearchResult{
+			ID:               user.ID,
+			FirstName:        user.FirstName,
+			LastName:         user.LastName,
+			Email:            user.Email,
+			Phone:            user.Phone,
+			Role:             user.Role,
+			Status:           user.Status,
+			IsActive:         user.Status == entities.UserStatusActive,
+			EmailVerified:    user.EmailVerified,
+			PhoneVerified:    user.PhoneVerified,
+			TwoFactorEnabled: user.TwoFactorEnabled,
+			LastLogin:        user.LastLoginAt,
+			LastActivity:     user.LastActivityAt,
+			OrderCount:       stats.TotalOrders,
+			TotalSpent:       stats.TotalSpent,
+			LoyaltyPoints:    user.LoyaltyPoints,
+			MembershipTier:   user.MembershipTier,
+			CustomerSegment:  user.GetCustomerSegment(),
+			SecurityLevel:    user.GetSecurityLevel(),
+			IsHighValue:      user.IsHighValue(),
+			IsVIP:            user.IsVIP(),
+			CreatedAt:        user.CreatedAt,
+			UpdatedAt:        user.UpdatedAt,
+		}
+	}
+
+	// Generate facets for filtering
+	facets, err := uc.generateCustomerSearchFacets(ctx, filters)
+	if err != nil {
+		// Log error but don't fail the request
+		facets = nil
+	}
+
+	// Create pagination context
+	context := &EcommercePaginationContext{
+		EntityType:  "admin_users",
+		SearchQuery: req.Query,
+	}
+
+	// Create enhanced pagination info
+	pagination := NewEcommercePaginationInfo(page, req.Limit, total, context)
 
 	response := &CustomerSearchResponse{
 		Customers:  customers,

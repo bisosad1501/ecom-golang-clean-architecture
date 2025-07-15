@@ -25,7 +25,7 @@ type OrderUseCase interface {
 	GetUserOrdersWithFilters(ctx context.Context, userID uuid.UUID, req GetUserOrdersRequest) (*PaginatedOrderResponse, error)
 	UpdateOrderStatus(ctx context.Context, orderID uuid.UUID, status entities.OrderStatus) (*OrderResponse, error)
 	CancelOrder(ctx context.Context, orderID uuid.UUID) (*OrderResponse, error)
-	GetOrders(ctx context.Context, req GetOrdersRequest) ([]*OrderResponse, error)
+	GetOrders(ctx context.Context, req GetOrdersRequest) (*GetOrdersResponse, error)
 
 	// Shipping management
 	UpdateShippingInfo(ctx context.Context, orderID uuid.UUID, req UpdateShippingInfoRequest) (*OrderResponse, error)
@@ -122,6 +122,12 @@ type GetUserOrdersRequest struct {
 // PaginatedOrderResponse represents a paginated order response
 type PaginatedOrderResponse struct {
 	Data       []*OrderResponse `json:"data"`
+	Pagination *PaginationInfo  `json:"pagination"`
+}
+
+// GetOrdersResponse represents admin orders response
+type GetOrdersResponse struct {
+	Orders     []*OrderResponse `json:"orders"`
 	Pagination *PaginationInfo  `json:"pagination"`
 }
 
@@ -711,8 +717,15 @@ func (uc *orderUseCase) GetUserOrdersWithFilters(ctx context.Context, userID uui
 		responses[i] = uc.toOrderResponse(order)
 	}
 
-	// Calculate pagination metadata using standardized function
-	pagination := NewPaginationInfoFromOffset(req.Offset, req.Limit, totalCount)
+	// Create pagination context
+	context := &EcommercePaginationContext{
+		EntityType: "orders",
+		UserID:     userID.String(),
+	}
+
+	// Calculate pagination metadata using enhanced function
+	page := (req.Offset / req.Limit) + 1
+	pagination := NewEcommercePaginationInfo(page, req.Limit, totalCount, context)
 
 	return &PaginatedOrderResponse{
 		Data:       responses,
@@ -852,7 +865,7 @@ func (uc *orderUseCase) CancelOrder(ctx context.Context, orderID uuid.UUID) (*Or
 }
 
 // GetOrders gets list of orders
-func (uc *orderUseCase) GetOrders(ctx context.Context, req GetOrdersRequest) ([]*OrderResponse, error) {
+func (uc *orderUseCase) GetOrders(ctx context.Context, req GetOrdersRequest) (*GetOrdersResponse, error) {
 	params := repositories.OrderSearchParams{
 		Status:        req.Status,
 		PaymentStatus: req.PaymentStatus,
@@ -864,17 +877,43 @@ func (uc *orderUseCase) GetOrders(ctx context.Context, req GetOrdersRequest) ([]
 		Offset:        req.Offset,
 	}
 
+	// Set default sorting if not provided
+	if params.SortBy == "" {
+		params.SortBy = "created_at"
+		params.SortOrder = "desc"
+	}
+
+	// Get total count with same filters
+	totalCount, err := uc.orderRepo.CountSearch(ctx, params)
+	if err != nil {
+		return nil, err
+	}
+
+	// Get orders
 	orders, err := uc.orderRepo.Search(ctx, params)
 	if err != nil {
 		return nil, err
 	}
 
+	// Convert to responses
 	responses := make([]*OrderResponse, len(orders))
 	for i, order := range orders {
 		responses[i] = uc.toOrderResponse(order)
 	}
 
-	return responses, nil
+	// Create pagination context
+	context := &EcommercePaginationContext{
+		EntityType: "admin_orders",
+	}
+
+	// Calculate pagination metadata using enhanced function
+	page := (req.Offset / req.Limit) + 1
+	pagination := NewEcommercePaginationInfo(page, req.Limit, totalCount, context)
+
+	return &GetOrdersResponse{
+		Orders:     responses,
+		Pagination: pagination,
+	}, nil
 }
 
 // toOrderResponse converts order entity to response

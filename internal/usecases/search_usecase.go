@@ -16,6 +16,7 @@ type SearchUseCase interface {
 	// Full-text search
 	FullTextSearch(ctx context.Context, req FullTextSearchRequest) (*SearchResponse, error)
 	GetSearchSuggestions(ctx context.Context, query string, limit int) ([]string, error)
+	GetSearchSuggestionsPaginated(ctx context.Context, query string, page, limit int) (*SearchSuggestionsPaginatedResponse, error)
 	GetSearchFacets(ctx context.Context, query string) (*SearchFacetsResponse, error)
 
 	// Enhanced search with dynamic faceting
@@ -24,6 +25,7 @@ type SearchUseCase interface {
 	// Search events
 	RecordSearchEvent(ctx context.Context, req RecordSearchEventRequest) error
 	GetPopularSearchTerms(ctx context.Context, limit int, period string) ([]PopularSearchResponse, error)
+	GetPopularSearchTermsPaginated(ctx context.Context, page, limit int, period string) (*PopularSearchTermsPaginatedResponse, error)
 
 	// Search analytics
 	GetSearchAnalytics(ctx context.Context, req SearchAnalyticsRequest) (*SearchAnalyticsResponse, error)
@@ -46,6 +48,7 @@ type SearchUseCase interface {
 	GetEnhancedAutocomplete(ctx context.Context, req EnhancedAutocompleteRequest) (*EnhancedAutocompleteResponse, error)
 	GetPersonalizedAutocomplete(ctx context.Context, userID uuid.UUID, query string, limit int) (*EnhancedAutocompleteResponse, error)
 	GetTrendingSearches(ctx context.Context, limit int) ([]TrendingSearchResponse, error)
+	GetTrendingSearchesPaginated(ctx context.Context, page, limit int) (*TrendingSearchesPaginatedResponse, error)
 
 	// Smart Autocomplete
 	GetSmartAutocomplete(ctx context.Context, req entities.SmartAutocompleteRequest) (*entities.SmartAutocompleteResponse, error)
@@ -236,6 +239,20 @@ type RecordSearchEventRequest struct {
 type PopularSearchResponse struct {
 	Query       string `json:"query"`
 	SearchCount int    `json:"search_count"`
+}
+
+// SearchSuggestionsPaginatedResponse represents paginated search suggestions
+type SearchSuggestionsPaginatedResponse struct {
+	Suggestions []string        `json:"suggestions"`
+	Pagination  *PaginationInfo `json:"pagination"`
+	Query       string          `json:"query"`
+}
+
+// PopularSearchTermsPaginatedResponse represents paginated popular search terms
+type PopularSearchTermsPaginatedResponse struct {
+	Terms      []PopularSearchResponse `json:"terms"`
+	Pagination *PaginationInfo         `json:"pagination"`
+	Period     string                  `json:"period"`
 }
 
 // SearchAnalyticsRequest represents request for search analytics
@@ -696,6 +713,44 @@ func (uc *searchUseCase) GetSearchSuggestions(ctx context.Context, query string,
 	return result, nil
 }
 
+// GetSearchSuggestionsPaginated gets search suggestions with pagination
+func (uc *searchUseCase) GetSearchSuggestionsPaginated(ctx context.Context, query string, page, limit int) (*SearchSuggestionsPaginatedResponse, error) {
+	// Get all suggestions (in real implementation, this would be optimized)
+	allSuggestions, err := uc.GetSearchSuggestions(ctx, query, limit*10) // Get more to simulate pagination
+	if err != nil {
+		return nil, err
+	}
+
+	// Calculate pagination
+	total := int64(len(allSuggestions))
+	offset := (page - 1) * limit
+
+	// Get suggestions for current page
+	var suggestions []string
+	if offset < len(allSuggestions) {
+		end := offset + limit
+		if end > len(allSuggestions) {
+			end = len(allSuggestions)
+		}
+		suggestions = allSuggestions[offset:end]
+	}
+
+	// Create pagination context
+	context := &EcommercePaginationContext{
+		EntityType:  "search",
+		SearchQuery: query,
+	}
+
+	// Create enhanced pagination info
+	pagination := NewEcommercePaginationInfo(page, limit, total, context)
+
+	return &SearchSuggestionsPaginatedResponse{
+		Suggestions: suggestions,
+		Pagination:  pagination,
+		Query:       query,
+	}, nil
+}
+
 // GetSearchFacets gets search facets
 func (uc *searchUseCase) GetSearchFacets(ctx context.Context, query string) (*SearchFacetsResponse, error) {
 	facets, err := uc.searchRepo.GetSearchFacets(ctx, query)
@@ -746,6 +801,44 @@ func (uc *searchUseCase) GetPopularSearchTerms(ctx context.Context, limit int, p
 	}
 
 	return result, nil
+}
+
+// GetPopularSearchTermsPaginated gets popular search terms with pagination
+func (uc *searchUseCase) GetPopularSearchTermsPaginated(ctx context.Context, page, limit int, period string) (*PopularSearchTermsPaginatedResponse, error) {
+	// Get all popular search terms (in real implementation, this would be optimized)
+	allTerms, err := uc.GetPopularSearchTerms(ctx, limit*10, period) // Get more to simulate pagination
+	if err != nil {
+		return nil, err
+	}
+
+	// Calculate pagination
+	total := int64(len(allTerms))
+	offset := (page - 1) * limit
+
+	// Get terms for current page
+	var terms []PopularSearchResponse
+	if offset < len(allTerms) {
+		end := offset + limit
+		if end > len(allTerms) {
+			end = len(allTerms)
+		}
+		terms = allTerms[offset:end]
+	}
+
+	// Create pagination context
+	context := &EcommercePaginationContext{
+		EntityType: "search",
+		Period:     period,
+	}
+
+	// Create enhanced pagination info
+	pagination := NewEcommercePaginationInfo(page, limit, total, context)
+
+	return &PopularSearchTermsPaginatedResponse{
+		Terms:      terms,
+		Pagination: pagination,
+		Period:     period,
+	}, nil
 }
 
 // SaveSearchHistory saves user search history
@@ -1020,6 +1113,42 @@ func (uc *searchUseCase) GetTrendingSearches(ctx context.Context, limit int) ([]
 	}
 
 	return response, nil
+}
+
+// GetTrendingSearchesPaginated gets trending searches with pagination
+func (uc *searchUseCase) GetTrendingSearchesPaginated(ctx context.Context, page, limit int) (*TrendingSearchesPaginatedResponse, error) {
+	// Get all trending searches (in real implementation, this would be optimized)
+	allTrends, err := uc.GetTrendingSearches(ctx, limit*10) // Get more to simulate pagination
+	if err != nil {
+		return nil, err
+	}
+
+	// Calculate pagination
+	total := int64(len(allTrends))
+	offset := (page - 1) * limit
+
+	// Get trends for current page
+	var trends []TrendingSearchResponse
+	if offset < len(allTrends) {
+		end := offset + limit
+		if end > len(allTrends) {
+			end = len(allTrends)
+		}
+		trends = allTrends[offset:end]
+	}
+
+	// Create pagination context
+	context := &EcommercePaginationContext{
+		EntityType: "search",
+	}
+
+	// Create enhanced pagination info
+	pagination := NewEcommercePaginationInfo(page, limit, total, context)
+
+	return &TrendingSearchesPaginatedResponse{
+		Trends:     trends,
+		Pagination: pagination,
+	}, nil
 }
 
 // GetUserSearchPreferences retrieves user search preferences
@@ -1557,6 +1686,12 @@ type TrendingSearchResponse struct {
 	SearchCount int    `json:"search_count"`
 	Period      string `json:"period"`
 	Trend       string `json:"trend"` // up, down, stable
+}
+
+// TrendingSearchesPaginatedResponse represents paginated trending searches
+type TrendingSearchesPaginatedResponse struct {
+	Trends     []TrendingSearchResponse `json:"trends"`
+	Pagination *PaginationInfo          `json:"pagination"`
 }
 
 type UserSearchPreferencesResponse struct {

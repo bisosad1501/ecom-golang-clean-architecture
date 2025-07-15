@@ -13,6 +13,7 @@ import (
 type AddressUseCase interface {
 	CreateAddress(ctx context.Context, userID uuid.UUID, req CreateAddressRequest) (*AddressResponse, error)
 	GetUserAddresses(ctx context.Context, userID uuid.UUID) ([]*AddressResponse, error)
+	GetUserAddressesPaginated(ctx context.Context, userID uuid.UUID, page, limit int) (*UserAddressesPaginatedResponse, error)
 	GetAddress(ctx context.Context, userID, addressID uuid.UUID) (*AddressResponse, error)
 	UpdateAddress(ctx context.Context, userID, addressID uuid.UUID, req UpdateAddressRequest) (*AddressResponse, error)
 	DeleteAddress(ctx context.Context, userID, addressID uuid.UUID) error
@@ -84,6 +85,13 @@ type AddressResponse struct {
 	UpdatedAt   time.Time            `json:"updated_at"`
 }
 
+// UserAddressesPaginatedResponse represents paginated user addresses
+type UserAddressesPaginatedResponse struct {
+	Addresses  []*AddressResponse `json:"addresses"`
+	Pagination *PaginationInfo    `json:"pagination"`
+	UserID     uuid.UUID          `json:"user_id"`
+}
+
 // CreateAddress creates a new address for user
 func (uc *addressUseCase) CreateAddress(ctx context.Context, userID uuid.UUID, req CreateAddressRequest) (*AddressResponse, error) {
 	address := &entities.Address{
@@ -133,6 +141,44 @@ func (uc *addressUseCase) GetUserAddresses(ctx context.Context, userID uuid.UUID
 	}
 
 	return responses, nil
+}
+
+// GetUserAddressesPaginated gets user's addresses with pagination
+func (uc *addressUseCase) GetUserAddressesPaginated(ctx context.Context, userID uuid.UUID, page, limit int) (*UserAddressesPaginatedResponse, error) {
+	// Get all user addresses (in real implementation, this would be optimized)
+	allAddresses, err := uc.GetUserAddresses(ctx, userID)
+	if err != nil {
+		return nil, err
+	}
+
+	// Calculate pagination
+	total := int64(len(allAddresses))
+	offset := (page - 1) * limit
+
+	// Get addresses for current page
+	var addresses []*AddressResponse
+	if offset < len(allAddresses) {
+		end := offset + limit
+		if end > len(allAddresses) {
+			end = len(allAddresses)
+		}
+		addresses = allAddresses[offset:end]
+	}
+
+	// Create pagination context
+	context := &EcommercePaginationContext{
+		EntityType: "addresses",
+		UserID:     userID.String(),
+	}
+
+	// Create enhanced pagination info
+	pagination := NewEcommercePaginationInfo(page, limit, total, context)
+
+	return &UserAddressesPaginatedResponse{
+		Addresses:  addresses,
+		Pagination: pagination,
+		UserID:     userID,
+	}, nil
 }
 
 // GetAddress gets a specific address for user

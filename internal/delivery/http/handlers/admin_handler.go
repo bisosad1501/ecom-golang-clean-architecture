@@ -75,6 +75,22 @@ func (h *AdminHandler) GetSystemStats(c *gin.Context) {
 
 // GetUsers returns paginated list of users
 func (h *AdminHandler) GetUsers(c *gin.Context) {
+	// Parse and validate pagination parameters
+	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
+	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "25"))
+
+	// Validate and normalize pagination for admin users
+	page, limit, err := usecases.ValidateAndNormalizePaginationForEntity(page, limit, "admin_users")
+	if err != nil {
+		c.JSON(http.StatusBadRequest, ErrorResponse{
+			Error: err.Error(),
+		})
+		return
+	}
+
+	// Convert to offset for repository
+	offset := (page - 1) * limit
+
 	var req usecases.AdminUsersRequest
 	if err := c.ShouldBindQuery(&req); err != nil {
 		c.JSON(http.StatusBadRequest, ErrorResponse{
@@ -84,19 +100,15 @@ func (h *AdminHandler) GetUsers(c *gin.Context) {
 		return
 	}
 
-	// Set default values if not provided
-	if req.Limit == 0 {
-		req.Limit = 20
-	}
-	if req.Offset < 0 {
-		req.Offset = 0
-	}
+	// Override pagination parameters
+	req.Limit = limit
+	req.Offset = offset
 
 	// Debug logging
-	fmt.Printf("DEBUG GetUsers - Limit: %d, Offset: %d, Status: %v, Role: %v, Search: %s\n",
-		req.Limit, req.Offset, req.Status, req.Role, req.Search)
+	fmt.Printf("DEBUG GetUsers - Page: %d, Limit: %d, Offset: %d, Status: %v, Role: %v, Search: %s\n",
+		page, req.Limit, req.Offset, req.Status, req.Role, req.Search)
 
-	users, err := h.adminUseCase.GetUsers(c.Request.Context(), req)
+	response, err := h.adminUseCase.GetUsersPaginated(c.Request.Context(), req, page)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, ErrorResponse{
 			Error:   "Failed to get users",
@@ -105,9 +117,9 @@ func (h *AdminHandler) GetUsers(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusOK, SuccessResponse{
-		Message: "Users retrieved successfully",
-		Data:    users,
+	c.JSON(http.StatusOK, PaginatedResponse{
+		Data:       response.Users,
+		Pagination: response.Pagination,
 	})
 }
 
@@ -554,6 +566,22 @@ func (h *AdminHandler) GetUserActivity(c *gin.Context) {
 // @Failure 500 {object} ErrorResponse
 // @Router /admin/customers/search [get]
 func (h *AdminHandler) SearchCustomers(c *gin.Context) {
+	// Parse and validate pagination parameters
+	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
+	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "25"))
+
+	// Validate and normalize pagination for admin users
+	page, limit, err := usecases.ValidateAndNormalizePaginationForEntity(page, limit, "admin_users")
+	if err != nil {
+		c.JSON(http.StatusBadRequest, ErrorResponse{
+			Error: err.Error(),
+		})
+		return
+	}
+
+	// Convert to offset for repository
+	offset := (page - 1) * limit
+
 	var req usecases.CustomerSearchRequest
 	if err := c.ShouldBindQuery(&req); err != nil {
 		c.JSON(http.StatusBadRequest, ErrorResponse{
@@ -563,15 +591,11 @@ func (h *AdminHandler) SearchCustomers(c *gin.Context) {
 		return
 	}
 
-	// Set default values if not provided
-	if req.Limit == 0 {
-		req.Limit = 20
-	}
-	if req.Offset < 0 {
-		req.Offset = 0
-	}
+	// Override pagination parameters
+	req.Limit = limit
+	req.Offset = offset
 
-	result, err := h.adminUseCase.SearchCustomers(c.Request.Context(), req)
+	response, err := h.adminUseCase.SearchCustomersPaginated(c.Request.Context(), req, page)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, ErrorResponse{
 			Error:   "Failed to search customers",
@@ -580,9 +604,9 @@ func (h *AdminHandler) SearchCustomers(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusOK, SuccessResponse{
-		Message: "Customers searched successfully",
-		Data:    result,
+	c.JSON(http.StatusOK, PaginatedResponse{
+		Data:       response.Customers,
+		Pagination: response.Pagination,
 	})
 }
 

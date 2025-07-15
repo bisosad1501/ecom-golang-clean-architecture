@@ -173,20 +173,29 @@ func (h *ProductFilterHandler) FilterProducts(c *gin.Context) {
 	sessionID := getSessionIDFromContext(c)
 	
 	// Track major filters
+	totalCount := result.Pagination.Total
 	if req.Query != "" {
-		h.filterUseCase.TrackFilterUsage(c.Request.Context(), userID, sessionID, "query", "search", req.Query, int(result.Total))
+		h.filterUseCase.TrackFilterUsage(c.Request.Context(), userID, sessionID, "query", "search", req.Query, int(totalCount))
 	}
 	if len(req.CategoryIDs) > 0 {
-		h.filterUseCase.TrackFilterUsage(c.Request.Context(), userID, sessionID, "category", "category_ids", strings.Join(req.CategoryIDs, ","), int(result.Total))
+		h.filterUseCase.TrackFilterUsage(c.Request.Context(), userID, sessionID, "category", "category_ids", strings.Join(req.CategoryIDs, ","), int(totalCount))
 	}
 	if len(req.BrandIDs) > 0 {
-		h.filterUseCase.TrackFilterUsage(c.Request.Context(), userID, sessionID, "brand", "brand_ids", strings.Join(req.BrandIDs, ","), int(result.Total))
+		h.filterUseCase.TrackFilterUsage(c.Request.Context(), userID, sessionID, "brand", "brand_ids", strings.Join(req.BrandIDs, ","), int(totalCount))
 	}
 
-	c.JSON(http.StatusOK, SuccessResponse{
-		Message: "Products filtered successfully",
-		Data:    result,
-	})
+	// Create response with enhanced pagination format
+	response := map[string]interface{}{
+		"data":       result.Products,
+		"pagination": result.Pagination,
+	}
+
+	// Include facets if available
+	if result.Facets != nil {
+		response["facets"] = result.Facets
+	}
+
+	c.JSON(http.StatusOK, response)
 }
 
 // GetFilterFacets gets available filter facets

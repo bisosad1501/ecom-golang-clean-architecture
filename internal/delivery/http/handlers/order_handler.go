@@ -213,12 +213,28 @@ func (h *OrderHandler) GetUserOrders(c *gin.Context) {
 		return
 	}
 
+	// Parse and validate pagination parameters
+	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
+	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "10"))
+
+	// Validate and normalize pagination for orders
+	page, limit, err := usecases.ValidateAndNormalizePaginationForEntity(page, limit, "orders")
+	if err != nil {
+		c.JSON(http.StatusBadRequest, ErrorResponse{
+			Error: err.Error(),
+		})
+		return
+	}
+
+	// Convert to offset for repository
+	offset := (page - 1) * limit
+
 	// Build request with filters
 	req := usecases.GetUserOrdersRequest{
 		SortBy:    c.DefaultQuery("sort_by", "created_at"),
 		SortOrder: c.DefaultQuery("sort_order", "desc"),
-		Limit:     10,
-		Offset:    0,
+		Limit:     limit,
+		Offset:    offset,
 	}
 
 	// Parse status filter
@@ -233,20 +249,7 @@ func (h *OrderHandler) GetUserOrders(c *gin.Context) {
 		req.PaymentStatus = &paymentStatus
 	}
 
-	// Parse limit and offset
-	if limitStr := c.Query("limit"); limitStr != "" {
-		if limit, err := strconv.Atoi(limitStr); err == nil && limit > 0 {
-			req.Limit = limit
-		}
-	}
-
-	if offsetStr := c.Query("offset"); offsetStr != "" {
-		if offset, err := strconv.Atoi(offsetStr); err == nil && offset >= 0 {
-			req.Offset = offset
-		}
-	}
-
-	orders, err := h.orderUseCase.GetUserOrdersWithFilters(c.Request.Context(), userID, req)
+	response, err := h.orderUseCase.GetUserOrdersWithFilters(c.Request.Context(), userID, req)
 	if err != nil {
 		c.JSON(getErrorStatusCode(err), ErrorResponse{
 			Error: err.Error(),
@@ -254,8 +257,9 @@ func (h *OrderHandler) GetUserOrders(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusOK, SuccessResponse{
-		Data: orders,
+	c.JSON(http.StatusOK, PaginatedResponse{
+		Data:       response.Data,
+		Pagination: response.Pagination,
 	})
 }
 
@@ -311,11 +315,27 @@ func (h *OrderHandler) CancelOrder(c *gin.Context) {
 // @Failure 403 {object} ErrorResponse
 // @Router /admin/orders [get]
 func (h *OrderHandler) GetOrders(c *gin.Context) {
+	// Parse and validate pagination parameters
+	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
+	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "20"))
+
+	// Validate and normalize pagination for admin orders
+	page, limit, err := usecases.ValidateAndNormalizePaginationForEntity(page, limit, "admin_orders")
+	if err != nil {
+		c.JSON(http.StatusBadRequest, ErrorResponse{
+			Error: err.Error(),
+		})
+		return
+	}
+
+	// Convert to offset for repository
+	offset := (page - 1) * limit
+
 	req := usecases.GetOrdersRequest{
 		SortBy:    c.DefaultQuery("sort_by", "created_at"),
 		SortOrder: c.DefaultQuery("sort_order", "desc"),
-		Limit:     10,
-		Offset:    0,
+		Limit:     limit,
+		Offset:    offset,
 	}
 
 	if statusStr := c.Query("status"); statusStr != "" {
@@ -328,19 +348,7 @@ func (h *OrderHandler) GetOrders(c *gin.Context) {
 		req.PaymentStatus = &paymentStatus
 	}
 
-	if limitStr := c.Query("limit"); limitStr != "" {
-		if limit, err := strconv.Atoi(limitStr); err == nil {
-			req.Limit = limit
-		}
-	}
-
-	if offsetStr := c.Query("offset"); offsetStr != "" {
-		if offset, err := strconv.Atoi(offsetStr); err == nil {
-			req.Offset = offset
-		}
-	}
-
-	orders, err := h.orderUseCase.GetOrders(c.Request.Context(), req)
+	response, err := h.orderUseCase.GetOrders(c.Request.Context(), req)
 	if err != nil {
 		c.JSON(getErrorStatusCode(err), ErrorResponse{
 			Error: err.Error(),
@@ -348,8 +356,9 @@ func (h *OrderHandler) GetOrders(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusOK, SuccessResponse{
-		Data: orders,
+	c.JSON(http.StatusOK, PaginatedResponse{
+		Data:       response.Orders,
+		Pagination: response.Pagination,
 	})
 }
 

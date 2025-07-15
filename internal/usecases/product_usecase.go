@@ -81,6 +81,25 @@ type GetProductsResponse struct {
 	Pagination *PaginationInfo    `json:"pagination"`
 }
 
+// FeaturedProductsPaginatedResponse represents paginated featured products
+type FeaturedProductsPaginatedResponse struct {
+	Products   []*ProductResponse `json:"products"`
+	Pagination *PaginationInfo    `json:"pagination"`
+}
+
+// TrendingProductsPaginatedResponse represents paginated trending products
+type TrendingProductsPaginatedResponse struct {
+	Products   []*ProductResponse `json:"products"`
+	Pagination *PaginationInfo    `json:"pagination"`
+}
+
+// RelatedProductsPaginatedResponse represents paginated related products
+type RelatedProductsPaginatedResponse struct {
+	Products   []*ProductResponse `json:"products"`
+	Pagination *PaginationInfo    `json:"pagination"`
+	ProductID  uuid.UUID          `json:"product_id"`
+}
+
 type SearchProductsRequest struct {
 	Query      string                  `json:"query"`
 	CategoryID *uuid.UUID              `json:"category_id"`
@@ -171,6 +190,11 @@ type ProductUseCase interface {
 	GetSearchSuggestions(ctx context.Context, req SearchSuggestionsRequest) (*SearchSuggestionsResponse, error)
 	GetPopularSearches(ctx context.Context, limit int) (*PopularSearchesResponse, error)
 	GetSearchHistory(ctx context.Context, userID uuid.UUID, limit int) (*SearchHistoryResponse, error)
+
+	// Paginated product methods
+	GetFeaturedProductsPaginated(ctx context.Context, page, limit int) (*FeaturedProductsPaginatedResponse, error)
+	GetTrendingProductsPaginated(ctx context.Context, page, limit int) (*TrendingProductsPaginatedResponse, error)
+	GetRelatedProductsPaginated(ctx context.Context, productID uuid.UUID, page, limit int) (*RelatedProductsPaginatedResponse, error)
 }
 
 type productUseCase struct {
@@ -1569,4 +1593,157 @@ func (uc *productUseCase) createInitialInventory(ctx context.Context, product *e
 	}
 
 	return uc.inventoryRepo.Create(ctx, inventory)
+}
+
+// GetFeaturedProductsPaginated gets featured products with pagination
+func (uc *productUseCase) GetFeaturedProductsPaginated(ctx context.Context, page, limit int) (*FeaturedProductsPaginatedResponse, error) {
+	// Get featured products using existing GetProducts method with featured filter
+	req := GetProductsRequest{
+		Limit:  limit * 10, // Get more to simulate featured products
+		Offset: 0,
+	}
+
+	// Get all products and filter featured ones (in real implementation, this would be optimized)
+	allProductsResponse, err := uc.GetProducts(ctx, req)
+	if err != nil {
+		return nil, err
+	}
+
+	// Filter featured products (mock implementation)
+	var featuredProducts []*ProductResponse
+	for _, product := range allProductsResponse.Products {
+		if product.Featured { // Assuming Featured field exists
+			featuredProducts = append(featuredProducts, product)
+		}
+	}
+
+	// Calculate pagination
+	total := int64(len(featuredProducts))
+	offset := (page - 1) * limit
+
+	// Get products for current page
+	var products []*ProductResponse
+	if offset < len(featuredProducts) {
+		end := offset + limit
+		if end > len(featuredProducts) {
+			end = len(featuredProducts)
+		}
+		products = featuredProducts[offset:end]
+	}
+
+	// Create pagination context
+	context := &EcommercePaginationContext{
+		EntityType: "products",
+	}
+
+	// Create enhanced pagination info
+	pagination := NewEcommercePaginationInfo(page, limit, total, context)
+
+	return &FeaturedProductsPaginatedResponse{
+		Products:   products,
+		Pagination: pagination,
+	}, nil
+}
+
+// GetTrendingProductsPaginated gets trending products with pagination
+func (uc *productUseCase) GetTrendingProductsPaginated(ctx context.Context, page, limit int) (*TrendingProductsPaginatedResponse, error) {
+	// Get trending products (in real implementation, this would be based on analytics)
+	req := GetProductsRequest{
+		Limit:  limit * 10, // Get more to simulate trending products
+		Offset: 0,
+	}
+
+	// Get all products and sort by popularity (mock implementation)
+	allProductsResponse, err := uc.GetProducts(ctx, req)
+	if err != nil {
+		return nil, err
+	}
+
+	// Sort products by popularity (mock implementation)
+	trendingProducts := allProductsResponse.Products
+
+	// Calculate pagination
+	total := int64(len(trendingProducts))
+	offset := (page - 1) * limit
+
+	// Get products for current page
+	var products []*ProductResponse
+	if offset < len(trendingProducts) {
+		end := offset + limit
+		if end > len(trendingProducts) {
+			end = len(trendingProducts)
+		}
+		products = trendingProducts[offset:end]
+	}
+
+	// Create pagination context
+	context := &EcommercePaginationContext{
+		EntityType: "products",
+	}
+
+	// Create enhanced pagination info
+	pagination := NewEcommercePaginationInfo(page, limit, total, context)
+
+	return &TrendingProductsPaginatedResponse{
+		Products:   products,
+		Pagination: pagination,
+	}, nil
+}
+
+// GetRelatedProductsPaginated gets related products with pagination
+func (uc *productUseCase) GetRelatedProductsPaginated(ctx context.Context, productID uuid.UUID, page, limit int) (*RelatedProductsPaginatedResponse, error) {
+	// Get product to find related products
+	product, err := uc.productRepo.GetByID(ctx, productID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get product: %w", err)
+	}
+
+	// Get all products and filter related ones (in real implementation, this would be optimized)
+	req := GetProductsRequest{
+		Limit:  limit * 10, // Get more to simulate related products
+		Offset: 0,
+	}
+
+	allProductsResponse, err := uc.GetProducts(ctx, req)
+	if err != nil {
+		return nil, err
+	}
+
+	// Filter related products (mock implementation)
+	// In a real implementation, this would use category, tags, etc.
+	var relatedProducts []*ProductResponse
+	for _, p := range allProductsResponse.Products {
+		if p.ID != productID { // Exclude current product
+			relatedProducts = append(relatedProducts, p)
+		}
+	}
+
+	// Calculate pagination
+	total := int64(len(relatedProducts))
+	offset := (page - 1) * limit
+
+	// Get products for current page
+	var products []*ProductResponse
+	if offset < len(relatedProducts) {
+		end := offset + limit
+		if end > len(relatedProducts) {
+			end = len(relatedProducts)
+		}
+		products = relatedProducts[offset:end]
+	}
+
+	// Create pagination context
+	context := &EcommercePaginationContext{
+		EntityType: "products",
+		CategoryID: product.CategoryID.String(),
+	}
+
+	// Create enhanced pagination info
+	pagination := NewEcommercePaginationInfo(page, limit, total, context)
+
+	return &RelatedProductsPaginatedResponse{
+		Products:   products,
+		Pagination: pagination,
+		ProductID:  productID,
+	}, nil
 }

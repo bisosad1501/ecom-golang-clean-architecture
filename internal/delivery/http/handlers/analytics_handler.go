@@ -269,14 +269,22 @@ func (h *AnalyticsHandler) GetRealTimeMetrics(c *gin.Context) {
 // GetTopProducts returns top products
 func (h *AnalyticsHandler) GetTopProducts(c *gin.Context) {
 	period := c.DefaultQuery("period", "30d")
-	limitStr := c.DefaultQuery("limit", "10")
 
-	limit, err := strconv.Atoi(limitStr)
+	// Parse and validate pagination parameters
+	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
+	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "10"))
+
+	// Validate and normalize pagination for analytics
+	page, limit, err := usecases.ValidateAndNormalizePagination(page, limit)
 	if err != nil {
-		limit = 10
+		c.JSON(http.StatusBadRequest, ErrorResponse{
+			Error: err.Error(),
+		})
+		return
 	}
 
-	products, err := h.analyticsUseCase.GetTopProducts(c.Request.Context(), period, limit)
+	// Get top products with pagination
+	response, err := h.analyticsUseCase.GetTopProductsPaginated(c.Request.Context(), period, page, limit)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, ErrorResponse{
 			Error: "Failed to get top products",
@@ -285,23 +293,31 @@ func (h *AnalyticsHandler) GetTopProducts(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusOK, SuccessResponse{
-		Message: "Top products retrieved successfully",
-		Data: products,
+	c.JSON(http.StatusOK, PaginatedResponse{
+		Data:       response.Products,
+		Pagination: response.Pagination,
 	})
 }
 
 // GetTopCategories returns top categories
 func (h *AnalyticsHandler) GetTopCategories(c *gin.Context) {
 	period := c.DefaultQuery("period", "30d")
-	limitStr := c.DefaultQuery("limit", "10")
 
-	limit, err := strconv.Atoi(limitStr)
+	// Parse and validate pagination parameters
+	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
+	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "10"))
+
+	// Validate and normalize pagination for analytics
+	page, limit, err := usecases.ValidateAndNormalizePagination(page, limit)
 	if err != nil {
-		limit = 10
+		c.JSON(http.StatusBadRequest, ErrorResponse{
+			Error: err.Error(),
+		})
+		return
 	}
 
-	categories, err := h.analyticsUseCase.GetTopCategories(c.Request.Context(), period, limit)
+	// Get top categories with pagination
+	response, err := h.analyticsUseCase.GetTopCategoriesPaginated(c.Request.Context(), period, page, limit)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, ErrorResponse{
 			Error: "Failed to get top categories",
@@ -310,8 +326,8 @@ func (h *AnalyticsHandler) GetTopCategories(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusOK, SuccessResponse{
-		Message: "Top categories retrieved successfully",
-		Data: categories,
+	c.JSON(http.StatusOK, PaginatedResponse{
+		Data:       response.Categories,
+		Pagination: response.Pagination,
 	})
 }
