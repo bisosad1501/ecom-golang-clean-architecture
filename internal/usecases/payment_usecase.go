@@ -75,6 +75,7 @@ type paymentUseCase struct {
 	notificationUseCase     NotificationUseCase
 	stockReservationService services.StockReservationService
 	orderEventService       services.OrderEventService
+	userMetricsService      services.UserMetricsService
 	txManager               *database.TransactionManager
 }
 
@@ -89,6 +90,7 @@ func NewPaymentUseCase(
 	notificationUseCase NotificationUseCase,
 	stockReservationService services.StockReservationService,
 	orderEventService services.OrderEventService,
+	userMetricsService services.UserMetricsService,
 	txManager *database.TransactionManager,
 ) PaymentUseCase {
 	return &paymentUseCase{
@@ -101,6 +103,7 @@ func NewPaymentUseCase(
 		notificationUseCase:     notificationUseCase,
 		stockReservationService: stockReservationService,
 		orderEventService:       orderEventService,
+		userMetricsService:      userMetricsService,
 		txManager:               txManager,
 	}
 }
@@ -622,6 +625,16 @@ func (uc *paymentUseCase) updatePaymentStatusInTransaction(ctx context.Context, 
 		}
 		fmt.Printf("✅ Stock reservations confirmed and converted to actual stock reduction\n")
 
+		// Update user metrics when order is confirmed
+		if uc.userMetricsService != nil {
+			if err := uc.userMetricsService.UpdateUserMetricsOnOrderConfirmed(ctx, order.UserID, order.Total); err != nil {
+				fmt.Printf("❌ Failed to update user metrics: %v\n", err)
+				// Don't fail the payment process for metrics update failure
+			} else {
+				fmt.Printf("✅ User metrics updated for order confirmation\n")
+			}
+		}
+
 		// Release reservation flags since stock is now actually reduced
 		order.ReleaseReservation()
 	}
@@ -1030,6 +1043,16 @@ func (uc *paymentUseCase) confirmPaymentInTransaction(ctx context.Context, sessi
 	// Update order status to confirmed if it was pending and fully paid
 	if order.Status == entities.OrderStatusPending && order.IsFullyPaid() {
 		order.Status = entities.OrderStatusConfirmed
+
+		// Update user metrics when order is confirmed
+		if uc.userMetricsService != nil {
+			if err := uc.userMetricsService.UpdateUserMetricsOnOrderConfirmed(ctx, order.UserID, order.Total); err != nil {
+				fmt.Printf("❌ Failed to update user metrics: %v\n", err)
+				// Don't fail the payment process for metrics update failure
+			} else {
+				fmt.Printf("✅ User metrics updated for order confirmation\n")
+			}
+		}
 	}
 	// Release reservation flags since stock is now actually reduced
 	order.ReleaseReservation()
@@ -1119,6 +1142,16 @@ func (uc *paymentUseCase) handlePaymentIntentSucceeded(ctx context.Context, even
 			return fmt.Errorf("failed to confirm stock reservations: %v", err)
 		}
 		fmt.Printf("✅ Stock reservations confirmed and converted to actual stock reduction\n")
+
+		// Update user metrics when order is confirmed
+		if uc.userMetricsService != nil {
+			if err := uc.userMetricsService.UpdateUserMetricsOnOrderConfirmed(ctx, order.UserID, order.Total); err != nil {
+				fmt.Printf("❌ Failed to update user metrics: %v\n", err)
+				// Don't fail the payment process for metrics update failure
+			} else {
+				fmt.Printf("✅ User metrics updated for order confirmation\n")
+			}
+		}
 
 		// Release reservation flags since stock is now actually reduced
 		order.ReleaseReservation()
@@ -1583,6 +1616,16 @@ func (uc *paymentUseCase) ConfirmPaymentSuccess(ctx context.Context, orderID, us
 			return fmt.Errorf("failed to confirm stock reservations: %v", err)
 		}
 		fmt.Printf("✅ Stock reservations confirmed and converted to actual stock reduction\n")
+
+		// Update user metrics when order is confirmed
+		if uc.userMetricsService != nil {
+			if err := uc.userMetricsService.UpdateUserMetricsOnOrderConfirmed(ctx, order.UserID, order.Total); err != nil {
+				fmt.Printf("❌ Failed to update user metrics: %v\n", err)
+				// Don't fail the payment process for metrics update failure
+			} else {
+				fmt.Printf("✅ User metrics updated for order confirmation\n")
+			}
+		}
 
 		// Release reservation flags since stock is now actually reduced
 		order.ReleaseReservation()

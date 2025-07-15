@@ -255,6 +255,12 @@ func getMigrations() []Migration {
 			Up:      migration010Up,
 			Down:    migration010Down,
 		},
+		{
+			Version: "011_create_product_categories",
+			Name:    "Create product_categories table for many-to-many relationship",
+			Up:      migration011Up,
+			Down:    migration011Down,
+		},
 		// Temporarily disabled due to product_tags issue
 		// {
 		// 	Version: "006_enhance_search",

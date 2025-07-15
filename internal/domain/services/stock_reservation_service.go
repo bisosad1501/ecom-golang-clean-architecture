@@ -82,17 +82,28 @@ func (s *stockReservationService) ReserveStockForOrder(ctx context.Context, orde
 
 	// Check availability and create reservations
 	for _, item := range items {
-		// Check if we can reserve the stock
-		canReserve, err := s.CanReserveStock(ctx, item.ProductID, item.Quantity)
+		// Get inventory to check availability (Inventory is source of truth)
+		inventory, err := s.inventoryRepo.GetByProductID(ctx, item.ProductID)
 		if err != nil {
-			return fmt.Errorf("failed to check stock availability for product %s: %w", item.ProductID, err)
+			return fmt.Errorf("failed to get inventory for product %s: %w", item.ProductID, err)
 		}
 
-		if !canReserve {
-			return fmt.Errorf("insufficient stock for product %s: requested %d", item.ProductID, item.Quantity)
+		// Check if we can reserve the stock from inventory
+		if !inventory.CanReserve(item.Quantity) {
+			return fmt.Errorf("insufficient inventory stock for product %s: requested %d, available %d",
+				item.ProductID, item.Quantity, inventory.QuantityAvailable)
 		}
 
-		// Create reservation
+		// Reserve stock in inventory
+		inventory.QuantityReserved += item.Quantity
+		inventory.QuantityAvailable = inventory.QuantityOnHand - inventory.QuantityReserved
+
+		// Update inventory in database
+		if err := s.inventoryRepo.Update(ctx, inventory); err != nil {
+			return fmt.Errorf("failed to update inventory for product %s: %w", item.ProductID, err)
+		}
+
+		// Create reservation record
 		reservation := &entities.StockReservation{
 			ID:        uuid.New(),
 			ProductID: item.ProductID,
@@ -110,6 +121,9 @@ func (s *stockReservationService) ReserveStockForOrder(ctx context.Context, orde
 		reservation.SetExpiration(30)
 
 		reservations = append(reservations, reservation)
+
+		fmt.Printf("✅ Reserved %d units for product %s (Available: %d -> %d)\n",
+			item.Quantity, item.ProductID, inventory.QuantityAvailable + item.Quantity, inventory.QuantityAvailable)
 	}
 
 	// Create all reservations in batch
@@ -134,33 +148,32 @@ func (s *stockReservationService) ConfirmReservations(ctx context.Context, order
 			continue // Skip expired or already confirmed reservations
 		}
 
-		// Get product and reduce stock
-		product, err := s.productRepo.GetByID(ctx, reservation.ProductID)
+		// NEW APPROACH: Use Inventory as source of truth
+		// Get inventory record for the product
+		inventory, err := s.inventoryRepo.GetByProductID(ctx, reservation.ProductID)
 		if err != nil {
-			return fmt.Errorf("failed to get product %s: %w", reservation.ProductID, err)
+			return fmt.Errorf("failed to get inventory for product %s: %w", reservation.ProductID, err)
 		}
 
-		// Reduce actual stock in Product entity
-		if err := product.ReduceStock(reservation.Quantity); err != nil {
-			return fmt.Errorf("failed to reduce stock for product %s: %w", product.Name, err)
+		// Validate we can still confirm this reservation
+		if inventory.QuantityReserved < reservation.Quantity {
+			return fmt.Errorf("insufficient reserved stock for product %s", reservation.ProductID)
 		}
 
-		// Update product stock in database
-		if err := s.productRepo.UpdateStock(ctx, reservation.ProductID, product.Stock); err != nil {
-			return fmt.Errorf("failed to update stock for product %s: %w", product.Name, err)
+		// Reduce inventory stock (this is the actual stock reduction)
+		oldQuantityOnHand := inventory.QuantityOnHand
+		inventory.QuantityOnHand -= reservation.Quantity
+		inventory.QuantityReserved -= reservation.Quantity // Release the reservation
+		inventory.QuantityAvailable = inventory.QuantityOnHand - inventory.QuantityReserved
+
+		// Update inventory in database
+		if err := s.inventoryRepo.Update(ctx, inventory); err != nil {
+			return fmt.Errorf("failed to update inventory for product %s: %w", reservation.ProductID, err)
 		}
 
-		// Record inventory movement for tracking purposes only (don't double reduce)
-		if s.inventoryRepo != nil {
-			// Try to get inventory record for the product
-			inventory, err := s.inventoryRepo.GetByProductID(ctx, reservation.ProductID)
-			if err == nil {
-				// Sync inventory quantity with product stock (don't subtract again)
-				// This ensures inventory.quantity_on_hand matches product.stock
-				if err := s.inventoryRepo.SyncWithProductStock(ctx, inventory.ID, product.Stock, "stock_sync_after_order_confirmation"); err != nil {
-					fmt.Printf("Warning: Failed to sync inventory with product stock for product %s: %v\n", reservation.ProductID, err)
-				}
-			}
+		// Sync product stock with inventory (Inventory is source of truth)
+		if err := s.productRepo.UpdateStock(ctx, reservation.ProductID, inventory.QuantityOnHand); err != nil {
+			return fmt.Errorf("failed to sync product stock for %s: %w", reservation.ProductID, err)
 		}
 
 		// Confirm the reservation
@@ -168,6 +181,9 @@ func (s *stockReservationService) ConfirmReservations(ctx context.Context, order
 		if err := s.reservationRepo.Update(ctx, reservation); err != nil {
 			return fmt.Errorf("failed to confirm reservation %s: %w", reservation.ID, err)
 		}
+
+		fmt.Printf("✅ Confirmed reservation for product %s, quantity %d (Inventory: %d -> %d)\n",
+			reservation.ProductID, reservation.Quantity, oldQuantityOnHand, inventory.QuantityOnHand)
 	}
 
 	return nil
@@ -175,6 +191,42 @@ func (s *stockReservationService) ConfirmReservations(ctx context.Context, order
 
 // ReleaseReservations releases all reservations for an order
 func (s *stockReservationService) ReleaseReservations(ctx context.Context, orderID uuid.UUID) error {
+	// Get all reservations for the order first
+	reservations, err := s.reservationRepo.GetByOrderID(ctx, orderID)
+	if err != nil {
+		return fmt.Errorf("failed to get reservations for order %s: %w", orderID, err)
+	}
+
+	// Release stock in inventory for each reservation
+	for _, reservation := range reservations {
+		if reservation.Status != entities.ReservationStatusActive {
+			continue // Skip non-active reservations
+		}
+
+		// Get inventory and release reserved stock
+		inventory, err := s.inventoryRepo.GetByProductID(ctx, reservation.ProductID)
+		if err != nil {
+			fmt.Printf("Warning: Failed to get inventory for product %s: %v\n", reservation.ProductID, err)
+			continue
+		}
+
+		// Release reserved stock
+		if inventory.QuantityReserved >= reservation.Quantity {
+			inventory.QuantityReserved -= reservation.Quantity
+			inventory.QuantityAvailable = inventory.QuantityOnHand - inventory.QuantityReserved
+
+			// Update inventory in database
+			if err := s.inventoryRepo.Update(ctx, inventory); err != nil {
+				fmt.Printf("Warning: Failed to update inventory for product %s: %v\n", reservation.ProductID, err)
+			} else {
+				fmt.Printf("✅ Released %d units for product %s (Available: %d -> %d)\n",
+					reservation.Quantity, reservation.ProductID,
+					inventory.QuantityAvailable - reservation.Quantity, inventory.QuantityAvailable)
+			}
+		}
+	}
+
+	// Release reservations in database
 	return s.reservationRepo.ReleaseByOrderID(ctx, orderID)
 }
 
@@ -191,13 +243,13 @@ func (s *stockReservationService) CanReserveStock(ctx context.Context, productID
 		return false, nil
 	}
 
-	// Get available stock
-	availableStock, err := s.GetAvailableStock(ctx, productID)
+	// Use Inventory as source of truth for stock availability
+	inventory, err := s.inventoryRepo.GetByProductID(ctx, productID)
 	if err != nil {
-		return false, err
+		return false, fmt.Errorf("failed to get inventory for product %s: %w", productID, err)
 	}
 
-	return availableStock >= quantity, nil
+	return inventory.CanReserve(quantity), nil
 }
 
 // AtomicReserveStock atomically checks and reserves stock to prevent race conditions
@@ -324,22 +376,14 @@ func (s *stockReservationService) TransferCartReservationsToOrder(ctx context.Co
 
 // GetAvailableStock gets available stock (actual stock - reserved stock)
 func (s *stockReservationService) GetAvailableStock(ctx context.Context, productID uuid.UUID) (int, error) {
-	// Get product stock
-	product, err := s.productRepo.GetByID(ctx, productID)
+	// Use Inventory as source of truth for available stock
+	inventory, err := s.inventoryRepo.GetByProductID(ctx, productID)
 	if err != nil {
-		return 0, err
+		return 0, fmt.Errorf("failed to get inventory for product %s: %w", productID, err)
 	}
 
-	// Get total reserved stock
-	reservedStock, err := s.reservationRepo.GetTotalReservedStock(ctx, productID)
-	if err != nil {
-		return 0, err
-	}
-
-	// Use max to ensure available stock is not negative
-	availableStock := max(0, product.Stock-reservedStock)
-
-	return availableStock, nil
+	// Return available stock from inventory (already calculated)
+	return inventory.QuantityAvailable, nil
 }
 
 // CleanupExpiredReservations cleans up expired reservations

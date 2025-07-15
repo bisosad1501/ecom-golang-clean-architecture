@@ -10,6 +10,7 @@ import (
 	"ecom-golang-clean-architecture/internal/domain/storage"
 	"ecom-golang-clean-architecture/internal/infrastructure/config"
 	"ecom-golang-clean-architecture/internal/infrastructure/database"
+	"ecom-golang-clean-architecture/internal/infrastructure/repositories"
 	"ecom-golang-clean-architecture/internal/infrastructure/oauth"
 	"ecom-golang-clean-architecture/internal/infrastructure/payment"
 	infraServices "ecom-golang-clean-architecture/internal/infrastructure/services"
@@ -85,6 +86,7 @@ func main() {
 	passwordResetRepo := database.NewPasswordResetRepository(db)
 	productRepo := database.NewProductRepository(db)
 	categoryRepo := database.NewCategoryRepository(db)
+	productCategoryRepo := repositories.NewProductCategoryRepository(db)
 	brandRepo := database.NewBrandRepository(db)
 	tagRepo := database.NewTagRepository(db)
 	imageRepo := database.NewImageRepository(db)
@@ -119,6 +121,8 @@ func main() {
 		productRepo,
 		inventoryRepo,
 	)
+	userMetricsService := services.NewUserMetricsService(userRepo, orderRepo)
+	_ = services.NewProductCategoryService(productCategoryRepo, productRepo, categoryRepo) // Will be used later
 	orderEventService := services.NewOrderEventService(orderEventRepo)
 
 	// Initialize storage service
@@ -188,6 +192,7 @@ func main() {
 		orderService,
 		stockReservationService,
 		orderEventService,
+		userMetricsService,
 		txManager,
 	)
 
@@ -221,6 +226,7 @@ func main() {
 		notificationUseCase,
 		stockReservationService,
 		orderEventService,
+		userMetricsService,
 		txManager,
 	)
 

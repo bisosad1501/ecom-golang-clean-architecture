@@ -49,6 +49,7 @@ type orderUseCase struct {
 	orderService            services.OrderService
 	stockReservationService services.StockReservationService
 	orderEventService       services.OrderEventService
+	userMetricsService      services.UserMetricsService
 	txManager               *database.TransactionManager
 }
 
@@ -64,6 +65,7 @@ func NewOrderUseCase(
 	orderService services.OrderService,
 	stockReservationService services.StockReservationService,
 	orderEventService services.OrderEventService,
+	userMetricsService services.UserMetricsService,
 	txManager *database.TransactionManager,
 ) OrderUseCase {
 	return &orderUseCase{
@@ -77,6 +79,7 @@ func NewOrderUseCase(
 		orderService:            orderService,
 		stockReservationService: stockReservationService,
 		orderEventService:       orderEventService,
+		userMetricsService:      userMetricsService,
 		txManager:               txManager,
 	}
 }
@@ -844,6 +847,18 @@ func (uc *orderUseCase) CancelOrder(ctx context.Context, orderID uuid.UUID) (*Or
 	order.ReleaseReservation()
 	if err := uc.orderRepo.Update(ctx, order); err != nil {
 		return nil, fmt.Errorf("failed to update order reservation status: %w", err)
+	}
+
+	// Update user metrics if order was previously confirmed (paid)
+	if order.IsPaid() && order.Status == entities.OrderStatusConfirmed {
+		if uc.userMetricsService != nil {
+			if err := uc.userMetricsService.UpdateUserMetricsOnOrderCancelled(ctx, order.UserID, order.Total); err != nil {
+				fmt.Printf("❌ Failed to update user metrics on cancellation: %v\n", err)
+				// Don't fail the cancellation for metrics update failure
+			} else {
+				fmt.Printf("✅ User metrics updated for order cancellation\n")
+			}
+		}
 	}
 
 	// Create cancelled event

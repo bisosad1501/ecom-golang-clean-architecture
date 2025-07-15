@@ -18,6 +18,7 @@ func migration001Up(db *gorm.DB) error {
 		&entities.UserProfile{},
 		&entities.Category{},
 		&entities.Product{},
+		&entities.ProductCategory{},
 		&entities.ProductImage{},
 		&entities.ProductTag{},
 
@@ -950,6 +951,37 @@ func migration010Up(db *gorm.DB) error {
 
 	log.Println("✅ Added weight field to order_items table")
 	return nil
+}
+
+// migration011Up creates product_categories table for many-to-many relationship
+func migration011Up(db *gorm.DB) error {
+	log.Println("🔧 Creating product_categories table...")
+
+	// Create ProductCategory table
+	if err := db.AutoMigrate(&entities.ProductCategory{}); err != nil {
+		return fmt.Errorf("failed to create product_categories table: %w", err)
+	}
+
+	// Migrate existing product category data from products table
+	result := db.Exec(`
+		INSERT INTO product_categories (id, product_id, category_id, is_primary, created_at, updated_at)
+		SELECT gen_random_uuid(), id, category_id, TRUE, NOW(), NOW()
+		FROM products
+		WHERE category_id IS NOT NULL
+		ON CONFLICT DO NOTHING
+	`)
+	if result.Error != nil {
+		return fmt.Errorf("failed to migrate existing product categories: %w", result.Error)
+	}
+
+	log.Printf("✅ Created product_categories table and migrated %d existing product categories", result.RowsAffected)
+	return nil
+}
+
+// migration011Down drops product_categories table
+func migration011Down(db *gorm.DB) error {
+	log.Println("🔧 Dropping product_categories table...")
+	return db.Migrator().DropTable(&entities.ProductCategory{})
 }
 
 // migration010Down removes weight field from order_items table
