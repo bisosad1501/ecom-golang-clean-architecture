@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"log"
+	"time"
 
 	"ecom-golang-clean-architecture/internal/delivery/http/handlers"
 	"ecom-golang-clean-architecture/internal/delivery/http/routes"
@@ -152,6 +153,7 @@ func main() {
 		userVerificationRepo,
 		passwordResetRepo,
 		passwordService,
+		nil, // notificationService - will be set later
 		cfg.JWT.Secret,
 	)
 
@@ -181,6 +183,39 @@ func main() {
 		stockReservationService, // Pass the stockReservationService
 	)
 
+	// Initialize notification use case (without email service for now)
+	notificationUseCase := usecases.NewNotificationUseCase(
+		notificationRepo, userRepo, orderRepo, paymentRepo, inventoryRepo,
+		reviewRepo, productRepo,
+		nil, nil, nil, // email, sms, push services - TODO: implement
+	)
+
+	// Re-initialize userUseCase with notificationUseCase
+	userUseCase = usecases.NewUserUseCase(
+		userRepo,
+		userProfileRepo,
+		userSessionRepo,
+		userLoginHistoryRepo,
+		userActivityRepo,
+		userPreferencesRepo,
+		userVerificationRepo,
+		passwordResetRepo,
+		passwordService,
+		notificationUseCase, // Now we have notificationUseCase
+		cfg.JWT.Secret,
+	)
+
+	// Initialize notification queue processor
+	queueProcessor := infraServices.NewNotificationQueueProcessor(
+		notificationRepo,
+		notificationUseCase,
+		3,              // workers
+		10,             // batch size
+		30*time.Second, // poll interval
+		5*time.Minute,  // retry interval
+		3,              // max retries
+	)
+
 	orderUseCase := usecases.NewOrderUseCase(
 		orderRepo,
 		cartRepo,
@@ -193,6 +228,7 @@ func main() {
 		stockReservationService,
 		orderEventService,
 		userMetricsService,
+		notificationUseCase, // Pass notification service
 		txManager,
 	)
 
@@ -200,16 +236,10 @@ func main() {
 
 	// Initialize all use cases
 	couponUseCase := usecases.NewCouponUseCase(couponRepo, userRepo)
-	reviewUseCase := usecases.NewReviewUseCase(reviewRepo, reviewVoteRepo, productRatingRepo, productRepo, orderRepo, userRepo)
+	reviewUseCase := usecases.NewReviewUseCase(reviewRepo, reviewVoteRepo, productRatingRepo, productRepo, orderRepo, userRepo, notificationUseCase)
 	wishlistUseCase := usecases.NewWishlistUseCase(wishlistRepo, productRepo)
-	inventoryUseCase := usecases.NewInventoryUseCase(inventoryRepo, productRepo, warehouseRepo)
+	inventoryUseCase := usecases.NewInventoryUseCase(inventoryRepo, productRepo, warehouseRepo, notificationUseCase)
 	addressUseCase := usecases.NewAddressUseCase(addressRepo)
-
-	// Initialize notification use case (with nil services for now)
-	notificationUseCase := usecases.NewNotificationUseCase(
-		notificationRepo, userRepo, orderRepo, inventoryRepo,
-		nil, nil, nil, // email, sms, push services - TODO: implement
-	)
 
 	analyticsUseCase := usecases.NewAnalyticsUseCase(
 		analyticsRepo, orderRepo, productRepo, userRepo, inventoryRepo,
@@ -353,6 +383,14 @@ func main() {
 	go func() {
 		ctx := context.Background()
 		usecases.StartCleanupScheduler(ctx, stockCleanupUseCase)
+	}()
+
+	// Start notification queue processor
+	go func() {
+		ctx := context.Background()
+		if err := queueProcessor.Start(ctx); err != nil {
+			log.Printf("Failed to start notification queue processor: %v", err)
+		}
 	}()
 
 	// Start server

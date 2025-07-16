@@ -31,13 +31,19 @@ type ReviewUseCase interface {
 	GetPendingReviews(ctx context.Context, req GetReviewsRequest) (*ReviewsResponse, error)
 }
 
+// ReviewNotificationService interface for review notifications
+type ReviewNotificationService interface {
+	NotifyNewReview(ctx context.Context, reviewID uuid.UUID) error
+}
+
 type reviewUseCase struct {
-	reviewRepo        repositories.ReviewRepository
-	reviewVoteRepo    repositories.ReviewVoteRepository
-	productRatingRepo repositories.ProductRatingRepository
-	productRepo       repositories.ProductRepository
-	orderRepo         repositories.OrderRepository
-	userRepo          repositories.UserRepository
+	reviewRepo          repositories.ReviewRepository
+	reviewVoteRepo      repositories.ReviewVoteRepository
+	productRatingRepo   repositories.ProductRatingRepository
+	productRepo         repositories.ProductRepository
+	orderRepo           repositories.OrderRepository
+	userRepo            repositories.UserRepository
+	notificationService ReviewNotificationService
 }
 
 // NewReviewUseCase creates a new review use case
@@ -48,14 +54,16 @@ func NewReviewUseCase(
 	productRepo repositories.ProductRepository,
 	orderRepo repositories.OrderRepository,
 	userRepo repositories.UserRepository,
+	notificationService ReviewNotificationService,
 ) ReviewUseCase {
 	return &reviewUseCase{
-		reviewRepo:        reviewRepo,
-		reviewVoteRepo:    reviewVoteRepo,
-		productRatingRepo: productRatingRepo,
-		productRepo:       productRepo,
-		orderRepo:         orderRepo,
-		userRepo:          userRepo,
+		reviewRepo:          reviewRepo,
+		reviewVoteRepo:      reviewVoteRepo,
+		productRatingRepo:   productRatingRepo,
+		productRepo:         productRepo,
+		orderRepo:           orderRepo,
+		userRepo:            userRepo,
+		notificationService: notificationService,
 	}
 }
 
@@ -238,6 +246,17 @@ func (uc *reviewUseCase) CreateReview(ctx context.Context, userID uuid.UUID, req
 	createdReview, err := uc.reviewRepo.GetByID(ctx, review.ID)
 	if err != nil {
 		return nil, err
+	}
+
+	// Send new review notification to admin (async)
+	if uc.notificationService != nil {
+		go func() {
+			if err := uc.notificationService.NotifyNewReview(context.Background(), review.ID); err != nil {
+				fmt.Printf("❌ Failed to send new review notification: %v\n", err)
+			} else {
+				fmt.Printf("✅ New review notification sent to admin\n")
+			}
+		}()
 	}
 
 	return uc.toReviewResponse(createdReview, nil), nil

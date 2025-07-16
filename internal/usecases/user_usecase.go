@@ -82,6 +82,11 @@ type UserUseCase interface {
 	GetVerificationStatus(ctx context.Context, userID uuid.UUID) (*VerificationStatusResponse, error)
 }
 
+// UserNotificationService interface for user notifications
+type UserNotificationService interface {
+	NotifyNewUser(ctx context.Context, userID uuid.UUID) error
+}
+
 type userUseCase struct {
 	userRepo             repositories.UserRepository
 	userProfileRepo      repositories.UserProfileRepository
@@ -92,6 +97,7 @@ type userUseCase struct {
 	userVerificationRepo repositories.UserVerificationRepository
 	passwordResetRepo    repositories.PasswordResetRepository
 	passwordService      services.PasswordService
+	notificationService  UserNotificationService
 	jwtSecret            string
 }
 
@@ -106,6 +112,7 @@ func NewUserUseCase(
 	userVerificationRepo repositories.UserVerificationRepository,
 	passwordResetRepo repositories.PasswordResetRepository,
 	passwordService services.PasswordService,
+	notificationService UserNotificationService,
 	jwtSecret string,
 ) UserUseCase {
 	return &userUseCase{
@@ -118,6 +125,7 @@ func NewUserUseCase(
 		userVerificationRepo: userVerificationRepo,
 		passwordResetRepo:    passwordResetRepo,
 		passwordService:      passwordService,
+		notificationService:  notificationService,
 		jwtSecret:            jwtSecret,
 	}
 }
@@ -407,6 +415,17 @@ func (uc *userUseCase) Register(ctx context.Context, req RegisterRequest) (*User
 
 	if err := uc.userRepo.Create(ctx, user); err != nil {
 		return nil, err
+	}
+
+	// Send new user notification to admin (async)
+	if uc.notificationService != nil {
+		go func() {
+			if err := uc.notificationService.NotifyNewUser(context.Background(), user.ID); err != nil {
+				fmt.Printf("❌ Failed to send new user notification: %v\n", err)
+			} else {
+				fmt.Printf("✅ New user notification sent to admin\n")
+			}
+		}()
 	}
 
 	return uc.toUserResponse(user), nil

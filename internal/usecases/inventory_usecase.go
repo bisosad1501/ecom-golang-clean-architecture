@@ -7,6 +7,7 @@ import (
 
 	"ecom-golang-clean-architecture/internal/domain/entities"
 	"ecom-golang-clean-architecture/internal/domain/repositories"
+
 	"github.com/google/uuid"
 )
 
@@ -39,10 +40,16 @@ type InventoryUseCase interface {
 	GetLowStockItems(ctx context.Context, req GetLowStockItemsRequest) (*LowStockItemsResponse, error)
 }
 
+// InventoryNotificationService interface for inventory notifications
+type InventoryNotificationService interface {
+	NotifyLowStock(ctx context.Context, inventoryID uuid.UUID) error
+}
+
 type inventoryUseCase struct {
-	inventoryRepo repositories.InventoryRepository
-	productRepo   repositories.ProductRepository
-	warehouseRepo repositories.WarehouseRepository
+	inventoryRepo       repositories.InventoryRepository
+	productRepo         repositories.ProductRepository
+	warehouseRepo       repositories.WarehouseRepository
+	notificationService InventoryNotificationService
 }
 
 // NewInventoryUseCase creates a new inventory use case
@@ -50,11 +57,13 @@ func NewInventoryUseCase(
 	inventoryRepo repositories.InventoryRepository,
 	productRepo repositories.ProductRepository,
 	warehouseRepo repositories.WarehouseRepository,
+	notificationService InventoryNotificationService,
 ) InventoryUseCase {
 	return &inventoryUseCase{
-		inventoryRepo: inventoryRepo,
-		productRepo:   productRepo,
-		warehouseRepo: warehouseRepo,
+		inventoryRepo:       inventoryRepo,
+		productRepo:         productRepo,
+		warehouseRepo:       warehouseRepo,
+		notificationService: notificationService,
 	}
 }
 
@@ -543,6 +552,17 @@ func (uc *inventoryUseCase) CheckAndCreateAlerts(ctx context.Context, inventoryI
 			UpdatedAt:       time.Now(),
 		}
 		alerts = append(alerts, alert)
+
+		// Send low stock notification to admin (async)
+		if uc.notificationService != nil {
+			go func() {
+				if err := uc.notificationService.NotifyLowStock(context.Background(), inventoryID); err != nil {
+					fmt.Printf("❌ Failed to send low stock notification: %v\n", err)
+				} else {
+					fmt.Printf("✅ Low stock notification sent to admin\n")
+				}
+			}()
+		}
 	}
 
 	// Check for out of stock
@@ -716,7 +736,7 @@ func (uc *inventoryUseCase) TransferStock(ctx context.Context, req TransferStock
 
 	// Check if enough stock is available
 	if fromInventory.QuantityAvailable < req.Quantity {
-		return fmt.Errorf("insufficient stock in source warehouse: available %d, requested %d", 
+		return fmt.Errorf("insufficient stock in source warehouse: available %d, requested %d",
 			fromInventory.QuantityAvailable, req.Quantity)
 	}
 
@@ -740,7 +760,7 @@ func (uc *inventoryUseCase) TransferStock(ctx context.Context, req TransferStock
 			CreatedAt:         time.Now(),
 			UpdatedAt:         time.Now(),
 		}
-		
+
 		if err := uc.inventoryRepo.Create(ctx, toInventory); err != nil {
 			return fmt.Errorf("failed to create destination inventory: %w", err)
 		}
@@ -813,7 +833,7 @@ func (uc *inventoryUseCase) GetStockAlerts(ctx context.Context, req GetAlertsReq
 		}
 		// Add warehouse filter if specified
 		// Note: This would require a join or additional lookup in a real implementation
-		
+
 		filteredAlerts = append(filteredAlerts, alert)
 	}
 
@@ -838,15 +858,15 @@ func (uc *inventoryUseCase) GetStockAlerts(ctx context.Context, req GetAlertsReq
 // Helper method to convert alert entity to response
 func (uc *inventoryUseCase) toAlertResponse(alert *entities.StockAlert) *AlertResponse {
 	return &AlertResponse{
-		ID:              alert.ID,
-		Type:            string(alert.Type),
-		Message:         alert.Message,
-		Severity:        alert.Severity,
-		Status:          string(alert.Status),
-		TriggeredAt:     alert.CreatedAt,
-		ResolvedAt:      alert.ResolvedAt,
-		ResolvedBy:      alert.ResolvedBy,
-		Resolution:      alert.Resolution,
+		ID:          alert.ID,
+		Type:        string(alert.Type),
+		Message:     alert.Message,
+		Severity:    alert.Severity,
+		Status:      string(alert.Status),
+		TriggeredAt: alert.CreatedAt,
+		ResolvedAt:  alert.ResolvedAt,
+		ResolvedBy:  alert.ResolvedBy,
+		Resolution:  alert.Resolution,
 	}
 }
 

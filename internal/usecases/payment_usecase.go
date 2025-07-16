@@ -547,6 +547,17 @@ func (uc *paymentUseCase) ProcessPayment(ctx context.Context, req ProcessPayment
 		}
 	} else {
 		payment.MarkAsFailed(gatewayResp.Message)
+
+		// Send payment failed notification to admin (async)
+		if uc.notificationUseCase != nil {
+			go func() {
+				if err := uc.notificationUseCase.NotifyPaymentFailed(context.Background(), payment.ID); err != nil {
+					fmt.Printf("❌ Failed to send payment failed notification: %v\n", err)
+				} else {
+					fmt.Printf("✅ Payment failed notification sent to admin\n")
+				}
+			}()
+		}
 	}
 
 	// Save updated payment
@@ -1239,6 +1250,17 @@ func (uc *paymentUseCase) handlePaymentIntentFailed(ctx context.Context, event *
 	payment.MarkAsFailed(failureReason)
 	if err := uc.paymentRepo.Update(ctx, payment); err != nil {
 		return fmt.Errorf("failed to update payment status: %v", err)
+	}
+
+	// Send payment failed notification to admin (async)
+	if uc.notificationUseCase != nil {
+		go func() {
+			if err := uc.notificationUseCase.NotifyPaymentFailed(context.Background(), payment.ID); err != nil {
+				fmt.Printf("❌ Failed to send payment failed notification: %v\n", err)
+			} else {
+				fmt.Printf("✅ Payment failed notification sent to admin\n")
+			}
+		}()
 	}
 
 	// Update order payment status

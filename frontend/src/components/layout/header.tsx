@@ -30,6 +30,7 @@ import { RequireAuth, RequireGuest } from '@/components/auth/permission-guard'
 import { cn, formatPrice } from '@/lib/utils'
 import { CategoryMegaMenu } from './category-mega-menu'
 import { DESIGN_TOKENS } from '@/constants/design-tokens'
+import { NotificationBell } from '@/components/notifications/notification-bell'
 
 export function Header() {
   const router = useRouter()
@@ -363,6 +364,11 @@ export function Header() {
                 )}
               </Button>
             )}
+
+            {/* Notification Bell - Only show for authenticated users */}
+            <RequireAuth>
+              <NotificationBell className="text-white" />
+            </RequireAuth>
 
             {/* User menu */}
             {isAuthenticated ? (

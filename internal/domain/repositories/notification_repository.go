@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"ecom-golang-clean-architecture/internal/domain/entities"
+
 	"github.com/google/uuid"
 )
 
@@ -19,6 +20,8 @@ type NotificationRepository interface {
 	// User notifications
 	GetUserNotifications(ctx context.Context, userID uuid.UUID, filters NotificationFilters) ([]*entities.Notification, error)
 	CountUserNotifications(ctx context.Context, userID uuid.UUID, filters NotificationFilters) (int64, error)
+	GetAdminNotifications(ctx context.Context, userID uuid.UUID, filters NotificationFilters) ([]*entities.Notification, error)
+	CountAdminNotifications(ctx context.Context, userID uuid.UUID, filters NotificationFilters) (int64, error)
 	GetUnreadCount(ctx context.Context, userID uuid.UUID) (int64, error)
 	MarkAsRead(ctx context.Context, notificationID uuid.UUID) error
 	MarkAllAsRead(ctx context.Context, userID uuid.UUID) error
@@ -44,8 +47,15 @@ type NotificationRepository interface {
 
 	// Delivery tracking
 	GetPendingNotifications(ctx context.Context, channel entities.NotificationChannel, limit int) ([]*entities.Notification, error)
+	GetPendingNotificationsForQueue(ctx context.Context, limit int) ([]*entities.Notification, error)
+	GetRetryableNotifications(ctx context.Context, limit int) ([]*entities.Notification, error)
 	GetFailedNotifications(ctx context.Context, retryCount int, limit int) ([]*entities.Notification, error)
 	UpdateDeliveryStatus(ctx context.Context, notificationID uuid.UUID, status entities.DeliveryStatus, error string) error
+
+	// Queue processing stats
+	GetPendingCount(ctx context.Context) (int64, error)
+	GetProcessingCount(ctx context.Context) (int64, error)
+	GetFailedCount(ctx context.Context) (int64, error)
 
 	// Analytics
 	GetNotificationStats(ctx context.Context, dateFrom, dateTo time.Time) (*NotificationStats, error)
@@ -60,33 +70,27 @@ type NotificationRepository interface {
 
 // AdminNotificationFilters represents filters for admin notification queries
 type AdminNotificationFilters struct {
-	UserID           *uuid.UUID
-	Type             *entities.NotificationType
-	Channel          *entities.NotificationChannel
-	DeliveryStatus   *entities.DeliveryStatus
-	Priority         *entities.NotificationPriority
-	DateFrom         *time.Time
-	DateTo           *time.Time
-	Search           string
-	Limit            int
-	Offset           int
-	SortBy           string
-	SortOrder        string
+	UserID         *uuid.UUID
+	Type           *entities.NotificationType
+	Channel        *entities.NotificationChannel
+	DeliveryStatus *entities.DeliveryStatus
+	Priority       *entities.NotificationPriority
+	DateFrom       *time.Time
+	DateTo         *time.Time
+	Search         string
+	Limit          int
+	Offset         int
+	SortBy         string
+	SortOrder      string
 }
-
-
-
-
-
-
 
 // EngagementMetric represents engagement metrics for a specific category
 type EngagementMetric struct {
-	Sent       int64   `json:"sent"`
-	Opened     int64   `json:"opened"`
-	Clicked    int64   `json:"clicked"`
-	OpenRate   float64 `json:"open_rate"`
-	ClickRate  float64 `json:"click_rate"`
+	Sent      int64   `json:"sent"`
+	Opened    int64   `json:"opened"`
+	Clicked   int64   `json:"clicked"`
+	OpenRate  float64 `json:"open_rate"`
+	ClickRate float64 `json:"click_rate"`
 }
 
 // DailyNotificationStats represents daily notification statistics

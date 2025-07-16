@@ -38,6 +38,13 @@ type OrderUseCase interface {
 	GetOrderEvents(ctx context.Context, orderID uuid.UUID, publicOnly bool) ([]*entities.OrderEvent, error)
 }
 
+// NotificationService interface for order notifications
+type NotificationService interface {
+	NotifyOrderCreated(ctx context.Context, orderID uuid.UUID) error
+	NotifyOrderStatusChanged(ctx context.Context, orderID uuid.UUID, newStatus string) error
+	NotifyNewOrder(ctx context.Context, orderID uuid.UUID) error
+}
+
 type orderUseCase struct {
 	orderRepo               repositories.OrderRepository
 	cartRepo                repositories.CartRepository
@@ -50,6 +57,7 @@ type orderUseCase struct {
 	stockReservationService services.StockReservationService
 	orderEventService       services.OrderEventService
 	userMetricsService      services.UserMetricsService
+	notificationService     NotificationService
 	txManager               *database.TransactionManager
 }
 
@@ -66,6 +74,7 @@ func NewOrderUseCase(
 	stockReservationService services.StockReservationService,
 	orderEventService services.OrderEventService,
 	userMetricsService services.UserMetricsService,
+	notificationService NotificationService,
 	txManager *database.TransactionManager,
 ) OrderUseCase {
 	return &orderUseCase{
@@ -80,6 +89,7 @@ func NewOrderUseCase(
 		stockReservationService: stockReservationService,
 		orderEventService:       orderEventService,
 		userMetricsService:      userMetricsService,
+		notificationService:     notificationService,
 		txManager:               txManager,
 	}
 }
@@ -592,6 +602,22 @@ func (uc *orderUseCase) createOrderInTransaction(ctx context.Context, tx *gorm.D
 		// Note: Event creation failure is non-critical
 	}
 
+	// Send order created notification (async, don't fail transaction)
+	if uc.notificationService != nil {
+		go func() {
+			// Notify customer
+			if err := uc.notificationService.NotifyOrderCreated(context.Background(), order.ID); err != nil {
+				// Log error but don't fail the transaction
+				fmt.Printf("Failed to send order created notification: %v\n", err)
+			}
+			// Notify admin about new order
+			if err := uc.notificationService.NotifyNewOrder(context.Background(), order.ID); err != nil {
+				// Log error but don't fail the transaction
+				fmt.Printf("Failed to send new order notification to admin: %v\n", err)
+			}
+		}()
+	}
+
 	if err := uc.orderEventService.CreateInventoryReservedEvent(ctx, order.ID, cart.Items, &userID); err != nil {
 		// Log warning but don't fail the transaction for event creation
 		// Note: Event creation failure is non-critical
@@ -789,6 +815,16 @@ func (uc *orderUseCase) UpdateOrderStatus(ctx context.Context, orderID uuid.UUID
 	// Create status changed event
 	if err := uc.orderEventService.CreateStatusChangedEvent(ctx, orderID, oldStatus, status, nil); err != nil {
 		// Note: Event creation failure is non-critical
+	}
+
+	// Send order status changed notification (async)
+	if uc.notificationService != nil {
+		go func() {
+			if err := uc.notificationService.NotifyOrderStatusChanged(context.Background(), orderID, string(status)); err != nil {
+				// Log error but don't fail the transaction
+				fmt.Printf("Failed to send order status changed notification: %v\n", err)
+			}
+		}()
 	}
 
 	return uc.toOrderResponse(order), nil
@@ -1174,6 +1210,16 @@ func (uc *orderUseCase) UpdateDeliveryStatus(ctx context.Context, orderID uuid.U
 	// Create status changed event
 	if err := uc.orderEventService.CreateStatusChangedEvent(ctx, orderID, oldStatus, status, nil); err != nil {
 		return nil, err
+	}
+
+	// Send order status changed notification (async)
+	if uc.notificationService != nil {
+		go func() {
+			if err := uc.notificationService.NotifyOrderStatusChanged(context.Background(), orderID, string(status)); err != nil {
+				// Log error but don't fail the transaction
+				fmt.Printf("Failed to send order status changed notification: %v\n", err)
+			}
+		}()
 	}
 
 	return uc.toOrderResponse(order), nil

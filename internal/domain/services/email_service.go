@@ -2,12 +2,14 @@ package services
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"strings"
 	"time"
 
 	"ecom-golang-clean-architecture/internal/domain/entities"
 	"ecom-golang-clean-architecture/internal/domain/repositories"
+
 	"github.com/google/uuid"
 )
 
@@ -16,23 +18,26 @@ type EmailService interface {
 	// Send email operations
 	SendEmail(ctx context.Context, email *entities.Email) error
 	SendTemplateEmail(ctx context.Context, templateName string, to, toName string, data map[string]interface{}) error
-	
+
 	// Bulk operations
 	SendBulkEmails(ctx context.Context, emails []*entities.Email) error
-	
+
 	// Template operations
 	RenderTemplate(ctx context.Context, templateName string, data map[string]interface{}) (subject, bodyText, bodyHTML string, err error)
-	
+
 	// Delivery tracking
 	TrackDelivery(ctx context.Context, externalID string, status entities.EmailStatus) error
 	TrackOpen(ctx context.Context, emailID uuid.UUID) error
 	TrackClick(ctx context.Context, emailID uuid.UUID, url string) error
-	
+
 	// Retry operations
 	RetryFailedEmails(ctx context.Context) error
-	
+
 	// Validation
 	ValidateEmailAddress(email string) error
+
+	// Notification support
+	SendNotificationEmail(ctx context.Context, notification *entities.Notification) error
 }
 
 // EmailProvider defines the interface for email providers (SMTP, SendGrid, etc.)
@@ -43,12 +48,12 @@ type EmailProvider interface {
 }
 
 type emailService struct {
-	emailRepo         repositories.EmailRepository
-	templateRepo      repositories.EmailTemplateRepository
-	subscriptionRepo  repositories.EmailSubscriptionRepository
-	provider          EmailProvider
-	defaultFromEmail  string
-	defaultFromName   string
+	emailRepo        repositories.EmailRepository
+	templateRepo     repositories.EmailTemplateRepository
+	subscriptionRepo repositories.EmailSubscriptionRepository
+	provider         EmailProvider
+	defaultFromEmail string
+	defaultFromName  string
 }
 
 // NewEmailService creates a new email service
@@ -294,7 +299,7 @@ func (s *emailService) TrackClick(ctx context.Context, emailID uuid.UUID, url st
 	}
 
 	email.MarkAsClicked()
-	
+
 	// Store click metadata
 	if email.Metadata == nil {
 		email.Metadata = make(map[string]interface{})
@@ -364,4 +369,70 @@ func (s *emailService) ValidateEmailAddress(email string) error {
 	}
 
 	return nil
+}
+
+// SendNotificationEmail sends an email for a notification
+func (s *emailService) SendNotificationEmail(ctx context.Context, notification *entities.Notification) error {
+	if notification.Type != entities.NotificationTypeEmail {
+		return fmt.Errorf("notification is not an email type")
+	}
+
+	if notification.Recipient == "" {
+		return fmt.Errorf("no recipient specified")
+	}
+
+	// Create email entity
+	email := &entities.Email{
+		ID:        uuid.New(),
+		ToEmail:   notification.Recipient,
+		ToName:    "", // We don't have recipient name in notification
+		FromEmail: s.defaultFromEmail,
+		FromName:  s.defaultFromName,
+		Subject:   notification.Subject,
+		Priority:  entities.EmailPriorityNormal,
+		Status:    entities.EmailStatusPending,
+		CreatedAt: time.Now(),
+		UpdatedAt: time.Now(),
+	}
+
+	// If template is specified, use template email
+	if notification.Template != "" {
+		// Parse notification data
+		var data map[string]interface{}
+		if notification.Data != "" {
+			if err := json.Unmarshal([]byte(notification.Data), &data); err != nil {
+				// Fallback to simple data structure
+				data = map[string]interface{}{
+					"Title":   notification.Title,
+					"Message": notification.Message,
+				}
+			}
+		} else {
+			data = map[string]interface{}{
+				"Title":   notification.Title,
+				"Message": notification.Message,
+			}
+		}
+
+		// Render template
+		subject, bodyText, bodyHTML, err := s.RenderTemplate(ctx, notification.Template, data)
+		if err != nil {
+			// Fallback to plain email if template fails
+			email.BodyText = notification.Message
+			email.BodyHTML = fmt.Sprintf("<p>%s</p>", notification.Message)
+		} else {
+			if subject != "" {
+				email.Subject = subject
+			}
+			email.BodyText = bodyText
+			email.BodyHTML = bodyHTML
+		}
+	} else {
+		// Plain email
+		email.BodyText = notification.Message
+		email.BodyHTML = fmt.Sprintf("<p>%s</p>", notification.Message)
+	}
+
+	// Send email
+	return s.SendEmail(ctx, email)
 }

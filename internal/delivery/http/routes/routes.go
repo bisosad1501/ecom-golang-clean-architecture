@@ -517,8 +517,8 @@ func SetupRoutes(
 				notifications.PUT("/:id/read", notificationHandler.MarkAsRead)
 				notifications.PUT("/read-all", notificationHandler.MarkAllAsRead)
 				notifications.GET("/count", notificationHandler.GetUnreadCount)
-				// notifications.GET("/preferences", notificationHandler.GetUserPreferences) // TODO: Implement GetUserPreferences method
-				// notifications.PUT("/preferences", notificationHandler.UpdateUserPreferences) // TODO: Implement UpdateUserPreferences method
+				notifications.GET("/preferences", notificationHandler.GetUserPreferences)
+				notifications.PUT("/preferences", notificationHandler.UpdateUserPreferences)
 			}
 		}
 

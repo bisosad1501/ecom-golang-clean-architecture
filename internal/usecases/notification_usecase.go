@@ -8,6 +8,7 @@ import (
 
 	"ecom-golang-clean-architecture/internal/domain/entities"
 	"ecom-golang-clean-architecture/internal/domain/repositories"
+	"ecom-golang-clean-architecture/internal/domain/services"
 
 	"github.com/google/uuid"
 )
@@ -51,14 +52,23 @@ type NotificationUseCase interface {
 	NotifyShippingUpdate(ctx context.Context, orderID uuid.UUID, trackingNumber string) error
 	NotifyLowStock(ctx context.Context, inventoryID uuid.UUID) error
 	NotifyReviewRequest(ctx context.Context, orderID uuid.UUID) error
+
+	// Admin-specific notifications
+	NotifyNewOrder(ctx context.Context, orderID uuid.UUID) error
+	NotifyPaymentFailed(ctx context.Context, paymentID uuid.UUID) error
+	NotifyNewUser(ctx context.Context, userID uuid.UUID) error
+	NotifyNewReview(ctx context.Context, reviewID uuid.UUID) error
 }
 
 type notificationUseCase struct {
 	notificationRepo repositories.NotificationRepository
 	userRepo         repositories.UserRepository
 	orderRepo        repositories.OrderRepository
+	paymentRepo      repositories.PaymentRepository
 	inventoryRepo    repositories.InventoryRepository
-	emailService     EmailService
+	reviewRepo       repositories.ReviewRepository
+	productRepo      repositories.ProductRepository
+	emailService     services.EmailService
 	smsService       SMSService
 	pushService      PushService
 }
@@ -68,8 +78,11 @@ func NewNotificationUseCase(
 	notificationRepo repositories.NotificationRepository,
 	userRepo repositories.UserRepository,
 	orderRepo repositories.OrderRepository,
+	paymentRepo repositories.PaymentRepository,
 	inventoryRepo repositories.InventoryRepository,
-	emailService EmailService,
+	reviewRepo repositories.ReviewRepository,
+	productRepo repositories.ProductRepository,
+	emailService services.EmailService,
 	smsService SMSService,
 	pushService PushService,
 ) NotificationUseCase {
@@ -77,7 +90,10 @@ func NewNotificationUseCase(
 		notificationRepo: notificationRepo,
 		userRepo:         userRepo,
 		orderRepo:        orderRepo,
+		paymentRepo:      paymentRepo,
 		inventoryRepo:    inventoryRepo,
+		reviewRepo:       reviewRepo,
+		productRepo:      productRepo,
 		emailService:     emailService,
 		smsService:       smsService,
 		pushService:      pushService,
@@ -465,6 +481,12 @@ func (uc *notificationUseCase) ListNotifications(ctx context.Context, req ListNo
 
 // GetUserNotifications gets notifications for a specific user
 func (uc *notificationUseCase) GetUserNotifications(ctx context.Context, userID uuid.UUID, req GetUserNotificationsRequest) (*NotificationsListResponse, error) {
+	// Get user to check if they are admin
+	user, err := uc.userRepo.GetByID(ctx, userID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get user: %w", err)
+	}
+
 	filters := repositories.NotificationFilters{
 		Type:      req.Type,
 		IsRead:    req.IsRead,
@@ -474,14 +496,31 @@ func (uc *notificationUseCase) GetUserNotifications(ctx context.Context, userID 
 		SortOrder: req.SortOrder,
 	}
 
-	notifications, err := uc.notificationRepo.GetUserNotifications(ctx, userID, filters)
-	if err != nil {
-		return nil, err
-	}
+	var notifications []*entities.Notification
+	var total int64
 
-	total, err := uc.notificationRepo.CountUserNotifications(ctx, userID, filters)
-	if err != nil {
-		return nil, err
+	// If user is admin, get both user-specific and system-wide notifications
+	if user.Role == entities.UserRoleAdmin {
+		notifications, err = uc.notificationRepo.GetAdminNotifications(ctx, userID, filters)
+		if err != nil {
+			return nil, err
+		}
+
+		total, err = uc.notificationRepo.CountAdminNotifications(ctx, userID, filters)
+		if err != nil {
+			return nil, err
+		}
+	} else {
+		// Regular users only get their own notifications
+		notifications, err = uc.notificationRepo.GetUserNotifications(ctx, userID, filters)
+		if err != nil {
+			return nil, err
+		}
+
+		total, err = uc.notificationRepo.CountUserNotifications(ctx, userID, filters)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	unreadCount, err := uc.notificationRepo.GetUnreadCount(ctx, userID)
@@ -548,10 +587,32 @@ func (uc *notificationUseCase) GetUnreadCount(ctx context.Context, userID uuid.U
 
 // SendNotification sends a notification immediately
 func (uc *notificationUseCase) SendNotification(ctx context.Context, notification *entities.Notification) error {
-	// Here you would implement the actual sending logic based on notification type
-	// For now, we'll just mark it as sent
+	// Send notification based on type
+	switch notification.Type {
+	case entities.NotificationTypeEmail:
+		if uc.emailService != nil {
+			if err := uc.emailService.SendNotificationEmail(ctx, notification); err != nil {
+				notification.Status = entities.NotificationStatusFailed
+				notification.UpdatedAt = time.Now()
+				uc.notificationRepo.Update(ctx, notification)
+				return fmt.Errorf("failed to send email notification: %w", err)
+			}
+		}
+	case entities.NotificationTypeSMS:
+		// TODO: Implement SMS sending
+		fmt.Printf("📱 SMS would be sent: %s\n", notification.Message)
+	case entities.NotificationTypePush:
+		// TODO: Implement push notification sending
+		fmt.Printf("🔔 Push notification would be sent: %s\n", notification.Message)
+	case entities.NotificationTypeInApp:
+		// In-app notifications are just stored in database
+		fmt.Printf("📱 In-app notification created: %s\n", notification.Title)
+	}
+
+	// Mark as sent
 	notification.Status = entities.NotificationStatusSent
 	notification.SentAt = &[]time.Time{time.Now()}[0]
+	notification.UpdatedAt = time.Now()
 	return uc.notificationRepo.Update(ctx, notification)
 }
 
@@ -754,32 +815,483 @@ func (uc *notificationUseCase) UpdateUserPreferences(ctx context.Context, userID
 
 // Event-based notification methods
 func (uc *notificationUseCase) NotifyOrderCreated(ctx context.Context, orderID uuid.UUID) error {
-	// Implement order created notification logic
+	// Get order details
+	order, err := uc.orderRepo.GetByID(ctx, orderID)
+	if err != nil {
+		return fmt.Errorf("failed to get order: %w", err)
+	}
+
+	// Get user details
+	user, err := uc.userRepo.GetByID(ctx, order.UserID)
+	if err != nil {
+		return fmt.Errorf("failed to get user: %w", err)
+	}
+
+	// Check user notification preferences
+	preferences, err := uc.notificationRepo.GetUserPreferences(ctx, user.ID)
+	if err != nil {
+		// Create default preferences if not found
+		if err := uc.notificationRepo.CreateDefaultPreferences(ctx, user.ID); err != nil {
+			return fmt.Errorf("failed to create default preferences: %w", err)
+		}
+		preferences, _ = uc.notificationRepo.GetUserPreferences(ctx, user.ID)
+	}
+
+	// Create notification data
+	data := map[string]interface{}{
+		"order_id":     order.ID,
+		"order_number": order.OrderNumber,
+		"total":        order.Total,
+		"items_count":  len(order.Items),
+	}
+	dataJSON, _ := json.Marshal(data)
+
+	// Create in-app notification
+	if preferences.IsNotificationEnabled(entities.NotificationTypeInApp, entities.NotificationCategoryOrder) {
+		notification := &entities.Notification{
+			ID:            uuid.New(),
+			UserID:        &user.ID,
+			Type:          entities.NotificationTypeInApp,
+			Category:      entities.NotificationCategoryOrder,
+			Priority:      entities.NotificationPriorityNormal,
+			Status:        entities.NotificationStatusPending,
+			Title:         "Đơn hàng đã được tạo",
+			Message:       fmt.Sprintf("Đơn hàng #%s của bạn đã được tạo thành công với tổng giá trị %.0f VND", order.OrderNumber, order.Total),
+			Data:          string(dataJSON),
+			ReferenceType: "order",
+			ReferenceID:   &order.ID,
+			CreatedAt:     time.Now(),
+			UpdatedAt:     time.Now(),
+		}
+
+		if err := uc.notificationRepo.Create(ctx, notification); err != nil {
+			return fmt.Errorf("failed to create in-app notification: %w", err)
+		}
+	}
+
+	// Create email notification
+	if preferences.IsNotificationEnabled(entities.NotificationTypeEmail, entities.NotificationCategoryOrder) {
+		emailNotification := &entities.Notification{
+			ID:            uuid.New(),
+			UserID:        &user.ID,
+			Type:          entities.NotificationTypeEmail,
+			Category:      entities.NotificationCategoryOrder,
+			Priority:      entities.NotificationPriorityNormal,
+			Status:        entities.NotificationStatusPending,
+			Title:         "Xác nhận đơn hàng",
+			Message:       fmt.Sprintf("Cảm ơn bạn đã đặt hàng! Đơn hàng #%s đã được xác nhận.", order.OrderNumber),
+			Data:          string(dataJSON),
+			Recipient:     user.Email,
+			Subject:       fmt.Sprintf("Xác nhận đơn hàng #%s", order.OrderNumber),
+			Template:      "order_created",
+			ReferenceType: "order",
+			ReferenceID:   &order.ID,
+			CreatedAt:     time.Now(),
+			UpdatedAt:     time.Now(),
+		}
+
+		if err := uc.notificationRepo.Create(ctx, emailNotification); err != nil {
+			return fmt.Errorf("failed to create email notification: %w", err)
+		}
+	}
+
 	return nil
 }
 
 func (uc *notificationUseCase) NotifyOrderStatusChanged(ctx context.Context, orderID uuid.UUID, newStatus string) error {
-	// Implement order status changed notification logic
+	// Get order details
+	order, err := uc.orderRepo.GetByID(ctx, orderID)
+	if err != nil {
+		return fmt.Errorf("failed to get order: %w", err)
+	}
+
+	// Get user details
+	user, err := uc.userRepo.GetByID(ctx, order.UserID)
+	if err != nil {
+		return fmt.Errorf("failed to get user: %w", err)
+	}
+
+	// Check user notification preferences
+	preferences, err := uc.notificationRepo.GetUserPreferences(ctx, user.ID)
+	if err != nil {
+		return fmt.Errorf("failed to get user preferences: %w", err)
+	}
+
+	// Map status to Vietnamese
+	statusMap := map[string]string{
+		"pending":    "Chờ xử lý",
+		"confirmed":  "Đã xác nhận",
+		"processing": "Đang xử lý",
+		"shipped":    "Đã giao vận",
+		"delivered":  "Đã giao hàng",
+		"cancelled":  "Đã hủy",
+		"returned":   "Đã trả hàng",
+	}
+	statusText := statusMap[newStatus]
+	if statusText == "" {
+		statusText = newStatus
+	}
+
+	// Create notification data
+	data := map[string]interface{}{
+		"order_id":     order.ID,
+		"order_number": order.OrderNumber,
+		"old_status":   order.Status,
+		"new_status":   newStatus,
+		"total":        order.Total,
+	}
+	dataJSON, _ := json.Marshal(data)
+
+	// Create in-app notification
+	if preferences.IsNotificationEnabled(entities.NotificationTypeInApp, entities.NotificationCategoryOrder) {
+		notification := &entities.Notification{
+			ID:            uuid.New(),
+			UserID:        &user.ID,
+			Type:          entities.NotificationTypeInApp,
+			Category:      entities.NotificationCategoryOrder,
+			Priority:      entities.NotificationPriorityNormal,
+			Status:        entities.NotificationStatusPending,
+			Title:         "Cập nhật trạng thái đơn hàng",
+			Message:       fmt.Sprintf("Đơn hàng #%s đã được cập nhật trạng thái: %s", order.OrderNumber, statusText),
+			Data:          string(dataJSON),
+			ReferenceType: "order",
+			ReferenceID:   &order.ID,
+			CreatedAt:     time.Now(),
+			UpdatedAt:     time.Now(),
+		}
+
+		if err := uc.notificationRepo.Create(ctx, notification); err != nil {
+			return fmt.Errorf("failed to create in-app notification: %w", err)
+		}
+	}
+
+	// Create email notification for important status changes
+	if newStatus == "shipped" || newStatus == "delivered" || newStatus == "cancelled" {
+		if preferences.IsNotificationEnabled(entities.NotificationTypeEmail, entities.NotificationCategoryOrder) {
+			emailNotification := &entities.Notification{
+				ID:            uuid.New(),
+				UserID:        &user.ID,
+				Type:          entities.NotificationTypeEmail,
+				Category:      entities.NotificationCategoryOrder,
+				Priority:      entities.NotificationPriorityHigh,
+				Status:        entities.NotificationStatusPending,
+				Title:         fmt.Sprintf("Đơn hàng #%s - %s", order.OrderNumber, statusText),
+				Message:       fmt.Sprintf("Đơn hàng #%s của bạn đã được cập nhật trạng thái: %s", order.OrderNumber, statusText),
+				Data:          string(dataJSON),
+				Recipient:     user.Email,
+				Subject:       fmt.Sprintf("Cập nhật đơn hàng #%s - %s", order.OrderNumber, statusText),
+				Template:      "order_status_changed",
+				ReferenceType: "order",
+				ReferenceID:   &order.ID,
+				CreatedAt:     time.Now(),
+				UpdatedAt:     time.Now(),
+			}
+
+			if err := uc.notificationRepo.Create(ctx, emailNotification); err != nil {
+				return fmt.Errorf("failed to create email notification: %w", err)
+			}
+		}
+	}
+
 	return nil
 }
 
 func (uc *notificationUseCase) NotifyPaymentReceived(ctx context.Context, paymentID uuid.UUID) error {
-	// Implement payment received notification logic
+	// Get payment details
+	payment, err := uc.paymentRepo.GetByID(ctx, paymentID)
+	if err != nil {
+		return fmt.Errorf("failed to get payment: %w", err)
+	}
+
+	// Get order details
+	order, err := uc.orderRepo.GetByID(ctx, payment.OrderID)
+	if err != nil {
+		return fmt.Errorf("failed to get order: %w", err)
+	}
+
+	// Get user details
+	user, err := uc.userRepo.GetByID(ctx, order.UserID)
+	if err != nil {
+		return fmt.Errorf("failed to get user: %w", err)
+	}
+
+	// Check user notification preferences
+	preferences, err := uc.notificationRepo.GetUserPreferences(ctx, user.ID)
+	if err != nil {
+		return fmt.Errorf("failed to get user preferences: %w", err)
+	}
+
+	// Create notification data
+	data := map[string]interface{}{
+		"payment_id":     payment.ID,
+		"order_id":       order.ID,
+		"order_number":   order.OrderNumber,
+		"amount":         payment.Amount,
+		"payment_method": payment.Method,
+	}
+	dataJSON, _ := json.Marshal(data)
+
+	// Create in-app notification
+	if preferences.IsNotificationEnabled(entities.NotificationTypeInApp, entities.NotificationCategoryPayment) {
+		notification := &entities.Notification{
+			ID:            uuid.New(),
+			UserID:        &user.ID,
+			Type:          entities.NotificationTypeInApp,
+			Category:      entities.NotificationCategoryPayment,
+			Priority:      entities.NotificationPriorityHigh,
+			Status:        entities.NotificationStatusPending,
+			Title:         "Thanh toán thành công",
+			Message:       fmt.Sprintf("Thanh toán %.0f VND cho đơn hàng #%s đã được xử lý thành công", payment.Amount, order.OrderNumber),
+			Data:          string(dataJSON),
+			ReferenceType: "payment",
+			ReferenceID:   &payment.ID,
+			CreatedAt:     time.Now(),
+			UpdatedAt:     time.Now(),
+		}
+
+		if err := uc.notificationRepo.Create(ctx, notification); err != nil {
+			return fmt.Errorf("failed to create in-app notification: %w", err)
+		}
+	}
+
+	// Create email notification
+	if preferences.IsNotificationEnabled(entities.NotificationTypeEmail, entities.NotificationCategoryPayment) {
+		emailNotification := &entities.Notification{
+			ID:            uuid.New(),
+			UserID:        &user.ID,
+			Type:          entities.NotificationTypeEmail,
+			Category:      entities.NotificationCategoryPayment,
+			Priority:      entities.NotificationPriorityHigh,
+			Status:        entities.NotificationStatusPending,
+			Title:         "Xác nhận thanh toán",
+			Message:       fmt.Sprintf("Thanh toán cho đơn hàng #%s đã được xử lý thành công", order.OrderNumber),
+			Data:          string(dataJSON),
+			Recipient:     user.Email,
+			Subject:       fmt.Sprintf("Xác nhận thanh toán - Đơn hàng #%s", order.OrderNumber),
+			Template:      "payment_received",
+			ReferenceType: "payment",
+			ReferenceID:   &payment.ID,
+			CreatedAt:     time.Now(),
+			UpdatedAt:     time.Now(),
+		}
+
+		if err := uc.notificationRepo.Create(ctx, emailNotification); err != nil {
+			return fmt.Errorf("failed to create email notification: %w", err)
+		}
+	}
+
 	return nil
 }
 
 func (uc *notificationUseCase) NotifyShippingUpdate(ctx context.Context, orderID uuid.UUID, trackingNumber string) error {
-	// Implement shipping update notification logic
+	// Get order details
+	order, err := uc.orderRepo.GetByID(ctx, orderID)
+	if err != nil {
+		return fmt.Errorf("failed to get order: %w", err)
+	}
+
+	// Get user details
+	user, err := uc.userRepo.GetByID(ctx, order.UserID)
+	if err != nil {
+		return fmt.Errorf("failed to get user: %w", err)
+	}
+
+	// Check user notification preferences
+	preferences, err := uc.notificationRepo.GetUserPreferences(ctx, user.ID)
+	if err != nil {
+		return fmt.Errorf("failed to get user preferences: %w", err)
+	}
+
+	// Create notification data
+	data := map[string]interface{}{
+		"order_id":        order.ID,
+		"order_number":    order.OrderNumber,
+		"tracking_number": trackingNumber,
+	}
+	dataJSON, _ := json.Marshal(data)
+
+	// Create in-app notification
+	if preferences.IsNotificationEnabled(entities.NotificationTypeInApp, entities.NotificationCategoryShipping) {
+		notification := &entities.Notification{
+			ID:            uuid.New(),
+			UserID:        &user.ID,
+			Type:          entities.NotificationTypeInApp,
+			Category:      entities.NotificationCategoryShipping,
+			Priority:      entities.NotificationPriorityNormal,
+			Status:        entities.NotificationStatusPending,
+			Title:         "Cập nhật vận chuyển",
+			Message:       fmt.Sprintf("Đơn hàng #%s đã được giao cho đơn vị vận chuyển. Mã vận đơn: %s", order.OrderNumber, trackingNumber),
+			Data:          string(dataJSON),
+			ReferenceType: "order",
+			ReferenceID:   &order.ID,
+			CreatedAt:     time.Now(),
+			UpdatedAt:     time.Now(),
+		}
+
+		if err := uc.notificationRepo.Create(ctx, notification); err != nil {
+			return fmt.Errorf("failed to create in-app notification: %w", err)
+		}
+	}
+
+	// Create email notification
+	if preferences.IsNotificationEnabled(entities.NotificationTypeEmail, entities.NotificationCategoryShipping) {
+		emailNotification := &entities.Notification{
+			ID:            uuid.New(),
+			UserID:        &user.ID,
+			Type:          entities.NotificationTypeEmail,
+			Category:      entities.NotificationCategoryShipping,
+			Priority:      entities.NotificationPriorityNormal,
+			Status:        entities.NotificationStatusPending,
+			Title:         "Thông tin vận chuyển",
+			Message:       fmt.Sprintf("Đơn hàng #%s đã được giao cho đơn vị vận chuyển", order.OrderNumber),
+			Data:          string(dataJSON),
+			Recipient:     user.Email,
+			Subject:       fmt.Sprintf("Thông tin vận chuyển - Đơn hàng #%s", order.OrderNumber),
+			Template:      "shipping_update",
+			ReferenceType: "order",
+			ReferenceID:   &order.ID,
+			CreatedAt:     time.Now(),
+			UpdatedAt:     time.Now(),
+		}
+
+		if err := uc.notificationRepo.Create(ctx, emailNotification); err != nil {
+			return fmt.Errorf("failed to create email notification: %w", err)
+		}
+	}
+
 	return nil
 }
 
 func (uc *notificationUseCase) NotifyLowStock(ctx context.Context, inventoryID uuid.UUID) error {
-	// Implement low stock notification logic
+	// Get inventory details with product preloaded
+	inventory, err := uc.inventoryRepo.GetByID(ctx, inventoryID)
+	if err != nil {
+		return fmt.Errorf("failed to get inventory: %w", err)
+	}
+
+	// Get product name (check if product is preloaded)
+	var productName string
+	var productID uuid.UUID
+	if inventory.Product.ID != uuid.Nil {
+		productName = inventory.Product.Name
+		productID = inventory.Product.ID
+	} else {
+		// Fallback: use product ID as name if product not preloaded
+		productName = fmt.Sprintf("Product %s", inventory.ProductID.String()[:8])
+		productID = inventory.ProductID
+	}
+
+	// Create notification data
+	data := map[string]interface{}{
+		"inventory_id":  inventory.ID,
+		"product_id":    productID,
+		"product_name":  productName,
+		"current_stock": inventory.QuantityOnHand,
+		"reorder_level": inventory.ReorderLevel,
+		"warehouse_id":  inventory.WarehouseID,
+	}
+	dataJSON, _ := json.Marshal(data)
+
+	// Create system notification for admins
+	notification := &entities.Notification{
+		ID:            uuid.New(),
+		UserID:        nil, // System-wide notification
+		Type:          entities.NotificationTypeInApp,
+		Category:      entities.NotificationCategorySystem,
+		Priority:      entities.NotificationPriorityHigh,
+		Status:        entities.NotificationStatusPending,
+		Title:         "Cảnh báo hết hàng",
+		Message:       fmt.Sprintf("Sản phẩm '%s' sắp hết hàng. Số lượng hiện tại: %d, mức đặt lại: %d", productName, inventory.QuantityOnHand, inventory.ReorderLevel),
+		Data:          string(dataJSON),
+		ReferenceType: "inventory",
+		ReferenceID:   &inventory.ID,
+		CreatedAt:     time.Now(),
+		UpdatedAt:     time.Now(),
+	}
+
+	if err := uc.notificationRepo.Create(ctx, notification); err != nil {
+		return fmt.Errorf("failed to create low stock notification: %w", err)
+	}
+
 	return nil
 }
 
 func (uc *notificationUseCase) NotifyReviewRequest(ctx context.Context, orderID uuid.UUID) error {
-	// Implement review request notification logic
+	// Get order details
+	order, err := uc.orderRepo.GetByID(ctx, orderID)
+	if err != nil {
+		return fmt.Errorf("failed to get order: %w", err)
+	}
+
+	// Get user details
+	user, err := uc.userRepo.GetByID(ctx, order.UserID)
+	if err != nil {
+		return fmt.Errorf("failed to get user: %w", err)
+	}
+
+	// Check user notification preferences
+	preferences, err := uc.notificationRepo.GetUserPreferences(ctx, user.ID)
+	if err != nil {
+		return fmt.Errorf("failed to get user preferences: %w", err)
+	}
+
+	// Create notification data
+	data := map[string]interface{}{
+		"order_id":     order.ID,
+		"order_number": order.OrderNumber,
+		"items_count":  len(order.Items),
+	}
+	dataJSON, _ := json.Marshal(data)
+
+	// Create in-app notification
+	if preferences.IsNotificationEnabled(entities.NotificationTypeInApp, entities.NotificationCategoryReview) {
+		notification := &entities.Notification{
+			ID:            uuid.New(),
+			UserID:        &user.ID,
+			Type:          entities.NotificationTypeInApp,
+			Category:      entities.NotificationCategoryReview,
+			Priority:      entities.NotificationPriorityNormal,
+			Status:        entities.NotificationStatusPending,
+			Title:         "Đánh giá sản phẩm",
+			Message:       fmt.Sprintf("Hãy đánh giá sản phẩm trong đơn hàng #%s để giúp khách hàng khác có trải nghiệm tốt hơn", order.OrderNumber),
+			Data:          string(dataJSON),
+			ReferenceType: "order",
+			ReferenceID:   &order.ID,
+			CreatedAt:     time.Now(),
+			UpdatedAt:     time.Now(),
+		}
+
+		if err := uc.notificationRepo.Create(ctx, notification); err != nil {
+			return fmt.Errorf("failed to create review request notification: %w", err)
+		}
+	}
+
+	// Create email notification
+	if preferences.IsNotificationEnabled(entities.NotificationTypeEmail, entities.NotificationCategoryReview) {
+		emailNotification := &entities.Notification{
+			ID:            uuid.New(),
+			UserID:        &user.ID,
+			Type:          entities.NotificationTypeEmail,
+			Category:      entities.NotificationCategoryReview,
+			Priority:      entities.NotificationPriorityNormal,
+			Status:        entities.NotificationStatusPending,
+			Title:         "Đánh giá sản phẩm",
+			Message:       fmt.Sprintf("Cảm ơn bạn đã mua hàng! Hãy đánh giá sản phẩm trong đơn hàng #%s", order.OrderNumber),
+			Data:          string(dataJSON),
+			Recipient:     user.Email,
+			Subject:       fmt.Sprintf("Đánh giá sản phẩm - Đơn hàng #%s", order.OrderNumber),
+			Template:      "review_request",
+			ReferenceType: "order",
+			ReferenceID:   &order.ID,
+			CreatedAt:     time.Now(),
+			UpdatedAt:     time.Now(),
+		}
+
+		if err := uc.notificationRepo.Create(ctx, emailNotification); err != nil {
+			return fmt.Errorf("failed to create email notification: %w", err)
+		}
+	}
+
 	return nil
 }
 
@@ -816,7 +1328,7 @@ func (uc *notificationUseCase) toNotificationResponse(notification *entities.Not
 		NextRetryAt:   notification.NextRetryAt,
 		ErrorMessage:  notification.ErrorMessage,
 		ErrorCode:     notification.ErrorCode,
-		IsRead:        notification.IsRead(),
+		IsRead:        notification.IsRead,
 		CreatedAt:     notification.CreatedAt,
 		UpdatedAt:     notification.UpdatedAt,
 	}
@@ -876,4 +1388,213 @@ func (uc *notificationUseCase) toPreferencesResponse(preferences *entities.Notif
 		CreatedAt:            preferences.CreatedAt,
 		UpdatedAt:            preferences.UpdatedAt,
 	}
+}
+
+// NotifyNewOrder sends notification to admins when a new order is created
+func (uc *notificationUseCase) NotifyNewOrder(ctx context.Context, orderID uuid.UUID) error {
+	// Get order details
+	order, err := uc.orderRepo.GetByID(ctx, orderID)
+	if err != nil {
+		return fmt.Errorf("failed to get order: %w", err)
+	}
+
+	// Get user details
+	user, err := uc.userRepo.GetByID(ctx, order.UserID)
+	if err != nil {
+		return fmt.Errorf("failed to get user: %w", err)
+	}
+
+	// Create notification data
+	data := map[string]interface{}{
+		"order_id":       order.ID,
+		"order_number":   order.OrderNumber,
+		"customer_id":    user.ID,
+		"customer_name":  user.FirstName + " " + user.LastName,
+		"customer_email": user.Email,
+		"total_amount":   order.Total,
+		"items_count":    len(order.Items),
+		"status":         order.Status,
+	}
+	dataJSON, _ := json.Marshal(data)
+
+	// Create system notification for admins
+	notification := &entities.Notification{
+		ID:            uuid.New(),
+		UserID:        nil, // System-wide notification for admins
+		Type:          entities.NotificationTypeInApp,
+		Category:      entities.NotificationCategoryOrder,
+		Priority:      entities.NotificationPriorityNormal,
+		Status:        entities.NotificationStatusPending,
+		Title:         "Đơn hàng mới",
+		Message:       fmt.Sprintf("Đơn hàng mới #%s từ khách hàng %s với giá trị %.0f VND", order.OrderNumber, user.FirstName+" "+user.LastName, order.Total),
+		Data:          string(dataJSON),
+		ReferenceType: "order",
+		ReferenceID:   &order.ID,
+		CreatedAt:     time.Now(),
+		UpdatedAt:     time.Now(),
+	}
+
+	if err := uc.notificationRepo.Create(ctx, notification); err != nil {
+		return fmt.Errorf("failed to create new order notification: %w", err)
+	}
+
+	return nil
+}
+
+// NotifyPaymentFailed sends notification to admins when a payment fails
+func (uc *notificationUseCase) NotifyPaymentFailed(ctx context.Context, paymentID uuid.UUID) error {
+	// Get payment details
+	payment, err := uc.paymentRepo.GetByID(ctx, paymentID)
+	if err != nil {
+		return fmt.Errorf("failed to get payment: %w", err)
+	}
+
+	// Get order details
+	order, err := uc.orderRepo.GetByID(ctx, payment.OrderID)
+	if err != nil {
+		return fmt.Errorf("failed to get order: %w", err)
+	}
+
+	// Get user details
+	user, err := uc.userRepo.GetByID(ctx, order.UserID)
+	if err != nil {
+		return fmt.Errorf("failed to get user: %w", err)
+	}
+
+	// Create notification data
+	data := map[string]interface{}{
+		"payment_id":     payment.ID,
+		"order_id":       order.ID,
+		"order_number":   order.OrderNumber,
+		"customer_id":    user.ID,
+		"customer_name":  user.FirstName + " " + user.LastName,
+		"customer_email": user.Email,
+		"amount":         payment.Amount,
+		"payment_method": payment.Method,
+		"failure_reason": payment.FailureReason,
+	}
+	dataJSON, _ := json.Marshal(data)
+
+	// Create system notification for admins
+	notification := &entities.Notification{
+		ID:            uuid.New(),
+		UserID:        nil, // System-wide notification for admins
+		Type:          entities.NotificationTypeInApp,
+		Category:      entities.NotificationCategoryPayment,
+		Priority:      entities.NotificationPriorityHigh,
+		Status:        entities.NotificationStatusPending,
+		Title:         "Thanh toán thất bại",
+		Message:       fmt.Sprintf("Thanh toán thất bại cho đơn hàng #%s (%.0f VND) từ khách hàng %s", order.OrderNumber, payment.Amount, user.FirstName+" "+user.LastName),
+		Data:          string(dataJSON),
+		ReferenceType: "payment",
+		ReferenceID:   &payment.ID,
+		CreatedAt:     time.Now(),
+		UpdatedAt:     time.Now(),
+	}
+
+	if err := uc.notificationRepo.Create(ctx, notification); err != nil {
+		return fmt.Errorf("failed to create payment failed notification: %w", err)
+	}
+
+	return nil
+}
+
+// NotifyNewUser sends notification to admins when a new user registers
+func (uc *notificationUseCase) NotifyNewUser(ctx context.Context, userID uuid.UUID) error {
+	// Get user details
+	user, err := uc.userRepo.GetByID(ctx, userID)
+	if err != nil {
+		return fmt.Errorf("failed to get user: %w", err)
+	}
+
+	// Create notification data
+	data := map[string]interface{}{
+		"user_id":    user.ID,
+		"email":      user.Email,
+		"first_name": user.FirstName,
+		"last_name":  user.LastName,
+		"role":       user.Role,
+		"created_at": user.CreatedAt,
+	}
+	dataJSON, _ := json.Marshal(data)
+
+	// Create system notification for admins
+	notification := &entities.Notification{
+		ID:            uuid.New(),
+		UserID:        nil, // System-wide notification for admins
+		Type:          entities.NotificationTypeInApp,
+		Category:      entities.NotificationCategorySystem,
+		Priority:      entities.NotificationPriorityLow,
+		Status:        entities.NotificationStatusPending,
+		Title:         "Người dùng mới đăng ký",
+		Message:       fmt.Sprintf("Người dùng mới %s %s (%s) đã đăng ký tài khoản", user.FirstName, user.LastName, user.Email),
+		Data:          string(dataJSON),
+		ReferenceType: "user",
+		ReferenceID:   &user.ID,
+		CreatedAt:     time.Now(),
+		UpdatedAt:     time.Now(),
+	}
+
+	if err := uc.notificationRepo.Create(ctx, notification); err != nil {
+		return fmt.Errorf("failed to create new user notification: %w", err)
+	}
+
+	return nil
+}
+
+// NotifyNewReview sends notification to admins when a new review is submitted
+func (uc *notificationUseCase) NotifyNewReview(ctx context.Context, reviewID uuid.UUID) error {
+	// Get review details
+	review, err := uc.reviewRepo.GetByID(ctx, reviewID)
+	if err != nil {
+		return fmt.Errorf("failed to get review: %w", err)
+	}
+
+	// Get user details
+	user, err := uc.userRepo.GetByID(ctx, review.UserID)
+	if err != nil {
+		return fmt.Errorf("failed to get user: %w", err)
+	}
+
+	// Get product details
+	product, err := uc.productRepo.GetByID(ctx, review.ProductID)
+	if err != nil {
+		return fmt.Errorf("failed to get product: %w", err)
+	}
+
+	// Create notification data
+	data := map[string]interface{}{
+		"review_id":     review.ID,
+		"product_id":    product.ID,
+		"product_name":  product.Name,
+		"customer_id":   user.ID,
+		"customer_name": user.FirstName + " " + user.LastName,
+		"rating":        review.Rating,
+		"comment":       review.Comment,
+		"status":        review.Status,
+	}
+	dataJSON, _ := json.Marshal(data)
+
+	// Create system notification for admins
+	notification := &entities.Notification{
+		ID:            uuid.New(),
+		UserID:        nil, // System-wide notification for admins
+		Type:          entities.NotificationTypeInApp,
+		Category:      entities.NotificationCategorySystem,
+		Priority:      entities.NotificationPriorityLow,
+		Status:        entities.NotificationStatusPending,
+		Title:         "Đánh giá mới",
+		Message:       fmt.Sprintf("Đánh giá mới %d sao cho sản phẩm '%s' từ khách hàng %s", review.Rating, product.Name, user.FirstName+" "+user.LastName),
+		Data:          string(dataJSON),
+		ReferenceType: "review",
+		ReferenceID:   &review.ID,
+		CreatedAt:     time.Now(),
+		UpdatedAt:     time.Now(),
+	}
+
+	if err := uc.notificationRepo.Create(ctx, notification); err != nil {
+		return fmt.Errorf("failed to create new review notification: %w", err)
+	}
+
+	return nil
 }

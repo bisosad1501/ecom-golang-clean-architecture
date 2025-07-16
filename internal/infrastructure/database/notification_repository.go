@@ -2,10 +2,12 @@ package database
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	"ecom-golang-clean-architecture/internal/domain/entities"
 	"ecom-golang-clean-architecture/internal/domain/repositories"
+
 	"github.com/google/uuid"
 	"gorm.io/gorm"
 )
@@ -50,7 +52,7 @@ func (r *notificationRepository) GetByUser(ctx context.Context, userID uuid.UUID
 func (r *notificationRepository) GetUnreadByUser(ctx context.Context, userID uuid.UUID, limit, offset int) ([]*entities.Notification, error) {
 	var notifications []*entities.Notification
 	err := r.db.WithContext(ctx).
-		Where("user_id = ? AND is_read = ?", userID, false).
+		Where("user_id = ? AND read_at IS NULL", userID).
 		Order("created_at DESC").
 		Limit(limit).
 		Offset(offset).
@@ -63,7 +65,7 @@ func (r *notificationRepository) CountUnreadByUser(ctx context.Context, userID u
 	var count int64
 	err := r.db.WithContext(ctx).
 		Model(&entities.Notification{}).
-		Where("user_id = ? AND is_read = ?", userID, false).
+		Where("user_id = ? AND read_at IS NULL", userID).
 		Count(&count).Error
 	return count, err
 }
@@ -74,8 +76,7 @@ func (r *notificationRepository) MarkAsRead(ctx context.Context, id uuid.UUID) e
 		Model(&entities.Notification{}).
 		Where("id = ?", id).
 		Updates(map[string]interface{}{
-			"is_read":   true,
-			"read_at":   time.Now(),
+			"read_at":    time.Now(),
 			"updated_at": time.Now(),
 		}).Error
 }
@@ -84,10 +85,9 @@ func (r *notificationRepository) MarkAsRead(ctx context.Context, id uuid.UUID) e
 func (r *notificationRepository) MarkAllAsReadByUser(ctx context.Context, userID uuid.UUID) error {
 	return r.db.WithContext(ctx).
 		Model(&entities.Notification{}).
-		Where("user_id = ? AND is_read = ?", userID, false).
+		Where("user_id = ? AND read_at IS NULL", userID).
 		Updates(map[string]interface{}{
-			"is_read":   true,
-			"read_at":   time.Now(),
+			"read_at":    time.Now(),
 			"updated_at": time.Now(),
 		}).Error
 }
@@ -122,7 +122,11 @@ func (r *notificationRepository) List(ctx context.Context, filters repositories.
 	}
 
 	if filters.IsRead != nil {
-		query = query.Where("is_read = ?", *filters.IsRead)
+		if *filters.IsRead {
+			query = query.Where("read_at IS NOT NULL")
+		} else {
+			query = query.Where("read_at IS NULL")
+		}
 	}
 
 	if filters.CreatedAfter != nil {
@@ -177,7 +181,11 @@ func (r *notificationRepository) Count(ctx context.Context, filters repositories
 	}
 
 	if filters.IsRead != nil {
-		query = query.Where("is_read = ?", *filters.IsRead)
+		if *filters.IsRead {
+			query = query.Where("read_at IS NOT NULL")
+		} else {
+			query = query.Where("read_at IS NULL")
+		}
 	}
 
 	if filters.CreatedAfter != nil {
@@ -279,7 +287,11 @@ func (r *notificationRepository) CountUserNotifications(ctx context.Context, use
 	}
 
 	if filters.IsRead != nil {
-		query = query.Where("is_read = ?", *filters.IsRead)
+		if *filters.IsRead {
+			query = query.Where("read_at IS NOT NULL")
+		} else {
+			query = query.Where("read_at IS NULL")
+		}
 	}
 
 	if filters.Priority != nil {
@@ -443,7 +455,7 @@ func (r *notificationRepository) GetEngagementStats(ctx context.Context, from, t
 	// Get opened notifications
 	err = r.db.WithContext(ctx).
 		Model(&entities.Notification{}).
-		Where("created_at BETWEEN ? AND ? AND is_read = ?", from, to, true).
+		Where("created_at BETWEEN ? AND ? AND read_at IS NOT NULL", from, to).
 		Count(&stats.OpenedNotifications).Error
 	if err != nil {
 		return nil, err
@@ -484,7 +496,7 @@ func (r *notificationRepository) GetNotificationStats(ctx context.Context, from,
 	// Get read notifications
 	err = r.db.WithContext(ctx).
 		Model(&entities.Notification{}).
-		Where("created_at BETWEEN ? AND ? AND is_read = ?", from, to, true).
+		Where("created_at BETWEEN ? AND ? AND read_at IS NOT NULL", from, to).
 		Count(&stats.TotalRead).Error
 	if err != nil {
 		return nil, err
@@ -543,7 +555,7 @@ func (r *notificationRepository) GetUnreadCount(ctx context.Context, userID uuid
 	var count int64
 	err := r.db.WithContext(ctx).
 		Model(&entities.Notification{}).
-		Where("user_id = ? AND is_read = ?", userID, false).
+		Where("user_id = ? AND read_at IS NULL", userID).
 		Count(&count).Error
 	return count, err
 }
@@ -554,7 +566,11 @@ func (r *notificationRepository) GetUserNotifications(ctx context.Context, userI
 	query := r.db.WithContext(ctx).Where("user_id = ?", userID)
 
 	if filters.IsRead != nil {
-		query = query.Where("is_read = ?", *filters.IsRead)
+		if *filters.IsRead {
+			query = query.Where("read_at IS NOT NULL")
+		} else {
+			query = query.Where("read_at IS NULL")
+		}
 	}
 
 	if filters.Type != nil {
@@ -569,6 +585,12 @@ func (r *notificationRepository) GetUserNotifications(ctx context.Context, userI
 		Limit(filters.Limit).
 		Offset(filters.Offset).
 		Find(&notifications).Error
+
+	// Set IsRead field based on ReadAt
+	for _, n := range notifications {
+		n.IsRead = n.ReadAt != nil && !n.ReadAt.IsZero()
+	}
+
 	return notifications, err
 }
 
@@ -585,8 +607,8 @@ func (r *notificationRepository) ListTemplates(ctx context.Context) ([]*entities
 func (r *notificationRepository) MarkAllAsRead(ctx context.Context, userID uuid.UUID) error {
 	return r.db.WithContext(ctx).
 		Model(&entities.Notification{}).
-		Where("user_id = ? AND is_read = ?", userID, false).
-		Update("is_read", true).Error
+		Where("user_id = ? AND read_at IS NULL", userID).
+		Update("read_at", time.Now()).Error
 }
 
 // MarkAsDelivered marks a notification as delivered
@@ -605,7 +627,7 @@ func (r *notificationRepository) MarkMultipleAsRead(ctx context.Context, notific
 	return r.db.WithContext(ctx).
 		Model(&entities.Notification{}).
 		Where("id IN (?)", notificationIDs).
-		Update("is_read", true).Error
+		Update("read_at", time.Now()).Error
 }
 
 // UpdateDeliveryStatus updates notification delivery status with reason
@@ -630,4 +652,142 @@ func (r *notificationRepository) UpdateDeliveryStatus(ctx context.Context, notif
 func (r *notificationRepository) UpdateTemplate(ctx context.Context, template *entities.NotificationTemplate) error {
 	template.UpdatedAt = time.Now()
 	return r.db.WithContext(ctx).Save(template).Error
+}
+
+// GetPendingNotificationsForQueue gets pending notifications for queue processing
+func (r *notificationRepository) GetPendingNotificationsForQueue(ctx context.Context, limit int) ([]*entities.Notification, error) {
+	var notifications []*entities.Notification
+	err := r.db.WithContext(ctx).
+		Where("status = ?", entities.NotificationStatusPending).
+		Where("(next_retry_at IS NULL OR next_retry_at <= ?)", time.Now()).
+		Order("created_at ASC").
+		Limit(limit).
+		Find(&notifications).Error
+	return notifications, err
+}
+
+// GetRetryableNotifications gets notifications that are ready for retry
+func (r *notificationRepository) GetRetryableNotifications(ctx context.Context, limit int) ([]*entities.Notification, error) {
+	var notifications []*entities.Notification
+	err := r.db.WithContext(ctx).
+		Where("status = ? AND next_retry_at IS NOT NULL AND next_retry_at <= ?",
+			entities.NotificationStatusPending, time.Now()).
+		Order("next_retry_at ASC").
+		Limit(limit).
+		Find(&notifications).Error
+	return notifications, err
+}
+
+// GetPendingCount gets count of pending notifications
+func (r *notificationRepository) GetPendingCount(ctx context.Context) (int64, error) {
+	var count int64
+	err := r.db.WithContext(ctx).Model(&entities.Notification{}).
+		Where("status = ?", entities.NotificationStatusPending).
+		Count(&count).Error
+	return count, err
+}
+
+// GetProcessingCount gets count of processing notifications
+func (r *notificationRepository) GetProcessingCount(ctx context.Context) (int64, error) {
+	var count int64
+	err := r.db.WithContext(ctx).Model(&entities.Notification{}).
+		Where("status = ?", entities.NotificationStatusProcessing).
+		Count(&count).Error
+	return count, err
+}
+
+// GetFailedCount gets count of failed notifications
+func (r *notificationRepository) GetFailedCount(ctx context.Context) (int64, error) {
+	var count int64
+	err := r.db.WithContext(ctx).Model(&entities.Notification{}).
+		Where("status = ?", entities.NotificationStatusFailed).
+		Count(&count).Error
+	return count, err
+}
+
+// GetAdminNotifications gets notifications for admin users (both user-specific and system-wide)
+func (r *notificationRepository) GetAdminNotifications(ctx context.Context, userID uuid.UUID, filters repositories.NotificationFilters) ([]*entities.Notification, error) {
+	var notifications []*entities.Notification
+
+	query := r.db.WithContext(ctx).Model(&entities.Notification{})
+
+	// Admin sees both their own notifications and system-wide notifications (user_id IS NULL)
+	query = query.Where("user_id = ? OR user_id IS NULL", userID)
+
+	// Apply filters
+	if filters.Type != nil {
+		query = query.Where("type = ?", *filters.Type)
+	}
+	if filters.Priority != nil {
+		query = query.Where("priority = ?", *filters.Priority)
+	}
+	if filters.IsRead != nil {
+		if *filters.IsRead {
+			query = query.Where("read_at IS NOT NULL")
+		} else {
+			query = query.Where("read_at IS NULL")
+		}
+	}
+	if filters.DateFrom != nil {
+		query = query.Where("created_at >= ?", *filters.DateFrom)
+	}
+	if filters.DateTo != nil {
+		query = query.Where("created_at <= ?", *filters.DateTo)
+	}
+
+	// Apply sorting
+	sortBy := "created_at"
+	if filters.SortBy != "" {
+		sortBy = filters.SortBy
+	}
+	sortOrder := "DESC"
+	if filters.SortOrder != "" {
+		sortOrder = filters.SortOrder
+	}
+	query = query.Order(fmt.Sprintf("%s %s", sortBy, sortOrder))
+
+	// Apply pagination
+	if filters.Limit > 0 {
+		query = query.Limit(filters.Limit)
+	}
+	if filters.Offset > 0 {
+		query = query.Offset(filters.Offset)
+	}
+
+	err := query.Find(&notifications).Error
+	return notifications, err
+}
+
+// CountAdminNotifications counts notifications for admin users (both user-specific and system-wide)
+func (r *notificationRepository) CountAdminNotifications(ctx context.Context, userID uuid.UUID, filters repositories.NotificationFilters) (int64, error) {
+	var count int64
+
+	query := r.db.WithContext(ctx).Model(&entities.Notification{})
+
+	// Admin sees both their own notifications and system-wide notifications (user_id IS NULL)
+	query = query.Where("user_id = ? OR user_id IS NULL", userID)
+
+	// Apply filters
+	if filters.Type != nil {
+		query = query.Where("type = ?", *filters.Type)
+	}
+	if filters.Priority != nil {
+		query = query.Where("priority = ?", *filters.Priority)
+	}
+	if filters.IsRead != nil {
+		if *filters.IsRead {
+			query = query.Where("read_at IS NOT NULL")
+		} else {
+			query = query.Where("read_at IS NULL")
+		}
+	}
+	if filters.DateFrom != nil {
+		query = query.Where("created_at >= ?", *filters.DateFrom)
+	}
+	if filters.DateTo != nil {
+		query = query.Where("created_at <= ?", *filters.DateTo)
+	}
+
+	err := query.Count(&count).Error
+	return count, err
 }

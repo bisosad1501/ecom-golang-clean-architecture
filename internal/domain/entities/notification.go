@@ -1,6 +1,7 @@
 package entities
 
 import (
+	"fmt"
 	"time"
 
 	"github.com/google/uuid"
@@ -35,10 +36,10 @@ const (
 type NotificationChannel string
 
 const (
-	NotificationChannelEmail  NotificationChannel = "email"
-	NotificationChannelSMS    NotificationChannel = "sms"
-	NotificationChannelPush   NotificationChannel = "push"
-	NotificationChannelInApp  NotificationChannel = "in_app"
+	NotificationChannelEmail   NotificationChannel = "email"
+	NotificationChannelSMS     NotificationChannel = "sms"
+	NotificationChannelPush    NotificationChannel = "push"
+	NotificationChannelInApp   NotificationChannel = "in_app"
 	NotificationChannelWebhook NotificationChannel = "webhook"
 )
 
@@ -46,11 +47,12 @@ const (
 type NotificationStatus string
 
 const (
-	NotificationStatusPending   NotificationStatus = "pending"
-	NotificationStatusSent      NotificationStatus = "sent"
-	NotificationStatusDelivered NotificationStatus = "delivered"
-	NotificationStatusFailed    NotificationStatus = "failed"
-	NotificationStatusRead      NotificationStatus = "read"
+	NotificationStatusPending    NotificationStatus = "pending"
+	NotificationStatusProcessing NotificationStatus = "processing"
+	NotificationStatusSent       NotificationStatus = "sent"
+	NotificationStatusDelivered  NotificationStatus = "delivered"
+	NotificationStatusFailed     NotificationStatus = "failed"
+	NotificationStatusRead       NotificationStatus = "read"
 )
 
 // NotificationPriority represents the priority of a notification
@@ -65,48 +67,51 @@ const (
 
 // Notification represents a notification to be sent to users
 type Notification struct {
-	ID          uuid.UUID            `json:"id" gorm:"type:uuid;primary_key;default:gen_random_uuid()"`
-	UserID      *uuid.UUID           `json:"user_id" gorm:"type:uuid;index"`        // null for system-wide notifications
-	User        *User                `json:"user,omitempty" gorm:"foreignKey:UserID"`
-	
+	ID     uuid.UUID  `json:"id" gorm:"type:uuid;primary_key;default:gen_random_uuid()"`
+	UserID *uuid.UUID `json:"user_id" gorm:"type:uuid;index"` // null for system-wide notifications
+	User   *User      `json:"user,omitempty" gorm:"foreignKey:UserID"`
+
 	// Notification details
-	Type        NotificationType     `json:"type" gorm:"not null"`
-	Category    NotificationCategory `json:"category" gorm:"not null"`
-	Priority    NotificationPriority `json:"priority" gorm:"default:'normal'"`
-	Status      NotificationStatus   `json:"status" gorm:"default:'pending'"`
-	
+	Type     NotificationType     `json:"type" gorm:"not null"`
+	Category NotificationCategory `json:"category" gorm:"not null"`
+	Priority NotificationPriority `json:"priority" gorm:"default:'normal'"`
+	Status   NotificationStatus   `json:"status" gorm:"default:'pending'"`
+
 	// Content
-	Title       string               `json:"title" gorm:"not null"`
-	Message     string               `json:"message" gorm:"type:text;not null"`
-	Data        string               `json:"data" gorm:"type:text"`               // JSON data for additional context
-	
+	Title   string `json:"title" gorm:"not null" validate:"required,max=200"`
+	Message string `json:"message" gorm:"type:text;not null" validate:"required,max=2000"`
+	Data    string `json:"data" gorm:"type:text"` // JSON data for additional context
+
 	// Delivery details
-	Recipient   string               `json:"recipient"`                           // Email address, phone number, etc.
-	Subject     string               `json:"subject"`                             // For email notifications
-	Template    string               `json:"template"`                            // Template name
-	
+	Recipient string `json:"recipient" validate:"omitempty,email"` // Email address, phone number, etc.
+	Subject   string `json:"subject" validate:"max=300"`           // For email notifications
+	Template  string `json:"template" validate:"max=100"`          // Template name
+
 	// Reference information
-	ReferenceType string             `json:"reference_type"`                      // order, payment, product, etc.
-	ReferenceID   *uuid.UUID         `json:"reference_id" gorm:"type:uuid;index"`
-	
+	ReferenceType string     `json:"reference_type"` // order, payment, product, etc.
+	ReferenceID   *uuid.UUID `json:"reference_id" gorm:"type:uuid;index"`
+
 	// Scheduling
-	ScheduledAt   *time.Time         `json:"scheduled_at"`                        // When to send
-	SentAt        *time.Time         `json:"sent_at"`
-	DeliveredAt   *time.Time         `json:"delivered_at"`
-	ReadAt        *time.Time         `json:"read_at"`
-	
+	ScheduledAt *time.Time `json:"scheduled_at"` // When to send
+	SentAt      *time.Time `json:"sent_at"`
+	DeliveredAt *time.Time `json:"delivered_at"`
+	ReadAt      *time.Time `json:"read_at"`
+
 	// Retry information
-	RetryCount    int                `json:"retry_count" gorm:"default:0"`
-	MaxRetries    int                `json:"max_retries" gorm:"default:3"`
-	NextRetryAt   *time.Time         `json:"next_retry_at"`
-	
+	RetryCount  int        `json:"retry_count" gorm:"default:0" validate:"min=0"`
+	MaxRetries  int        `json:"max_retries" gorm:"default:3" validate:"min=0,max=10"`
+	NextRetryAt *time.Time `json:"next_retry_at"`
+
 	// Error information
-	ErrorMessage  string             `json:"error_message"`
-	ErrorCode     string             `json:"error_code"`
-	
+	ErrorMessage string `json:"error_message"`
+	ErrorCode    string `json:"error_code"`
+
 	// Metadata
-	CreatedAt     time.Time          `json:"created_at" gorm:"autoCreateTime"`
-	UpdatedAt     time.Time          `json:"updated_at" gorm:"autoUpdateTime"`
+	CreatedAt time.Time `json:"created_at" gorm:"autoCreateTime"`
+	UpdatedAt time.Time `json:"updated_at" gorm:"autoUpdateTime"`
+
+	// Computed field for is_read
+	IsRead bool `json:"is_read" gorm:"-"`
 }
 
 // TableName returns the table name for Notification entity
@@ -114,18 +119,61 @@ func (Notification) TableName() string {
 	return "notifications"
 }
 
+// IsExpired checks if notification has expired (for scheduled notifications)
+func (n *Notification) IsExpired() bool {
+	if n.ScheduledAt == nil {
+		return false
+	}
+	return time.Now().After(n.ScheduledAt.Add(24 * time.Hour)) // Expire after 24 hours
+}
+
+// GetRemainingRetries returns the number of remaining retries
+func (n *Notification) GetRemainingRetries() int {
+	remaining := n.MaxRetries - n.RetryCount
+	if remaining < 0 {
+		return 0
+	}
+	return remaining
+}
+
+// Validate validates the notification entity
+func (n *Notification) Validate() error {
+	if n.Title == "" {
+		return fmt.Errorf("title is required")
+	}
+	if n.Message == "" {
+		return fmt.Errorf("message is required")
+	}
+	if n.Type == "" {
+		return fmt.Errorf("type is required")
+	}
+	if n.Category == "" {
+		return fmt.Errorf("category is required")
+	}
+	if n.RetryCount < 0 {
+		return fmt.Errorf("retry_count cannot be negative")
+	}
+	if n.MaxRetries < 0 {
+		return fmt.Errorf("max_retries cannot be negative")
+	}
+	if n.MaxRetries > 10 {
+		return fmt.Errorf("max_retries cannot exceed 10")
+	}
+	return nil
+}
+
 // NotificationTemplate represents a notification template
 type NotificationTemplate struct {
-	ID          uuid.UUID        `json:"id" gorm:"type:uuid;primary_key;default:gen_random_uuid()"`
-	Type        NotificationType `json:"type" gorm:"not null;index"`
-	Channel     NotificationChannel `json:"channel" gorm:"not null;index"`
-	Name        string           `json:"name" gorm:"not null"`
-	Subject     string           `json:"subject,omitempty"`
-	Body        string           `json:"body" gorm:"not null"`
-	Variables   []string         `json:"variables,omitempty" gorm:"type:jsonb"`
-	IsActive    bool             `json:"is_active" gorm:"default:true"`
-	CreatedAt   time.Time        `json:"created_at" gorm:"autoCreateTime"`
-	UpdatedAt   time.Time        `json:"updated_at" gorm:"autoUpdateTime"`
+	ID        uuid.UUID           `json:"id" gorm:"type:uuid;primary_key;default:gen_random_uuid()"`
+	Type      NotificationType    `json:"type" gorm:"not null;index"`
+	Channel   NotificationChannel `json:"channel" gorm:"not null;index"`
+	Name      string              `json:"name" gorm:"not null"`
+	Subject   string              `json:"subject,omitempty"`
+	Body      string              `json:"body" gorm:"not null"`
+	Variables []string            `json:"variables,omitempty" gorm:"type:jsonb"`
+	IsActive  bool                `json:"is_active" gorm:"default:true"`
+	CreatedAt time.Time           `json:"created_at" gorm:"autoCreateTime"`
+	UpdatedAt time.Time           `json:"updated_at" gorm:"autoUpdateTime"`
 }
 
 // TableName returns the table name for NotificationTemplate entity
@@ -177,20 +225,20 @@ func (n *Notification) IsPending() bool {
 
 // IsSent checks if notification is sent
 func (n *Notification) IsSent() bool {
-	return n.Status == NotificationStatusSent || 
-		   n.Status == NotificationStatusDelivered ||
-		   n.Status == NotificationStatusRead
+	return n.Status == NotificationStatusSent ||
+		n.Status == NotificationStatusDelivered ||
+		n.Status == NotificationStatusRead
 }
 
-// IsRead checks if notification is read
-func (n *Notification) IsRead() bool {
+// IsNotificationRead checks if notification is read based on status
+func (n *Notification) IsNotificationRead() bool {
 	return n.Status == NotificationStatusRead
 }
 
 // CanRetry checks if notification can be retried
 func (n *Notification) CanRetry() bool {
-	return n.Status == NotificationStatusFailed && 
-		   n.RetryCount < n.MaxRetries
+	return n.Status == NotificationStatusFailed &&
+		n.RetryCount < n.MaxRetries
 }
 
 // MarkAsSent marks notification as sent
@@ -224,7 +272,7 @@ func (n *Notification) MarkAsFailed(errorMessage, errorCode string) {
 	n.ErrorMessage = errorMessage
 	n.ErrorCode = errorCode
 	n.RetryCount++
-	
+
 	// Schedule next retry if possible
 	if n.CanRetry() {
 		// Exponential backoff: 1min, 5min, 15min
@@ -233,17 +281,15 @@ func (n *Notification) MarkAsFailed(errorMessage, errorCode string) {
 			5 * time.Minute,
 			15 * time.Minute,
 		}
-		
+
 		if n.RetryCount <= len(retryDelays) {
 			nextRetry := now.Add(retryDelays[n.RetryCount-1])
 			n.NextRetryAt = &nextRetry
 		}
 	}
-	
+
 	n.UpdatedAt = now
 }
-
-
 
 // IsNotificationEnabled checks if a specific notification type is enabled
 func (np *NotificationPreferences) IsNotificationEnabled(notificationType NotificationType, category NotificationCategory) bool {
@@ -266,7 +312,7 @@ func (np *NotificationPreferences) IsNotificationEnabled(notificationType Notifi
 		default:
 			return true
 		}
-		
+
 	case NotificationTypeSMS:
 		if !np.SMSEnabled {
 			return false
@@ -283,7 +329,7 @@ func (np *NotificationPreferences) IsNotificationEnabled(notificationType Notifi
 		default:
 			return false
 		}
-		
+
 	case NotificationTypePush:
 		if !np.PushEnabled {
 			return false
@@ -302,7 +348,7 @@ func (np *NotificationPreferences) IsNotificationEnabled(notificationType Notifi
 		default:
 			return true
 		}
-		
+
 	case NotificationTypeInApp:
 		if !np.InAppEnabled {
 			return false
@@ -322,28 +368,28 @@ func (np *NotificationPreferences) IsNotificationEnabled(notificationType Notifi
 			return true
 		}
 	}
-	
+
 	return false
 }
 
 // NotificationQueue represents queued notifications for batch processing
 type NotificationQueue struct {
-	ID            uuid.UUID            `json:"id" gorm:"type:uuid;primary_key;default:gen_random_uuid()"`
-	NotificationID uuid.UUID           `json:"notification_id" gorm:"type:uuid;not null;index"`
-	Notification  Notification         `json:"notification,omitempty" gorm:"foreignKey:NotificationID"`
-	
+	ID             uuid.UUID    `json:"id" gorm:"type:uuid;primary_key;default:gen_random_uuid()"`
+	NotificationID uuid.UUID    `json:"notification_id" gorm:"type:uuid;not null;index"`
+	Notification   Notification `json:"notification,omitempty" gorm:"foreignKey:NotificationID"`
+
 	// Queue details
-	Priority      NotificationPriority `json:"priority" gorm:"default:'normal'"`
-	ScheduledAt   time.Time            `json:"scheduled_at" gorm:"not null"`
-	ProcessedAt   *time.Time           `json:"processed_at"`
-	
+	Priority    NotificationPriority `json:"priority" gorm:"default:'normal'"`
+	ScheduledAt time.Time            `json:"scheduled_at" gorm:"not null"`
+	ProcessedAt *time.Time           `json:"processed_at"`
+
 	// Processing information
-	WorkerID      string               `json:"worker_id"`
-	ProcessingStartedAt *time.Time     `json:"processing_started_at"`
-	
+	WorkerID            string     `json:"worker_id"`
+	ProcessingStartedAt *time.Time `json:"processing_started_at"`
+
 	// Metadata
-	CreatedAt     time.Time            `json:"created_at" gorm:"autoCreateTime"`
-	UpdatedAt     time.Time            `json:"updated_at" gorm:"autoUpdateTime"`
+	CreatedAt time.Time `json:"created_at" gorm:"autoCreateTime"`
+	UpdatedAt time.Time `json:"updated_at" gorm:"autoUpdateTime"`
 }
 
 // TableName returns the table name for NotificationQueue entity
