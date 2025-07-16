@@ -1279,6 +1279,12 @@ func (uc *productUseCase) SearchProducts(ctx context.Context, req SearchProducts
 	return responses, nil
 }
 
+// calculateDiscountPercentage calculates the discount percentage for a product
+// Uses the new unified discount logic from entity
+func (uc *productUseCase) calculateDiscountPercentage(product *entities.Product) float64 {
+	return product.GetDiscountPercentage()
+}
+
 // SearchProductsPaginated searches products with pagination info
 func (uc *productUseCase) SearchProductsPaginated(ctx context.Context, req SearchProductsRequest) (*GetProductsResponse, error) {
 	params := repositories.ProductSearchParams{
@@ -1429,12 +1435,17 @@ func (uc *productUseCase) toProductResponse(product *entities.Product) *ProductR
 		CostPrice:    product.CostPrice,
 
 		// Sale Pricing
-		SalePrice:              product.SalePrice,
-		SaleStartDate:          product.SaleStartDate,
-		SaleEndDate:            product.SaleEndDate,
+		SalePrice:     product.SalePrice,
+		SaleStartDate: product.SaleStartDate,
+		SaleEndDate:   product.SaleEndDate,
+
+		// Computed Price Fields
 		CurrentPrice:           product.GetCurrentPrice(),
+		OriginalPrice:          product.GetOriginalPrice(),
 		IsOnSale:               product.IsOnSale(),
+		HasDiscount:            product.HasDiscount(),
 		SaleDiscountPercentage: product.GetSaleDiscountPercentage(),
+		DiscountPercentage:     product.GetDiscountPercentage(),
 
 		// Inventory
 		Stock:             product.Stock,
@@ -1458,7 +1469,6 @@ func (uc *productUseCase) toProductResponse(product *entities.Product) *ProductR
 		ProductType: product.ProductType,
 		IsDigital:   product.IsDigital,
 		IsAvailable: product.IsAvailable(),
-		HasDiscount: product.HasDiscount(),
 		HasVariants: product.HasVariants(),
 		MainImage:   product.GetMainImage(),
 

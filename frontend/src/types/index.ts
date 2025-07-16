@@ -173,7 +173,7 @@ export interface CreateOrderRequest {
   payment_method: string
 }
 
-// Cart types
+// Cart types - matching backend CartResponse exactly
 export interface Cart {
   id: string
   user_id?: string
@@ -181,22 +181,26 @@ export interface Cart {
   items: CartItem[]
   item_count: number   // Calculated field from backend
   subtotal: number
+  tax_amount: number   // Added from backend
+  shipping_amount: number // Added from backend
   total: number
   status: string       // active, abandoned, converted
   currency: string     // USD, EUR, etc.
+  notes?: string       // Added from backend
   expires_at?: string  // Cart expiration time
+  is_guest: boolean    // Added from backend
   created_at: string
   updated_at: string
 }
 
 export interface CartItem {
   id: string
-  product_id?: string  // Optional for backward compatibility
-  product: any  // Use any for now
+  product: Product     // Use proper Product type with all computed fields
   quantity: number
-  price: number
-  subtotal?: number    // Backend uses subtotal
-  total?: number       // Keep for compatibility
+  price: number        // Price at time of adding to cart
+  subtotal: number     // Backend calculated subtotal (price * quantity)
+  created_at: string
+  updated_at: string
 }
 
 // Payment types

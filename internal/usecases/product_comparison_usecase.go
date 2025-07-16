@@ -5,25 +5,26 @@ import (
 	"ecom-golang-clean-architecture/internal/domain/entities"
 	"ecom-golang-clean-architecture/internal/domain/repositories"
 	"fmt"
-	"github.com/google/uuid"
 	"time"
+
+	"github.com/google/uuid"
 )
 
 // ProductComparisonRequest represents a request to create/update comparison
 type ProductComparisonRequest struct {
-	Name      string      `json:"name"`
+	Name       string      `json:"name"`
 	ProductIDs []uuid.UUID `json:"product_ids" validate:"required,min=2,max=5"`
 }
 
 // ProductComparisonResponse represents a comparison response
 type ProductComparisonResponse struct {
-	ID        uuid.UUID                      `json:"id"`
-	UserID    *uuid.UUID                     `json:"user_id,omitempty"`
-	SessionID string                         `json:"session_id,omitempty"`
-	Name      string                         `json:"name"`
+	ID        uuid.UUID                       `json:"id"`
+	UserID    *uuid.UUID                      `json:"user_id,omitempty"`
+	SessionID string                          `json:"session_id,omitempty"`
+	Name      string                          `json:"name"`
 	Products  []ProductComparisonItemResponse `json:"products"`
-	CreatedAt time.Time                      `json:"created_at"`
-	UpdatedAt time.Time                      `json:"updated_at"`
+	CreatedAt time.Time                       `json:"created_at"`
+	UpdatedAt time.Time                       `json:"updated_at"`
 }
 
 // ProductComparisonItemResponse represents a comparison item response
@@ -96,7 +97,7 @@ func (uc *productComparisonUseCase) CreateComparison(ctx context.Context, userID
 	// Check if user/session already has a comparison
 	var existingComparison *entities.ProductComparison
 	var err error
-	
+
 	if userID != nil {
 		existingComparison, err = uc.comparisonRepo.GetComparisonByUserID(ctx, *userID)
 	} else {
@@ -108,7 +109,7 @@ func (uc *productComparisonUseCase) CreateComparison(ctx context.Context, userID
 		if err := uc.comparisonRepo.ClearComparison(ctx, existingComparison.ID); err != nil {
 			return nil, fmt.Errorf("failed to clear existing comparison: %w", err)
 		}
-		
+
 		// Add new products
 		for i, productID := range req.ProductIDs {
 			if err := uc.comparisonRepo.AddProductToComparison(ctx, existingComparison.ID, productID, i); err != nil {
@@ -287,44 +288,52 @@ func mapProductToResponse(product *entities.Product) *ProductResponse {
 	}
 
 	response := &ProductResponse{
-		ID:               product.ID,
-		Name:             product.Name,
-		Description:      product.Description,
-		ShortDescription: product.ShortDescription,
-		SKU:              product.SKU,
-		Slug:             product.Slug,
-		MetaTitle:        product.MetaTitle,
-		MetaDescription:  product.MetaDescription,
-		Keywords:         product.Keywords,
-		Featured:         product.Featured,
-		Visibility:       product.Visibility,
-		Price:            product.Price,
-		ComparePrice:     product.ComparePrice,
-		CostPrice:        product.CostPrice,
-		SalePrice:        product.SalePrice,
-		CurrentPrice:     product.GetCurrentPrice(),
-		IsOnSale:         product.IsOnSale(),
+		ID:                     product.ID,
+		Name:                   product.Name,
+		Description:            product.Description,
+		ShortDescription:       product.ShortDescription,
+		SKU:                    product.SKU,
+		Slug:                   product.Slug,
+		MetaTitle:              product.MetaTitle,
+		MetaDescription:        product.MetaDescription,
+		Keywords:               product.Keywords,
+		Featured:               product.Featured,
+		Visibility:             product.Visibility,
+		Price:                  product.Price,
+		ComparePrice:           product.ComparePrice,
+		CostPrice:              product.CostPrice,
+		SalePrice:              product.SalePrice,
+		CurrentPrice:           product.GetCurrentPrice(),
+		IsOnSale:               product.IsOnSale(),
 		SaleDiscountPercentage: product.GetSaleDiscountPercentage(),
-		Stock:            product.Stock,
+		DiscountPercentage: func() float64 {
+			if product.IsOnSale() {
+				return product.GetSaleDiscountPercentage()
+			} else if product.HasDiscount() && product.ComparePrice != nil && *product.ComparePrice > product.Price {
+				return product.GetDiscountPercentage()
+			}
+			return 0
+		}(),
+		Stock:             product.Stock,
 		LowStockThreshold: product.LowStockThreshold,
-		TrackQuantity:    product.TrackQuantity,
-		AllowBackorder:   product.AllowBackorder,
-		StockStatus:      product.StockStatus,
-		IsLowStock:       product.IsLowStock(),
-		Weight:           product.Weight,
-		RequiresShipping: product.RequiresShipping,
-		ShippingClass:    product.ShippingClass,
-		TaxClass:         product.TaxClass,
-		CountryOfOrigin:  product.CountryOfOrigin,
-		Status:           product.Status,
-		ProductType:      product.ProductType,
-		IsDigital:        product.IsDigital,
-		IsAvailable:      product.IsAvailable(),
-		HasDiscount:      product.HasDiscount(),
-		HasVariants:      product.HasVariants(),
-		MainImage:        product.GetMainImage(),
-		CreatedAt:        product.CreatedAt,
-		UpdatedAt:        product.UpdatedAt,
+		TrackQuantity:     product.TrackQuantity,
+		AllowBackorder:    product.AllowBackorder,
+		StockStatus:       product.StockStatus,
+		IsLowStock:        product.IsLowStock(),
+		Weight:            product.Weight,
+		RequiresShipping:  product.RequiresShipping,
+		ShippingClass:     product.ShippingClass,
+		TaxClass:          product.TaxClass,
+		CountryOfOrigin:   product.CountryOfOrigin,
+		Status:            product.Status,
+		ProductType:       product.ProductType,
+		IsDigital:         product.IsDigital,
+		IsAvailable:       product.IsAvailable(),
+		HasDiscount:       product.HasDiscount(),
+		HasVariants:       product.HasVariants(),
+		MainImage:         product.GetMainImage(),
+		CreatedAt:         product.CreatedAt,
+		UpdatedAt:         product.UpdatedAt,
 	}
 
 	// Convert category

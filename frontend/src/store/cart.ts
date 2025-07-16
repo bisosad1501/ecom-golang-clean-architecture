@@ -376,6 +376,16 @@ export const getCartSubtotal = (cart: Cart | null): number => {
   return cart?.subtotal ?? 0
 }
 
+export const getCartTaxAmount = (cart: Cart | null): number => {
+  // Use calculated field from backend
+  return cart?.tax_amount ?? 0
+}
+
+export const getCartShippingAmount = (cart: Cart | null): number => {
+  // Use calculated field from backend
+  return cart?.shipping_amount ?? 0
+}
+
 export const isProductInCart = (cart: Cart | null, productId: string): boolean => {
   return cart?.items.some(item => item.product_id === productId || item.product?.id === productId) || false
 }

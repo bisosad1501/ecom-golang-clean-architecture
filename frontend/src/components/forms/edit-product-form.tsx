@@ -153,20 +153,20 @@ export function EditProductForm({ product, onSuccess, onCancel }: EditProductFor
 
   // Reset form when product changes
   useEffect(() => {
-    console.log('Product changed, resetting form with category_id:', product.category?.id || product.category_id)
+    console.log('Product changed, resetting form with category_id:', product.category?.id)
     reset({
       name: product.name,
       description: product.description,
-      short_description: (product as any).short_description || '',
+      short_description: product.short_description || '',
       sku: product.sku,
-      price: (product as any).price,
-      compare_price: (product as any).compare_price || undefined,
-      cost_price: (product as any).cost_price || undefined,
-      stock: (product as any).stock,
-      category_id: product.category?.id || (product as any).category_id || '',
-      weight: (product as any).weight || undefined,
-      status: (product.status as any) || 'active',
-      is_digital: Boolean((product as any).is_digital),
+      price: product.price,
+      compare_price: product.compare_price || undefined,
+      cost_price: product.cost_price || undefined,
+      stock: product.stock,
+      category_id: product.category?.id || '',
+      weight: product.weight || undefined,
+      status: product.status || 'active',
+      is_digital: Boolean(product.is_digital),
     })
   }, [product, reset])
 

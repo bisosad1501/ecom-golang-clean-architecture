@@ -12,7 +12,7 @@ import { AdminPriceDisplay } from '@/components/ui/price-display'
 import { AddProductForm } from '@/components/forms/add-product-form'
 import { EditProductForm } from '@/components/forms/edit-product-form'
 import { Product } from '@/types'
-import { BackendProductResponse, isBackendProduct } from '@/types/backend-product'
+import { Product } from '@/types/product'
 import { toast } from 'sonner'
 import Image from 'next/image'
 import { Badge } from '@/components/ui/badge'
@@ -461,19 +461,19 @@ export function AdminProductsPage() {
                       <p className="text-2xl font-bold text-[#FF9000] group-hover:text-[#FF9000]/80 transition-colors">
                         {formatPrice((product as any).current_price || (product as any).price || 0)}
                       </p>
-                      {(product as any).is_on_sale && (
+                      {(product as any).has_discount && (product as any).original_price && (
                         <div className="flex items-center gap-2">
                           <p className="text-sm text-gray-400 line-through">
-                            {formatPrice((product as any).price || 0)}
+                            {formatPrice((product as any).original_price || 0)}
                           </p>
                           <Badge className="bg-[#FF9000]/20 text-[#FF9000] text-xs px-1.5 py-0.5">
-                            -{Math.round((product as any).sale_discount_percentage || 0)}%
+                            -{Math.round((product as any).discount_percentage || 0)}%
                           </Badge>
                         </div>
                       )}
                     </div>
                     <p className="text-xs text-gray-400 mt-1">
-                      {(product as any).is_on_sale ? 'Sale Price' : 'Price'}
+                      {(product as any).has_discount ? 'Current Price' : 'Price'}
                     </p>
                   </div>
                 )}
@@ -575,13 +575,13 @@ export function AdminProductsPage() {
                         <p className="text-sm font-bold text-[#FF9000] truncate">
                           {formatPrice((product as any).current_price || (product as any).price || 0)}
                         </p>
-                        {(product as any).is_on_sale && (
+                        {(product as any).has_discount && (product as any).original_price && (
                           <div className="flex items-center gap-1">
                             <p className="text-xs text-gray-400 line-through">
-                              {formatPrice((product as any).price || 0)}
+                              {formatPrice((product as any).original_price || 0)}
                             </p>
                             <Badge className="bg-[#FF9000]/20 text-[#FF9000] text-xs px-1 py-0">
-                              -{Math.round((product as any).sale_discount_percentage || 0)}%
+                              -{Math.round((product as any).discount_percentage || 0)}%
                             </Badge>
                           </div>
                         )}
@@ -929,12 +929,12 @@ export function AdminProductsPage() {
                     <div className="grid grid-cols-2 gap-4">
                       <div className="bg-gray-900 rounded-lg p-4 border border-gray-600">
                         <div className="text-sm text-gray-400 mb-1">Current Price</div>
-                        <div className="text-2xl font-bold text-[#FF9000]">{formatPrice((selectedProduct as any).price)}</div>
+                        <div className="text-2xl font-bold text-[#FF9000]">{formatPrice((selectedProduct as any).current_price)}</div>
                       </div>
-                      {(selectedProduct as any).compare_price && (
+                      {(selectedProduct as any).original_price && (
                         <div className="bg-gray-900 rounded-lg p-4 border border-gray-600">
-                          <div className="text-sm text-gray-400 mb-1">Compare Price</div>
-                          <div className="text-xl font-semibold text-gray-500 line-through">{formatPrice((selectedProduct as any).compare_price)}</div>
+                          <div className="text-sm text-gray-400 mb-1">Original Price</div>
+                          <div className="text-xl font-semibold text-gray-500 line-through">{formatPrice((selectedProduct as any).original_price)}</div>
                         </div>
                       )}
                       {(selectedProduct as any).cost_price && (

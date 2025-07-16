@@ -206,12 +206,12 @@ func (ProductVariant) TableName() string {
 
 // ProductComparison represents a product comparison session
 type ProductComparison struct {
-	ID        uuid.UUID `json:"id" gorm:"type:uuid;primary_key;default:gen_random_uuid()"`
+	ID        uuid.UUID  `json:"id" gorm:"type:uuid;primary_key;default:gen_random_uuid()"`
 	UserID    *uuid.UUID `json:"user_id" gorm:"type:uuid;index"` // Optional for guest users
-	SessionID string    `json:"session_id" gorm:"index"`         // For guest users
-	Name      string    `json:"name"`                            // Optional comparison name
-	CreatedAt time.Time `json:"created_at" gorm:"autoCreateTime"`
-	UpdatedAt time.Time `json:"updated_at" gorm:"autoUpdateTime"`
+	SessionID string     `json:"session_id" gorm:"index"`        // For guest users
+	Name      string     `json:"name"`                           // Optional comparison name
+	CreatedAt time.Time  `json:"created_at" gorm:"autoCreateTime"`
+	UpdatedAt time.Time  `json:"updated_at" gorm:"autoUpdateTime"`
 
 	// Relationships
 	Items []ProductComparisonItem `json:"items,omitempty" gorm:"foreignKey:ComparisonID"`
@@ -242,16 +242,16 @@ func (ProductComparisonItem) TableName() string {
 
 // FilterSet represents a saved filter configuration
 type FilterSet struct {
-	ID          uuid.UUID `json:"id" gorm:"type:uuid;primary_key;default:gen_random_uuid()"`
+	ID          uuid.UUID  `json:"id" gorm:"type:uuid;primary_key;default:gen_random_uuid()"`
 	UserID      *uuid.UUID `json:"user_id" gorm:"type:uuid;index"`
-	SessionID   string    `json:"session_id" gorm:"index"`
-	Name        string    `json:"name"`
-	Description string    `json:"description"`
-	Filters     string    `json:"filters" gorm:"type:jsonb"` // JSON encoded filter parameters
-	IsPublic    bool      `json:"is_public" gorm:"default:false"`
-	UsageCount  int       `json:"usage_count" gorm:"default:0"`
-	CreatedAt   time.Time `json:"created_at" gorm:"autoCreateTime"`
-	UpdatedAt   time.Time `json:"updated_at" gorm:"autoUpdateTime"`
+	SessionID   string     `json:"session_id" gorm:"index"`
+	Name        string     `json:"name"`
+	Description string     `json:"description"`
+	Filters     string     `json:"filters" gorm:"type:jsonb"` // JSON encoded filter parameters
+	IsPublic    bool       `json:"is_public" gorm:"default:false"`
+	UsageCount  int        `json:"usage_count" gorm:"default:0"`
+	CreatedAt   time.Time  `json:"created_at" gorm:"autoCreateTime"`
+	UpdatedAt   time.Time  `json:"updated_at" gorm:"autoUpdateTime"`
 }
 
 // TableName returns the table name for FilterSet entity
@@ -261,14 +261,14 @@ func (FilterSet) TableName() string {
 
 // FilterUsage tracks filter usage analytics
 type FilterUsage struct {
-	ID         uuid.UUID `json:"id" gorm:"type:uuid;primary_key;default:gen_random_uuid()"`
-	UserID     *uuid.UUID `json:"user_id" gorm:"type:uuid;index"`
-	SessionID  string    `json:"session_id" gorm:"index"`
-	FilterType string    `json:"filter_type" gorm:"index"` // price, category, brand, attribute, etc.
-	FilterKey  string    `json:"filter_key" gorm:"index"`  // specific filter identifier
-	FilterValue string   `json:"filter_value"`             // filter value used
-	ResultCount int      `json:"result_count"`             // number of results returned
-	CreatedAt   time.Time `json:"created_at" gorm:"autoCreateTime"`
+	ID          uuid.UUID  `json:"id" gorm:"type:uuid;primary_key;default:gen_random_uuid()"`
+	UserID      *uuid.UUID `json:"user_id" gorm:"type:uuid;index"`
+	SessionID   string     `json:"session_id" gorm:"index"`
+	FilterType  string     `json:"filter_type" gorm:"index"` // price, category, brand, attribute, etc.
+	FilterKey   string     `json:"filter_key" gorm:"index"`  // specific filter identifier
+	FilterValue string     `json:"filter_value"`             // filter value used
+	ResultCount int        `json:"result_count"`             // number of results returned
+	CreatedAt   time.Time  `json:"created_at" gorm:"autoCreateTime"`
 }
 
 // TableName returns the table name for FilterUsage entity
@@ -278,17 +278,17 @@ func (FilterUsage) TableName() string {
 
 // ProductFilterOption represents available filter options for products
 type ProductFilterOption struct {
-	ID          uuid.UUID `json:"id" gorm:"type:uuid;primary_key;default:gen_random_uuid()"`
+	ID          uuid.UUID  `json:"id" gorm:"type:uuid;primary_key;default:gen_random_uuid()"`
 	CategoryID  *uuid.UUID `json:"category_id" gorm:"type:uuid;index"`
-	FilterType  string    `json:"filter_type" gorm:"index"` // price, brand, attribute, rating, etc.
-	FilterKey   string    `json:"filter_key" gorm:"index"`  // attribute_id for attributes, 'brand' for brands
-	FilterValue string    `json:"filter_value"`             // the actual filter value
-	Label       string    `json:"label"`                    // display label
-	Count       int       `json:"count" gorm:"default:0"`   // number of products with this filter
-	Position    int       `json:"position" gorm:"default:0"`
-	IsActive    bool      `json:"is_active" gorm:"default:true"`
-	CreatedAt   time.Time `json:"created_at" gorm:"autoCreateTime"`
-	UpdatedAt   time.Time `json:"updated_at" gorm:"autoUpdateTime"`
+	FilterType  string     `json:"filter_type" gorm:"index"` // price, brand, attribute, rating, etc.
+	FilterKey   string     `json:"filter_key" gorm:"index"`  // attribute_id for attributes, 'brand' for brands
+	FilterValue string     `json:"filter_value"`             // the actual filter value
+	Label       string     `json:"label"`                    // display label
+	Count       int        `json:"count" gorm:"default:0"`   // number of products with this filter
+	Position    int        `json:"position" gorm:"default:0"`
+	IsActive    bool       `json:"is_active" gorm:"default:true"`
+	CreatedAt   time.Time  `json:"created_at" gorm:"autoCreateTime"`
+	UpdatedAt   time.Time  `json:"updated_at" gorm:"autoUpdateTime"`
 }
 
 // TableName returns the table name for ProductFilterOption entity
@@ -385,20 +385,35 @@ func (p *Product) IsAvailable() bool {
 	return p.Status == ProductStatusActive && p.Stock > 0
 }
 
-// HasDiscount checks if the product has a discount (either compare price or sale price)
+// HasDiscount checks if the product has any type of discount
 func (p *Product) HasDiscount() bool {
-	// Check if there's a compare price discount
-	hasCompareDiscount := p.ComparePrice != nil && *p.ComparePrice > p.Price
-
-	// Check if there's a sale price discount
-	hasSaleDiscount := p.IsOnSale()
-
-	return hasCompareDiscount || hasSaleDiscount
+	return p.IsOnSale() || p.HasCompareDiscount()
 }
 
-// GetDiscountPercentage calculates the discount percentage
+// HasCompareDiscount checks if the product has a compare price discount
+func (p *Product) HasCompareDiscount() bool {
+	return p.ComparePrice != nil && *p.ComparePrice > p.Price
+}
+
+// GetDiscountPercentage calculates the effective discount percentage
+// Priority: Sale discount > Compare price discount
 func (p *Product) GetDiscountPercentage() float64 {
-	if !p.HasDiscount() {
+	// Priority 1: Sale discount (if currently on sale)
+	if p.IsOnSale() {
+		return p.GetSaleDiscountPercentage()
+	}
+
+	// Priority 2: Compare price discount
+	if p.HasCompareDiscount() {
+		return p.GetCompareDiscountPercentage()
+	}
+
+	return 0
+}
+
+// GetCompareDiscountPercentage calculates discount percentage from compare price
+func (p *Product) GetCompareDiscountPercentage() float64 {
+	if !p.HasCompareDiscount() {
 		return 0
 	}
 	return ((*p.ComparePrice - p.Price) / *p.ComparePrice) * 100
@@ -450,6 +465,28 @@ func (p *Product) GetSaleDiscountPercentage() float64 {
 		return 0
 	}
 	return ((p.Price - *p.SalePrice) / p.Price) * 100
+}
+
+// GetOriginalPrice returns the price to show as "crossed out" when there's a discount
+// Returns the higher price that should be displayed with strikethrough
+func (p *Product) GetOriginalPrice() *float64 {
+	// Priority 1: If on sale, show regular price as original
+	if p.IsOnSale() {
+		return &p.Price
+	}
+
+	// Priority 2: If has compare price discount, show compare price as original
+	if p.HasCompareDiscount() {
+		return p.ComparePrice
+	}
+
+	// No discount, no original price to show
+	return nil
+}
+
+// GetDisplayPrice returns the current selling price (what customer pays)
+func (p *Product) GetDisplayPrice() float64 {
+	return p.GetCurrentPrice()
 }
 
 // IsLowStock checks if the product is low on stock

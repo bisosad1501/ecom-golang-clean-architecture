@@ -31,12 +31,17 @@ type ProductResponse struct {
 	CostPrice    *float64 `json:"cost_price"`
 
 	// Sale Pricing
-	SalePrice              *float64   `json:"sale_price"`
-	SaleStartDate          *time.Time `json:"sale_start_date"`
-	SaleEndDate            *time.Time `json:"sale_end_date"`
-	CurrentPrice           float64    `json:"current_price"`
-	IsOnSale               bool       `json:"is_on_sale"`
-	SaleDiscountPercentage float64    `json:"sale_discount_percentage"`
+	SalePrice     *float64   `json:"sale_price"`
+	SaleStartDate *time.Time `json:"sale_start_date"`
+	SaleEndDate   *time.Time `json:"sale_end_date"`
+
+	// Computed Price Fields
+	CurrentPrice           float64  `json:"current_price"`            // Current selling price (what customer pays)
+	OriginalPrice          *float64 `json:"original_price"`           // Price to show as strikethrough (if any)
+	IsOnSale               bool     `json:"is_on_sale"`               // Whether product is currently on sale
+	HasDiscount            bool     `json:"has_discount"`             // Whether product has any discount
+	SaleDiscountPercentage float64  `json:"sale_discount_percentage"` // Sale-specific discount percentage
+	DiscountPercentage     float64  `json:"discount_percentage"`      // Effective discount percentage (sale or compare)
 
 	// Inventory
 	Stock             int                  `json:"stock"`
@@ -71,7 +76,6 @@ type ProductResponse struct {
 	ProductType entities.ProductType   `json:"product_type"`
 	IsDigital   bool                   `json:"is_digital"`
 	IsAvailable bool                   `json:"is_available"`
-	HasDiscount bool                   `json:"has_discount"`
 	HasVariants bool                   `json:"has_variants"`
 	MainImage   string                 `json:"main_image"`
 

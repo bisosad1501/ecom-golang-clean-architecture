@@ -43,16 +43,13 @@ export function ProductCard({
   const primaryImage = product.images?.[0]?.url || product.main_image || '/placeholder-product.jpg'
   const secondaryImage = product.images?.[1]?.url
 
-  // Use backend computed fields directly - no more complex fallback logic
-  const currentPrice = product.current_price || product.price
-  const originalPrice = product.price
-  const salePrice = product.sale_price
-  const isOnSale = product.is_on_sale
+  // Use backend computed fields directly
+  const currentPrice = product.current_price
+  const originalPrice = product.original_price
   const hasDiscount = product.has_discount
-  const discountPercentage = product.sale_discount_percentage
+  const isOnSale = product.is_on_sale
+  const discountPercentage = product.discount_percentage
 
-  const displayPrice = currentPrice
-  const comparePrice = isOnSale ? originalPrice : product.compare_price
   const stockQuantity = product.stock
   const stockStatus = product.stock_status
   const isLowStock = product.is_low_stock
@@ -327,11 +324,11 @@ export function ProductCard({
           <div className="flex items-center justify-between">
             <div className="flex items-baseline gap-2">
               <span className="text-lg font-bold text-white">
-                {formatPrice(displayPrice)}
+                {formatPrice(currentPrice)}
               </span>
-              {hasDiscount && comparePrice && (
+              {hasDiscount && originalPrice && (
                 <span className="text-sm line-through text-gray-500">
-                  {formatPrice(comparePrice)}
+                  {formatPrice(originalPrice)}
                 </span>
               )}
             </div>

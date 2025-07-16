@@ -71,10 +71,10 @@ export function ProductQuickView({
             <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm font-medium text-blue-600">Price</p>
-                  <p className="text-2xl font-bold text-blue-900">{formatPrice(product.price)}</p>
-                  {product.compare_price && product.compare_price > product.price && (
-                    <p className="text-sm text-blue-600 line-through">{formatPrice(product.compare_price)}</p>
+                  <p className="text-sm font-medium text-blue-600">Current Price</p>
+                  <p className="text-2xl font-bold text-blue-900">{formatPrice(product.current_price)}</p>
+                  {product.has_discount && product.original_price && (
+                    <p className="text-sm text-blue-600 line-through">{formatPrice(product.original_price)}</p>
                   )}
                 </div>
                 <div className="text-blue-500">

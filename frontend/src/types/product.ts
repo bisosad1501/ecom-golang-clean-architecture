@@ -1,12 +1,12 @@
 // ===== PRODUCT & CATALOG TYPES =====
 
-import { BaseEntity, Image, SeoMetadata, PriceRange, Dimensions, Weight } from './common'
+import { BaseEntity, SeoMetadata, PriceRange, Weight } from './common'
 
-// Product status types
-export type ProductStatus = 'draft' | 'active' | 'inactive' | 'out_of_stock' | 'discontinued'
+// Product status types - matching backend exactly
+export type ProductStatus = 'active' | 'draft' | 'archived' | 'inactive'
 
-// Product visibility
-export type ProductVisibility = 'public' | 'private' | 'hidden'
+// Product visibility - matching backend exactly
+export type ProductVisibility = 'visible' | 'hidden' | 'private'
 
 // Product type
 export type ProductType = 'simple' | 'variable' | 'grouped' | 'external' | 'digital'
@@ -14,15 +14,88 @@ export type ProductType = 'simple' | 'variable' | 'grouped' | 'external' | 'digi
 // Stock status
 export type StockStatus = 'in_stock' | 'out_of_stock' | 'on_backorder' | 'discontinued'
 
-// Category interface
-export interface Category extends BaseEntity {
+// ===== BACKEND RESPONSE TYPES =====
+// These match the exact structure from backend ProductResponse
+
+export interface DimensionsResponse {
+  length: number
+  width: number
+  height: number
+}
+
+export interface ProductImageResponse {
+  id: string
+  url: string
+  alt_text: string
+  position: number
+}
+
+export interface ProductCategoryResponse {
+  id: string
+  name: string
+  description: string
+  slug: string
+  image: string
+}
+
+export interface ProductBrandResponse {
+  id: string
+  name: string
+  slug: string
+  description: string
+  logo: string
+  website: string
+  is_active: boolean
+}
+
+export interface ProductTagResponse {
+  id: string
+  name: string
+  slug: string
+}
+
+export interface ProductAttributeResponse {
+  id: string
+  attribute_id: string
+  term_id?: string
+  name: string
+  value: string
+  position: number
+}
+
+export interface ProductVariantAttributeResponse {
+  id: string
+  attribute_id: string
+  attribute_name: string
+  term_id: string
+  term_name: string
+  term_value: string
+}
+
+export interface ProductVariantResponse {
+  id: string
+  sku: string
+  price: number
+  compare_price?: number
+  cost_price?: number
+  stock: number
+  weight?: number
+  dimensions?: DimensionsResponse
+  image: string
+  position: number
+  is_active: boolean
+  attributes: ProductVariantAttributeResponse[]
+}
+
+// Legacy Category interface (for complex operations)
+export interface CategoryExtended extends BaseEntity {
   name: string
   slug: string
   description?: string
-  image?: Image
+  image?: ProductImageResponse
   parent_id?: string
-  parent?: Category
-  children?: Category[]
+  parent?: CategoryExtended
+  children?: CategoryExtended[]
   level: number
   sort_order: number
   is_active: boolean
@@ -30,12 +103,12 @@ export interface Category extends BaseEntity {
   seo: SeoMetadata
 }
 
-// Brand interface
-export interface Brand extends BaseEntity {
+// Legacy Brand interface (for complex operations)
+export interface BrandExtended extends BaseEntity {
   name: string
   slug: string
   description?: string
-  logo?: Image
+  logo?: ProductImageResponse
   website?: string
   is_active: boolean
   product_count: number
@@ -62,7 +135,7 @@ export interface ProductAttributeOption {
   value: string
   label: string
   color?: string
-  image?: Image
+  image?: ProductImageResponse
   sort_order: number
 }
 
@@ -74,8 +147,8 @@ export interface ProductAttributeValue {
   display_value: string
 }
 
-// Product variant
-export interface ProductVariant extends BaseEntity {
+// Legacy Product variant (for complex operations)
+export interface ProductVariantExtended extends BaseEntity {
   product_id: string
   sku: string
   name?: string
@@ -85,8 +158,8 @@ export interface ProductVariant extends BaseEntity {
   stock_quantity: number
   stock_status: StockStatus
   weight?: Weight
-  dimensions?: Dimensions
-  images: Image[]
+  dimensions?: DimensionsResponse
+  images: ProductImageResponse[]
   attributes: ProductAttributeValue[]
   is_active: boolean
   sort_order: number
@@ -125,7 +198,7 @@ export interface ProductInventory {
 // Product shipping
 export interface ProductShipping {
   weight?: Weight
-  dimensions?: Dimensions
+  dimensions?: DimensionsResponse
   shipping_class?: string
   free_shipping: boolean
   shipping_cost?: number
@@ -141,35 +214,42 @@ export interface ProductSeo extends SeoMetadata {
   schema_markup?: Record<string, any>
 }
 
-// Main product interface - Updated to match backend ProductResponse structure
+// ===== MAIN PRODUCT INTERFACE =====
+// This matches backend ProductResponse structure exactly
+
 export interface Product extends BaseEntity {
   name: string
-  slug: string
-  description?: string
-  short_description?: string
+  description: string
+  short_description: string
   sku: string
 
   // SEO and Metadata
-  meta_title?: string
-  meta_description?: string
-  keywords?: string
+  slug: string
+  meta_title: string
+  meta_description: string
+  keywords: string
   featured: boolean
   visibility: ProductVisibility
 
-  // Pricing - Direct fields matching backend
+  // Pricing
   price: number
   compare_price?: number
   cost_price?: number
 
-  // Sale Pricing - Backend computed fields
+  // Sale Pricing
   sale_price?: number
   sale_start_date?: string
   sale_end_date?: string
-  current_price: number
-  is_on_sale: boolean
-  sale_discount_percentage: number
 
-  // Inventory - Direct fields matching backend
+  // Computed Price Fields (from backend)
+  current_price: number           // Current selling price (what customer pays)
+  original_price?: number         // Price to show as strikethrough (if any)
+  is_on_sale: boolean            // Whether product is currently on sale
+  has_discount: boolean          // Whether product has any discount
+  sale_discount_percentage: number // Sale-specific discount percentage
+  discount_percentage: number    // Effective discount percentage (sale or compare)
+
+  // Inventory
   stock: number
   low_stock_threshold: number
   track_quantity: boolean
@@ -179,32 +259,31 @@ export interface Product extends BaseEntity {
 
   // Physical Properties
   weight?: number
-  dimensions?: Dimensions
+  dimensions?: DimensionsResponse
 
   // Shipping and Tax
   requires_shipping: boolean
-  shipping_class?: string
-  tax_class?: string
-  country_of_origin?: string
+  shipping_class: string
+  tax_class: string
+  country_of_origin: string
 
   // Categorization
-  category?: Category
-  brand?: Brand
+  category?: ProductCategoryResponse
+  brand?: ProductBrandResponse
 
   // Content
-  images: Image[]
-  tags?: Array<{ id: string; name: string; slug: string }>
-  attributes: ProductAttributeValue[]
-  variants?: ProductVariant[]
+  images: ProductImageResponse[]
+  tags: ProductTagResponse[]
+  attributes: ProductAttributeResponse[]
+  variants: ProductVariantResponse[]
 
   // Status and Type
   status: ProductStatus
   product_type: ProductType
   is_digital: boolean
   is_available: boolean
-  has_discount: boolean
   has_variants: boolean
-  main_image?: string
+  main_image: string
 
   // Legacy nested structure for backward compatibility (optional)
   pricing?: ProductPricing
@@ -229,6 +308,18 @@ export interface Product extends BaseEntity {
   up_sell_products?: Product[]
 }
 
+// ===== BACKEND COMPATIBILITY ALIASES =====
+// These provide compatibility with existing code while using backend structure
+
+export type ProductResponse = Product
+export type BackendProduct = Product
+
+// Legacy compatibility - map old Image type to new ProductImageResponse
+export type Image = ProductImageResponse
+export type Category = ProductCategoryResponse
+export type Brand = ProductBrandResponse
+export type Dimensions = DimensionsResponse
+
 // Product list item (simplified for lists) - Updated to match backend
 export interface ProductListItem {
   id: string
@@ -250,12 +341,12 @@ export interface ProductListItem {
   is_low_stock: boolean
 
   // Media
-  images?: Image[]
+  images?: ProductImageResponse[]
   main_image?: string
 
   // Categorization
-  category?: Pick<Category, 'id' | 'name' | 'slug'>
-  brand?: Pick<Brand, 'id' | 'name' | 'slug'>
+  category?: Pick<ProductCategoryResponse, 'id' | 'name' | 'slug'>
+  brand?: Pick<ProductBrandResponse, 'id' | 'name' | 'slug'>
 
   // Status
   status: ProductStatus
@@ -308,7 +399,7 @@ export interface ProductReview extends BaseEntity {
   rating: number
   title?: string
   comment?: string
-  images?: Image[]
+  images?: ProductImageResponse[]
   verified_purchase: boolean
   helpful_count: number
   status: 'pending' | 'approved' | 'rejected'

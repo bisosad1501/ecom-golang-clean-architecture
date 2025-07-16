@@ -8,52 +8,53 @@ import (
 
 	"ecom-golang-clean-architecture/internal/domain/entities"
 	"ecom-golang-clean-architecture/internal/domain/repositories"
+
 	"github.com/google/uuid"
 )
 
 // AdvancedFilterRequest represents an advanced filter request
 type AdvancedFilterRequest struct {
 	// Basic filters
-	Query       string     `json:"query"`
-	CategoryIDs []string   `json:"category_ids"`
-	BrandIDs    []string   `json:"brand_ids"`
-	MinPrice    *float64   `json:"min_price"`
-	MaxPrice    *float64   `json:"max_price"`
-	MinRating   *float64   `json:"min_rating"`
-	MaxRating   *float64   `json:"max_rating"`
-	
+	Query       string   `json:"query"`
+	CategoryIDs []string `json:"category_ids"`
+	BrandIDs    []string `json:"brand_ids"`
+	MinPrice    *float64 `json:"min_price"`
+	MaxPrice    *float64 `json:"max_price"`
+	MinRating   *float64 `json:"min_rating"`
+	MaxRating   *float64 `json:"max_rating"`
+
 	// Stock and availability
-	InStock     *bool `json:"in_stock"`
-	LowStock    *bool `json:"low_stock"`
-	OnSale      *bool `json:"on_sale"`
-	Featured    *bool `json:"featured"`
-	
+	InStock  *bool `json:"in_stock"`
+	LowStock *bool `json:"low_stock"`
+	OnSale   *bool `json:"on_sale"`
+	Featured *bool `json:"featured"`
+
 	// Product properties
 	ProductTypes []string `json:"product_types"`
 	StockStatus  []string `json:"stock_status"`
 	Visibility   []string `json:"visibility"`
-	
+
 	// Custom attributes
 	Attributes map[string][]string `json:"attributes"` // AttributeID -> Values
-	
+
 	// Date filters
 	CreatedAfter  *string `json:"created_after"`
 	CreatedBefore *string `json:"created_before"`
 	UpdatedAfter  *string `json:"updated_after"`
 	UpdatedBefore *string `json:"updated_before"`
-	
+
 	// Advanced options
-	Tags         []string `json:"tags"`
-	HasImages    *bool    `json:"has_images"`
-	HasVariants  *bool    `json:"has_variants"`
-	HasReviews   *bool    `json:"has_reviews"`
-	
+	Tags        []string `json:"tags"`
+	HasImages   *bool    `json:"has_images"`
+	HasVariants *bool    `json:"has_variants"`
+	HasReviews  *bool    `json:"has_reviews"`
+
 	// Sorting and pagination
 	SortBy    string `json:"sort_by"`
 	SortOrder string `json:"sort_order"`
 	Page      int    `json:"page"`
 	Limit     int    `json:"limit"`
-	
+
 	// Filter options
 	IncludeFacets bool `json:"include_facets"`
 	FacetLimit    int  `json:"facet_limit"`
@@ -68,10 +69,10 @@ type FilteredProductResponse struct {
 
 // FilterSetRequest represents a filter set request
 type FilterSetRequest struct {
-	Name        string                 `json:"name" validate:"required"`
-	Description string                 `json:"description"`
-	Filters     AdvancedFilterRequest  `json:"filters" validate:"required"`
-	IsPublic    bool                   `json:"is_public"`
+	Name        string                `json:"name" validate:"required"`
+	Description string                `json:"description"`
+	Filters     AdvancedFilterRequest `json:"filters" validate:"required"`
+	IsPublic    bool                  `json:"is_public"`
 }
 
 // FilterSetResponse represents a filter set response
@@ -94,7 +95,7 @@ type ProductFilterUseCase interface {
 	FilterProducts(ctx context.Context, req AdvancedFilterRequest) (*FilteredProductResponse, error)
 	GetFilterFacets(ctx context.Context, categoryID *string) (*repositories.FilterFacets, error)
 	GetDynamicFilters(ctx context.Context, req AdvancedFilterRequest) (*repositories.FilterFacets, error)
-	
+
 	// Filter sets management
 	SaveFilterSet(ctx context.Context, userID *uuid.UUID, sessionID string, req FilterSetRequest) (*FilterSetResponse, error)
 	GetFilterSet(ctx context.Context, id uuid.UUID) (*FilterSetResponse, error)
@@ -102,16 +103,16 @@ type ProductFilterUseCase interface {
 	GetSessionFilterSets(ctx context.Context, sessionID string) ([]*FilterSetResponse, error)
 	UpdateFilterSet(ctx context.Context, id uuid.UUID, req FilterSetRequest) (*FilterSetResponse, error)
 	DeleteFilterSet(ctx context.Context, id uuid.UUID) error
-	
+
 	// Filter analytics
 	TrackFilterUsage(ctx context.Context, userID *uuid.UUID, sessionID string, filterType, filterKey, filterValue string, resultCount int) error
 	GetFilterAnalytics(ctx context.Context, days int) (map[string]interface{}, error)
 	GetPopularFilters(ctx context.Context, limit int) ([]*entities.FilterUsage, error)
-	
+
 	// Filter suggestions
 	GetFilterSuggestions(ctx context.Context, query string, limit int) ([]string, error)
 	GetRelatedFilters(ctx context.Context, req AdvancedFilterRequest) ([]string, error)
-	
+
 	// Attribute management
 	GetAttributeFilters(ctx context.Context, categoryID *string) ([]*entities.ProductAttribute, error)
 	GetAttributeTerms(ctx context.Context, attributeID uuid.UUID, categoryID *string) ([]*entities.ProductAttributeTerm, error)
@@ -175,7 +176,7 @@ func (uc *productFilterUseCase) FilterProducts(ctx context.Context, req Advanced
 		Facets:     result.Facets,
 		Pagination: pagination,
 	}
-	
+
 	return response, nil
 }
 
@@ -187,7 +188,7 @@ func (uc *productFilterUseCase) GetFilterFacets(ctx context.Context, categoryID 
 			categoryUUID = &id
 		}
 	}
-	
+
 	return uc.filterRepo.GetFilterFacets(ctx, categoryUUID)
 }
 
@@ -204,7 +205,7 @@ func (uc *productFilterUseCase) SaveFilterSet(ctx context.Context, userID *uuid.
 	if err != nil {
 		return nil, fmt.Errorf("failed to marshal filters: %w", err)
 	}
-	
+
 	filterSet := &entities.FilterSet{
 		UserID:      userID,
 		SessionID:   sessionID,
@@ -213,11 +214,11 @@ func (uc *productFilterUseCase) SaveFilterSet(ctx context.Context, userID *uuid.
 		Filters:     string(filtersJSON),
 		IsPublic:    req.IsPublic,
 	}
-	
+
 	if err := uc.filterRepo.SaveFilterSet(ctx, filterSet); err != nil {
 		return nil, fmt.Errorf("failed to save filter set: %w", err)
 	}
-	
+
 	return uc.mapFilterSetToResponse(filterSet), nil
 }
 
@@ -227,7 +228,7 @@ func (uc *productFilterUseCase) GetFilterSet(ctx context.Context, id uuid.UUID) 
 	if err != nil {
 		return nil, fmt.Errorf("filter set not found: %w", err)
 	}
-	
+
 	return uc.mapFilterSetToResponse(filterSet), nil
 }
 
@@ -237,12 +238,12 @@ func (uc *productFilterUseCase) GetUserFilterSets(ctx context.Context, userID uu
 	if err != nil {
 		return nil, fmt.Errorf("failed to get user filter sets: %w", err)
 	}
-	
+
 	responses := make([]*FilterSetResponse, len(filterSets))
 	for i, filterSet := range filterSets {
 		responses[i] = uc.mapFilterSetToResponse(filterSet)
 	}
-	
+
 	return responses, nil
 }
 
@@ -252,12 +253,12 @@ func (uc *productFilterUseCase) GetSessionFilterSets(ctx context.Context, sessio
 	if err != nil {
 		return nil, fmt.Errorf("failed to get session filter sets: %w", err)
 	}
-	
+
 	responses := make([]*FilterSetResponse, len(filterSets))
 	for i, filterSet := range filterSets {
 		responses[i] = uc.mapFilterSetToResponse(filterSet)
 	}
-	
+
 	return responses, nil
 }
 
@@ -267,22 +268,22 @@ func (uc *productFilterUseCase) UpdateFilterSet(ctx context.Context, id uuid.UUI
 	if err != nil {
 		return nil, fmt.Errorf("filter set not found: %w", err)
 	}
-	
+
 	// Convert filters to JSON
 	filtersJSON, err := json.Marshal(req.Filters)
 	if err != nil {
 		return nil, fmt.Errorf("failed to marshal filters: %w", err)
 	}
-	
+
 	filterSet.Name = req.Name
 	filterSet.Description = req.Description
 	filterSet.Filters = string(filtersJSON)
 	filterSet.IsPublic = req.IsPublic
-	
+
 	if err := uc.filterRepo.UpdateFilterSet(ctx, filterSet); err != nil {
 		return nil, fmt.Errorf("failed to update filter set: %w", err)
 	}
-	
+
 	return uc.mapFilterSetToResponse(filterSet), nil
 }
 
@@ -431,44 +432,46 @@ func (uc *productFilterUseCase) mapProductToResponse(product *entities.Product) 
 	}
 
 	response := &ProductResponse{
-		ID:               product.ID,
-		Name:             product.Name,
-		Description:      product.Description,
-		ShortDescription: product.ShortDescription,
-		SKU:              product.SKU,
-		Slug:             product.Slug,
-		MetaTitle:        product.MetaTitle,
-		MetaDescription:  product.MetaDescription,
-		Keywords:         product.Keywords,
-		Featured:         product.Featured,
-		Visibility:       product.Visibility,
-		Price:            product.Price,
-		ComparePrice:     product.ComparePrice,
-		CostPrice:        product.CostPrice,
-		SalePrice:        product.SalePrice,
-		CurrentPrice:     product.GetCurrentPrice(),
-		IsOnSale:         product.IsOnSale(),
+		ID:                     product.ID,
+		Name:                   product.Name,
+		Description:            product.Description,
+		ShortDescription:       product.ShortDescription,
+		SKU:                    product.SKU,
+		Slug:                   product.Slug,
+		MetaTitle:              product.MetaTitle,
+		MetaDescription:        product.MetaDescription,
+		Keywords:               product.Keywords,
+		Featured:               product.Featured,
+		Visibility:             product.Visibility,
+		Price:                  product.Price,
+		ComparePrice:           product.ComparePrice,
+		CostPrice:              product.CostPrice,
+		SalePrice:              product.SalePrice,
+		CurrentPrice:           product.GetCurrentPrice(),
+		OriginalPrice:          product.GetOriginalPrice(),
+		IsOnSale:               product.IsOnSale(),
+		HasDiscount:            product.HasDiscount(),
 		SaleDiscountPercentage: product.GetSaleDiscountPercentage(),
-		Stock:            product.Stock,
-		LowStockThreshold: product.LowStockThreshold,
-		TrackQuantity:    product.TrackQuantity,
-		AllowBackorder:   product.AllowBackorder,
-		StockStatus:      product.StockStatus,
-		IsLowStock:       product.IsLowStock(),
-		Weight:           product.Weight,
-		RequiresShipping: product.RequiresShipping,
-		ShippingClass:    product.ShippingClass,
-		TaxClass:         product.TaxClass,
-		CountryOfOrigin:  product.CountryOfOrigin,
-		Status:           product.Status,
-		ProductType:      product.ProductType,
-		IsDigital:        product.IsDigital,
-		IsAvailable:      product.IsAvailable(),
-		HasDiscount:      product.HasDiscount(),
-		HasVariants:      product.HasVariants(),
-		MainImage:        product.GetMainImage(),
-		CreatedAt:        product.CreatedAt,
-		UpdatedAt:        product.UpdatedAt,
+		DiscountPercentage:     product.GetDiscountPercentage(),
+		Stock:                  product.Stock,
+		LowStockThreshold:      product.LowStockThreshold,
+		TrackQuantity:          product.TrackQuantity,
+		AllowBackorder:         product.AllowBackorder,
+		StockStatus:            product.StockStatus,
+		IsLowStock:             product.IsLowStock(),
+		Weight:                 product.Weight,
+		RequiresShipping:       product.RequiresShipping,
+		ShippingClass:          product.ShippingClass,
+		TaxClass:               product.TaxClass,
+		CountryOfOrigin:        product.CountryOfOrigin,
+		Status:                 product.Status,
+		ProductType:            product.ProductType,
+		IsDigital:              product.IsDigital,
+		IsAvailable:            product.IsAvailable(),
+		HasVariants:            product.HasVariants(),
+		MainImage:              product.GetMainImage(),
+		CreatedAt:              product.CreatedAt,
+		UpdatedAt:              product.UpdatedAt,
 	}
 
 	// Convert category

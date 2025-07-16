@@ -30,18 +30,15 @@ export function ProductListCard({ product, className }: ProductListCardProps) {
 
   const primaryImage = product.images?.[0]?.url || product.main_image || '/placeholder-product.jpg'
 
-  // Use backend computed fields directly - no more complex fallback logic
-  const currentPrice = product.current_price || product.price
-  const originalPrice = product.price
+  // Use backend computed fields directly
+  const currentPrice = product.current_price
+  const originalPrice = product.original_price
   const isOnSale = product.is_on_sale
   const hasDiscount = product.has_discount
-  const discountPercentage = product.sale_discount_percentage
+  const discountPercentage = product.discount_percentage
   const featured = product.featured
   const stockStatus = product.stock_status
   const isLowStock = product.is_low_stock
-
-  const displayPrice = currentPrice
-  const comparePrice = isOnSale ? originalPrice : product.compare_price
   const stockQuantity = product.stock
   const isOutOfStock = stockStatus === 'out_of_stock' || stockQuantity <= 0
 
@@ -185,12 +182,12 @@ export function ProductListCard({ product, className }: ProductListCardProps) {
                 {/* Enhanced Price Display */}
                 <div className="flex items-baseline gap-2 mb-1">
                   <span className="text-xl font-bold text-white">
-                    {formatPrice(displayPrice)}
+                    {formatPrice(currentPrice)}
                   </span>
-                  {hasDiscount && (
+                  {hasDiscount && originalPrice && (
                     <div className="flex items-center gap-2">
                       <span className="text-sm line-through text-gray-500">
-                        {formatPrice(isOnSale ? originalPrice : comparePrice || 0)}
+                        {formatPrice(originalPrice)}
                       </span>
                       {discountPercentage > 0 && (
                         <Badge className="bg-[#ff9000]/20 text-[#ff9000] text-xs px-1.5 py-0.5">

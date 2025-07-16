@@ -1,6 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { productService, ProductsParams, CreateProductRequest, UpdateProductRequest } from '@/lib/services/products'
-
+import { Product } from '@/types/product'
 import { toast } from 'sonner'
 
 // Query keys

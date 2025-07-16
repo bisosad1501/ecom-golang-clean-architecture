@@ -267,7 +267,9 @@ export default function CheckoutForm() {
   const getCartTotal = (cart: any) => {
     if (!cart?.items) return 0
     return cart.items.reduce((total: number, item: any) => {
-      return total + (item.product?.price || 0) * item.quantity
+      // Use current_price (backend computed) for accurate pricing
+      const itemPrice = item.product?.current_price || item.product?.price || 0
+      return total + itemPrice * item.quantity
     }, 0)
   }
 

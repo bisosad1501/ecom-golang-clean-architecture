@@ -10,7 +10,7 @@ import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
 import { Separator } from '@/components/ui/separator'
 import { AnimatedBackground } from '@/components/ui/animated-background'
-import { useCartStore, getCartTotal, getCartItemCount, getCartSubtotal, isGuestCart } from '@/store/cart'
+import { useCartStore, getCartTotal, getCartItemCount, getCartSubtotal, getCartTaxAmount, getCartShippingAmount, isGuestCart } from '@/store/cart'
 import { useAuthStore } from '@/store/auth'
 import { formatPrice, cn } from '@/lib/utils'
 import { toast } from 'sonner'
@@ -27,13 +27,12 @@ function CartItemCard({ item, isLoading, onUpdateQuantity, onRemove, onAddToWish
 }) {
   const { data: ratingSummary } = useProductRatingSummary(item.product.id)
   
-  // Enhanced price logic giống ProductCard
-  const currentPrice = item.price
-  const originalPrice = item.product.compare_price || item.price * 1.2 // fallback for demo
-  const hasDiscount = originalPrice && currentPrice < originalPrice
-  const discountPercentage = hasDiscount
-    ? Math.round(((originalPrice - currentPrice) / originalPrice) * 100)
-    : 0
+  // Use backend computed fields directly
+  const currentPrice = item.product.current_price
+  const originalPrice = item.product.original_price
+  const hasDiscount = item.product.has_discount
+  const isOnSale = item.product.is_on_sale
+  const discountPercentage = item.product.discount_percentage
 
   return (
     <div className="relative group">
@@ -56,10 +55,10 @@ function CartItemCard({ item, isLoading, onUpdateQuantity, onRemove, onAddToWish
             <div className="relative flex-shrink-0">
               <div className="relative w-36 h-36 rounded-xl overflow-hidden bg-gradient-to-br from-gray-100 to-gray-200 shadow-lg">
                 {/* Discount badge */}
-                {hasDiscount && (
+                {hasDiscount && discountPercentage > 0 && (
                   <div className="absolute top-2 left-2 z-20">
                     <span className="text-sm font-bold text-white bg-[#ff9000] px-2.5 py-1 rounded-md shadow-md">
-                      -{discountPercentage}%
+                      -{Math.round(discountPercentage)}%
                     </span>
                   </div>
                 )}
@@ -125,10 +124,15 @@ function CartItemCard({ item, isLoading, onUpdateQuantity, onRemove, onAddToWish
                 <span className="text-2xl font-bold text-white">
                   {formatPrice(currentPrice)}
                 </span>
-                {hasDiscount && (
+                {hasDiscount && originalPrice && (
                   <span className="text-lg line-through text-gray-500">
                     {formatPrice(originalPrice)}
                   </span>
+                )}
+                {hasDiscount && discountPercentage > 0 && (
+                  <Badge className="bg-red-500 text-white text-xs px-2 py-1">
+                    -{Math.round(discountPercentage)}%
+                  </Badge>
                 )}
               </div>
 
@@ -223,10 +227,14 @@ export function CartPage() {
   const cartTotal = getCartTotal(cart)
   const cartSubtotal = getCartSubtotal(cart)
   const cartItemCount = getCartItemCount(cart)
+  const cartTaxAmount = getCartTaxAmount(cart)
+  const cartShippingAmount = getCartShippingAmount(cart)
   const isGuest = isGuestCart(cart)
-  const shippingCost = cartTotal > 50 ? 0 : 9.99
-  const tax = cartTotal * 0.08 // 8% tax
-  const finalTotal = cartTotal + shippingCost + tax
+
+  // Use backend calculated values, fallback to frontend calculation for compatibility
+  const shippingCost = cartShippingAmount || (cartSubtotal > 50 ? 0 : 9.99)
+  const tax = cartTaxAmount || (cartSubtotal * 0.08) // 8% tax fallback
+  const finalTotal = cartTotal || (cartSubtotal + shippingCost + tax)
 
   const handleUpdateQuantity = async (itemId: string, newQuantity: number) => {
     if (newQuantity < 1) return

@@ -29,7 +29,7 @@ export function AddProductForm({ onSuccess, onCancel }: AddProductFormProps) {
     sku: '',
 
     // SEO and Metadata
-    slug: '',
+    slug: '', // Will be auto-generated from name if empty
     meta_title: '',
     meta_description: '',
     keywords: '',

@@ -12,6 +12,7 @@ import (
 	"ecom-golang-clean-architecture/internal/domain/repositories"
 	"ecom-golang-clean-architecture/internal/domain/services"
 	"ecom-golang-clean-architecture/pkg/utils"
+
 	"github.com/google/uuid"
 )
 
@@ -148,13 +149,13 @@ type GetCategoriesResponse struct {
 // GetCategoryLandingPageRequest represents category landing page request
 type GetCategoryLandingPageRequest struct {
 	CategoryID                 uuid.UUID `json:"category_id"`
-	Page                      int       `json:"page"`
-	Limit                     int       `json:"limit"`
-	SortBy                    string    `json:"sort_by"`
-	SortOrder                 string    `json:"sort_order"`
+	Page                       int       `json:"page"`
+	Limit                      int       `json:"limit"`
+	SortBy                     string    `json:"sort_by"`
+	SortOrder                  string    `json:"sort_order"`
 	IncludeSubcategoryProducts bool      `json:"include_subcategory_products"`
-	IncludeFeatured           bool      `json:"include_featured"`
-	FeaturedLimit             int       `json:"featured_limit"`
+	IncludeFeatured            bool      `json:"include_featured"`
+	FeaturedLimit              int       `json:"featured_limit"`
 }
 
 // CategoryResponse represents category response
@@ -195,9 +196,9 @@ type CategorySEOResponse struct {
 
 // CategorySEOValidationResponse represents category SEO validation response
 type CategorySEOValidationResponse struct {
-	IsValid    bool                    `json:"is_valid"`
-	Score      int                     `json:"score"` // SEO score out of 100
-	Issues     []CategorySEOIssue      `json:"issues"`
+	IsValid     bool                    `json:"is_valid"`
+	Score       int                     `json:"score"` // SEO score out of 100
+	Issues      []CategorySEOIssue      `json:"issues"`
 	Suggestions []CategorySEOSuggestion `json:"suggestions"`
 }
 
@@ -219,15 +220,15 @@ type CategorySEOSuggestion struct {
 
 // CategoryLandingPageResponse represents category landing page response
 type CategoryLandingPageResponse struct {
-	Category      *CategoryResponse `json:"category"`
-	Breadcrumbs   []*CategoryResponse `json:"breadcrumbs"`
-	Children      []*CategoryResponse `json:"children"`
-	Products      []*ProductResponse `json:"products"`
-	FeaturedProducts []*ProductResponse `json:"featured_products,omitempty"`
-	TotalProducts int64 `json:"total_products"`
-	Page          int   `json:"page"`
-	Limit         int   `json:"limit"`
-	TotalPages    int   `json:"total_pages"`
+	Category         *CategoryResponse   `json:"category"`
+	Breadcrumbs      []*CategoryResponse `json:"breadcrumbs"`
+	Children         []*CategoryResponse `json:"children"`
+	Products         []*ProductResponse  `json:"products"`
+	FeaturedProducts []*ProductResponse  `json:"featured_products,omitempty"`
+	TotalProducts    int64               `json:"total_products"`
+	Page             int                 `json:"page"`
+	Limit            int                 `json:"limit"`
+	TotalPages       int                 `json:"total_pages"`
 }
 
 // BulkUpdateCategoryRequest represents bulk update category request
@@ -272,9 +273,9 @@ type CategoriesListResponse struct {
 
 // MoveCategoryRequest represents move category request
 type MoveCategoryRequest struct {
-	CategoryID    uuid.UUID  `json:"category_id" validate:"required"`
-	NewParentID   *uuid.UUID `json:"new_parent_id"` // null for root level
-	ValidateOnly  bool       `json:"validate_only"` // true to only validate without moving
+	CategoryID   uuid.UUID  `json:"category_id" validate:"required"`
+	NewParentID  *uuid.UUID `json:"new_parent_id"` // null for root level
+	ValidateOnly bool       `json:"validate_only"` // true to only validate without moving
 }
 
 // ReorderCategoriesRequest represents reorder categories request
@@ -290,38 +291,38 @@ type CategoryReorderItem struct {
 
 // CategoryTreeStatsResponse represents category tree statistics
 type CategoryTreeStatsResponse struct {
-	TotalCategories   int                    `json:"total_categories"`
-	RootCategories    int                    `json:"root_categories"`
-	MaxDepth          int                    `json:"max_depth"`
-	AverageDepth      float64                `json:"average_depth"`
-	CategoriesByLevel map[int]int            `json:"categories_by_level"`
-	LargestBranches   []CategoryBranchInfo   `json:"largest_branches"`
+	TotalCategories   int                  `json:"total_categories"`
+	RootCategories    int                  `json:"root_categories"`
+	MaxDepth          int                  `json:"max_depth"`
+	AverageDepth      float64              `json:"average_depth"`
+	CategoriesByLevel map[int]int          `json:"categories_by_level"`
+	LargestBranches   []CategoryBranchInfo `json:"largest_branches"`
 }
 
 // CategoryBranchInfo represents information about a category branch
 type CategoryBranchInfo struct {
-	CategoryID       uuid.UUID `json:"category_id"`
-	CategoryName     string    `json:"category_name"`
-	DescendantCount  int       `json:"descendant_count"`
-	DirectChildren   int       `json:"direct_children"`
-	ProductCount     int64     `json:"product_count"`
+	CategoryID      uuid.UUID `json:"category_id"`
+	CategoryName    string    `json:"category_name"`
+	DescendantCount int       `json:"descendant_count"`
+	DirectChildren  int       `json:"direct_children"`
+	ProductCount    int64     `json:"product_count"`
 }
 
 // TreeValidationResponse represents tree validation results
 type TreeValidationResponse struct {
-	IsValid           bool                    `json:"is_valid"`
-	Issues            []TreeValidationIssue   `json:"issues"`
-	RepairsPerformed  []string                `json:"repairs_performed"`
-	TotalIssuesFound  int                     `json:"total_issues_found"`
-	TotalRepairs      int                     `json:"total_repairs"`
+	IsValid          bool                  `json:"is_valid"`
+	Issues           []TreeValidationIssue `json:"issues"`
+	RepairsPerformed []string              `json:"repairs_performed"`
+	TotalIssuesFound int                   `json:"total_issues_found"`
+	TotalRepairs     int                   `json:"total_repairs"`
 }
 
 // TreeValidationIssue represents a tree validation issue
 type TreeValidationIssue struct {
-	Type        string    `json:"type"`        // circular_reference, orphaned_category, invalid_depth
+	Type        string    `json:"type"` // circular_reference, orphaned_category, invalid_depth
 	CategoryID  uuid.UUID `json:"category_id"`
 	Description string    `json:"description"`
-	Severity    string    `json:"severity"`    // critical, warning, info
+	Severity    string    `json:"severity"` // critical, warning, info
 }
 
 // GetCategoryAnalyticsRequest represents get category analytics request
@@ -478,7 +479,7 @@ func (uc *categoryUseCase) UpdateCategory(ctx context.Context, id uuid.UUID, req
 		println("DEBUG: Attempting to delete old image")
 		println("DEBUG: Old image URL:", oldImageURL)
 		println("DEBUG: New image URL:", *req.Image)
-		
+
 		// Extract object key from URL and delete using storage service
 		if objectKey := utils.ExtractFilePathFromURL(oldImageURL); objectKey != "" {
 			if err := uc.fileService.DeleteFile(ctx, objectKey); err != nil {
@@ -809,18 +810,18 @@ func (uc *categoryUseCase) toCategoryResponse(category *entities.Category) *Cate
 // toProductResponse converts product entity to response
 func (uc *categoryUseCase) toProductResponse(product *entities.Product) *ProductResponse {
 	response := &ProductResponse{
-		ID:          product.ID,
-		Name:        product.Name,
-		Description: product.Description,
-		SKU:         product.SKU,
-		Price:       product.Price,
-		SalePrice:   product.SalePrice,
+		ID:           product.ID,
+		Name:         product.Name,
+		Description:  product.Description,
+		SKU:          product.SKU,
+		Price:        product.Price,
+		SalePrice:    product.SalePrice,
 		ComparePrice: product.ComparePrice,
-		Stock:       product.Stock,
-		Status:      product.Status,
-		Weight:      product.Weight,
-		CreatedAt:   product.CreatedAt,
-		UpdatedAt:   product.UpdatedAt,
+		Stock:        product.Stock,
+		Status:       product.Status,
+		Weight:       product.Weight,
+		CreatedAt:    product.CreatedAt,
+		UpdatedAt:    product.UpdatedAt,
 	}
 
 	// Set dimensions
@@ -864,19 +865,17 @@ func (uc *categoryUseCase) toProductResponse(product *entities.Product) *Product
 		response.MainImage = product.Images[0].URL
 	}
 
-	// Calculate computed fields
-	response.CurrentPrice = product.Price
-	if product.SalePrice != nil && *product.SalePrice > 0 {
-		response.CurrentPrice = *product.SalePrice
-		response.IsOnSale = true
-		if product.Price > 0 {
-			response.SaleDiscountPercentage = ((product.Price - *product.SalePrice) / product.Price) * 100
-		}
-	}
+	// Calculate computed fields using unified price logic
+	response.CurrentPrice = product.GetCurrentPrice()
+	response.OriginalPrice = product.GetOriginalPrice()
+	response.IsOnSale = product.IsOnSale()
+	response.HasDiscount = product.HasDiscount()
+	response.SaleDiscountPercentage = product.GetSaleDiscountPercentage()
+	response.DiscountPercentage = product.GetDiscountPercentage()
 
 	response.IsLowStock = product.Stock <= product.LowStockThreshold
 	response.IsAvailable = product.Status == entities.ProductStatusActive && product.Stock > 0
-	response.HasDiscount = product.ComparePrice != nil && *product.ComparePrice > product.Price
+	response.HasDiscount = product.HasDiscount() || product.IsOnSale()
 
 	return response
 }
@@ -2077,13 +2076,13 @@ func (uc *categoryUseCase) BulkGenerateSEO(ctx context.Context, req BulkSEOGener
 		} else {
 			// Apply generated SEO data to category
 			seoRequest := CategorySEORequest{
-				MetaTitle:       &seoData.MetaTitle,
-				MetaDescription: &seoData.MetaDescription,
-				MetaKeywords:    &seoData.MetaKeywords,
-				CanonicalURL:    &seoData.CanonicalURL,
-				OGTitle:         &seoData.OGTitle,
-				OGDescription:   &seoData.OGDescription,
-				TwitterTitle:    &seoData.TwitterTitle,
+				MetaTitle:          &seoData.MetaTitle,
+				MetaDescription:    &seoData.MetaDescription,
+				MetaKeywords:       &seoData.MetaKeywords,
+				CanonicalURL:       &seoData.CanonicalURL,
+				OGTitle:            &seoData.OGTitle,
+				OGDescription:      &seoData.OGDescription,
+				TwitterTitle:       &seoData.TwitterTitle,
 				TwitterDescription: &seoData.TwitterDescription,
 			}
 
@@ -2757,9 +2756,9 @@ type SlugSuggestion struct {
 }
 
 type SlugValidationResponse struct {
-	Slug        string `json:"slug"`
-	IsAvailable bool   `json:"is_available"`
-	IsValid     bool   `json:"is_valid"`
+	Slug        string   `json:"slug"`
+	IsAvailable bool     `json:"is_available"`
+	IsValid     bool     `json:"is_valid"`
 	Issues      []string `json:"issues,omitempty"`
 	Suggestions []string `json:"suggestions,omitempty"`
 }
@@ -2778,17 +2777,17 @@ type SlugHistoryEntry struct {
 
 // Bulk SEO operations request/response types
 type BulkSEOUpdateRequest struct {
-	CategoryIDs []uuid.UUID       `json:"category_ids" validate:"required"`
+	CategoryIDs []uuid.UUID        `json:"category_ids" validate:"required"`
 	SEOData     CategorySEORequest `json:"seo_data" validate:"required"`
-	UpdateMode  string            `json:"update_mode" validate:"oneof=replace merge"`
+	UpdateMode  string             `json:"update_mode" validate:"oneof=replace merge"`
 }
 
 type BulkSEOUpdateResponse struct {
-	TotalCategories   int                    `json:"total_categories"`
-	SuccessCount      int                    `json:"success_count"`
-	FailureCount      int                    `json:"failure_count"`
-	Results           []BulkSEOResult        `json:"results"`
-	Summary           BulkOperationSummary   `json:"summary"`
+	TotalCategories int                  `json:"total_categories"`
+	SuccessCount    int                  `json:"success_count"`
+	FailureCount    int                  `json:"failure_count"`
+	Results         []BulkSEOResult      `json:"results"`
+	Summary         BulkOperationSummary `json:"summary"`
 }
 
 type BulkSEOGenerateRequest struct {
@@ -2801,11 +2800,11 @@ type BulkSEOGenerateRequest struct {
 }
 
 type BulkSEOGenerateResponse struct {
-	TotalCategories   int                    `json:"total_categories"`
-	SuccessCount      int                    `json:"success_count"`
-	FailureCount      int                    `json:"failure_count"`
-	Results           []BulkSEOResult        `json:"results"`
-	Summary           BulkOperationSummary   `json:"summary"`
+	TotalCategories int                  `json:"total_categories"`
+	SuccessCount    int                  `json:"success_count"`
+	FailureCount    int                  `json:"failure_count"`
+	Results         []BulkSEOResult      `json:"results"`
+	Summary         BulkOperationSummary `json:"summary"`
 }
 
 type BulkSEOValidateRequest struct {
@@ -2818,12 +2817,12 @@ type BulkSEOValidateRequest struct {
 }
 
 type BulkSEOValidateResponse struct {
-	TotalCategories   int                    `json:"total_categories"`
-	ValidCount        int                    `json:"valid_count"`
-	InvalidCount      int                    `json:"invalid_count"`
-	Results           []BulkSEOValidationResult `json:"results"`
-	Summary           BulkOperationSummary   `json:"summary"`
-	GlobalIssues      []string               `json:"global_issues,omitempty"`
+	TotalCategories int                       `json:"total_categories"`
+	ValidCount      int                       `json:"valid_count"`
+	InvalidCount    int                       `json:"invalid_count"`
+	Results         []BulkSEOValidationResult `json:"results"`
+	Summary         BulkOperationSummary      `json:"summary"`
+	GlobalIssues    []string                  `json:"global_issues,omitempty"`
 }
 
 type BulkSEOResult struct {
@@ -2834,19 +2833,19 @@ type BulkSEOResult struct {
 }
 
 type BulkSEOValidationResult struct {
-	CategoryID  uuid.UUID                    `json:"category_id"`
-	IsValid     bool                         `json:"is_valid"`
-	Score       int                          `json:"score"`
-	Issues      []CategorySEOIssue           `json:"issues"`
-	Suggestions []CategorySEOSuggestion      `json:"suggestions"`
+	CategoryID  uuid.UUID               `json:"category_id"`
+	IsValid     bool                    `json:"is_valid"`
+	Score       int                     `json:"score"`
+	Issues      []CategorySEOIssue      `json:"issues"`
+	Suggestions []CategorySEOSuggestion `json:"suggestions"`
 }
 
 type BulkOperationSummary struct {
-	Duration      string    `json:"duration"`
-	StartTime     time.Time `json:"start_time"`
-	EndTime       time.Time `json:"end_time"`
-	SuccessRate   float64   `json:"success_rate"`
-	AverageScore  float64   `json:"average_score,omitempty"`
+	Duration     string    `json:"duration"`
+	StartTime    time.Time `json:"start_time"`
+	EndTime      time.Time `json:"end_time"`
+	SuccessRate  float64   `json:"success_rate"`
+	AverageScore float64   `json:"average_score,omitempty"`
 }
 
 // SEO analytics and insights request/response types
@@ -2859,11 +2858,11 @@ type SEOAnalyticsRequest struct {
 
 type SEOAnalyticsResponse struct {
 	Overview struct {
-		TotalCategories      int     `json:"total_categories"`
-		CategoriesWithSEO    int     `json:"categories_with_seo"`
-		AverageSEOScore      float64 `json:"average_seo_score"`
-		SEOCompletionRate    float64 `json:"seo_completion_rate"`
-		TopPerformingCategories []CategorySEOPerformance `json:"top_performing_categories"`
+		TotalCategories            int                      `json:"total_categories"`
+		CategoriesWithSEO          int                      `json:"categories_with_seo"`
+		AverageSEOScore            float64                  `json:"average_seo_score"`
+		SEOCompletionRate          float64                  `json:"seo_completion_rate"`
+		TopPerformingCategories    []CategorySEOPerformance `json:"top_performing_categories"`
 		BottomPerformingCategories []CategorySEOPerformance `json:"bottom_performing_categories"`
 	} `json:"overview"`
 
@@ -2878,11 +2877,11 @@ type SEOAnalyticsResponse struct {
 	} `json:"metrics"`
 
 	Issues struct {
-		DuplicateMetaTitles    []DuplicateIssue `json:"duplicate_meta_titles"`
-		DuplicateMetaDescs     []DuplicateIssue `json:"duplicate_meta_descs"`
-		MissingCanonicalURLs   []uuid.UUID      `json:"missing_canonical_urls"`
-		LongMetaTitles         []uuid.UUID      `json:"long_meta_titles"`
-		ShortMetaDescriptions  []uuid.UUID      `json:"short_meta_descriptions"`
+		DuplicateMetaTitles   []DuplicateIssue `json:"duplicate_meta_titles"`
+		DuplicateMetaDescs    []DuplicateIssue `json:"duplicate_meta_descs"`
+		MissingCanonicalURLs  []uuid.UUID      `json:"missing_canonical_urls"`
+		LongMetaTitles        []uuid.UUID      `json:"long_meta_titles"`
+		ShortMetaDescriptions []uuid.UUID      `json:"short_meta_descriptions"`
 	} `json:"issues"`
 
 	Trends []SEOTrendData `json:"trends"`
@@ -2903,11 +2902,11 @@ type DuplicateIssue struct {
 }
 
 type SEOTrendData struct {
-	Date             time.Time `json:"date"`
-	AverageSEOScore  float64   `json:"average_seo_score"`
-	CompletionRate   float64   `json:"completion_rate"`
-	IssuesResolved   int       `json:"issues_resolved"`
-	NewIssuesFound   int       `json:"new_issues_found"`
+	Date            time.Time `json:"date"`
+	AverageSEOScore float64   `json:"average_seo_score"`
+	CompletionRate  float64   `json:"completion_rate"`
+	IssuesResolved  int       `json:"issues_resolved"`
+	NewIssuesFound  int       `json:"new_issues_found"`
 }
 
 type SEOInsightsResponse struct {
@@ -2922,13 +2921,13 @@ type SEOInsightsResponse struct {
 	} `json:"current_seo"`
 
 	Recommendations struct {
-		Priority     []SEORecommendation `json:"priority"`
-		Quick        []SEORecommendation `json:"quick"`
-		Advanced     []SEORecommendation `json:"advanced"`
+		Priority []SEORecommendation `json:"priority"`
+		Quick    []SEORecommendation `json:"quick"`
+		Advanced []SEORecommendation `json:"advanced"`
 	} `json:"recommendations"`
 
 	Competitors struct {
-		Similar      []CompetitorCategory `json:"similar"`
+		Similar       []CompetitorCategory  `json:"similar"`
 		BestPractices []BestPracticeExample `json:"best_practices"`
 	} `json:"competitors"`
 
@@ -2949,9 +2948,9 @@ type SEORecommendation struct {
 }
 
 type CompetitorCategory struct {
-	Name     string `json:"name"`
-	SEOScore int    `json:"seo_score"`
-	URL      string `json:"url"`
+	Name     string   `json:"name"`
+	SEOScore int      `json:"seo_score"`
+	URL      string   `json:"url"`
 	Insights []string `json:"insights"`
 }
 
@@ -2981,16 +2980,16 @@ type SEOCompetitorAnalysisResponse struct {
 	CategoryName string    `json:"category_name"`
 
 	Analysis struct {
-		MarketPosition string  `json:"market_position"`
-		CompetitiveGap float64 `json:"competitive_gap"`
+		MarketPosition string   `json:"market_position"`
+		CompetitiveGap float64  `json:"competitive_gap"`
 		Opportunities  []string `json:"opportunities"`
 		Threats        []string `json:"threats"`
 	} `json:"analysis"`
 
 	Competitors []struct {
-		Name        string  `json:"name"`
-		URL         string  `json:"url"`
-		SEOScore    int     `json:"seo_score"`
+		Name        string   `json:"name"`
+		URL         string   `json:"url"`
+		SEOScore    int      `json:"seo_score"`
 		Strengths   []string `json:"strengths"`
 		Weaknesses  []string `json:"weaknesses"`
 		KeyInsights []string `json:"key_insights"`
@@ -3004,11 +3003,11 @@ type SEOCompetitorAnalysisResponse struct {
 	} `json:"benchmarks"`
 
 	ActionPlan []struct {
-		Priority    int    `json:"priority"`
-		Action      string `json:"action"`
-		Impact      string `json:"impact"`
-		Timeline    string `json:"timeline"`
-		Difficulty  string `json:"difficulty"`
+		Priority   int    `json:"priority"`
+		Action     string `json:"action"`
+		Impact     string `json:"impact"`
+		Timeline   string `json:"timeline"`
+		Difficulty string `json:"difficulty"`
 	} `json:"action_plan"`
 }
 

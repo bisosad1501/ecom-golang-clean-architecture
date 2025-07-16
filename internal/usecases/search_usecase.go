@@ -8,6 +8,7 @@ import (
 
 	"ecom-golang-clean-architecture/internal/domain/entities"
 	"ecom-golang-clean-architecture/internal/domain/repositories"
+
 	"github.com/google/uuid"
 )
 
@@ -82,75 +83,75 @@ func NewSearchUseCase(searchRepo repositories.SearchRepository, productRepo repo
 
 // FullTextSearchRequest represents a full-text search request
 type FullTextSearchRequest struct {
-	Query       string                  `json:"query"`
-	CategoryIDs []uuid.UUID             `json:"category_ids"`
-	BrandIDs    []uuid.UUID             `json:"brand_ids"`
-	MinPrice    *float64                `json:"min_price"`
-	MaxPrice    *float64                `json:"max_price"`
-	InStock     *bool                   `json:"in_stock"`
-	Featured    *bool                   `json:"featured"`
-	OnSale      *bool                   `json:"on_sale"`
-	Tags        []string                `json:"tags"`
-	Attributes  map[uuid.UUID][]string  `json:"attributes"`
+	Query       string                 `json:"query"`
+	CategoryIDs []uuid.UUID            `json:"category_ids"`
+	BrandIDs    []uuid.UUID            `json:"brand_ids"`
+	MinPrice    *float64               `json:"min_price"`
+	MaxPrice    *float64               `json:"max_price"`
+	InStock     *bool                  `json:"in_stock"`
+	Featured    *bool                  `json:"featured"`
+	OnSale      *bool                  `json:"on_sale"`
+	Tags        []string               `json:"tags"`
+	Attributes  map[uuid.UUID][]string `json:"attributes"`
 
 	// Advanced filters
-	MinRating           *float64                    `json:"min_rating"`
-	MaxRating           *float64                    `json:"max_rating"`
-	Visibility          *entities.ProductVisibility `json:"visibility"`
-	ProductType         *entities.ProductType       `json:"product_type"`
-	Status              *entities.ProductStatus     `json:"status"`
-	AvailabilityStatus  *string                     `json:"availability_status"` // in_stock, out_of_stock, low_stock
-	CreatedAfter        *time.Time                  `json:"created_after"`
-	CreatedBefore       *time.Time                  `json:"created_before"`
-	UpdatedAfter        *time.Time                  `json:"updated_after"`
-	UpdatedBefore       *time.Time                  `json:"updated_before"`
-	MinWeight           *float64                    `json:"min_weight"`
-	MaxWeight           *float64                    `json:"max_weight"`
-	ShippingClass       *string                     `json:"shipping_class"`
-	TaxClass            *string                     `json:"tax_class"`
-	MinDiscountPercent  *float64                    `json:"min_discount_percent"`
-	MaxDiscountPercent  *float64                    `json:"max_discount_percent"`
-	IsDigital           *bool                       `json:"is_digital"`
-	RequiresShipping    *bool                       `json:"requires_shipping"`
-	AllowBackorder      *bool                       `json:"allow_backorder"`
-	TrackQuantity       *bool                       `json:"track_quantity"`
+	MinRating          *float64                    `json:"min_rating"`
+	MaxRating          *float64                    `json:"max_rating"`
+	Visibility         *entities.ProductVisibility `json:"visibility"`
+	ProductType        *entities.ProductType       `json:"product_type"`
+	Status             *entities.ProductStatus     `json:"status"`
+	AvailabilityStatus *string                     `json:"availability_status"` // in_stock, out_of_stock, low_stock
+	CreatedAfter       *time.Time                  `json:"created_after"`
+	CreatedBefore      *time.Time                  `json:"created_before"`
+	UpdatedAfter       *time.Time                  `json:"updated_after"`
+	UpdatedBefore      *time.Time                  `json:"updated_before"`
+	MinWeight          *float64                    `json:"min_weight"`
+	MaxWeight          *float64                    `json:"max_weight"`
+	ShippingClass      *string                     `json:"shipping_class"`
+	TaxClass           *string                     `json:"tax_class"`
+	MinDiscountPercent *float64                    `json:"min_discount_percent"`
+	MaxDiscountPercent *float64                    `json:"max_discount_percent"`
+	IsDigital          *bool                       `json:"is_digital"`
+	RequiresShipping   *bool                       `json:"requires_shipping"`
+	AllowBackorder     *bool                       `json:"allow_backorder"`
+	TrackQuantity      *bool                       `json:"track_quantity"`
 
-	SortBy      string                  `json:"sort_by"`
-	SortOrder   string                  `json:"sort_order"`
-	Page        int                     `json:"page"`
-	Limit       int                     `json:"limit"`
-	UserID      *uuid.UUID              `json:"user_id"`
-	SessionID   string                  `json:"session_id"`
-	IPAddress   string                  `json:"ip_address"`
-	UserAgent   string                  `json:"user_agent"`
+	SortBy    string     `json:"sort_by"`
+	SortOrder string     `json:"sort_order"`
+	Page      int        `json:"page"`
+	Limit     int        `json:"limit"`
+	UserID    *uuid.UUID `json:"user_id"`
+	SessionID string     `json:"session_id"`
+	IPAddress string     `json:"ip_address"`
+	UserAgent string     `json:"user_agent"`
 }
 
 // SearchResponse represents a search response
 type SearchResponse struct {
-	Products     []*ProductResponse      `json:"products"`
-	Total        int64                   `json:"total"`
-	Page         int                     `json:"page"`
-	Limit        int                     `json:"limit"`
-	TotalPages   int                     `json:"total_pages"`
-	HasNext      bool                    `json:"has_next"`
-	HasPrev      bool                    `json:"has_prev"`
-	Facets       *SearchFacetsResponse   `json:"facets"`
-	Query        string                  `json:"query"`
-	SearchTime   string                  `json:"search_time"`
-	Suggestions  []string                `json:"suggestions"`
+	Products    []*ProductResponse    `json:"products"`
+	Total       int64                 `json:"total"`
+	Page        int                   `json:"page"`
+	Limit       int                   `json:"limit"`
+	TotalPages  int                   `json:"total_pages"`
+	HasNext     bool                  `json:"has_next"`
+	HasPrev     bool                  `json:"has_prev"`
+	Facets      *SearchFacetsResponse `json:"facets"`
+	Query       string                `json:"query"`
+	SearchTime  string                `json:"search_time"`
+	Suggestions []string              `json:"suggestions"`
 }
 
 // SearchFacetsResponse represents search facets response
 type SearchFacetsResponse struct {
-	Categories   []CategoryFacetResponse   `json:"categories"`
-	Brands       []BrandFacetResponse      `json:"brands"`
-	PriceRange   PriceRangeFacetResponse   `json:"price_range"`
-	Tags         []TagFacetResponse        `json:"tags"`
-	Status       []StatusFacetResponse     `json:"status"`
-	ProductTypes []ProductTypeFacetResponse `json:"product_types"`
+	Categories   []CategoryFacetResponse     `json:"categories"`
+	Brands       []BrandFacetResponse        `json:"brands"`
+	PriceRange   PriceRangeFacetResponse     `json:"price_range"`
+	Tags         []TagFacetResponse          `json:"tags"`
+	Status       []StatusFacetResponse       `json:"status"`
+	ProductTypes []ProductTypeFacetResponse  `json:"product_types"`
 	Availability []AvailabilityFacetResponse `json:"availability"`
-	Ratings      []RatingFacetResponse     `json:"ratings"`
-	Shipping     []ShippingFacetResponse   `json:"shipping"`
+	Ratings      []RatingFacetResponse       `json:"ratings"`
+	Shipping     []ShippingFacetResponse     `json:"shipping"`
 }
 
 // CategoryFacetResponse represents category facet response
@@ -169,9 +170,9 @@ type BrandFacetResponse struct {
 
 // PriceRangeFacetResponse represents price range facet response
 type PriceRangeFacetResponse struct {
-	MinPrice float64                `json:"min_price"`
-	MaxPrice float64                `json:"max_price"`
-	Ranges   []PriceRangeResponse   `json:"ranges"`
+	MinPrice float64              `json:"min_price"`
+	MaxPrice float64              `json:"max_price"`
+	Ranges   []PriceRangeResponse `json:"ranges"`
 }
 
 // PriceRangeResponse represents a price range response
@@ -264,17 +265,17 @@ type SearchAnalyticsRequest struct {
 
 // SearchAnalyticsResponse represents search analytics response
 type SearchAnalyticsResponse struct {
-	Analytics []SearchAnalyticItem `json:"analytics"`
+	Analytics []SearchAnalyticItem   `json:"analytics"`
 	Summary   SearchAnalyticsSummary `json:"summary"`
 }
 
 type SearchAnalyticItem struct {
-	Query              string  `json:"query"`
-	TotalSearches      int     `json:"total_searches"`
-	AvgResultCount     float64 `json:"avg_result_count"`
+	Query               string  `json:"query"`
+	TotalSearches       int     `json:"total_searches"`
+	AvgResultCount      float64 `json:"avg_result_count"`
 	AvgClickThroughRate float64 `json:"avg_click_through_rate"`
-	AvgConversionRate  float64 `json:"avg_conversion_rate"`
-	LastSearched       string  `json:"last_searched"`
+	AvgConversionRate   float64 `json:"avg_conversion_rate"`
+	LastSearched        string  `json:"last_searched"`
 }
 
 type SearchAnalyticsSummary struct {
@@ -331,10 +332,10 @@ type SearchFilterResponse struct {
 
 // AutocompleteResponse represents autocomplete response
 type AutocompleteResponse struct {
-	Products    []ProductSuggestionResponse    `json:"products"`
-	Categories  []CategorySuggestionResponse   `json:"categories"`
-	Brands      []BrandSuggestionResponse      `json:"brands"`
-	Suggestions []string                       `json:"suggestions"`
+	Products    []ProductSuggestionResponse  `json:"products"`
+	Categories  []CategorySuggestionResponse `json:"categories"`
+	Brands      []BrandSuggestionResponse    `json:"brands"`
+	Suggestions []string                     `json:"suggestions"`
 }
 
 // ProductSuggestionResponse represents product suggestion response
@@ -360,7 +361,7 @@ type BrandSuggestionResponse struct {
 // FullTextSearch performs full-text search with enhanced analytics
 func (uc *searchUseCase) FullTextSearch(ctx context.Context, req FullTextSearchRequest) (*SearchResponse, error) {
 	startTime := time.Now()
-	
+
 	// Set default values
 	if req.Page <= 0 {
 		req.Page = 1
@@ -371,10 +372,10 @@ func (uc *searchUseCase) FullTextSearch(ctx context.Context, req FullTextSearchR
 	if req.SortBy == "" {
 		req.SortBy = "relevance"
 	}
-	
+
 	// Calculate offset
 	offset := (req.Page - 1) * req.Limit
-	
+
 	// Build search parameters
 	params := repositories.FullTextSearchParams{
 		Query:       req.Query,
@@ -389,48 +390,48 @@ func (uc *searchUseCase) FullTextSearch(ctx context.Context, req FullTextSearchR
 		Attributes:  req.Attributes,
 
 		// Advanced filters
-		MinRating:           req.MinRating,
-		MaxRating:           req.MaxRating,
-		Visibility:          req.Visibility,
-		ProductType:         req.ProductType,
-		Status:              req.Status,
-		AvailabilityStatus:  req.AvailabilityStatus,
-		CreatedAfter:        req.CreatedAfter,
-		CreatedBefore:       req.CreatedBefore,
-		UpdatedAfter:        req.UpdatedAfter,
-		UpdatedBefore:       req.UpdatedBefore,
-		MinWeight:           req.MinWeight,
-		MaxWeight:           req.MaxWeight,
-		ShippingClass:       req.ShippingClass,
-		TaxClass:            req.TaxClass,
-		MinDiscountPercent:  req.MinDiscountPercent,
-		MaxDiscountPercent:  req.MaxDiscountPercent,
-		IsDigital:           req.IsDigital,
-		RequiresShipping:    req.RequiresShipping,
-		AllowBackorder:      req.AllowBackorder,
-		TrackQuantity:       req.TrackQuantity,
+		MinRating:          req.MinRating,
+		MaxRating:          req.MaxRating,
+		Visibility:         req.Visibility,
+		ProductType:        req.ProductType,
+		Status:             req.Status,
+		AvailabilityStatus: req.AvailabilityStatus,
+		CreatedAfter:       req.CreatedAfter,
+		CreatedBefore:      req.CreatedBefore,
+		UpdatedAfter:       req.UpdatedAfter,
+		UpdatedBefore:      req.UpdatedBefore,
+		MinWeight:          req.MinWeight,
+		MaxWeight:          req.MaxWeight,
+		ShippingClass:      req.ShippingClass,
+		TaxClass:           req.TaxClass,
+		MinDiscountPercent: req.MinDiscountPercent,
+		MaxDiscountPercent: req.MaxDiscountPercent,
+		IsDigital:          req.IsDigital,
+		RequiresShipping:   req.RequiresShipping,
+		AllowBackorder:     req.AllowBackorder,
+		TrackQuantity:      req.TrackQuantity,
 
-		SortBy:      req.SortBy,
-		SortOrder:   req.SortOrder,
-		Limit:       req.Limit,
-		Offset:      offset,
+		SortBy:    req.SortBy,
+		SortOrder: req.SortOrder,
+		Limit:     req.Limit,
+		Offset:    offset,
 	}
-	
+
 	// Perform search
 	products, total, err := uc.searchRepo.FullTextSearch(ctx, params)
 	if err != nil {
 		return nil, fmt.Errorf("failed to perform full-text search: %w", err)
 	}
-	
+
 	// Convert to response format
 	productResponses := make([]*ProductResponse, len(products))
 	for i, product := range products {
 		productResponses[i] = uc.toProductResponse(product)
 	}
-	
+
 	// Calculate pagination
 	totalPages := int((total + int64(req.Limit) - 1) / int64(req.Limit))
-	
+
 	// Get search facets
 	facets, err := uc.searchRepo.GetSearchFacets(ctx, req.Query)
 	var facetsResponse *SearchFacetsResponse
@@ -440,7 +441,7 @@ func (uc *searchUseCase) FullTextSearch(ctx context.Context, req FullTextSearchR
 	} else if facets != nil {
 		facetsResponse = uc.toSearchFacetsResponse(facets)
 	}
-	
+
 	// Get suggestions if query is provided
 	var suggestions []string
 	if req.Query != "" {
@@ -449,7 +450,7 @@ func (uc *searchUseCase) FullTextSearch(ctx context.Context, req FullTextSearchR
 			suggestions = append(suggestions, s.Query)
 		}
 	}
-	
+
 	// Record search event and analytics
 	if req.Query != "" {
 		event := &entities.SearchEvent{
@@ -488,9 +489,9 @@ func (uc *searchUseCase) FullTextSearch(ctx context.Context, req FullTextSearchR
 			fmt.Printf("Error tracking search analytics: %v\n", err)
 		}
 	}
-	
+
 	searchTime := time.Since(startTime)
-	
+
 	return &SearchResponse{
 		Products:    productResponses,
 		Total:       total,
@@ -511,53 +512,51 @@ func (uc *searchUseCase) toProductResponse(product *entities.Product) *ProductRe
 	// Use the existing product usecase conversion logic
 	// For now, create a simplified response for search results
 	response := &ProductResponse{
-		ID:               product.ID,
-		Name:             product.Name,
-		Description:      product.Description,
-		ShortDescription: product.ShortDescription,
-		SKU:              product.SKU,
-		Slug:             product.Slug,
-		MetaTitle:        product.MetaTitle,
-		MetaDescription:  product.MetaDescription,
-		Keywords:         product.Keywords,
-		Featured:         product.Featured,
-		Visibility:       product.Visibility,
-		Price:            product.Price,
-		ComparePrice:     product.ComparePrice,
-		CostPrice:        product.CostPrice,
-		SalePrice:        product.SalePrice,
-		SaleStartDate:    product.SaleStartDate,
-		SaleEndDate:      product.SaleEndDate,
-		Stock:            product.Stock,
+		ID:                product.ID,
+		Name:              product.Name,
+		Description:       product.Description,
+		ShortDescription:  product.ShortDescription,
+		SKU:               product.SKU,
+		Slug:              product.Slug,
+		MetaTitle:         product.MetaTitle,
+		MetaDescription:   product.MetaDescription,
+		Keywords:          product.Keywords,
+		Featured:          product.Featured,
+		Visibility:        product.Visibility,
+		Price:             product.Price,
+		ComparePrice:      product.ComparePrice,
+		CostPrice:         product.CostPrice,
+		SalePrice:         product.SalePrice,
+		SaleStartDate:     product.SaleStartDate,
+		SaleEndDate:       product.SaleEndDate,
+		Stock:             product.Stock,
 		LowStockThreshold: product.LowStockThreshold,
-		TrackQuantity:    product.TrackQuantity,
-		AllowBackorder:   product.AllowBackorder,
-		StockStatus:      product.StockStatus,
-		Weight:           product.Weight,
-		RequiresShipping: product.RequiresShipping,
-		ShippingClass:    product.ShippingClass,
-		TaxClass:         product.TaxClass,
-		CountryOfOrigin:  product.CountryOfOrigin,
-		Status:           product.Status,
-		ProductType:      product.ProductType,
-		IsDigital:        product.IsDigital,
-		CreatedAt:        product.CreatedAt,
-		UpdatedAt:        product.UpdatedAt,
+		TrackQuantity:     product.TrackQuantity,
+		AllowBackorder:    product.AllowBackorder,
+		StockStatus:       product.StockStatus,
+		Weight:            product.Weight,
+		RequiresShipping:  product.RequiresShipping,
+		ShippingClass:     product.ShippingClass,
+		TaxClass:          product.TaxClass,
+		CountryOfOrigin:   product.CountryOfOrigin,
+		Status:            product.Status,
+		ProductType:       product.ProductType,
+		IsDigital:         product.IsDigital,
+		CreatedAt:         product.CreatedAt,
+		UpdatedAt:         product.UpdatedAt,
 	}
 
-	// Calculate computed fields
-	response.CurrentPrice = product.Price
-	if product.SalePrice != nil && *product.SalePrice > 0 {
-		response.CurrentPrice = *product.SalePrice
-		response.IsOnSale = true
-		if product.Price > 0 {
-			response.SaleDiscountPercentage = ((product.Price - *product.SalePrice) / product.Price) * 100
-		}
-	}
+	// Calculate computed fields using unified price logic
+	response.CurrentPrice = product.GetCurrentPrice()
+	response.OriginalPrice = product.GetOriginalPrice()
+	response.IsOnSale = product.IsOnSale()
+	response.HasDiscount = product.HasDiscount()
+	response.SaleDiscountPercentage = product.GetSaleDiscountPercentage()
+	response.DiscountPercentage = product.GetDiscountPercentage()
 
 	response.IsLowStock = product.Stock <= product.LowStockThreshold
 	response.IsAvailable = product.Status == entities.ProductStatusActive && product.Stock > 0
-	response.HasDiscount = product.ComparePrice != nil && *product.ComparePrice > product.Price
+	response.HasDiscount = product.HasDiscount() || product.IsOnSale()
 	response.HasVariants = len(product.Variants) > 0
 
 	// Set main image
@@ -607,7 +606,7 @@ func (uc *searchUseCase) toProductResponse(product *entities.Product) *ProductRe
 // Helper method to convert search facets to response
 func (uc *searchUseCase) toSearchFacetsResponse(facets *repositories.SearchFacets) *SearchFacetsResponse {
 	response := &SearchFacetsResponse{}
-	
+
 	// Convert categories
 	for _, cat := range facets.Categories {
 		response.Categories = append(response.Categories, CategoryFacetResponse{
@@ -616,7 +615,7 @@ func (uc *searchUseCase) toSearchFacetsResponse(facets *repositories.SearchFacet
 			ProductCount: cat.ProductCount,
 		})
 	}
-	
+
 	// Convert brands
 	for _, brand := range facets.Brands {
 		response.Brands = append(response.Brands, BrandFacetResponse{
@@ -1159,13 +1158,13 @@ func (uc *searchUseCase) GetUserSearchPreferences(ctx context.Context, userID uu
 	}
 
 	return &UserSearchPreferencesResponse{
-		UserID:              prefs.UserID,
-		PreferredCategories: prefs.PreferredCategories,
-		PreferredBrands:     prefs.PreferredBrands,
-		SearchLanguage:      prefs.SearchLanguage,
-		AutocompleteEnabled: prefs.AutocompleteEnabled,
+		UserID:               prefs.UserID,
+		PreferredCategories:  prefs.PreferredCategories,
+		PreferredBrands:      prefs.PreferredBrands,
+		SearchLanguage:       prefs.SearchLanguage,
+		AutocompleteEnabled:  prefs.AutocompleteEnabled,
 		SearchHistoryEnabled: prefs.SearchHistoryEnabled,
-		PersonalizedResults: prefs.PersonalizedResults,
+		PersonalizedResults:  prefs.PersonalizedResults,
 	}, nil
 }
 
@@ -1302,7 +1301,7 @@ func (uc *searchUseCase) GetSearchAnalytics(ctx context.Context, req SearchAnaly
 
 	response := &SearchAnalyticsResponse{
 		Analytics: make([]SearchAnalyticItem, len(analytics)),
-		Summary: SearchAnalyticsSummary{},
+		Summary:   SearchAnalyticsSummary{},
 	}
 
 	var totalSearches int
@@ -1316,12 +1315,12 @@ func (uc *searchUseCase) GetSearchAnalytics(ctx context.Context, req SearchAnaly
 		avgResults := float64(item["avg_result_count"].(float64))
 
 		response.Analytics[i] = SearchAnalyticItem{
-			Query:              item["query"].(string),
-			TotalSearches:      searches,
-			AvgResultCount:     avgResults,
+			Query:               item["query"].(string),
+			TotalSearches:       searches,
+			AvgResultCount:      avgResults,
 			AvgClickThroughRate: item["avg_ctr"].(float64),
-			AvgConversionRate:  item["avg_conversion_rate"].(float64),
-			LastSearched:       item["last_searched"].(time.Time).Format("2006-01-02"),
+			AvgConversionRate:   item["avg_conversion_rate"].(float64),
+			LastSearched:        item["last_searched"].(time.Time).Format("2006-01-02"),
 		}
 
 		totalSearches += searches
@@ -1529,59 +1528,59 @@ func (uc *searchUseCase) toDynamicSearchFacetsResponse(facets *repositories.Dyna
 
 // EnhancedSearchRequest represents enhanced search request with multi-select filters
 type EnhancedSearchRequest struct {
-	Query              string    `json:"query"`
-	CategoryIDs        []string  `json:"category_ids"`
-	BrandIDs           []string  `json:"brand_ids"`
-	MinPrice           *float64  `json:"min_price"`
-	MaxPrice           *float64  `json:"max_price"`
-	TagIDs             []string  `json:"tag_ids"`
-	StatusList         []string  `json:"status_list"`
-	ProductTypes       []string  `json:"product_types"`
-	AvailabilityTypes  []string  `json:"availability_types"`
-	ShippingTypes      []string  `json:"shipping_types"`
-	RatingMin          *float64  `json:"rating_min"`
-	RatingMax          *float64  `json:"rating_max"`
-	Featured           *bool     `json:"featured"`
-	InStock            *bool     `json:"in_stock"`
-	OnSale             *bool     `json:"on_sale"`
-	SortBy             string    `json:"sort_by"`
-	SortOrder          string    `json:"sort_order"`
-	Page               int       `json:"page"`
-	Limit              int       `json:"limit"`
-	IncludeFacets      bool      `json:"include_facets"`
-	DynamicFacets      bool      `json:"dynamic_facets"`
-	SessionID          string    `json:"session_id"`
-	IPAddress          string    `json:"ip_address"`
-	UserAgent          string    `json:"user_agent"`
-	UserID             *string   `json:"user_id"`
+	Query             string   `json:"query"`
+	CategoryIDs       []string `json:"category_ids"`
+	BrandIDs          []string `json:"brand_ids"`
+	MinPrice          *float64 `json:"min_price"`
+	MaxPrice          *float64 `json:"max_price"`
+	TagIDs            []string `json:"tag_ids"`
+	StatusList        []string `json:"status_list"`
+	ProductTypes      []string `json:"product_types"`
+	AvailabilityTypes []string `json:"availability_types"`
+	ShippingTypes     []string `json:"shipping_types"`
+	RatingMin         *float64 `json:"rating_min"`
+	RatingMax         *float64 `json:"rating_max"`
+	Featured          *bool    `json:"featured"`
+	InStock           *bool    `json:"in_stock"`
+	OnSale            *bool    `json:"on_sale"`
+	SortBy            string   `json:"sort_by"`
+	SortOrder         string   `json:"sort_order"`
+	Page              int      `json:"page"`
+	Limit             int      `json:"limit"`
+	IncludeFacets     bool     `json:"include_facets"`
+	DynamicFacets     bool     `json:"dynamic_facets"`
+	SessionID         string   `json:"session_id"`
+	IPAddress         string   `json:"ip_address"`
+	UserAgent         string   `json:"user_agent"`
+	UserID            *string  `json:"user_id"`
 }
 
 // EnhancedSearchResponse represents enhanced search response with dynamic facets
 type EnhancedSearchResponse struct {
-	Products     []ProductResponse                    `json:"products"`
-	Total        int64                                `json:"total"`
-	Page         int                                  `json:"page"`
-	Limit        int                                  `json:"limit"`
-	TotalPages   int                                  `json:"total_pages"`
-	HasNext      bool                                 `json:"has_next"`
-	HasPrev      bool                                 `json:"has_prev"`
-	Facets       *DynamicSearchFacetsResponse         `json:"facets,omitempty"`
-	Query        string                               `json:"query"`
-	SearchTime   string                               `json:"search_time"`
-	Suggestions  []string                             `json:"suggestions,omitempty"`
+	Products    []ProductResponse            `json:"products"`
+	Total       int64                        `json:"total"`
+	Page        int                          `json:"page"`
+	Limit       int                          `json:"limit"`
+	TotalPages  int                          `json:"total_pages"`
+	HasNext     bool                         `json:"has_next"`
+	HasPrev     bool                         `json:"has_prev"`
+	Facets      *DynamicSearchFacetsResponse `json:"facets,omitempty"`
+	Query       string                       `json:"query"`
+	SearchTime  string                       `json:"search_time"`
+	Suggestions []string                     `json:"suggestions,omitempty"`
 }
 
 // DynamicSearchFacetsResponse represents dynamic facets response
 type DynamicSearchFacetsResponse struct {
-	Categories   []DynamicCategoryFacetResponse   `json:"categories"`
-	Brands       []DynamicBrandFacetResponse      `json:"brands"`
-	PriceRange   DynamicPriceRangeFacetResponse   `json:"price_range"`
-	Tags         []DynamicTagFacetResponse        `json:"tags"`
-	Status       []DynamicStatusFacetResponse     `json:"status"`
-	ProductTypes []DynamicProductTypeFacetResponse `json:"product_types"`
+	Categories   []DynamicCategoryFacetResponse     `json:"categories"`
+	Brands       []DynamicBrandFacetResponse        `json:"brands"`
+	PriceRange   DynamicPriceRangeFacetResponse     `json:"price_range"`
+	Tags         []DynamicTagFacetResponse          `json:"tags"`
+	Status       []DynamicStatusFacetResponse       `json:"status"`
+	ProductTypes []DynamicProductTypeFacetResponse  `json:"product_types"`
 	Availability []DynamicAvailabilityFacetResponse `json:"availability"`
-	Shipping     []DynamicShippingFacetResponse   `json:"shipping"`
-	TotalCount   int64                            `json:"total_count"`
+	Shipping     []DynamicShippingFacetResponse     `json:"shipping"`
+	TotalCount   int64                              `json:"total_count"`
 }
 
 // Dynamic facet response types
@@ -1642,30 +1641,30 @@ type DynamicShippingFacetResponse struct {
 }
 
 type DynamicPriceRangeFacetResponse struct {
-	MinPrice    float64                      `json:"min_price"`
-	MaxPrice    float64                      `json:"max_price"`
-	Ranges      []PriceRangeResponse         `json:"ranges"`
-	SelectedMin *float64                     `json:"selected_min"`
-	SelectedMax *float64                     `json:"selected_max"`
+	MinPrice    float64              `json:"min_price"`
+	MaxPrice    float64              `json:"max_price"`
+	Ranges      []PriceRangeResponse `json:"ranges"`
+	SelectedMin *float64             `json:"selected_min"`
+	SelectedMax *float64             `json:"selected_max"`
 }
 
 // Enhanced Autocomplete Types
 
 type EnhancedAutocompleteRequest struct {
-	Query   string   `json:"query"`
-	Types   []string `json:"types"` // product, category, brand, tag, query
-	Limit   int      `json:"limit"`
-	UserID  *uuid.UUID `json:"user_id"`
-	IncludePersonalized bool `json:"include_personalized"`
-	IncludeTrending     bool `json:"include_trending"`
+	Query               string     `json:"query"`
+	Types               []string   `json:"types"` // product, category, brand, tag, query
+	Limit               int        `json:"limit"`
+	UserID              *uuid.UUID `json:"user_id"`
+	IncludePersonalized bool       `json:"include_personalized"`
+	IncludeTrending     bool       `json:"include_trending"`
 }
 
 type EnhancedAutocompleteResponse struct {
-	Products    []AutocompleteSuggestion `json:"products"`
-	Categories  []AutocompleteSuggestion `json:"categories"`
-	Brands      []AutocompleteSuggestion `json:"brands"`
-	Queries     []AutocompleteSuggestion `json:"queries"`
-	Trending    []AutocompleteSuggestion `json:"trending"`
+	Products     []AutocompleteSuggestion `json:"products"`
+	Categories   []AutocompleteSuggestion `json:"categories"`
+	Brands       []AutocompleteSuggestion `json:"brands"`
+	Queries      []AutocompleteSuggestion `json:"queries"`
+	Trending     []AutocompleteSuggestion `json:"trending"`
 	Personalized []AutocompleteSuggestion `json:"personalized"`
 }
 
@@ -1695,13 +1694,13 @@ type TrendingSearchesPaginatedResponse struct {
 }
 
 type UserSearchPreferencesResponse struct {
-	UserID              uuid.UUID `json:"user_id"`
-	PreferredCategories []string  `json:"preferred_categories"`
-	PreferredBrands     []string  `json:"preferred_brands"`
-	SearchLanguage      string    `json:"search_language"`
-	AutocompleteEnabled bool      `json:"autocomplete_enabled"`
-	SearchHistoryEnabled bool     `json:"search_history_enabled"`
-	PersonalizedResults  bool     `json:"personalized_results"`
+	UserID               uuid.UUID `json:"user_id"`
+	PreferredCategories  []string  `json:"preferred_categories"`
+	PreferredBrands      []string  `json:"preferred_brands"`
+	SearchLanguage       string    `json:"search_language"`
+	AutocompleteEnabled  bool      `json:"autocomplete_enabled"`
+	SearchHistoryEnabled bool      `json:"search_history_enabled"`
+	PersonalizedResults  bool      `json:"personalized_results"`
 }
 
 type UpdateSearchPreferencesRequest struct {

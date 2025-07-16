@@ -114,20 +114,17 @@ export function ProductDetailPage({ productId }: ProductDetailPageProps) {
 
   const images = product.images || []
 
-  // Use backend computed fields directly - no more complex fallback logic
-  const currentPrice = product.current_price || product.price
-  const originalPrice = product.price
-  const salePrice = product.sale_price
-  const isOnSale = product.is_on_sale
+  // Use backend computed fields directly
+  const currentPrice = product.current_price
+  const originalPrice = product.original_price
   const hasDiscount = product.has_discount
-  const discountPercentage = product.sale_discount_percentage
+  const isOnSale = product.is_on_sale
+  const discountPercentage = product.discount_percentage
   const stockQuantity = product.stock
   const stockStatus = product.stock_status
   const isLowStock = product.is_low_stock
   const featured = product.featured
 
-  const displayPrice = currentPrice
-  const comparePrice = isOnSale ? originalPrice : product.compare_price
   const isOutOfStock = stockStatus === 'out_of_stock' || stockQuantity <= 0
 
   const handleAddToCart = async () => {
@@ -330,19 +327,13 @@ export function ProductDetailPage({ productId }: ProductDetailPageProps) {
               <div className="border border-white/10 rounded-lg p-4 bg-white/[0.02]">
                 <div className="flex items-center gap-3 mb-2">
                   <span className="text-3xl font-bold text-[#ff9000]">
-                    {formatPrice(displayPrice)}
+                    {formatPrice(currentPrice)}
                   </span>
-                  {hasDiscount && (
+                  {hasDiscount && originalPrice && (
                     <div className="flex items-center gap-2">
-                      {isOnSale ? (
-                        <span className="text-lg text-gray-500 line-through">
-                          {formatPrice(originalPrice)}
-                        </span>
-                      ) : comparePrice && (
-                        <span className="text-lg text-gray-500 line-through">
-                          {formatPrice(comparePrice)}
-                        </span>
-                      )}
+                      <span className="text-lg text-gray-500 line-through">
+                        {formatPrice(originalPrice)}
+                      </span>
                       {discountPercentage > 0 && (
                         <Badge className="bg-[#ff9000] text-white text-xs px-2 py-1">
                           -{Math.round(discountPercentage)}%
@@ -351,9 +342,9 @@ export function ProductDetailPage({ productId }: ProductDetailPageProps) {
                     </div>
                   )}
                 </div>
-                {hasDiscount && discountPercentage > 0 && (
+                {hasDiscount && discountPercentage > 0 && originalPrice && (
                   <p className="text-green-400 text-sm font-medium">
-                    💰 You save {formatPrice((isOnSale ? originalPrice : comparePrice || 0) - displayPrice)}
+                    💰 You save {formatPrice(originalPrice - currentPrice)}
                   </p>
                 )}
                 {isOnSale && (

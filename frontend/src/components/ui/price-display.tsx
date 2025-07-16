@@ -1,7 +1,7 @@
 'use client'
 
 import { cn } from '@/lib/utils'
-import { formatPrice, formatDiscountPercentage, getPriceInfo, getCurrentPrice, getComparePrice } from '@/lib/utils/price'
+import { formatPrice, formatDiscountPercentage, getPriceInfo, getCurrentPrice, getOriginalPrice } from '@/lib/utils/price'
 import { Product } from '@/types'
 
 interface PriceDisplayProps {
@@ -21,7 +21,7 @@ export function PriceDisplay({
 }: PriceDisplayProps) {
   const priceInfo = getPriceInfo(product)
   const currentPrice = getCurrentPrice(product)
-  const comparePrice = getComparePrice(product)
+  const originalPrice = getOriginalPrice(product)
   
   const sizeClasses = {
     sm: 'text-sm',
@@ -46,12 +46,12 @@ export function PriceDisplay({
       </span>
 
       {/* Original Price (if discount) */}
-      {priceInfo.hasDiscount && showOriginalPrice && comparePrice && (
+      {priceInfo.hasDiscount && showOriginalPrice && originalPrice && (
         <span className={cn(
           'line-through text-gray-500',
           discountSizeClasses[size]
         )}>
-          {formatPrice(comparePrice)}
+          {formatPrice(originalPrice)}
         </span>
       )}
 

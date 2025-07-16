@@ -97,19 +97,19 @@ type UpdateCartItemRequest struct {
 // CartResponse represents cart response
 type CartResponse struct {
 	ID             uuid.UUID          `json:"id"`
-	UserID         *uuid.UUID         `json:"user_id,omitempty"`         // Nullable for guest carts
+	UserID         *uuid.UUID         `json:"user_id,omitempty"` // Nullable for guest carts
 	SessionID      *string            `json:"session_id,omitempty"`
 	Items          []CartItemResponse `json:"items"`
 	ItemCount      int                `json:"item_count"`
 	Subtotal       float64            `json:"subtotal"`
-	TaxAmount      float64            `json:"tax_amount"`                // Added missing field
-	ShippingAmount float64            `json:"shipping_amount"`           // Added missing field
+	TaxAmount      float64            `json:"tax_amount"`      // Added missing field
+	ShippingAmount float64            `json:"shipping_amount"` // Added missing field
 	Total          float64            `json:"total"`
 	Status         string             `json:"status"`
 	Currency       string             `json:"currency"`
 	Notes          string             `json:"notes,omitempty"`
 	ExpiresAt      *time.Time         `json:"expires_at,omitempty"`
-	IsGuest        bool               `json:"is_guest"`                  // Added helper field
+	IsGuest        bool               `json:"is_guest"` // Added helper field
 	CreatedAt      time.Time          `json:"created_at"`
 	UpdatedAt      time.Time          `json:"updated_at"`
 }
@@ -683,18 +683,18 @@ func (uc *cartUseCase) ClearCart(ctx context.Context, userID uuid.UUID) error {
 func (uc *cartUseCase) toCartResponse(cart *entities.Cart) *CartResponse {
 	response := &CartResponse{
 		ID:             cart.ID,
-		UserID:         cart.UserID,                    // Now properly nullable
+		UserID:         cart.UserID, // Now properly nullable
 		SessionID:      cart.SessionID,
 		ItemCount:      cart.ItemCount,
 		Subtotal:       cart.Subtotal,
-		TaxAmount:      cart.TaxAmount,                 // Added missing field
-		ShippingAmount: cart.ShippingAmount,            // Added missing field
+		TaxAmount:      cart.TaxAmount,      // Added missing field
+		ShippingAmount: cart.ShippingAmount, // Added missing field
 		Total:          cart.Total,
 		Status:         cart.Status,
 		Currency:       cart.Currency,
 		Notes:          cart.Notes,
 		ExpiresAt:      cart.ExpiresAt,
-		IsGuest:        cart.IsGuest(),                 // Added helper field
+		IsGuest:        cart.IsGuest(), // Added helper field
 		CreatedAt:      cart.CreatedAt,
 		UpdatedAt:      cart.UpdatedAt,
 	}
@@ -768,8 +768,11 @@ func (uc *cartUseCase) toProductResponse(product *entities.Product) *ProductResp
 		SaleStartDate:          product.SaleStartDate,
 		SaleEndDate:            product.SaleEndDate,
 		CurrentPrice:           product.GetCurrentPrice(),
+		OriginalPrice:          product.GetOriginalPrice(),
 		IsOnSale:               product.IsOnSale(),
+		HasDiscount:            product.HasDiscount(),
 		SaleDiscountPercentage: product.GetSaleDiscountPercentage(),
+		DiscountPercentage:     product.GetDiscountPercentage(),
 		Stock:                  product.Stock,
 		LowStockThreshold:      product.LowStockThreshold,
 		TrackQuantity:          product.TrackQuantity,
@@ -792,7 +795,6 @@ func (uc *cartUseCase) toProductResponse(product *entities.Product) *ProductResp
 		ProductType: product.ProductType,
 		IsDigital:   product.IsDigital,
 		IsAvailable: product.IsAvailable(),
-		HasDiscount: product.HasDiscount(),
 		HasVariants: product.HasVariants(),
 		MainImage:   product.GetMainImage(),
 		CreatedAt:   product.CreatedAt,
@@ -834,81 +836,81 @@ func (uc *cartUseCase) MergeGuestCartWithStrategy(ctx context.Context, userID uu
 			return uc.getCartWithRepo(txCtx, txRepo, userID)
 		}
 
-	// Get user cart with row-level locking
-	userCart, err := txRepo.GetByUserIDForUpdate(txCtx, userID)
-	if err != nil {
-		// No user cart exists, convert guest cart to user cart
-		guestCart.UserID = &userID
-		guestCart.SessionID = nil
-		guestCart.UpdateCalculatedFields()
+		// Get user cart with row-level locking
+		userCart, err := txRepo.GetByUserIDForUpdate(txCtx, userID)
+		if err != nil {
+			// No user cart exists, convert guest cart to user cart
+			guestCart.UserID = &userID
+			guestCart.SessionID = nil
+			guestCart.UpdateCalculatedFields()
 
-		// Also need to update any stock reservations to point to user instead of session
-		if err := uc.transferGuestReservationsToUser(txCtx, sessionID, userID); err != nil {
-			return nil, pkgErrors.Wrap(err, pkgErrors.ErrCodeInternalError, "Failed to transfer guest reservations to user")
-		}
-
-		if err := txRepo.Update(txCtx, guestCart); err != nil {
-			return nil, pkgErrors.Wrap(err, pkgErrors.ErrCodeInternalError, "Failed to convert guest cart to user cart")
-		}
-
-		return uc.toCartResponse(guestCart), nil
-	}
-
-	// User cart exists, apply merge strategy
-	switch strategy {
-	case MergeStrategyKeepUser:
-		// Keep user cart, mark guest cart as abandoned
-		guestCart.MarkAsAbandoned()
-		if err := txRepo.Update(txCtx, guestCart); err != nil {
-			return nil, pkgErrors.Wrap(err, pkgErrors.ErrCodeInternalError, "Failed to mark guest cart as abandoned")
-		}
-		return uc.toCartResponse(userCart), nil
-
-	case MergeStrategyReplace:
-		// Replace user cart with guest cart
-		// Clear user cart items first
-		if err := txRepo.ClearCart(txCtx, userCart.ID); err != nil {
-			return nil, pkgErrors.Wrap(err, pkgErrors.ErrCodeInternalError, "Failed to clear user cart")
-		}
-
-		// Move guest cart items to user cart
-		for _, guestItem := range guestCart.Items {
-			newItem := &entities.CartItem{
-				ID:        uuid.New(),
-				CartID:    userCart.ID,
-				ProductID: guestItem.ProductID,
-				Quantity:  guestItem.Quantity,
-				Price:     guestItem.Price,
-				CreatedAt: time.Now(),
-				UpdatedAt: time.Now(),
+			// Also need to update any stock reservations to point to user instead of session
+			if err := uc.transferGuestReservationsToUser(txCtx, sessionID, userID); err != nil {
+				return nil, pkgErrors.Wrap(err, pkgErrors.ErrCodeInternalError, "Failed to transfer guest reservations to user")
 			}
-			// Calculate and set total
-			newItem.CalculateTotal()
 
-			if err := txRepo.AddItem(txCtx, userCart.ID, newItem); err != nil {
-				return nil, pkgErrors.Wrap(err, pkgErrors.ErrCodeInternalError, "Failed to replace cart item")
+			if err := txRepo.Update(txCtx, guestCart); err != nil {
+				return nil, pkgErrors.Wrap(err, pkgErrors.ErrCodeInternalError, "Failed to convert guest cart to user cart")
 			}
+
+			return uc.toCartResponse(guestCart), nil
 		}
 
-		// Mark guest cart as converted
-		guestCart.MarkAsConverted()
-		if err := txRepo.Update(txCtx, guestCart); err != nil {
-			return nil, pkgErrors.Wrap(err, pkgErrors.ErrCodeInternalError, "Failed to mark guest cart as converted")
+		// User cart exists, apply merge strategy
+		switch strategy {
+		case MergeStrategyKeepUser:
+			// Keep user cart, mark guest cart as abandoned
+			guestCart.MarkAsAbandoned()
+			if err := txRepo.Update(txCtx, guestCart); err != nil {
+				return nil, pkgErrors.Wrap(err, pkgErrors.ErrCodeInternalError, "Failed to mark guest cart as abandoned")
+			}
+			return uc.toCartResponse(userCart), nil
+
+		case MergeStrategyReplace:
+			// Replace user cart with guest cart
+			// Clear user cart items first
+			if err := txRepo.ClearCart(txCtx, userCart.ID); err != nil {
+				return nil, pkgErrors.Wrap(err, pkgErrors.ErrCodeInternalError, "Failed to clear user cart")
+			}
+
+			// Move guest cart items to user cart
+			for _, guestItem := range guestCart.Items {
+				newItem := &entities.CartItem{
+					ID:        uuid.New(),
+					CartID:    userCart.ID,
+					ProductID: guestItem.ProductID,
+					Quantity:  guestItem.Quantity,
+					Price:     guestItem.Price,
+					CreatedAt: time.Now(),
+					UpdatedAt: time.Now(),
+				}
+				// Calculate and set total
+				newItem.CalculateTotal()
+
+				if err := txRepo.AddItem(txCtx, userCart.ID, newItem); err != nil {
+					return nil, pkgErrors.Wrap(err, pkgErrors.ErrCodeInternalError, "Failed to replace cart item")
+				}
+			}
+
+			// Mark guest cart as converted
+			guestCart.MarkAsConverted()
+			if err := txRepo.Update(txCtx, guestCart); err != nil {
+				return nil, pkgErrors.Wrap(err, pkgErrors.ErrCodeInternalError, "Failed to mark guest cart as converted")
+			}
+
+		case MergeStrategyMerge, MergeStrategyAuto:
+			// Merge guest cart items into user cart (existing logic)
+			return uc.mergeCartItemsWithRepo(txCtx, txRepo, userCart, guestCart)
 		}
 
-	case MergeStrategyMerge, MergeStrategyAuto:
-		// Merge guest cart items into user cart (existing logic)
-		return uc.mergeCartItemsWithRepo(txCtx, txRepo, userCart, guestCart)
-	}
+		// Get updated user cart
+		updatedUserCart, err := txRepo.GetByID(txCtx, userCart.ID)
+		if err != nil {
+			return nil, pkgErrors.Wrap(err, pkgErrors.ErrCodeCartNotFound, "Failed to get updated user cart")
+		}
 
-	// Get updated user cart
-	updatedUserCart, err := txRepo.GetByID(txCtx, userCart.ID)
-	if err != nil {
-		return nil, pkgErrors.Wrap(err, pkgErrors.ErrCodeCartNotFound, "Failed to get updated user cart")
-	}
-
-	return uc.toCartResponse(updatedUserCart), nil
-})
+		return uc.toCartResponse(updatedUserCart), nil
+	})
 
 	if err != nil {
 		return nil, err

@@ -6,21 +6,24 @@
 import { Product } from '@/types'
 
 export interface PriceInfo {
-  // Current selling price (backend computed)
+  // Current selling price (what customer pays)
   currentPrice: number
-  // Original price
+  // Original price (for strikethrough display)
+  originalPrice?: number
+  // Base product price
   price: number
-  // Compare price for discount calculation
+  // Compare price for marketing
   comparePrice?: number
   // Cost price
   costPrice?: number
   // Sale price if on sale
   salePrice?: number
-  // Backend computed discount flags
+  // Discount flags (from backend)
   hasDiscount: boolean
   isOnSale: boolean
-  // Backend computed discount percentage
+  // Discount percentages (from backend)
   discountPercentage: number
+  saleDiscountPercentage: number
   // Availability
   isAvailable: boolean
   // Stock info
@@ -33,14 +36,15 @@ export interface PriceInfo {
  * Check if a product has a discount (using backend computed field)
  */
 export function hasDiscount(product: Product): boolean {
-  return product.has_discount || product.is_on_sale
+  return product.has_discount
 }
 
 /**
  * Get discount percentage (using backend computed field)
+ * Returns the effective discount percentage calculated by backend
  */
 export function getDiscountPercentage(product: Product): number {
-  return product.sale_discount_percentage || 0
+  return product.discount_percentage || 0
 }
 
 /**
@@ -54,17 +58,21 @@ export function isProductAvailable(product: Product): boolean {
  * Get the current selling price (using backend computed field)
  */
 export function getCurrentPrice(product: Product): number {
-  return product.current_price || product.price
+  return product.current_price
 }
 
 /**
- * Get the display price for comparison (original price when on sale)
+ * Get the original price for strikethrough display (using backend computed field)
  */
-export function getComparePrice(product: Product): number | undefined {
-  if (product.is_on_sale && product.price !== product.current_price) {
-    return product.price
-  }
-  return product.compare_price
+export function getOriginalPrice(product: Product): number | undefined {
+  return product.original_price
+}
+
+/**
+ * Check if product is currently on sale (using backend computed field)
+ */
+export function isOnSale(product: Product): boolean {
+  return product.is_on_sale
 }
 
 /**
@@ -73,14 +81,16 @@ export function getComparePrice(product: Product): number | undefined {
  */
 export function getPriceInfo(product: Product): PriceInfo {
   return {
-    currentPrice: getCurrentPrice(product),
+    currentPrice: product.current_price,
+    originalPrice: product.original_price,
     price: product.price,
     comparePrice: product.compare_price,
     costPrice: product.cost_price,
     salePrice: product.sale_price,
     hasDiscount: product.has_discount,
     isOnSale: product.is_on_sale,
-    discountPercentage: product.sale_discount_percentage,
+    discountPercentage: product.discount_percentage,
+    saleDiscountPercentage: product.sale_discount_percentage,
     isAvailable: product.is_available,
     stock: product.stock,
     stockStatus: product.stock_status,

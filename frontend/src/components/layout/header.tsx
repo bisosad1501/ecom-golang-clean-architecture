@@ -22,12 +22,12 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
 import { useAuthStore } from '@/store/auth'
-import { useCartStore, getCartItemCount } from '@/store/cart'
+import { useCartStore, getCartItemCount, getCartTotal } from '@/store/cart'
 import { APP_CONFIG } from '@/constants/app'
 import { USER_NAV } from '@/constants'
 import { getVisibleNavItems } from '@/lib/permissions'
 import { RequireAuth, RequireGuest } from '@/components/auth/permission-guard'
-import { cn } from '@/lib/utils'
+import { cn, formatPrice } from '@/lib/utils'
 import { CategoryMegaMenu } from './category-mega-menu'
 import { DESIGN_TOKENS } from '@/constants/design-tokens'
 
@@ -287,8 +287,22 @@ export function Header() {
                               <div className="flex-1 min-w-0">
                                 <div className="font-medium text-sm truncate">{item.product.name}</div>
                                 <div className="text-xs text-muted-foreground">Qty: {item.quantity}</div>
+                                {item.product.has_discount && (
+                                  <div className="text-xs text-orange-500 font-medium">
+                                    -{Math.round(item.product.discount_percentage || 0)}% OFF
+                                  </div>
+                                )}
                               </div>
-                              <div className="text-sm font-semibold">${item.product.price}</div>
+                              <div className="text-right">
+                                <div className="text-sm font-semibold">
+                                  {formatPrice(item.product.current_price)}
+                                </div>
+                                {item.product.has_discount && item.product.original_price && (
+                                  <div className="text-xs text-gray-500 line-through">
+                                    {formatPrice(item.product.original_price)}
+                                  </div>
+                                )}
+                              </div>
                             </div>
                           ))}
                         </div>
@@ -303,7 +317,7 @@ export function Header() {
                           <div className="flex items-center justify-between mb-3">
                             <span className="font-semibold">Total:</span>
                             <span className="font-bold text-lg text-primary">
-                              ${cart.items.reduce((sum, item) => sum + (item.product.price * item.quantity), 0).toFixed(2)}
+                              {formatPrice(getCartTotal(cart))}
                             </span>
                           </div>
                           <Button className="w-full" variant="gradient" onClick={() => router.push('/cart')}>

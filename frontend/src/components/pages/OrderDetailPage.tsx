@@ -340,9 +340,9 @@ export function OrderDetailPage({ orderId }: Props) {
                               <span className="text-2xl font-bold text-white">
                                 {formatPrice(item.price)}
                               </span>
-                              {item.product?.compare_price && item.price < item.product.compare_price && (
+                              {item.product?.has_discount && item.product?.original_price && (
                                 <span className="text-lg line-through text-gray-500">
-                                  {formatPrice(item.product.compare_price)}
+                                  {formatPrice(item.product.original_price)}
                                 </span>
                               )}
                             </div>
