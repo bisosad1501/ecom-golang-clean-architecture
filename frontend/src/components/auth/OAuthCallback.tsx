@@ -45,13 +45,13 @@ export const OAuthCallback: React.FC<OAuthCallbackProps> = ({ provider }) => {
 
           // We need to get user info with this token
           // Set token in API client first
-          const { apiClient } = await import('../../lib/api-client');
+          const { apiClient } = await import('../../lib/api');
           apiClient.setToken(token);
 
           // Get user profile to complete login
           const userResponse = await apiClient.get('/users/profile');
 
-          // ApiClient already extracts the data field
+          // Axios response format: response.data contains the backend data
           const userData = userResponse.data;
 
           // Store authentication data

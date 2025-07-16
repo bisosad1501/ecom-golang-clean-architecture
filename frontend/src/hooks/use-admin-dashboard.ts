@@ -1,7 +1,7 @@
 'use client'
 
 import { useQuery } from '@tanstack/react-query'
-import { apiClient } from '@/lib/api-client'
+import { apiClient } from '@/lib/api'
 
 // Query keys
 const adminDashboardKeys = {
@@ -84,14 +84,10 @@ export function useAdminDashboard(params: {
         const response = await apiClient.get<any>(url)
         console.log('useAdminDashboard - Raw response:', response)
         console.log('useAdminDashboard - Response data structure:', JSON.stringify(response.data, null, 2))
-        
-        // Handle SuccessResponse wrapper
-        let dashboardData = response.data
-        if (response.data && response.data.data) {
-          console.log('useAdminDashboard - Unwrapping SuccessResponse')
-          dashboardData = response.data.data
-        }
-        
+
+        // Axios response format: response.data contains the backend data directly
+        const dashboardData = response.data
+
         console.log('useAdminDashboard - Final dashboard data:', dashboardData)
         console.log('useAdminDashboard - Overview object:', dashboardData?.overview)
         console.log('useAdminDashboard - Total revenue value:', dashboardData?.overview?.total_revenue)
@@ -117,14 +113,10 @@ export function useSystemStats() {
       try {
         const response = await apiClient.get<any>('/admin/dashboard/stats')
         console.log('useSystemStats - Raw response:', response)
-        
-        // Handle SuccessResponse wrapper
-        let statsData = response.data
-        if (response.data && response.data.data) {
-          console.log('useSystemStats - Unwrapping SuccessResponse')
-          statsData = response.data.data
-        }
-        
+
+        // Axios response format: response.data contains the backend data directly
+        const statsData = response.data
+
         console.log('useSystemStats - Final stats data:', statsData)
         return statsData
       } catch (error) {
@@ -160,14 +152,10 @@ export function useAdminAnalytics(params: {
       try {
         const response = await apiClient.get<any>(url)
         console.log('useAdminAnalytics - Raw response:', response)
-        
-        // Handle SuccessResponse wrapper
-        let analyticsData = response.data
-        if (response.data && response.data.data) {
-          console.log('useAdminAnalytics - Unwrapping SuccessResponse')
-          analyticsData = response.data.data
-        }
-        
+
+        // Axios response format: response.data contains the backend data directly
+        const analyticsData = response.data
+
         console.log('useAdminAnalytics - Final analytics data:', analyticsData)
         return analyticsData
       } catch (error) {

@@ -1,4 +1,4 @@
-import { apiClient } from '../lib/api-client';
+import { apiClient } from '../lib/api';
 
 export interface OAuthURLResponse {
   url: string;
@@ -34,19 +34,13 @@ export class OAuthService {
 
     console.log('Google OAuth URL response:', response);
     console.log('Google OAuth URL response.data:', response.data);
-    console.log('Google OAuth URL response.data.data:', (response.data as any)?.data);
 
-    // The API client extracts data.data from the backend response
+    // Axios response format: response.data contains the backend data directly
     // Backend returns: { message: string, data: OAuthURLResponse }
-    // ApiClient extracts the 'data' field and returns it as response.data
-    // So response.data should be OAuthURLResponse
+    // Axios extracts the entire response body as response.data
     const oauthData = response.data as any;
-    if (oauthData && typeof oauthData === 'object' && 'data' in oauthData) {
-      return oauthData.data;
-    }
-    
-    // If already extracted
-    return response.data as unknown as OAuthURLResponse;
+
+    return oauthData;
   }
 
   /**
@@ -60,19 +54,11 @@ export class OAuthService {
 
     console.log('Facebook OAuth URL response:', response);
     console.log('Facebook OAuth URL response.data:', response.data);
-    console.log('Facebook OAuth URL response.data.data:', (response.data as any)?.data);
 
-    // The API client extracts data.data from the backend response
-    // Backend returns: { message: string, data: OAuthURLResponse }
-    // ApiClient extracts the 'data' field and returns it as response.data
-    // So response.data should be OAuthURLResponse
+    // Axios response format: response.data contains the backend data directly
     const oauthData = response.data as any;
-    if (oauthData && typeof oauthData === 'object' && 'data' in oauthData) {
-      return oauthData.data;
-    }
-    
-    // If already extracted
-    return response.data as unknown as OAuthURLResponse;
+
+    return oauthData;
   }
 
   /**
@@ -89,7 +75,8 @@ export class OAuthService {
     }>(`/auth/${provider}/callback?code=${code}&state=${state}`);
 
 
-    return response.data.data;
+    // Axios response format: response.data contains the backend data directly
+    return response.data;
   }
 
   /**

@@ -27,7 +27,7 @@ import { useProducts } from '@/hooks/use-products'
 import { useCategories } from '@/hooks/use-categories'
 import { Category, Product } from '@/types'
 import { cn } from '@/lib/utils'
-import apiClient from '@/lib/api-client'
+import { apiClient } from '@/lib/api'
 
 interface CategoryPageLayoutProps {
   categoryId?: string
@@ -78,7 +78,7 @@ export function CategoryPageLayout({ categoryId, className }: CategoryPageLayout
 
         // Get product count
         const countResponse = await apiClient.get(`/categories/${categoryId}/count`)
-        const productCount = (countResponse.data as any)?.data?.product_count || 0
+        const productCount = countResponse.data?.product_count || 0
         
         // Get subcategories
         const subcategories = categories.filter(c => c.parent_id === categoryId)

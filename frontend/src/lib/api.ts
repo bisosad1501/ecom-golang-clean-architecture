@@ -409,6 +409,49 @@ class ApiClient {
     }
   }
 
+  // Compatibility methods for api-client.ts replacement
+  // These methods return the same format as api-client.ts for seamless migration
+  async getCompat<T>(endpoint: string, params?: Record<string, any>): Promise<{ data: T; response: any }> {
+    const response = await this.get<T>(endpoint, { params })
+    return {
+      data: response.data!,
+      response: { status: 200 } // Mock response object for compatibility
+    }
+  }
+
+  async postCompat<T>(endpoint: string, data?: any): Promise<{ data: T; response: any }> {
+    const response = await this.post<T>(endpoint, data)
+    return {
+      data: response.data!,
+      response: { status: 200 }
+    }
+  }
+
+  // Additional compatibility methods for layout components
+  async putCompat<T>(endpoint: string, data?: any): Promise<{ data: T; response: any }> {
+    const response = await this.put<T>(endpoint, data)
+    return {
+      data: response.data!,
+      response: { status: 200 }
+    }
+  }
+
+  async patchCompat<T>(endpoint: string, data?: any): Promise<{ data: T; response: any }> {
+    const response = await this.patch<T>(endpoint, data)
+    return {
+      data: response.data!,
+      response: { status: 200 }
+    }
+  }
+
+  async deleteCompat<T>(endpoint: string): Promise<{ data: T; response: any }> {
+    const response = await this.delete<T>(endpoint)
+    return {
+      data: response.data!,
+      response: { status: 200 }
+    }
+  }
+
   async refreshToken(refreshToken: string): Promise<{ token: string; refresh_token: string }> {
     const response = await this.post<{ token: string; refresh_token: string }>('/auth/refresh', {
       refresh_token: refreshToken,
@@ -430,6 +473,89 @@ class ApiClient {
 
 // Create singleton instance
 export const apiClient = new ApiClient()
+
+// Compatibility layer: authApi that matches api-client.ts interface
+export const authApi = {
+  login: async (credentials: LoginRequest): Promise<AuthResponse> => {
+    console.log('authApi.login - Using Axios client')
+    const response = await apiClient.post<any>('/auth/login', credentials)
+    console.log('authApi.login - Raw response:', response)
+
+    // Extract auth data from Axios response
+    const authData = response.data
+    console.log('authApi.login - Auth data:', authData)
+
+    if (!authData) {
+      throw new Error('No auth data in response')
+    }
+
+    if (!authData.user) {
+      console.error('Missing user in authData:', authData)
+      throw new Error('No user data in response')
+    }
+
+    if (!authData.token) {
+      console.error('Missing token in authData:', authData)
+      throw new Error('No token in response')
+    }
+
+    return authData
+  },
+
+  register: async (userData: RegisterRequest): Promise<any> => {
+    console.log('authApi.register - Using Axios client')
+    const response = await apiClient.post<any>('/auth/register', userData)
+    console.log('authApi.register - Raw response:', response)
+
+    const userData_response = response.data
+    if (!userData_response) {
+      throw new Error('Invalid register response format')
+    }
+
+    console.log('authApi.register - User data:', userData_response)
+    return userData_response
+  },
+
+  logout: async (): Promise<void> => {
+    try {
+      await apiClient.post('/auth/logout')
+    } catch (error) {
+      console.warn('Logout API call failed:', error)
+    } finally {
+      apiClient.clearToken()
+    }
+  },
+
+  refreshToken: async (): Promise<AuthResponse> => {
+    const response = await apiClient.post<AuthResponse>('/auth/refresh')
+    return response.data!
+  },
+
+  getProfile: async (): Promise<any> => {
+    console.log('authApi.getProfile - Using Axios client')
+    const response = await apiClient.get<any>('/users/profile')
+    console.log('authApi.getProfile - Raw response:', response)
+
+    const userData = response.data
+    if (!userData) {
+      throw new Error('Invalid profile response format')
+    }
+
+    console.log('authApi.getProfile - User data:', userData)
+    return userData
+  },
+
+  oauthLogin: async (data: import('@/types/auth').OAuthLoginRequest): Promise<AuthResponse> => {
+    const response = await apiClient.post<any>(`/auth/${data.provider}/callback`, data)
+    const authData = response.data
+
+    if (!authData || !authData.user || !authData.token) {
+      throw new Error('Invalid OAuth response format')
+    }
+
+    return authData
+  },
+}
 
 // Helper function to build query string
 export function buildQueryString(params: Record<string, any>): string {
@@ -464,3 +590,55 @@ export async function getPaginated<T>(
 
 // Export default instance
 export default apiClient
+
+// Compatibility exports for api-client.ts replacement
+// This allows seamless migration from api-client.ts to api.ts
+export { apiClient as apiClientCompat }
+
+// Additional compatibility exports
+export const productsApi = {
+  getAll: async (params?: any): Promise<any> => {
+    const queryParams = new URLSearchParams()
+    if (params?.limit) queryParams.append('limit', params.limit.toString())
+    if (params?.offset) queryParams.append('offset', params.offset.toString())
+    if (params?.category_id) queryParams.append('category_id', params.category_id)
+    if (params?.search) queryParams.append('search', params.search)
+    if (params?.sort) queryParams.append('sort', params.sort)
+    if (params?.order) queryParams.append('order', params.order)
+
+    const url = `/products${queryParams.toString() ? '?' + queryParams.toString() : ''}`
+    const response = await apiClient.get<any>(url)
+    return response.data
+  },
+
+  getById: async (id: string): Promise<any> => {
+    const response = await apiClient.get<any>(`/products/${id}`)
+    return response.data
+  },
+
+  create: async (productData: any): Promise<any> => {
+    const response = await apiClient.post<any>('/admin/products', productData)
+    return response.data
+  },
+
+  update: async (id: string, productData: any): Promise<any> => {
+    const response = await apiClient.put<any>(`/admin/products/${id}`, productData)
+    return response.data
+  },
+
+  delete: async (id: string): Promise<void> => {
+    await apiClient.delete(`/admin/products/${id}`)
+  },
+}
+
+export const categoriesApi = {
+  getAll: async (): Promise<any> => {
+    const response = await apiClient.get<any>('/categories')
+    return response.data
+  },
+
+  getById: async (id: string): Promise<any> => {
+    const response = await apiClient.get<any>(`/categories/${id}`)
+    return response.data
+  },
+}

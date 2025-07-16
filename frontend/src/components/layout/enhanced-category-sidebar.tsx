@@ -24,7 +24,7 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/component
 import { useCategories } from '@/hooks/use-categories'
 import { Category } from '@/types'
 import { cn } from '@/lib/utils'
-import apiClient from '@/lib/api-client'
+import { apiClient } from '@/lib/api'
 
 interface EnhancedCategorySidebarProps {
   selectedCategoryId?: string

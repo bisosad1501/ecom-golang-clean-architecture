@@ -1,6 +1,4 @@
-import axios from 'axios';
-
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080/api/v1';
+import { apiClient } from '@/lib/api';
 
 // Types
 export interface ReviewUser {
@@ -79,87 +77,57 @@ export interface GetReviewsParams {
 
 // API Service Class
 class ReviewService {
-  private getAuthHeaders() {
-    const token = localStorage.getItem('token');
-    return token ? { Authorization: `Bearer ${token}` } : {};
-  }
-
   // Public APIs (no auth required)
   async getProductReviews(productId: string, params?: GetReviewsParams): Promise<ReviewsResponse> {
-    const response = await axios.get(`${API_BASE_URL}/public/reviews/product/${productId}`, {
-      params,
-    });
-    return response.data.data;
+    const response = await apiClient.get(`/public/reviews/product/${productId}`, { params });
+    return response.data;
   }
 
   async getProductRatingSummary(productId: string): Promise<ProductRatingSummary> {
-    const response = await axios.get(`${API_BASE_URL}/public/reviews/product/${productId}/summary`);
-    return response.data.data;
+    const response = await apiClient.get(`/public/reviews/product/${productId}/summary`);
+    return response.data;
   }
 
   // Protected APIs (auth required)
   async createReview(data: CreateReviewRequest): Promise<Review> {
-    const response = await axios.post(`${API_BASE_URL}/reviews`, data, {
-      headers: this.getAuthHeaders(),
-    });
-    return response.data.data;
+    const response = await apiClient.post(`/reviews`, data);
+    return response.data;
   }
 
   async updateReview(reviewId: string, data: UpdateReviewRequest): Promise<Review> {
-    const response = await axios.put(`${API_BASE_URL}/reviews/${reviewId}`, data, {
-      headers: this.getAuthHeaders(),
-    });
-    return response.data.data;
+    const response = await apiClient.put(`/reviews/${reviewId}`, data);
+    return response.data;
   }
 
   async deleteReview(reviewId: string): Promise<void> {
-    await axios.delete(`${API_BASE_URL}/reviews/${reviewId}`, {
-      headers: this.getAuthHeaders(),
-    });
+    await apiClient.delete(`/reviews/${reviewId}`);
   }
 
   async getUserReviews(params?: GetReviewsParams): Promise<ReviewsResponse> {
-    const response = await axios.get(`${API_BASE_URL}/reviews/user`, {
-      headers: this.getAuthHeaders(),
-      params,
-    });
-    return response.data.data;
+    const response = await apiClient.get(`/reviews/user`, { params });
+    return response.data;
   }
 
   async voteReview(reviewId: string, isHelpful: boolean): Promise<void> {
-    await axios.post(`${API_BASE_URL}/reviews/${reviewId}/vote`, 
-      { is_helpful: isHelpful },
-      { headers: this.getAuthHeaders() }
-    );
+    await apiClient.post(`/reviews/${reviewId}/vote`, { is_helpful: isHelpful });
   }
 
   async removeVote(reviewId: string): Promise<void> {
-    await axios.delete(`${API_BASE_URL}/reviews/${reviewId}/vote`, {
-      headers: this.getAuthHeaders(),
-    });
+    await apiClient.delete(`/reviews/${reviewId}/vote`);
   }
 
   // Admin APIs
   async getAdminReviews(params?: GetReviewsParams & { status?: string }): Promise<ReviewsResponse> {
-    const response = await axios.get(`${API_BASE_URL}/admin/reviews`, {
-      headers: this.getAuthHeaders(),
-      params,
-    });
-    return response.data.data;
+    const response = await apiClient.get(`/admin/reviews`, { params });
+    return response.data;
   }
 
   async updateReviewStatus(reviewId: string, status: 'approved' | 'hidden' | 'rejected'): Promise<void> {
-    await axios.put(`${API_BASE_URL}/admin/reviews/${reviewId}/status`, 
-      { status },
-      { headers: this.getAuthHeaders() }
-    );
+    await apiClient.put(`/admin/reviews/${reviewId}/status`, { status });
   }
 
   async replyToReview(reviewId: string, reply: string): Promise<void> {
-    await axios.post(`${API_BASE_URL}/admin/reviews/${reviewId}/reply`, 
-      { reply },
-      { headers: this.getAuthHeaders() }
-    );
+    await apiClient.post(`/admin/reviews/${reviewId}/reply`, { reply });
   }
 }
 

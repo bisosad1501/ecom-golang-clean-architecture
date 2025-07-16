@@ -10,7 +10,7 @@ import { EnhancedCategorySidebar } from '@/components/layout/enhanced-category-s
 import { useCategories } from '@/hooks/use-categories'
 import { Category } from '@/types'
 import { cn } from '@/lib/utils'
-import apiClient from '@/lib/api-client'
+import { apiClient } from '@/lib/api'
 
 interface SimpleCategoryPageProps {
   categoryId?: string

@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { ChevronRight, Home, Package } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
-import apiClient from '@/lib/api-client'
+import { apiClient } from '@/lib/api'
 import { Category } from '@/types'
 import { cn } from '@/lib/utils'
 
@@ -41,7 +41,7 @@ export function CategoryBreadcrumbs({
         
         // Fetch category path from our new API endpoint
         const response = await apiClient.get(`/categories/${categoryId}/path`)
-        const categoryPath: Category[] = (response.data as any)?.data || []
+        const categoryPath: Category[] = response.data || []
         
         const breadcrumbItems: BreadcrumbItem[] = categoryPath.map((category) => ({
           id: category.id,

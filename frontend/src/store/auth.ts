@@ -1,6 +1,6 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
-import { apiClient, authApi } from '@/lib/api-client'
+import { apiClient, authApi } from '@/lib/api'
 import { User, AuthResponse, LoginRequest, RegisterRequest } from '@/types'
 import type { OAuthLoginRequest } from '@/types/auth'
 import { AUTH_TOKEN_KEY } from '@/constants'
