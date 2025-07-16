@@ -1,11 +1,11 @@
-import { apiClient } from './client';
-import { 
-  Notification, 
-  NotificationFilters, 
+import { apiClient } from '@/lib/api';
+import {
+  Notification,
+  NotificationFilters,
   NotificationResponse,
   NotificationPreferences,
   UpdateNotificationPreferencesRequest,
-  CreateNotificationRequest 
+  CreateNotificationRequest
 } from '@/types/notification';
 
 export const notificationApi = {

@@ -19,7 +19,7 @@ interface NotificationDropdownProps {
 }
 
 export function NotificationDropdown({
-  notifications,
+  notifications = [],
   unreadCount,
   loading,
   onClose,

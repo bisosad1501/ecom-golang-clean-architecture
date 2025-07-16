@@ -7,6 +7,7 @@ import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
 import { useNotifications } from '@/hooks/use-notifications';
+import { useAuthStore } from '@/store/auth';
 import { NotificationItem } from './notification-item';
 import { NotificationDropdown } from './notification-dropdown';
 
@@ -16,28 +17,34 @@ interface NotificationBellProps {
 
 export function NotificationBell({ className }: NotificationBellProps) {
   const [isOpen, setIsOpen] = useState(false);
-  const { 
-    notifications, 
-    unreadCount, 
-    loading, 
-    markAsRead, 
+  const { isAuthenticated, isHydrated } = useAuthStore();
+  const {
+    notifications,
+    unreadCount,
+    loading,
+    markAsRead,
     markAllAsRead,
-    fetchNotifications 
+    fetchNotifications
   } = useNotifications();
 
-  // Fetch notifications on mount
+  // Fetch notifications on mount only if authenticated
   useEffect(() => {
-    fetchNotifications();
-  }, [fetchNotifications]);
-
-  // Auto-refresh notifications every 30 seconds
-  useEffect(() => {
-    const interval = setInterval(() => {
+    if (isAuthenticated && isHydrated) {
       fetchNotifications();
-    }, 30000);
+    }
+  }, [fetchNotifications, isAuthenticated, isHydrated]);
+
+  // Auto-refresh notifications every 60 seconds (reduced frequency) with silent mode
+  useEffect(() => {
+    if (!isAuthenticated || !isHydrated) return;
+
+    const interval = setInterval(() => {
+      // Use silent mode to avoid showing errors during auto-refresh
+      fetchNotifications(undefined, true);
+    }, 60000); // Increased from 30s to 60s
 
     return () => clearInterval(interval);
-  }, [fetchNotifications]);
+  }, [fetchNotifications, isAuthenticated, isHydrated]);
 
   const handleBellClick = () => {
     setIsOpen(!isOpen);

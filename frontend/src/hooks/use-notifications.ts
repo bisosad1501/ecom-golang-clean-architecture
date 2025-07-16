@@ -9,7 +9,7 @@ import {
   NotificationPreferences,
   UpdateNotificationPreferencesRequest 
 } from '@/types/notification';
-import { notificationApi } from '@/lib/api/notification';
+import { notificationApi } from '@/lib/services/notification';
 
 export function useNotifications() {
   const [notifications, setNotifications] = useState<Notification[]>([]);
@@ -18,20 +18,37 @@ export function useNotifications() {
   const [error, setError] = useState<string | null>(null);
 
   // Fetch notifications
-  const fetchNotifications = useCallback(async (filters?: NotificationFilters) => {
+  const fetchNotifications = useCallback(async (filters?: NotificationFilters, silent = false) => {
     try {
-      setLoading(true);
+      if (!silent) {
+        setLoading(true);
+      }
       setError(null);
-      
+
       const response = await notificationApi.getUserNotifications(filters);
       setNotifications(response.notifications);
       setUnreadCount(response.unread_count);
-    } catch (err) {
+    } catch (err: any) {
+      // Handle auth errors silently to avoid toast spam during auto-refresh
+      if (err?.response?.status === 401) {
+        // Auth error - don't show toast for silent requests
+        if (!silent) {
+          setError('Phiên đăng nhập đã hết hạn');
+        }
+        return;
+      }
+
       const errorMessage = err instanceof Error ? err.message : 'Không thể tải thông báo';
       setError(errorMessage);
-      toast.error(errorMessage);
+
+      // Only show toast for non-silent requests
+      if (!silent) {
+        toast.error(errorMessage);
+      }
     } finally {
-      setLoading(false);
+      if (!silent) {
+        setLoading(false);
+      }
     }
   }, []);
 
