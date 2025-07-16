@@ -2,7 +2,7 @@
 
 import React from 'react';
 import { Star, TrendingUp } from 'lucide-react';
-import { ProductRatingSummary } from '@/services/review';
+import { ProductRatingSummary } from '@/lib/services/review';
 import { RatingDisplay, RatingBreakdown } from './rating-stars';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';

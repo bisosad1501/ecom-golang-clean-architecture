@@ -9,7 +9,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { RatingStars } from './rating-stars';
-import { CreateReviewRequest, UpdateReviewRequest, Review } from '@/services/review';
+import { CreateReviewRequest, UpdateReviewRequest, Review } from '@/lib/services/review';
 import { cn } from '@/lib/utils';
 
 interface ReviewFormData {

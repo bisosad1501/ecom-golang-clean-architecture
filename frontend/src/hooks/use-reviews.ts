@@ -3,15 +3,15 @@
 import { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
-import { 
-  reviewService, 
-  Review, 
-  ReviewsResponse, 
-  ProductRatingSummary, 
-  CreateReviewRequest, 
+import {
+  reviewService,
+  Review,
+  ReviewsResponse,
+  ProductRatingSummary,
+  CreateReviewRequest,
   UpdateReviewRequest,
-  GetReviewsParams 
-} from '@/services/review';
+  GetReviewsParams
+} from '@/lib/services/review';
 
 // Hook for product reviews
 export function useProductReviews(productId: string, params?: GetReviewsParams) {

@@ -19,7 +19,7 @@ import {
   useRemoveVote 
 } from '@/hooks/use-reviews';
 import { useAuthStore } from '@/store/auth';
-import { Review, CreateReviewRequest, UpdateReviewRequest } from '@/services/review';
+import { Review, CreateReviewRequest, UpdateReviewRequest } from '@/lib/services/review';
 import { cn } from '@/lib/utils';
 
 interface ProductReviewsSectionProps {

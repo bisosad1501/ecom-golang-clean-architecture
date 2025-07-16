@@ -2,7 +2,7 @@
 
 import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
-import { oauthService } from '../../services/oauth';
+import { oauthService } from '@/lib/services/oauth';
 
 interface OAuthButtonsProps {
   onError?: (error: string) => void;

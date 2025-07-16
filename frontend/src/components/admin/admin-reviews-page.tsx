@@ -28,7 +28,7 @@ import {
   useUpdateReviewStatus, 
   useReplyToReview 
 } from '@/hooks/use-reviews';
-import { Review, GetReviewsParams } from '@/services/review';
+import { Review, GetReviewsParams } from '@/lib/services/review';
 import { cn } from '@/lib/utils';
 
 export function AdminReviewsPage() {

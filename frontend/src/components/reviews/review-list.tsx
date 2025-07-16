@@ -2,7 +2,7 @@
 
 import React from 'react';
 import { Filter, SortAsc, SortDesc, Star } from 'lucide-react';
-import { Review, GetReviewsParams } from '@/services/review';
+import { Review, GetReviewsParams } from '@/lib/services/review';
 import { ReviewCard } from './review-card';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';

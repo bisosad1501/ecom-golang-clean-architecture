@@ -2,7 +2,7 @@
 
 import React from 'react';
 import { ThumbsUp, ThumbsDown, Shield, MoreVertical, Reply } from 'lucide-react';
-import { Review } from '@/services/review';
+import { Review } from '@/lib/services/review';
 import { RatingStars } from './rating-stars';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';

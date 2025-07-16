@@ -2,8 +2,8 @@
 
 import React, { useEffect, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { oauthService } from '../../services/oauth';
-import { useAuthStore } from '../../store/auth';
+import { oauthService } from '@/lib/services/oauth';
+import { useAuthStore } from '@/store/auth';
 
 interface OAuthCallbackProps {
   provider: 'google' | 'facebook';
