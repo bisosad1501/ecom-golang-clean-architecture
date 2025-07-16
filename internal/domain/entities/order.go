@@ -123,7 +123,7 @@ type Order struct {
 	TrackingNumber       string     `json:"tracking_number"`
 	TrackingURL          string     `json:"tracking_url"`
 	Carrier              string     `json:"carrier"`
-	TotalWeight          float64    `json:"total_weight" gorm:"default:0"`        // Added total weight field
+	TotalWeight          float64    `json:"total_weight" gorm:"default:0"` // Added total weight field
 	EstimatedDelivery    *time.Time `json:"estimated_delivery"`
 	ActualDelivery       *time.Time `json:"actual_delivery"`
 	DeliveryInstructions string     `json:"delivery_instructions" gorm:"type:text"`
@@ -218,7 +218,7 @@ func (oi *OrderItem) Validate() error {
 	// Verify that total matches price * quantity with floating point tolerance
 	expectedTotal := oi.Price * float64(oi.Quantity)
 	const epsilon = 0.01
-	if math.Abs(oi.Total - expectedTotal) > epsilon {
+	if math.Abs(oi.Total-expectedTotal) > epsilon {
 		return fmt.Errorf("total %.2f does not match price %.2f * quantity %d = %.2f",
 			oi.Total, oi.Price, oi.Quantity, expectedTotal)
 	}
@@ -456,7 +456,7 @@ func (o *Order) Validate() error {
 	// Validate total calculation with floating point tolerance
 	expectedTotal := o.Subtotal + o.TaxAmount + o.ShippingAmount + o.TipAmount - o.DiscountAmount
 	const epsilon = 0.01
-	if math.Abs(o.Total - expectedTotal) > epsilon {
+	if math.Abs(o.Total-expectedTotal) > epsilon {
 		return fmt.Errorf("total %.2f does not match calculated total %.2f", o.Total, expectedTotal)
 	}
 
@@ -579,15 +579,24 @@ func (o *Order) syncFulfillmentStatus() {
 }
 
 // SyncPaymentStatus syncs order payment status with actual payment status
+// NOTE: This method only updates payment status, does NOT auto-transition order status
+// Use TryAutoTransitionOnPayment() separately if auto-transition is needed
 func (o *Order) SyncPaymentStatus(paymentStatus PaymentStatus) {
 	o.PaymentStatus = paymentStatus
 	o.UpdatedAt = time.Now()
+}
 
-	// Auto-transition order status based on payment status
-	if paymentStatus == PaymentStatusCompleted && o.Status == OrderStatusPending {
-		o.TransitionTo(OrderStatusConfirmed)
-	} else if paymentStatus == PaymentStatusFailed && o.Status == OrderStatusPending {
-		o.TransitionTo(OrderStatusCancelled)
+// TryAutoTransitionOnPayment attempts to auto-transition order status based on payment status
+// This is separated from SyncPaymentStatus to give explicit control over when transitions happen
+func (o *Order) TryAutoTransitionOnPayment() error {
+	switch {
+	case o.PaymentStatus == PaymentStatusPaid && o.Status == OrderStatusPending:
+		return o.TransitionTo(OrderStatusConfirmed)
+	case o.PaymentStatus == PaymentStatusFailed && o.Status == OrderStatusPending:
+		return o.TransitionTo(OrderStatusCancelled)
+	default:
+		// No transition needed or possible
+		return nil
 	}
 }
 

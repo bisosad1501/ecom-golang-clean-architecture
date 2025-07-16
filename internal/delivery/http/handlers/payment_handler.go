@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"strconv"
@@ -544,12 +545,24 @@ func (h *PaymentHandler) HandleWebhook(c *gin.Context) {
 		return
 	}
 
-	// Validate signature format
-	if len(signature) < 10 || len(signature) > 1000 {
-		c.JSON(http.StatusBadRequest, ErrorResponse{
-			Error: "Invalid signature format",
-		})
-		return
+	// Validate signature format based on provider
+	switch provider {
+	case "stripe":
+		// Stripe signatures start with "t=" and contain "v1="
+		if !strings.Contains(signature, "t=") || !strings.Contains(signature, "v1=") {
+			c.JSON(http.StatusBadRequest, ErrorResponse{
+				Error: "Invalid Stripe signature format",
+			})
+			return
+		}
+	case "paypal":
+		// PayPal signatures are base64 encoded
+		if len(signature) < 20 || len(signature) > 500 {
+			c.JSON(http.StatusBadRequest, ErrorResponse{
+				Error: "Invalid PayPal signature format",
+			})
+			return
+		}
 	}
 
 	payload, err := c.GetRawData()
@@ -571,6 +584,15 @@ func (h *PaymentHandler) HandleWebhook(c *gin.Context) {
 	if len(payload) > 1024*1024 { // 1MB limit
 		c.JSON(http.StatusBadRequest, ErrorResponse{
 			Error: "Webhook payload too large",
+		})
+		return
+	}
+
+	// Validate payload is valid JSON
+	var jsonPayload map[string]interface{}
+	if err := json.Unmarshal(payload, &jsonPayload); err != nil {
+		c.JSON(http.StatusBadRequest, ErrorResponse{
+			Error: "Invalid JSON payload",
 		})
 		return
 	}

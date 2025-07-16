@@ -5,6 +5,7 @@ import (
 	"log"
 
 	"ecom-golang-clean-architecture/internal/domain/entities"
+
 	"github.com/google/uuid"
 	"gorm.io/gorm"
 )
@@ -834,6 +835,65 @@ func migration008Up(db *gorm.DB) error {
 	}
 
 	log.Println("✅ Updated user verification structure and added user sessions")
+	return nil
+}
+
+// migration012Up adds abandoned cart tracking fields
+func migration012Up(db *gorm.DB) error {
+	log.Println("🔧 Adding abandoned cart tracking fields...")
+
+	sqls := []string{
+		// Add abandoned cart fields to carts table
+		"ALTER TABLE carts ADD COLUMN IF NOT EXISTS is_abandoned BOOLEAN DEFAULT false",
+		"ALTER TABLE carts ADD COLUMN IF NOT EXISTS abandoned_at TIMESTAMP WITH TIME ZONE",
+		"ALTER TABLE carts ADD COLUMN IF NOT EXISTS recovered_at TIMESTAMP WITH TIME ZONE",
+		"ALTER TABLE carts ADD COLUMN IF NOT EXISTS first_reminder_sent TIMESTAMP WITH TIME ZONE",
+		"ALTER TABLE carts ADD COLUMN IF NOT EXISTS second_reminder_sent TIMESTAMP WITH TIME ZONE",
+		"ALTER TABLE carts ADD COLUMN IF NOT EXISTS final_reminder_sent TIMESTAMP WITH TIME ZONE",
+		"ALTER TABLE carts ADD COLUMN IF NOT EXISTS total NUMERIC DEFAULT 0",
+
+		// Create indexes for abandoned cart queries
+		"CREATE INDEX IF NOT EXISTS idx_carts_is_abandoned ON carts(is_abandoned)",
+		"CREATE INDEX IF NOT EXISTS idx_carts_abandoned_at ON carts(abandoned_at)",
+		"CREATE INDEX IF NOT EXISTS idx_carts_updated_at ON carts(updated_at)",
+		"CREATE INDEX IF NOT EXISTS idx_carts_user_id_abandoned ON carts(user_id, is_abandoned)",
+	}
+
+	for _, sql := range sqls {
+		if err := db.Exec(sql).Error; err != nil {
+			return fmt.Errorf("failed to execute SQL: %s, error: %w", sql, err)
+		}
+	}
+
+	log.Println("✅ Added abandoned cart tracking fields")
+	return nil
+}
+
+// migration012Down removes abandoned cart tracking fields
+func migration012Down(db *gorm.DB) error {
+	log.Println("🔧 Removing abandoned cart tracking fields...")
+
+	sqls := []string{
+		"DROP INDEX IF EXISTS idx_carts_user_id_abandoned",
+		"DROP INDEX IF EXISTS idx_carts_updated_at",
+		"DROP INDEX IF EXISTS idx_carts_abandoned_at",
+		"DROP INDEX IF EXISTS idx_carts_is_abandoned",
+		"ALTER TABLE carts DROP COLUMN IF EXISTS total",
+		"ALTER TABLE carts DROP COLUMN IF EXISTS final_reminder_sent",
+		"ALTER TABLE carts DROP COLUMN IF EXISTS second_reminder_sent",
+		"ALTER TABLE carts DROP COLUMN IF EXISTS first_reminder_sent",
+		"ALTER TABLE carts DROP COLUMN IF EXISTS recovered_at",
+		"ALTER TABLE carts DROP COLUMN IF EXISTS abandoned_at",
+		"ALTER TABLE carts DROP COLUMN IF EXISTS is_abandoned",
+	}
+
+	for _, sql := range sqls {
+		if err := db.Exec(sql).Error; err != nil {
+			return fmt.Errorf("failed to execute SQL: %s, error: %w", sql, err)
+		}
+	}
+
+	log.Println("✅ Removed abandoned cart tracking fields")
 	return nil
 }
 

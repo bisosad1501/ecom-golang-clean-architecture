@@ -522,7 +522,7 @@ func (uc *orderUseCase) createOrderInTransaction(ctx context.Context, tx *gorm.D
 			ProductName: product.Name,
 			ProductSKU:  product.SKU,
 			Quantity:    cartItem.Quantity,
-			Price:       product.Price,  // Use current product price
+			Price:       product.Price, // Use current product price
 			Total:       float64(cartItem.Quantity) * product.Price,
 			Weight:      getProductWeight(product.Weight), // Add weight from product
 			CreatedAt:   time.Now(),
@@ -818,32 +818,51 @@ func (uc *orderUseCase) CancelOrder(ctx context.Context, orderID uuid.UUID) (*Or
 	// Handle stock based on payment status and order state
 	switch {
 	case order.IsPaid() && order.Status == entities.OrderStatusConfirmed:
-		// Order is paid and confirmed - need to restore actual stock
+		// Order is paid and confirmed - need to restore actual stock through inventory system
+		// This ensures consistency between inventory and product stock
 		for _, item := range order.Items {
-			product, err := uc.productRepo.GetByID(ctx, item.ProductID)
+			// Get inventory record for the product
+			inventory, err := uc.inventoryRepo.GetByProductID(ctx, item.ProductID)
 			if err != nil {
+				fmt.Printf("❌ Failed to get inventory for product %s: %v\n", item.ProductID, err)
 				continue
 			}
 
-			if err := product.IncreaseStock(item.Quantity); err != nil {
+			// Restore stock in inventory (source of truth)
+			inventory.QuantityOnHand += item.Quantity
+			inventory.QuantityAvailable = inventory.QuantityOnHand - inventory.QuantityReserved
+
+			// Update inventory in database
+			if err := uc.inventoryRepo.Update(ctx, inventory); err != nil {
+				fmt.Printf("❌ Failed to update inventory for product %s: %v\n", item.ProductID, err)
 				continue
 			}
-			if err := uc.productRepo.UpdateStock(ctx, item.ProductID, product.Stock); err != nil {
+
+			// Sync product stock with inventory (inventory is source of truth)
+			if err := uc.productRepo.UpdateStock(ctx, item.ProductID, inventory.QuantityOnHand); err != nil {
+				fmt.Printf("❌ Failed to sync product stock for %s: %v\n", item.ProductID, err)
 				continue
 			}
+
+			fmt.Printf("✅ Restored %d units for product %s (Inventory: %d)\n",
+				item.Quantity, item.ProductID, inventory.QuantityOnHand)
 		}
 
 	case !order.IsPaid() && order.HasInventoryReserved():
 		// Order is not paid but has reservations - release reservations
 		if err := uc.stockReservationService.ReleaseReservations(ctx, orderID); err != nil {
 			// Don't fail the cancellation, but log the error
+			fmt.Printf("❌ Failed to release reservations: %v\n", err)
 		}
 
 	case !order.IsPaid() && !order.HasInventoryReserved():
 		// Order is not paid and no reservations (possibly expired) - nothing to do
+		fmt.Printf("ℹ️ Order not paid and no reservations - nothing to restore\n")
 
 	default:
 		// Unexpected order state for cancellation
+		fmt.Printf("⚠️ Unexpected order state for cancellation: IsPaid=%v, Status=%s, HasReservations=%v\n",
+			order.IsPaid(), order.Status, order.HasInventoryReserved())
 	}
 
 	// Release order reservation flags

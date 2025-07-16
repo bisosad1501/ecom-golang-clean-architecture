@@ -2,6 +2,7 @@ package database
 
 import (
 	"context"
+	"database/sql"
 	"fmt"
 	"time"
 
@@ -327,4 +328,138 @@ func (r *cartRepository) GetExpiredCarts(ctx context.Context) ([]*entities.Cart,
 		return nil, err
 	}
 	return carts, nil
+}
+
+// GetAbandonedCarts retrieves carts that haven't been updated since the given time
+func (r *cartRepository) GetAbandonedCarts(ctx context.Context, since time.Time) ([]*entities.Cart, error) {
+	var carts []*entities.Cart
+
+	err := r.db.WithContext(ctx).
+		Preload("Items").
+		Preload("Items.Product").
+		Where("updated_at < ? AND is_abandoned = false", since).
+		Find(&carts).Error
+
+	if err != nil {
+		return nil, fmt.Errorf("failed to get abandoned carts: %w", err)
+	}
+
+	return carts, nil
+}
+
+// GetAbandonedCartsList retrieves abandoned carts with pagination
+func (r *cartRepository) GetAbandonedCartsList(ctx context.Context, offset, limit int) ([]*entities.Cart, error) {
+	var carts []*entities.Cart
+
+	err := r.db.WithContext(ctx).
+		Preload("Items").
+		Preload("Items.Product").
+		Where("is_abandoned = true").
+		Order("abandoned_at DESC").
+		Offset(offset).
+		Limit(limit).
+		Find(&carts).Error
+
+	if err != nil {
+		return nil, fmt.Errorf("failed to get abandoned carts list: %w", err)
+	}
+
+	return carts, nil
+}
+
+// GetAbandonedCartStats retrieves statistics for abandoned carts
+func (r *cartRepository) GetAbandonedCartStats(ctx context.Context, since time.Time) (*repositories.AbandonedCartStats, error) {
+	var stats repositories.AbandonedCartStats
+
+	// Get total abandoned carts
+	err := r.db.WithContext(ctx).
+		Model(&entities.Cart{}).
+		Where("is_abandoned = true AND abandoned_at >= ?", since).
+		Count(&stats.TotalAbandoned).Error
+	if err != nil {
+		return nil, fmt.Errorf("failed to count abandoned carts: %w", err)
+	}
+
+	// Get total recovered carts
+	err = r.db.WithContext(ctx).
+		Model(&entities.Cart{}).
+		Where("is_abandoned = false AND recovered_at >= ?", since).
+		Count(&stats.TotalRecovered).Error
+	if err != nil {
+		return nil, fmt.Errorf("failed to count recovered carts: %w", err)
+	}
+
+	// Calculate recovery rate
+	if stats.TotalAbandoned > 0 {
+		stats.RecoveryRate = float64(stats.TotalRecovered) / float64(stats.TotalAbandoned) * 100
+	}
+
+	// Get average cart value for abandoned carts
+	var avgValue sql.NullFloat64
+	err = r.db.WithContext(ctx).
+		Model(&entities.Cart{}).
+		Select("AVG(total)").
+		Where("is_abandoned = true AND abandoned_at >= ?", since).
+		Scan(&avgValue).Error
+	if err != nil {
+		return nil, fmt.Errorf("failed to calculate average cart value: %w", err)
+	}
+	if avgValue.Valid {
+		stats.AverageCartValue = avgValue.Float64
+	}
+
+	// Calculate total lost revenue
+	var totalLost sql.NullFloat64
+	err = r.db.WithContext(ctx).
+		Model(&entities.Cart{}).
+		Select("SUM(total)").
+		Where("is_abandoned = true AND abandoned_at >= ?", since).
+		Scan(&totalLost).Error
+	if err != nil {
+		return nil, fmt.Errorf("failed to calculate total lost revenue: %w", err)
+	}
+	if totalLost.Valid {
+		stats.TotalLostRevenue = totalLost.Float64
+	}
+
+	// Calculate recovered revenue
+	var recoveredRevenue sql.NullFloat64
+	err = r.db.WithContext(ctx).
+		Model(&entities.Cart{}).
+		Select("SUM(total)").
+		Where("is_abandoned = false AND recovered_at >= ?", since).
+		Scan(&recoveredRevenue).Error
+	if err != nil {
+		return nil, fmt.Errorf("failed to calculate recovered revenue: %w", err)
+	}
+	if recoveredRevenue.Valid {
+		stats.RecoveredRevenue = recoveredRevenue.Float64
+	}
+
+	// Count reminder emails sent
+	err = r.db.WithContext(ctx).
+		Model(&entities.Cart{}).
+		Where("first_reminder_sent IS NOT NULL AND abandoned_at >= ?", since).
+		Count(&stats.FirstReminderSent).Error
+	if err != nil {
+		return nil, fmt.Errorf("failed to count first reminders: %w", err)
+	}
+
+	err = r.db.WithContext(ctx).
+		Model(&entities.Cart{}).
+		Where("second_reminder_sent IS NOT NULL AND abandoned_at >= ?", since).
+		Count(&stats.SecondReminderSent).Error
+	if err != nil {
+		return nil, fmt.Errorf("failed to count second reminders: %w", err)
+	}
+
+	err = r.db.WithContext(ctx).
+		Model(&entities.Cart{}).
+		Where("final_reminder_sent IS NOT NULL AND abandoned_at >= ?", since).
+		Count(&stats.FinalReminderSent).Error
+	if err != nil {
+		return nil, fmt.Errorf("failed to count final reminders: %w", err)
+	}
+
+	return &stats, nil
 }

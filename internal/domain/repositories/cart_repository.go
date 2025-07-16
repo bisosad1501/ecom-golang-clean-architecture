@@ -2,6 +2,7 @@ package repositories
 
 import (
 	"context"
+	"time"
 
 	"ecom-golang-clean-architecture/internal/domain/entities"
 
@@ -60,4 +61,22 @@ type CartRepository interface {
 
 	// GetExpiredCarts retrieves all expired carts
 	GetExpiredCarts(ctx context.Context) ([]*entities.Cart, error)
+
+	// Abandoned cart operations
+	GetAbandonedCarts(ctx context.Context, since time.Time) ([]*entities.Cart, error)
+	GetAbandonedCartsList(ctx context.Context, offset, limit int) ([]*entities.Cart, error)
+	GetAbandonedCartStats(ctx context.Context, since time.Time) (*AbandonedCartStats, error)
+}
+
+// AbandonedCartStats represents statistics for abandoned carts
+type AbandonedCartStats struct {
+	TotalAbandoned     int64   `json:"total_abandoned"`
+	TotalRecovered     int64   `json:"total_recovered"`
+	RecoveryRate       float64 `json:"recovery_rate"`
+	AverageCartValue   float64 `json:"average_cart_value"`
+	TotalLostRevenue   float64 `json:"total_lost_revenue"`
+	RecoveredRevenue   float64 `json:"recovered_revenue"`
+	FirstReminderSent  int64   `json:"first_reminder_sent"`
+	SecondReminderSent int64   `json:"second_reminder_sent"`
+	FinalReminderSent  int64   `json:"final_reminder_sent"`
 }

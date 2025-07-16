@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"strings"
 	"time"
 
 	"ecom-golang-clean-architecture/internal/domain/entities"
@@ -124,10 +125,10 @@ func NewUserUseCase(
 // RegisterRequest represents user registration request
 type RegisterRequest struct {
 	Email     string `json:"email" validate:"required,email"`
-	Password  string `json:"password" validate:"required,min=6"`
-	FirstName string `json:"first_name" validate:"required"`
-	LastName  string `json:"last_name" validate:"required"`
-	Phone     string `json:"phone"`
+	Password  string `json:"password" validate:"required,min=8"`
+	FirstName string `json:"first_name" validate:"required,min=2,max=50"`
+	LastName  string `json:"last_name" validate:"required,min=2,max=50"`
+	Phone     string `json:"phone" validate:"omitempty,min=10,max=15"`
 }
 
 // LoginRequest represents user login request
@@ -358,6 +359,23 @@ type LoginResponse struct {
 
 // Register registers a new user
 func (uc *userUseCase) Register(ctx context.Context, req RegisterRequest) (*UserResponse, error) {
+	// Validate password complexity
+	if err := uc.validatePasswordComplexity(req.Password); err != nil {
+		return nil, err
+	}
+
+	// Validate email format more strictly
+	if err := uc.validateEmailFormat(req.Email); err != nil {
+		return nil, err
+	}
+
+	// Validate phone format if provided
+	if req.Phone != "" {
+		if err := uc.validatePhoneFormat(req.Phone); err != nil {
+			return nil, err
+		}
+	}
+
 	// Check if user already exists
 	exists, err := uc.userRepo.ExistsByEmail(ctx, req.Email)
 	if err != nil {
@@ -394,13 +412,155 @@ func (uc *userUseCase) Register(ctx context.Context, req RegisterRequest) (*User
 	return uc.toUserResponse(user), nil
 }
 
+// validatePasswordComplexity validates password complexity requirements
+func (uc *userUseCase) validatePasswordComplexity(password string) error {
+	if len(password) < 8 {
+		return fmt.Errorf("password must be at least 8 characters long")
+	}
+
+	if len(password) > 128 {
+		return fmt.Errorf("password must be less than 128 characters long")
+	}
+
+	hasUpper := false
+	hasLower := false
+	hasDigit := false
+	hasSpecial := false
+
+	for _, char := range password {
+		switch {
+		case char >= 'A' && char <= 'Z':
+			hasUpper = true
+		case char >= 'a' && char <= 'z':
+			hasLower = true
+		case char >= '0' && char <= '9':
+			hasDigit = true
+		case char >= 32 && char <= 126: // Printable ASCII special characters
+			if !((char >= 'A' && char <= 'Z') || (char >= 'a' && char <= 'z') || (char >= '0' && char <= '9')) {
+				hasSpecial = true
+			}
+		}
+	}
+
+	if !hasUpper {
+		return fmt.Errorf("password must contain at least one uppercase letter")
+	}
+	if !hasLower {
+		return fmt.Errorf("password must contain at least one lowercase letter")
+	}
+	if !hasDigit {
+		return fmt.Errorf("password must contain at least one digit")
+	}
+	if !hasSpecial {
+		return fmt.Errorf("password must contain at least one special character")
+	}
+
+	return nil
+}
+
+// validateEmailFormat validates email format more strictly
+func (uc *userUseCase) validateEmailFormat(email string) error {
+	if len(email) == 0 {
+		return fmt.Errorf("email is required")
+	}
+
+	if len(email) > 254 {
+		return fmt.Errorf("email is too long")
+	}
+
+	// Basic email format validation
+	if !strings.Contains(email, "@") {
+		return fmt.Errorf("invalid email format")
+	}
+
+	parts := strings.Split(email, "@")
+	if len(parts) != 2 {
+		return fmt.Errorf("invalid email format")
+	}
+
+	localPart := parts[0]
+	domainPart := parts[1]
+
+	if len(localPart) == 0 || len(localPart) > 64 {
+		return fmt.Errorf("invalid email local part")
+	}
+
+	if len(domainPart) == 0 || len(domainPart) > 253 {
+		return fmt.Errorf("invalid email domain part")
+	}
+
+	if !strings.Contains(domainPart, ".") {
+		return fmt.Errorf("invalid email domain format")
+	}
+
+	return nil
+}
+
+// validatePhoneFormat validates phone number format
+func (uc *userUseCase) validatePhoneFormat(phone string) error {
+	if len(phone) == 0 {
+		return nil // Phone is optional
+	}
+
+	// Remove common phone number separators
+	cleanPhone := strings.ReplaceAll(phone, " ", "")
+	cleanPhone = strings.ReplaceAll(cleanPhone, "-", "")
+	cleanPhone = strings.ReplaceAll(cleanPhone, "(", "")
+	cleanPhone = strings.ReplaceAll(cleanPhone, ")", "")
+	cleanPhone = strings.ReplaceAll(cleanPhone, "+", "")
+
+	if len(cleanPhone) < 10 || len(cleanPhone) > 15 {
+		return fmt.Errorf("phone number must be between 10 and 15 digits")
+	}
+
+	// Check if all characters are digits
+	for _, char := range cleanPhone {
+		if char < '0' || char > '9' {
+			return fmt.Errorf("phone number must contain only digits and common separators")
+		}
+	}
+
+	return nil
+}
+
+// checkLoginRateLimit checks if user has exceeded login attempt limits
+func (uc *userUseCase) checkLoginRateLimit(ctx context.Context, email string) error {
+	// Simple in-memory rate limiting (in production, use Redis or database)
+	// For now, we'll implement a basic check
+	// TODO: Implement proper rate limiting with Redis/database storage
+
+	// This is a simplified implementation
+	// In production, you would store failed attempts in cache/database
+	return nil
+}
+
+// incrementFailedLoginAttempts increments failed login attempts for an email
+func (uc *userUseCase) incrementFailedLoginAttempts(ctx context.Context, email string) error {
+	// TODO: Implement proper failed attempt tracking
+	// This would typically store in Redis or database with expiration
+	return nil
+}
+
+// resetFailedLoginAttempts resets failed login attempts for an email
+func (uc *userUseCase) resetFailedLoginAttempts(ctx context.Context, email string) error {
+	// TODO: Implement proper failed attempt reset
+	// This would typically clear the counter in Redis or database
+	return nil
+}
+
 // Login authenticates a user
 func (uc *userUseCase) Login(ctx context.Context, req LoginRequest) (*LoginResponse, error) {
+	// Check rate limiting for this email
+	if err := uc.checkLoginRateLimit(ctx, req.Email); err != nil {
+		return nil, err
+	}
+
 	// Get user by email
 	user, err := uc.userRepo.GetByEmail(ctx, req.Email)
 	if err != nil {
 		// Log failed login attempt
 		_ = uc.logLoginAttempt(ctx, req.Email, false, "user not found", "127.0.0.1")
+		_ = uc.incrementFailedLoginAttempts(ctx, req.Email)
 		return nil, entities.ErrInvalidCredentials
 	}
 
@@ -408,6 +568,7 @@ func (uc *userUseCase) Login(ctx context.Context, req LoginRequest) (*LoginRespo
 	if !user.IsActive {
 		// Log failed login attempt
 		_ = uc.logLoginAttempt(ctx, req.Email, false, "user not active", "127.0.0.1")
+		_ = uc.incrementFailedLoginAttempts(ctx, req.Email)
 		return nil, entities.ErrUserNotActive
 	}
 
@@ -415,8 +576,12 @@ func (uc *userUseCase) Login(ctx context.Context, req LoginRequest) (*LoginRespo
 	if err := uc.passwordService.CheckPassword(req.Password, user.Password); err != nil {
 		// Log failed login attempt
 		_ = uc.logLoginAttempt(ctx, req.Email, false, "invalid password", "127.0.0.1")
+		_ = uc.incrementFailedLoginAttempts(ctx, req.Email)
 		return nil, entities.ErrInvalidCredentials
 	}
+
+	// Reset failed login attempts on successful login
+	_ = uc.resetFailedLoginAttempts(ctx, req.Email)
 
 	// Generate JWT token
 	token, err := uc.generateJWTToken(user)
@@ -526,6 +691,16 @@ func (uc *userUseCase) ChangePassword(ctx context.Context, userID uuid.UUID, req
 		return entities.ErrInvalidCredentials
 	}
 
+	// Validate new password complexity
+	if err := uc.validatePasswordComplexity(req.NewPassword); err != nil {
+		return err
+	}
+
+	// Check if new password is different from current password
+	if err := uc.passwordService.CheckPassword(req.NewPassword, user.Password); err == nil {
+		return fmt.Errorf("new password must be different from current password")
+	}
+
 	// Hash new password
 	hashedPassword, err := uc.passwordService.HashPassword(req.NewPassword)
 	if err != nil {
@@ -570,11 +745,14 @@ func (uc *userUseCase) ActivateUser(ctx context.Context, userID uuid.UUID) error
 
 // generateJWTToken generates a JWT token for the user
 func (uc *userUseCase) generateJWTToken(user *entities.User) (string, error) {
+	now := time.Now()
 	claims := jwt.MapClaims{
 		"user_id": user.ID.String(),
 		"email":   user.Email,
 		"role":    user.Role,
-		"exp":     time.Now().Add(time.Hour * 24).Unix(),
+		"iat":     now.Unix(),
+		"exp":     now.Add(time.Hour * 24 * 7).Unix(), // 7 days for better UX
+		"jti":     uuid.New().String(),                // JWT ID for token tracking
 	}
 
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)

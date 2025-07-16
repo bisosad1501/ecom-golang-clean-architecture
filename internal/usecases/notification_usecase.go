@@ -34,9 +34,9 @@ type NotificationUseCase interface {
 	ProcessQueue(ctx context.Context, limit int) error
 
 	// Templates
-	CreateTemplate(ctx context.Context, req CreateTemplateRequest) (*TemplateResponse, error)
-	GetTemplate(ctx context.Context, id uuid.UUID) (*TemplateResponse, error)
-	UpdateTemplate(ctx context.Context, id uuid.UUID, req UpdateTemplateRequest) (*TemplateResponse, error)
+	CreateTemplate(ctx context.Context, req CreateNotificationTemplateRequest) (*NotificationTemplateResponse, error)
+	GetTemplate(ctx context.Context, id uuid.UUID) (*NotificationTemplateResponse, error)
+	UpdateTemplate(ctx context.Context, id uuid.UUID, req UpdateNotificationTemplateRequest) (*NotificationTemplateResponse, error)
 	DeleteTemplate(ctx context.Context, id uuid.UUID) error
 	ListTemplates(ctx context.Context, req ListTemplatesRequest) (*TemplatesListResponse, error)
 
@@ -150,7 +150,7 @@ type GetUserNotificationsRequest struct {
 	Offset    int                            `json:"offset" validate:"min=0"`
 }
 
-type CreateTemplateRequest struct {
+type CreateNotificationTemplateRequest struct {
 	Name        string                        `json:"name" validate:"required"`
 	Type        entities.NotificationType     `json:"type" validate:"required"`
 	Category    entities.NotificationCategory `json:"category" validate:"required"`
@@ -164,7 +164,7 @@ type CreateTemplateRequest struct {
 	CreatedBy   uuid.UUID                     `json:"created_by" validate:"required"`
 }
 
-type UpdateTemplateRequest struct {
+type UpdateNotificationTemplateRequest struct {
 	Name        *string  `json:"name,omitempty"`
 	Subject     *string  `json:"subject,omitempty"`
 	Body        *string  `json:"body,omitempty"`
@@ -254,7 +254,7 @@ type NotificationsListResponse struct {
 	Pagination    *PaginationInfo         `json:"pagination"`
 }
 
-type TemplateResponse struct {
+type NotificationTemplateResponse struct {
 	ID          uuid.UUID                     `json:"id"`
 	Name        string                        `json:"name"`
 	Type        entities.NotificationType     `json:"type"`
@@ -272,9 +272,9 @@ type TemplateResponse struct {
 }
 
 type TemplatesListResponse struct {
-	Templates  []*TemplateResponse `json:"templates"`
-	Total      int64               `json:"total"`
-	Pagination *PaginationInfo     `json:"pagination"`
+	Templates  []*NotificationTemplateResponse `json:"templates"`
+	Total      int64                           `json:"total"`
+	Pagination *PaginationInfo                 `json:"pagination"`
 }
 
 type PreferencesResponse struct {
@@ -582,7 +582,7 @@ func (uc *notificationUseCase) ProcessQueue(ctx context.Context, limit int) erro
 }
 
 // CreateTemplate creates a notification template
-func (uc *notificationUseCase) CreateTemplate(ctx context.Context, req CreateTemplateRequest) (*TemplateResponse, error) {
+func (uc *notificationUseCase) CreateTemplate(ctx context.Context, req CreateNotificationTemplateRequest) (*NotificationTemplateResponse, error) {
 	template := &entities.NotificationTemplate{
 		ID:        uuid.New(),
 		Name:      req.Name,
@@ -600,20 +600,20 @@ func (uc *notificationUseCase) CreateTemplate(ctx context.Context, req CreateTem
 		return nil, err
 	}
 
-	return uc.toTemplateResponse(template), nil
+	return uc.toNotificationTemplateResponse(template), nil
 }
 
 // GetTemplate gets a template by ID
-func (uc *notificationUseCase) GetTemplate(ctx context.Context, id uuid.UUID) (*TemplateResponse, error) {
+func (uc *notificationUseCase) GetTemplate(ctx context.Context, id uuid.UUID) (*NotificationTemplateResponse, error) {
 	template, err := uc.notificationRepo.GetTemplate(ctx, id)
 	if err != nil {
 		return nil, err
 	}
-	return uc.toTemplateResponse(template), nil
+	return uc.toNotificationTemplateResponse(template), nil
 }
 
 // UpdateTemplate updates a notification template
-func (uc *notificationUseCase) UpdateTemplate(ctx context.Context, id uuid.UUID, req UpdateTemplateRequest) (*TemplateResponse, error) {
+func (uc *notificationUseCase) UpdateTemplate(ctx context.Context, id uuid.UUID, req UpdateNotificationTemplateRequest) (*NotificationTemplateResponse, error) {
 	template, err := uc.notificationRepo.GetTemplate(ctx, id)
 	if err != nil {
 		return nil, err
@@ -643,7 +643,7 @@ func (uc *notificationUseCase) UpdateTemplate(ctx context.Context, id uuid.UUID,
 		return nil, err
 	}
 
-	return uc.toTemplateResponse(template), nil
+	return uc.toNotificationTemplateResponse(template), nil
 }
 
 // DeleteTemplate deletes a notification template
@@ -689,9 +689,9 @@ func (uc *notificationUseCase) ListTemplates(ctx context.Context, req ListTempla
 
 	paginatedTemplates := filtered[start:end]
 
-	responses := make([]*TemplateResponse, len(paginatedTemplates))
+	responses := make([]*NotificationTemplateResponse, len(paginatedTemplates))
 	for i, template := range paginatedTemplates {
-		responses[i] = uc.toTemplateResponse(template)
+		responses[i] = uc.toNotificationTemplateResponse(template)
 	}
 
 	return &TemplatesListResponse{
@@ -822,8 +822,8 @@ func (uc *notificationUseCase) toNotificationResponse(notification *entities.Not
 	}
 }
 
-func (uc *notificationUseCase) toTemplateResponse(template *entities.NotificationTemplate) *TemplateResponse {
-	return &TemplateResponse{
+func (uc *notificationUseCase) toNotificationTemplateResponse(template *entities.NotificationTemplate) *NotificationTemplateResponse {
+	return &NotificationTemplateResponse{
 		ID:          template.ID,
 		Name:        template.Name,
 		Type:        template.Type,

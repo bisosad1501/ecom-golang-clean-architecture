@@ -3,8 +3,10 @@ package services
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"ecom-golang-clean-architecture/internal/domain/repositories"
+
 	"github.com/google/uuid"
 )
 
@@ -12,12 +14,18 @@ import (
 type StockSyncService interface {
 	// SyncProductWithInventory syncs product stock with inventory (Inventory is source of truth)
 	SyncProductWithInventory(ctx context.Context, productID uuid.UUID) error
-	
+
 	// SyncAllProducts syncs all products with their inventory
 	SyncAllProducts(ctx context.Context) error
-	
+
 	// ValidateStockConsistency validates that product stock matches inventory
 	ValidateStockConsistency(ctx context.Context, productID uuid.UUID) (bool, error)
+
+	// AutoSyncIfNeeded automatically syncs product with inventory if inconsistency is detected
+	AutoSyncIfNeeded(ctx context.Context, productID uuid.UUID) error
+
+	// ValidateAndFixAllInconsistencies validates and fixes all stock inconsistencies
+	ValidateAndFixAllInconsistencies(ctx context.Context) error
 }
 
 type stockSyncService struct {
@@ -55,13 +63,34 @@ func (s *stockSyncService) SyncProductWithInventory(ctx context.Context, product
 		return nil // Already in sync
 	}
 
+	// Validate inventory data consistency
+	if inventory.QuantityOnHand < 0 {
+		return fmt.Errorf("invalid inventory data for product %s: negative quantity on hand (%d)",
+			productID, inventory.QuantityOnHand)
+	}
+
+	if inventory.QuantityReserved < 0 {
+		return fmt.Errorf("invalid inventory data for product %s: negative quantity reserved (%d)",
+			productID, inventory.QuantityReserved)
+	}
+
+	if inventory.QuantityReserved > inventory.QuantityOnHand {
+		fmt.Printf("⚠️ Warning: Reserved quantity (%d) exceeds on-hand quantity (%d) for product %s\n",
+			inventory.QuantityReserved, inventory.QuantityOnHand, productID)
+		// Fix the inconsistency by recalculating available stock
+		inventory.QuantityAvailable = 0
+		if err := s.inventoryRepo.Update(ctx, inventory); err != nil {
+			fmt.Printf("❌ Failed to fix inventory inconsistency for product %s: %v\n", productID, err)
+		}
+	}
+
 	// Update product stock to match inventory
 	oldStock := product.Stock
 	if err := s.productRepo.UpdateStock(ctx, productID, inventory.QuantityOnHand); err != nil {
 		return fmt.Errorf("failed to update product stock for %s: %w", productID, err)
 	}
 
-	fmt.Printf("✅ Synced product %s stock: %d -> %d (from inventory)\n", 
+	fmt.Printf("✅ Synced product %s stock: %d -> %d (from inventory)\n",
 		productID, oldStock, inventory.QuantityOnHand)
 
 	return nil
@@ -117,9 +146,73 @@ func (s *stockSyncService) ValidateStockConsistency(ctx context.Context, product
 	isConsistent := product.Stock == inventory.QuantityOnHand
 
 	if !isConsistent {
-		fmt.Printf("❌ Stock inconsistency for product %s: Product.Stock=%d, Inventory.QuantityOnHand=%d\n", 
+		fmt.Printf("❌ Stock inconsistency for product %s: Product.Stock=%d, Inventory.QuantityOnHand=%d\n",
 			productID, product.Stock, inventory.QuantityOnHand)
 	}
 
 	return isConsistent, nil
+}
+
+// AutoSyncIfNeeded automatically syncs product with inventory if inconsistency is detected
+func (s *stockSyncService) AutoSyncIfNeeded(ctx context.Context, productID uuid.UUID) error {
+	isConsistent, err := s.ValidateStockConsistency(ctx, productID)
+	if err != nil {
+		return fmt.Errorf("failed to validate stock consistency: %w", err)
+	}
+
+	if !isConsistent {
+		fmt.Printf("🔄 Stock inconsistency detected for product %s, auto-syncing...\n", productID)
+		return s.SyncProductWithInventory(ctx, productID)
+	}
+
+	return nil
+}
+
+// ValidateAndFixAllInconsistencies validates and fixes all stock inconsistencies
+func (s *stockSyncService) ValidateAndFixAllInconsistencies(ctx context.Context) error {
+	fmt.Printf("🔍 Starting validation and fix of all stock inconsistencies...\n")
+	startTime := time.Now()
+
+	// Get all products
+	products, err := s.productRepo.List(ctx, 0, 1000) // Get first 1000 products
+	if err != nil {
+		return fmt.Errorf("failed to get products: %w", err)
+	}
+
+	var inconsistentProducts []uuid.UUID
+	var fixErrors []error
+	fixedCount := 0
+
+	for _, product := range products {
+		isConsistent, err := s.ValidateStockConsistency(ctx, product.ID)
+		if err != nil {
+			fixErrors = append(fixErrors, fmt.Errorf("product %s validation error: %w", product.ID, err))
+			continue
+		}
+
+		if !isConsistent {
+			inconsistentProducts = append(inconsistentProducts, product.ID)
+			if err := s.SyncProductWithInventory(ctx, product.ID); err != nil {
+				fixErrors = append(fixErrors, fmt.Errorf("product %s sync error: %w", product.ID, err))
+			} else {
+				fixedCount++
+			}
+		}
+	}
+
+	duration := time.Since(startTime)
+
+	if len(inconsistentProducts) == 0 {
+		fmt.Printf("✅ All products are consistent (checked %d products in %v)\n", len(products), duration)
+		return nil
+	}
+
+	fmt.Printf("🔧 Fixed %d/%d inconsistent products in %v\n", fixedCount, len(inconsistentProducts), duration)
+
+	if len(fixErrors) > 0 {
+		fmt.Printf("❌ %d errors occurred during fix process\n", len(fixErrors))
+		return fmt.Errorf("validation and fix completed with %d errors", len(fixErrors))
+	}
+
+	return nil
 }

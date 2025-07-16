@@ -104,15 +104,18 @@ func (uc *stockCleanupUseCase) CleanupExpiredOrders(ctx context.Context) error {
 		if order.IsPaymentExpired() {
 			fmt.Printf("🕐 Order %s payment expired, cancelling...\n", order.OrderNumber)
 
-			// Release stock reservations
-			if err := uc.stockReservationService.ReleaseReservations(ctx, order.ID); err != nil {
-				fmt.Printf("❌ Failed to release reservations for order %s: %v\n", order.OrderNumber, err)
-				errorCount++
-				continue
+			// Release stock reservations first
+			if order.HasInventoryReserved() {
+				if err := uc.stockReservationService.ReleaseReservations(ctx, order.ID); err != nil {
+					fmt.Printf("❌ Failed to release reservations for order %s: %v\n", order.OrderNumber, err)
+					errorCount++
+					continue
+				}
 			}
 
 			// Update order status to cancelled
 			order.Status = entities.OrderStatusCancelled
+			order.PaymentStatus = entities.PaymentStatusFailed
 			order.ReleaseReservation()
 			order.UpdatedAt = time.Now()
 

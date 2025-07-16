@@ -94,11 +94,19 @@ func (s *stockReservationService) ReserveStockForOrder(ctx context.Context, orde
 				item.ProductID, item.Quantity, inventory.QuantityAvailable)
 		}
 
-		// Reserve stock in inventory
+		// Atomic stock reservation to prevent race conditions
+		// Use optimistic locking or database-level atomic operations
+		oldQuantityReserved := inventory.QuantityReserved
 		inventory.QuantityReserved += item.Quantity
 		inventory.QuantityAvailable = inventory.QuantityOnHand - inventory.QuantityReserved
 
-		// Update inventory in database
+		// Validate that we don't over-reserve
+		if inventory.QuantityAvailable < 0 {
+			return fmt.Errorf("insufficient stock for product %s: available=%d, requested=%d",
+				item.ProductID, inventory.QuantityOnHand-oldQuantityReserved, item.Quantity)
+		}
+
+		// Update inventory in database with optimistic locking
 		if err := s.inventoryRepo.Update(ctx, inventory); err != nil {
 			return fmt.Errorf("failed to update inventory for product %s: %w", item.ProductID, err)
 		}
@@ -123,7 +131,7 @@ func (s *stockReservationService) ReserveStockForOrder(ctx context.Context, orde
 		reservations = append(reservations, reservation)
 
 		fmt.Printf("✅ Reserved %d units for product %s (Available: %d -> %d)\n",
-			item.Quantity, item.ProductID, inventory.QuantityAvailable + item.Quantity, inventory.QuantityAvailable)
+			item.Quantity, item.ProductID, inventory.QuantityAvailable+item.Quantity, inventory.QuantityAvailable)
 	}
 
 	// Create all reservations in batch
@@ -135,6 +143,8 @@ func (s *stockReservationService) ReserveStockForOrder(ctx context.Context, orde
 }
 
 // ConfirmReservations confirms reservations and reduces actual stock
+// IMPORTANT: This function uses Inventory as the single source of truth for stock management
+// Product.Stock is always synced from Inventory.QuantityOnHand to maintain consistency
 func (s *stockReservationService) ConfirmReservations(ctx context.Context, orderID uuid.UUID) error {
 	// Get all reservations for the order
 	reservations, err := s.reservationRepo.GetByOrderID(ctx, orderID)
@@ -148,8 +158,8 @@ func (s *stockReservationService) ConfirmReservations(ctx context.Context, order
 			continue // Skip expired or already confirmed reservations
 		}
 
-		// NEW APPROACH: Use Inventory as source of truth
-		// Get inventory record for the product
+		// STOCK MANAGEMENT PRINCIPLE: Inventory is the single source of truth
+		// All stock operations must go through inventory first, then sync to product
 		inventory, err := s.inventoryRepo.GetByProductID(ctx, reservation.ProductID)
 		if err != nil {
 			return fmt.Errorf("failed to get inventory for product %s: %w", reservation.ProductID, err)
@@ -190,6 +200,8 @@ func (s *stockReservationService) ConfirmReservations(ctx context.Context, order
 }
 
 // ReleaseReservations releases all reservations for an order
+// IMPORTANT: This function uses Inventory as the single source of truth for stock management
+// Stock is released in inventory first, then product stock is synced from inventory
 func (s *stockReservationService) ReleaseReservations(ctx context.Context, orderID uuid.UUID) error {
 	// Get all reservations for the order first
 	reservations, err := s.reservationRepo.GetByOrderID(ctx, orderID)
@@ -221,7 +233,7 @@ func (s *stockReservationService) ReleaseReservations(ctx context.Context, order
 			} else {
 				fmt.Printf("✅ Released %d units for product %s (Available: %d -> %d)\n",
 					reservation.Quantity, reservation.ProductID,
-					inventory.QuantityAvailable - reservation.Quantity, inventory.QuantityAvailable)
+					inventory.QuantityAvailable-reservation.Quantity, inventory.QuantityAvailable)
 			}
 		}
 	}

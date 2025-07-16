@@ -245,6 +245,17 @@ func main() {
 		orderUseCase,
 	)
 
+	// Initialize email use case (with nil repositories for now)
+	emailUseCase := usecases.NewEmailUseCase(
+		nil, nil, nil, nil, // email service, repo, template repo, subscription repo - TODO: implement
+		userRepo, orderRepo, productRepo,
+	)
+
+	// Initialize abandoned cart use case
+	abandonedCartUseCase := usecases.NewAbandonedCartUseCase(
+		cartRepo, userRepo, emailUseCase, productRepo, orderRepo,
+	)
+
 	// Initialize stock cleanup use case
 	stockCleanupUseCase := usecases.NewStockCleanupUseCase(
 		stockReservationService,
@@ -303,6 +314,7 @@ func main() {
 	recommendationHandler := handlers.NewRecommendationHandler(recommendationUseCase)
 	comparisonHandler := handlers.NewProductComparisonHandler(comparisonUseCase)
 	productFilterHandler := handlers.NewProductFilterHandler(productFilterUseCase)
+	abandonedCartHandler := handlers.NewAbandonedCartHandler(abandonedCartUseCase)
 
 	// Initialize Gin router
 	router := gin.New()
@@ -334,6 +346,7 @@ func main() {
 		recommendationHandler,
 		comparisonHandler,
 		productFilterHandler,
+		abandonedCartHandler,
 	)
 
 	// Start background cleanup scheduler

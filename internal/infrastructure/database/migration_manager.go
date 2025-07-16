@@ -67,7 +67,7 @@ func (m *MigrationManager) RunMigrations(ctx context.Context) error {
 		}
 
 		log.Printf("🔧 Running migration %s: %s", migration.Version, migration.Name)
-		
+
 		// Run migration in transaction
 		err := m.db.Transaction(func(tx *gorm.DB) error {
 			// Run the migration
@@ -260,6 +260,12 @@ func getMigrations() []Migration {
 			Name:    "Create product_categories table for many-to-many relationship",
 			Up:      migration011Up,
 			Down:    migration011Down,
+		},
+		{
+			Version: "012_add_abandoned_cart_fields",
+			Name:    "Add abandoned cart tracking fields to carts table",
+			Up:      migration012Up,
+			Down:    migration012Down,
 		},
 		// Temporarily disabled due to product_tags issue
 		// {

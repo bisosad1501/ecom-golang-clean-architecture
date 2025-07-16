@@ -8,8 +8,6 @@ import (
 	"github.com/google/uuid"
 )
 
-
-
 // Cart represents a shopping cart
 type Cart struct {
 	ID        uuid.UUID  `json:"id" gorm:"type:uuid;primary_key;default:gen_random_uuid()"`
@@ -19,15 +17,23 @@ type Cart struct {
 	Items     []CartItem `json:"items" gorm:"foreignKey:CartID"`
 
 	// Calculated fields (stored for performance)
-	Subtotal     float64 `json:"subtotal" gorm:"default:0"`
-	TaxAmount    float64 `json:"tax_amount" gorm:"default:0"`
+	Subtotal       float64 `json:"subtotal" gorm:"default:0"`
+	TaxAmount      float64 `json:"tax_amount" gorm:"default:0"`
 	ShippingAmount float64 `json:"shipping_amount" gorm:"default:0"`
-	Total        float64 `json:"total" gorm:"default:0"`
-	ItemCount    int     `json:"item_count" gorm:"default:0"`
+	Total          float64 `json:"total" gorm:"default:0"`
+	ItemCount      int     `json:"item_count" gorm:"default:0"`
 
 	// Cart lifecycle
 	Status    string     `json:"status" gorm:"default:'active'"`
 	ExpiresAt *time.Time `json:"expires_at" gorm:"index"` // For cart abandonment
+
+	// Abandoned cart tracking
+	IsAbandoned        bool       `json:"is_abandoned" gorm:"default:false"`
+	AbandonedAt        *time.Time `json:"abandoned_at"`
+	FirstReminderSent  *time.Time `json:"first_reminder_sent"`
+	SecondReminderSent *time.Time `json:"second_reminder_sent"`
+	FinalReminderSent  *time.Time `json:"final_reminder_sent"`
+	RecoveredAt        *time.Time `json:"recovered_at"`
 
 	// Metadata
 	Currency string `json:"currency" gorm:"default:'USD'"`
@@ -204,7 +210,7 @@ func (c *Cart) Validate() error {
 		// Basic format validation - should contain only alphanumeric and safe characters
 		for _, char := range *c.SessionID {
 			if !((char >= 'a' && char <= 'z') || (char >= 'A' && char <= 'Z') ||
-				 (char >= '0' && char <= '9') || char == '-' || char == '_' || char == '.') {
+				(char >= '0' && char <= '9') || char == '-' || char == '_' || char == '.') {
 				return fmt.Errorf("session_id contains invalid characters")
 			}
 		}
@@ -245,13 +251,13 @@ func (c *Cart) Validate() error {
 	// Use small epsilon for floating point comparison
 	const epsilon = 0.01
 
-	if abs(c.Subtotal - expectedSubtotal) > epsilon {
+	if abs(c.Subtotal-expectedSubtotal) > epsilon {
 		return fmt.Errorf("subtotal %.2f does not match calculated subtotal %.2f", c.Subtotal, expectedSubtotal)
 	}
 	if c.ItemCount != expectedItemCount {
 		return fmt.Errorf("item_count %d does not match calculated item_count %d", c.ItemCount, expectedItemCount)
 	}
-	if abs(c.Total - expectedTotal) > epsilon {
+	if abs(c.Total-expectedTotal) > epsilon {
 		return fmt.Errorf("total %.2f does not match calculated total %.2f (subtotal %.2f + tax %.2f + shipping %.2f)",
 			c.Total, expectedTotal, c.Subtotal, c.TaxAmount, c.ShippingAmount)
 	}
@@ -283,8 +289,6 @@ func (c *Cart) Validate() error {
 		return fmt.Errorf("invalid status: %s", c.Status)
 	}
 
-
-
 	return nil
 }
 
@@ -297,8 +301,6 @@ func (c *Cart) IsGuest() bool {
 func (c *Cart) IsUserCart() bool {
 	return c.UserID != nil
 }
-
-
 
 // IsEmpty checks if the cart is empty
 func (c *Cart) IsEmpty() bool {
@@ -329,7 +331,7 @@ func (c *Cart) GetItem(productID uuid.UUID) *CartItem {
 func (c *Cart) AddItem(productID uuid.UUID, quantity int, price float64) {
 	if existingItem := c.GetItem(productID); existingItem != nil {
 		existingItem.Quantity += quantity
-		existingItem.Price = price // Update price to current price
+		existingItem.Price = price                                               // Update price to current price
 		existingItem.Total = float64(existingItem.Quantity) * existingItem.Price // Calculate total
 		existingItem.UpdatedAt = time.Now()
 	} else {
@@ -412,7 +414,7 @@ func (ci *CartItem) Validate() error {
 	// Verify that total matches price * quantity with floating point tolerance
 	expectedTotal := ci.Price * float64(ci.Quantity)
 	const epsilon = 0.01
-	if abs(ci.Total - expectedTotal) > epsilon {
+	if abs(ci.Total-expectedTotal) > epsilon {
 		return fmt.Errorf("total %.2f does not match price %.2f * quantity %d = %.2f",
 			ci.Total, ci.Price, ci.Quantity, expectedTotal)
 	}

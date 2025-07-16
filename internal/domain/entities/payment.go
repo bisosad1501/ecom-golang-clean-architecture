@@ -8,20 +8,18 @@ import (
 	"github.com/google/uuid"
 )
 
-
-
 // PaymentMethod represents the payment method
 type PaymentMethod string
 
 const (
-	PaymentMethodCreditCard PaymentMethod = "credit_card"
-	PaymentMethodDebitCard  PaymentMethod = "debit_card"
-	PaymentMethodPayPal     PaymentMethod = "paypal"
-	PaymentMethodStripe     PaymentMethod = "stripe"
-	PaymentMethodApplePay   PaymentMethod = "apple_pay"
-	PaymentMethodGooglePay  PaymentMethod = "google_pay"
+	PaymentMethodCreditCard   PaymentMethod = "credit_card"
+	PaymentMethodDebitCard    PaymentMethod = "debit_card"
+	PaymentMethodPayPal       PaymentMethod = "paypal"
+	PaymentMethodStripe       PaymentMethod = "stripe"
+	PaymentMethodApplePay     PaymentMethod = "apple_pay"
+	PaymentMethodGooglePay    PaymentMethod = "google_pay"
 	PaymentMethodBankTransfer PaymentMethod = "bank_transfer"
-	PaymentMethodCash       PaymentMethod = "cash"
+	PaymentMethodCash         PaymentMethod = "cash"
 )
 
 // PaymentStatus represents the payment status
@@ -32,8 +30,7 @@ const (
 	PaymentStatusProcessing      PaymentStatus = "processing"       // Added for frontend compatibility
 	PaymentStatusAwaitingPayment PaymentStatus = "awaiting_payment" // For COD orders
 	PaymentStatusPaid            PaymentStatus = "paid"
-	PaymentStatusCompleted       PaymentStatus = "completed"        // Alias for paid
-	PaymentStatusPartiallyPaid   PaymentStatus = "partially_paid"   // For orders with partial payments
+	PaymentStatusPartiallyPaid   PaymentStatus = "partially_paid" // For orders with partial payments
 	PaymentStatusFailed          PaymentStatus = "failed"
 	PaymentStatusRefunded        PaymentStatus = "refunded"
 	PaymentStatusCancelled       PaymentStatus = "cancelled"
@@ -41,52 +38,52 @@ const (
 
 // Payment represents a payment transaction
 type Payment struct {
-	ID                uuid.UUID     `json:"id" gorm:"type:uuid;primary_key;default:gen_random_uuid()"`
-	OrderID           uuid.UUID     `json:"order_id" gorm:"type:uuid;not null;index"` // Multiple payments per order allowed
-	UserID            uuid.UUID     `json:"user_id" gorm:"type:uuid;index"`
-	Amount            float64       `json:"amount" gorm:"not null" validate:"required,gt=0"`
-	Currency          string        `json:"currency" gorm:"default:'USD'"`
-	Method            PaymentMethod `json:"method" gorm:"not null" validate:"required"`
-	Status            PaymentStatus `json:"status" gorm:"default:'pending'"`
+	ID       uuid.UUID     `json:"id" gorm:"type:uuid;primary_key;default:gen_random_uuid()"`
+	OrderID  uuid.UUID     `json:"order_id" gorm:"type:uuid;not null;index"` // Multiple payments per order allowed
+	UserID   uuid.UUID     `json:"user_id" gorm:"type:uuid;index"`
+	Amount   float64       `json:"amount" gorm:"not null" validate:"required,gt=0"`
+	Currency string        `json:"currency" gorm:"default:'USD'"`
+	Method   PaymentMethod `json:"method" gorm:"not null" validate:"required"`
+	Status   PaymentStatus `json:"status" gorm:"default:'pending'"`
 
 	// Transaction identifiers
-	TransactionID     string        `json:"transaction_id" gorm:"index"`
-	ExternalID        string        `json:"external_id" gorm:"index"`
-	PaymentIntentID   string        `json:"payment_intent_id" gorm:"index"` // For Stripe
+	TransactionID   string `json:"transaction_id" gorm:"index"`
+	ExternalID      string `json:"external_id" gorm:"index"`
+	PaymentIntentID string `json:"payment_intent_id" gorm:"index"` // For Stripe
 
 	// Gateway information
-	Gateway           string        `json:"gateway" gorm:"default:'stripe'"` // stripe, paypal, etc.
-	GatewayResponse   string        `json:"gateway_response" gorm:"type:text"`
+	Gateway         string `json:"gateway" gorm:"default:'stripe'"` // stripe, paypal, etc.
+	GatewayResponse string `json:"gateway_response" gorm:"type:text"`
 
 	// Fees and charges
-	ProcessingFee     float64       `json:"processing_fee" gorm:"default:0"`
-	GatewayFee        float64       `json:"gateway_fee" gorm:"default:0"`
-	NetAmount         float64       `json:"net_amount" gorm:"default:0"` // Amount - fees
+	ProcessingFee float64 `json:"processing_fee" gorm:"default:0"`
+	GatewayFee    float64 `json:"gateway_fee" gorm:"default:0"`
+	NetAmount     float64 `json:"net_amount" gorm:"default:0"` // Amount - fees
 
 	// Failure information
-	FailureReason     string        `json:"failure_reason"`
-	FailureCode       string        `json:"failure_code"`
+	FailureReason string `json:"failure_reason"`
+	FailureCode   string `json:"failure_code"`
 
 	// Timestamps
-	ProcessedAt       *time.Time    `json:"processed_at"`
-	RefundedAt        *time.Time    `json:"refunded_at"`
-	FailedAt          *time.Time    `json:"failed_at"`
+	ProcessedAt *time.Time `json:"processed_at"`
+	RefundedAt  *time.Time `json:"refunded_at"`
+	FailedAt    *time.Time `json:"failed_at"`
 
 	// Refund information
-	RefundAmount      float64       `json:"refund_amount" gorm:"default:0"`
-	RefundReason      string        `json:"refund_reason"`
+	RefundAmount float64 `json:"refund_amount" gorm:"default:0"`
+	RefundReason string  `json:"refund_reason"`
 
 	// Metadata
-	Metadata          string        `json:"metadata" gorm:"type:text"` // JSON metadata
-	Notes             string        `json:"notes" gorm:"type:text"`
+	Metadata string `json:"metadata" gorm:"type:text"` // JSON metadata
+	Notes    string `json:"notes" gorm:"type:text"`
 
-	CreatedAt         time.Time     `json:"created_at" gorm:"autoCreateTime"`
-	UpdatedAt         time.Time     `json:"updated_at" gorm:"autoUpdateTime"`
+	CreatedAt time.Time `json:"created_at" gorm:"autoCreateTime"`
+	UpdatedAt time.Time `json:"updated_at" gorm:"autoUpdateTime"`
 
 	// Relationships
-	Order             *Order        `json:"order,omitempty" gorm:"foreignKey:OrderID"`
-	User              *User         `json:"user,omitempty" gorm:"foreignKey:UserID"`
-	Refunds           []Refund      `json:"refunds,omitempty" gorm:"foreignKey:PaymentID"`
+	Order   *Order   `json:"order,omitempty" gorm:"foreignKey:OrderID"`
+	User    *User    `json:"user,omitempty" gorm:"foreignKey:UserID"`
+	Refunds []Refund `json:"refunds,omitempty" gorm:"foreignKey:PaymentID"`
 }
 
 // TableName returns the table name for Payment entity
@@ -151,7 +148,6 @@ func (p *Payment) Validate() error {
 		PaymentStatusProcessing,
 		PaymentStatusAwaitingPayment,
 		PaymentStatusPaid,
-		PaymentStatusCompleted,
 		PaymentStatusPartiallyPaid,
 		PaymentStatusFailed,
 		PaymentStatusRefunded,
@@ -194,7 +190,7 @@ func (p *Payment) Validate() error {
 	} else {
 		// Validate net amount calculation with floating point tolerance
 		const epsilon = 0.01
-		if math.Abs(p.NetAmount - expectedNetAmount) > epsilon {
+		if math.Abs(p.NetAmount-expectedNetAmount) > epsilon {
 			return fmt.Errorf("net_amount %.2f does not match calculated net_amount %.2f", p.NetAmount, expectedNetAmount)
 		}
 	}
@@ -247,13 +243,13 @@ func (p *Payment) CanTransitionTo(newStatus PaymentStatus) bool {
 	switch p.Status {
 	case PaymentStatusPending:
 		return newStatus == PaymentStatusProcessing || newStatus == PaymentStatusPaid ||
-			   newStatus == PaymentStatusFailed || newStatus == PaymentStatusCancelled
+			newStatus == PaymentStatusFailed || newStatus == PaymentStatusCancelled
 	case PaymentStatusProcessing:
 		return newStatus == PaymentStatusPaid || newStatus == PaymentStatusFailed ||
-			   newStatus == PaymentStatusCancelled
+			newStatus == PaymentStatusCancelled
 	case PaymentStatusAwaitingPayment:
 		return newStatus == PaymentStatusPaid || newStatus == PaymentStatusCancelled
-	case PaymentStatusPaid, PaymentStatusCompleted:
+	case PaymentStatusPaid:
 		return newStatus == PaymentStatusRefunded
 	case PaymentStatusPartiallyPaid:
 		return newStatus == PaymentStatusPaid || newStatus == PaymentStatusRefunded
@@ -277,7 +273,7 @@ func (p *Payment) TransitionTo(newStatus PaymentStatus) error {
 	switch newStatus {
 	case PaymentStatusProcessing:
 		// No additional fields to update
-	case PaymentStatusPaid, PaymentStatusCompleted:
+	case PaymentStatusPaid:
 		if p.ProcessedAt == nil {
 			now := time.Now()
 			p.ProcessedAt = &now
@@ -343,54 +339,54 @@ func (p *Payment) AddRefund(amount float64) error {
 	if amount <= 0 {
 		return ErrInvalidRefundAmount
 	}
-	
-	if p.RefundAmount + amount > p.Amount {
+
+	if p.RefundAmount+amount > p.Amount {
 		return ErrRefundAmountExceedsPayment
 	}
-	
+
 	p.RefundAmount += amount
-	
+
 	if p.RefundAmount >= p.Amount {
 		p.Status = PaymentStatusRefunded
 		now := time.Now()
 		p.RefundedAt = &now
 	}
-	
+
 	p.UpdatedAt = time.Now()
 	return nil
 }
 
 // Refund represents a payment refund
 type Refund struct {
-	ID            uuid.UUID     `json:"id" gorm:"type:uuid;primary_key;default:gen_random_uuid()"`
-	PaymentID     uuid.UUID     `json:"payment_id" gorm:"type:uuid;not null;index"`
-	OrderID       uuid.UUID     `json:"order_id" gorm:"type:uuid;not null;index"`
-	Amount        float64       `json:"amount" gorm:"not null" validate:"required,gt=0"`
-	RefundFee     float64       `json:"refund_fee" gorm:"default:0"`
-	NetAmount     float64       `json:"net_amount" gorm:"not null"`
-	Reason        RefundReason  `json:"reason" gorm:"not null"`
-	Description   string        `json:"description" gorm:"type:text"`
-	Status        RefundStatus  `json:"status" gorm:"default:'pending'"`
-	Type          RefundType    `json:"type" gorm:"default:'full'"`
-	TransactionID string        `json:"transaction_id" gorm:"index"`
-	ExternalID    string        `json:"external_id" gorm:"index"`
+	ID            uuid.UUID    `json:"id" gorm:"type:uuid;primary_key;default:gen_random_uuid()"`
+	PaymentID     uuid.UUID    `json:"payment_id" gorm:"type:uuid;not null;index"`
+	OrderID       uuid.UUID    `json:"order_id" gorm:"type:uuid;not null;index"`
+	Amount        float64      `json:"amount" gorm:"not null" validate:"required,gt=0"`
+	RefundFee     float64      `json:"refund_fee" gorm:"default:0"`
+	NetAmount     float64      `json:"net_amount" gorm:"not null"`
+	Reason        RefundReason `json:"reason" gorm:"not null"`
+	Description   string       `json:"description" gorm:"type:text"`
+	Status        RefundStatus `json:"status" gorm:"default:'pending'"`
+	Type          RefundType   `json:"type" gorm:"default:'full'"`
+	TransactionID string       `json:"transaction_id" gorm:"index"`
+	ExternalID    string       `json:"external_id" gorm:"index"`
 
 	// Business rules
-	RequiresApproval bool      `json:"requires_approval" gorm:"default:false"`
+	RequiresApproval bool       `json:"requires_approval" gorm:"default:false"`
 	ApprovedBy       *uuid.UUID `json:"approved_by" gorm:"type:uuid"`
 	ApprovedAt       *time.Time `json:"approved_at"`
 
 	// Processing info
-	ProcessedAt   *time.Time    `json:"processed_at"`
-	ProcessedBy   *uuid.UUID    `json:"processed_by" gorm:"type:uuid"`
-	FailureReason string        `json:"failure_reason" gorm:"type:text"`
+	ProcessedAt   *time.Time `json:"processed_at"`
+	ProcessedBy   *uuid.UUID `json:"processed_by" gorm:"type:uuid"`
+	FailureReason string     `json:"failure_reason" gorm:"type:text"`
 
 	// Metadata
-	Metadata      map[string]interface{} `json:"metadata" gorm:"type:jsonb"`
+	Metadata map[string]interface{} `json:"metadata" gorm:"type:jsonb"`
 
 	// Timestamps
-	CreatedAt     time.Time     `json:"created_at" gorm:"autoCreateTime"`
-	UpdatedAt     time.Time     `json:"updated_at" gorm:"autoUpdateTime"`
+	CreatedAt time.Time `json:"created_at" gorm:"autoCreateTime"`
+	UpdatedAt time.Time `json:"updated_at" gorm:"autoUpdateTime"`
 
 	// Relationships
 	Payment *Payment `json:"payment,omitempty" gorm:"foreignKey:PaymentID"`
@@ -401,14 +397,14 @@ type Refund struct {
 type RefundStatus string
 
 const (
-	RefundStatusPending         RefundStatus = "pending"
+	RefundStatusPending          RefundStatus = "pending"
 	RefundStatusAwaitingApproval RefundStatus = "awaiting_approval"
-	RefundStatusApproved        RefundStatus = "approved"
-	RefundStatusProcessing      RefundStatus = "processing"
-	RefundStatusCompleted       RefundStatus = "completed"
-	RefundStatusFailed          RefundStatus = "failed"
-	RefundStatusCancelled       RefundStatus = "cancelled"
-	RefundStatusRejected        RefundStatus = "rejected"
+	RefundStatusApproved         RefundStatus = "approved"
+	RefundStatusProcessing       RefundStatus = "processing"
+	RefundStatusCompleted        RefundStatus = "completed"
+	RefundStatusFailed           RefundStatus = "failed"
+	RefundStatusCancelled        RefundStatus = "cancelled"
+	RefundStatusRejected         RefundStatus = "rejected"
 )
 
 // RefundType represents the type of refund
@@ -423,22 +419,22 @@ const (
 type RefundReason string
 
 const (
-	RefundReasonDefective        RefundReason = "defective"
-	RefundReasonNotAsDescribed   RefundReason = "not_as_described"
-	RefundReasonWrongItem        RefundReason = "wrong_item"
-	RefundReasonDamaged          RefundReason = "damaged"
-	RefundReasonCustomerRequest  RefundReason = "customer_request"
-	RefundReasonDuplicate        RefundReason = "duplicate"
-	RefundReasonFraud            RefundReason = "fraud"
-	RefundReasonChargeback       RefundReason = "chargeback"
-	RefundReasonOther            RefundReason = "other"
+	RefundReasonDefective       RefundReason = "defective"
+	RefundReasonNotAsDescribed  RefundReason = "not_as_described"
+	RefundReasonWrongItem       RefundReason = "wrong_item"
+	RefundReasonDamaged         RefundReason = "damaged"
+	RefundReasonCustomerRequest RefundReason = "customer_request"
+	RefundReasonDuplicate       RefundReason = "duplicate"
+	RefundReasonFraud           RefundReason = "fraud"
+	RefundReasonChargeback      RefundReason = "chargeback"
+	RefundReasonOther           RefundReason = "other"
 )
 
 // Refund business constants
 const (
 	DefaultRefundTimeLimit = 30 * 24 * time.Hour // 30 days
 	MinRefundAmount        = 0.01
-	MaxRefundFeePercent    = 0.05 // 5%
+	MaxRefundFeePercent    = 0.05  // 5%
 	RefundFeeThreshold     = 100.0 // No fee for refunds above this amount
 )
 
@@ -535,7 +531,7 @@ func (r *Refund) IsEligibleForAutoApproval() bool {
 // CanBeProcessed checks if refund can be processed
 func (r *Refund) CanBeProcessed() bool {
 	return r.Status == RefundStatusApproved ||
-		   (r.Status == RefundStatusPending && r.IsEligibleForAutoApproval())
+		(r.Status == RefundStatusPending && r.IsEligibleForAutoApproval())
 }
 
 // GetRemainingRefundAmount returns the remaining amount that can be refunded
@@ -569,7 +565,7 @@ func (p *Payment) ValidateRefundAmount(amount float64) error {
 		return fmt.Errorf("refund amount must be at least %.2f", MinRefundAmount)
 	}
 
-	if p.RefundAmount + amount > p.Amount {
+	if p.RefundAmount+amount > p.Amount {
 		return ErrRefundAmountExceedsPayment
 	}
 
@@ -601,44 +597,44 @@ func (p *Payment) CalculateRefundImpact(refundAmount float64) PaymentStatus {
 
 // PaymentMethodEntity represents a saved payment method for a user
 type PaymentMethodEntity struct {
-	ID            uuid.UUID     `json:"id" gorm:"type:uuid;primary_key;default:gen_random_uuid()"`
-	UserID        uuid.UUID     `json:"user_id" gorm:"type:uuid;not null;index"`
-	Type          PaymentMethod `json:"type" gorm:"not null" validate:"required"`
+	ID     uuid.UUID     `json:"id" gorm:"type:uuid;primary_key;default:gen_random_uuid()"`
+	UserID uuid.UUID     `json:"user_id" gorm:"type:uuid;not null;index"`
+	Type   PaymentMethod `json:"type" gorm:"not null" validate:"required"`
 
 	// Card information (for card payments)
-	Last4         string        `json:"last4"`                    // Last 4 digits
-	Brand         string        `json:"brand"`                    // visa, mastercard, amex, etc.
-	ExpiryMonth   int           `json:"expiry_month"`
-	ExpiryYear    int           `json:"expiry_year"`
+	Last4       string `json:"last4"` // Last 4 digits
+	Brand       string `json:"brand"` // visa, mastercard, amex, etc.
+	ExpiryMonth int    `json:"expiry_month"`
+	ExpiryYear  int    `json:"expiry_year"`
 
 	// Gateway information
-	Gateway       string        `json:"gateway" gorm:"default:'stripe'"` // stripe, paypal, etc.
-	GatewayToken  string        `json:"gateway_token" gorm:"not null"`   // Token from payment gateway
-	GatewayCustomerID string    `json:"gateway_customer_id"`             // Customer ID in gateway
+	Gateway           string `json:"gateway" gorm:"default:'stripe'"` // stripe, paypal, etc.
+	GatewayToken      string `json:"gateway_token" gorm:"not null"`   // Token from payment gateway
+	GatewayCustomerID string `json:"gateway_customer_id"`             // Customer ID in gateway
 
 	// Billing information
-	BillingName   string        `json:"billing_name"`
-	BillingEmail  string        `json:"billing_email"`
-	BillingAddress string       `json:"billing_address" gorm:"type:text"`
+	BillingName    string `json:"billing_name"`
+	BillingEmail   string `json:"billing_email"`
+	BillingAddress string `json:"billing_address" gorm:"type:text"`
 
 	// Status and preferences
-	IsDefault     bool          `json:"is_default" gorm:"default:false"`
-	IsActive      bool          `json:"is_active" gorm:"default:true"`
+	IsDefault bool `json:"is_default" gorm:"default:false"`
+	IsActive  bool `json:"is_active" gorm:"default:true"`
 
 	// Security
-	Fingerprint   string        `json:"fingerprint" gorm:"index"`        // Unique fingerprint to prevent duplicates
+	Fingerprint string `json:"fingerprint" gorm:"index"` // Unique fingerprint to prevent duplicates
 
 	// Metadata
-	Metadata      string        `json:"metadata" gorm:"type:text"`       // JSON metadata
-	Notes         string        `json:"notes"`
+	Metadata string `json:"metadata" gorm:"type:text"` // JSON metadata
+	Notes    string `json:"notes"`
 
 	// Timestamps
-	CreatedAt     time.Time     `json:"created_at" gorm:"autoCreateTime"`
-	UpdatedAt     time.Time     `json:"updated_at" gorm:"autoUpdateTime"`
-	LastUsedAt    *time.Time    `json:"last_used_at"`
+	CreatedAt  time.Time  `json:"created_at" gorm:"autoCreateTime"`
+	UpdatedAt  time.Time  `json:"updated_at" gorm:"autoUpdateTime"`
+	LastUsedAt *time.Time `json:"last_used_at"`
 
 	// Relationships
-	User          *User         `json:"user,omitempty" gorm:"foreignKey:UserID"`
+	User *User `json:"user,omitempty" gorm:"foreignKey:UserID"`
 }
 
 // TableName returns the table name for PaymentMethodEntity

@@ -154,11 +154,11 @@ func (uc *reviewUseCase) CreateReview(ctx context.Context, userID uuid.UUID, req
 		return nil, entities.ErrProductNotFound
 	}
 
-	// Business rule: Allow multiple comments but only one rating per user per product
-	// Check if user already has a rating for this product
+	// Business rule: One review per user per product, but allow rating updates and multiple comments
+	// This provides good UX while maintaining data integrity
 	existingReview, err := uc.reviewRepo.GetUserReviewForProduct(ctx, userID, req.ProductID)
 	if err == nil && existingReview != nil {
-		// User already has a review - update the rating and add new comment
+		// User already has a review - allow updating rating and adding new comments
 		return uc.updateExistingReview(ctx, userID, existingReview, req)
 	}
 
@@ -244,8 +244,13 @@ func (uc *reviewUseCase) CreateReview(ctx context.Context, userID uuid.UUID, req
 }
 
 // updateExistingReview updates existing review with new rating and adds comment
+// Business Rule: Users can update their rating and add multiple comments for better UX
 func (uc *reviewUseCase) updateExistingReview(ctx context.Context, userID uuid.UUID, existingReview *entities.Review, req CreateReviewRequest) (*ReviewResponse, error) {
-	// Update rating (only one rating per user per product)
+	// Store original values for comparison
+	originalRating := existingReview.Rating
+	originalComment := existingReview.Comment
+
+	// Allow rating updates - this provides better UX for customers who change their mind
 	existingReview.Rating = req.Rating
 
 	// Update title if provided
@@ -253,13 +258,14 @@ func (uc *reviewUseCase) updateExistingReview(ctx context.Context, userID uuid.U
 		existingReview.Title = req.Title
 	}
 
-	// Handle comments: Allow multiple comments by appending new ones
+	// Handle comments: Allow multiple comments by appending new ones with timestamps
+	// This allows customers to add follow-up comments about their experience
 	if req.Comment != "" {
 		if existingReview.Comment == "" {
 			// First comment
 			existingReview.Comment = req.Comment
 		} else {
-			// Append new comment with timestamp
+			// Append new comment with timestamp for traceability
 			timestamp := time.Now().Format("2006-01-02 15:04")
 			existingReview.Comment += fmt.Sprintf("\n\n[Update %s]: %s", timestamp, req.Comment)
 		}
@@ -284,48 +290,59 @@ func (uc *reviewUseCase) updateExistingReview(ctx context.Context, userID uuid.U
 			fmt.Printf("✅ Product rating updated after review update\n")
 		}
 
-		// Award loyalty points for the update (smaller amount)
-		uc.awardReviewLoyaltyPoints(ctx, userID, req.Rating, len(strings.TrimSpace(req.Comment)), isVerified)
+		// Award loyalty points for the update (smaller amount, only if significant change)
+		if !uc.isSimilarContent(originalComment, existingReview.Comment) || originalRating != existingReview.Rating {
+			uc.awardReviewLoyaltyPointsForUpdate(ctx, userID, req.Rating, len(strings.TrimSpace(req.Comment)), isVerified)
+		}
 	}
 
 	return uc.toReviewResponse(existingReview, nil), nil
 }
 
 // determineReviewStatus determines if a review should be auto-approved based on business rules
+// Business Logic: Balance UX with quality control - auto-approve legitimate reviews, flag suspicious ones
 func (uc *reviewUseCase) determineReviewStatus(rating int, comment, title string, isVerified bool) entities.ReviewStatus {
-	// Check for suspicious content first
+	// Priority 1: Check for suspicious content first (spam, inappropriate language)
 	if uc.isSuspiciousContent(comment, title) {
 		return entities.ReviewStatusPending
 	}
 
-	// Auto-approve verified purchases (best UX for real customers)
+	// Priority 2: Auto-approve verified purchases (customers who actually bought the product)
 	if isVerified {
 		return entities.ReviewStatusApproved
 	}
 
-	// Auto-approve all positive reviews (4-5 stars) regardless of comment
+	// Priority 3: Auto-approve positive reviews with content (4-5 stars)
 	if rating >= 4 {
-		return entities.ReviewStatusApproved
-	}
-
-	// Auto-approve neutral reviews (3 stars) - customers are honest
-	if rating == 3 {
-		return entities.ReviewStatusApproved
-	}
-
-	// For negative reviews (1-2 stars), be more flexible:
-	if rating <= 2 {
-		// Auto-approve if has any comment (even short ones)
-		if len(strings.TrimSpace(comment)) > 0 {
+		// Require some content for high ratings to prevent fake reviews
+		if len(strings.TrimSpace(comment)) >= 10 || len(strings.TrimSpace(title)) >= 5 {
 			return entities.ReviewStatusApproved
 		}
-		// Auto-approve rating-only negative reviews too (customer frustration is valid)
-		// Only flag if completely empty and suspicious patterns
-		return entities.ReviewStatusApproved
+		// Rating-only positive reviews need manual review
+		return entities.ReviewStatusPending
 	}
 
-	// Default to approved for maximum UX flexibility
-	return entities.ReviewStatusApproved
+	// Priority 4: Auto-approve neutral reviews with meaningful content (3 stars)
+	if rating == 3 {
+		// Require meaningful content for neutral reviews
+		if len(strings.TrimSpace(comment)) >= 20 {
+			return entities.ReviewStatusApproved
+		}
+		return entities.ReviewStatusPending
+	}
+
+	// For negative reviews (1-2 stars), require substantial content
+	if rating <= 2 {
+		// Require detailed explanation for negative reviews to prevent spam
+		if len(strings.TrimSpace(comment)) >= 30 {
+			return entities.ReviewStatusApproved
+		}
+		// Short or empty negative reviews need manual review
+		return entities.ReviewStatusPending
+	}
+
+	// Default to pending for edge cases
+	return entities.ReviewStatusPending
 }
 
 // isSuspiciousContent checks for suspicious patterns in review content
@@ -334,6 +351,9 @@ func (uc *reviewUseCase) isSuspiciousContent(comment, title string) bool {
 		"fake", "spam", "bot", "paid", "advertisement", "promo",
 		"discount code", "coupon", "free shipping", "click here",
 		"visit my", "check out my", "follow me", "subscribe",
+		"buy now", "limited time", "special offer", "contact me",
+		"email me", "whatsapp", "telegram", "instagram", "facebook",
+		"www.", "http", ".com", ".net", ".org", "@",
 	}
 
 	content := strings.ToLower(comment + " " + title)
@@ -370,6 +390,35 @@ func (uc *reviewUseCase) isSuspiciousContent(comment, title string) bool {
 		if float64(upperCount)/float64(len(comment)) > 0.5 { // More than 50% uppercase
 			return true
 		}
+	}
+
+	// Check for excessive punctuation (spam pattern)
+	if len(content) > 10 {
+		punctCount := 0
+		for _, char := range content {
+			if char == '!' || char == '?' || char == '.' {
+				punctCount++
+			}
+		}
+		if float64(punctCount)/float64(len(content)) > 0.2 { // More than 20% punctuation
+			return true
+		}
+	}
+
+	// Check for very short content with extreme ratings (potential fake)
+	if len(strings.TrimSpace(content)) < 5 {
+		return true // Very short content is suspicious
+	}
+
+	// Check for number patterns (phone numbers, etc.)
+	digitCount := 0
+	for _, char := range content {
+		if char >= '0' && char <= '9' {
+			digitCount++
+		}
+	}
+	if digitCount > 8 { // Likely contains phone number or similar
+		return true
 	}
 
 	return false
@@ -480,6 +529,39 @@ func (uc *reviewUseCase) awardReviewLoyaltyPoints(ctx context.Context, userID uu
 			user.LoyaltyPoints += points
 			if err := uc.userRepo.Update(ctx, user); err == nil {
 				fmt.Printf("✅ Awarded %d loyalty points for review\n", points)
+			}
+		}
+	}
+}
+
+// awardReviewLoyaltyPointsForUpdate awards reduced loyalty points for review updates
+func (uc *reviewUseCase) awardReviewLoyaltyPointsForUpdate(ctx context.Context, userID uuid.UUID, rating, commentLength int, isVerified bool) {
+	// Calculate reduced points for updates (50% of original)
+	points := 0
+
+	// Base points for update (reduced)
+	points += 2
+
+	// Bonus for detailed reviews (reduced)
+	if commentLength >= 50 {
+		points += 2
+	}
+	if commentLength >= 100 {
+		points += 2
+	}
+
+	// Bonus for verified purchase reviews (reduced)
+	if isVerified {
+		points += 5
+	}
+
+	// Award points to user
+	if points > 0 {
+		user, err := uc.userRepo.GetByID(ctx, userID)
+		if err == nil {
+			user.LoyaltyPoints += points
+			if err := uc.userRepo.Update(ctx, user); err == nil {
+				fmt.Printf("✅ Awarded %d loyalty points for review update\n", points)
 			}
 		}
 	}

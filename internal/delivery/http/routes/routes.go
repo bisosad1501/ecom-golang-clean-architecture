@@ -35,9 +35,10 @@ func SetupRoutes(
 	recommendationHandler *handlers.RecommendationHandler,
 	comparisonHandler *handlers.ProductComparisonHandler,
 	productFilterHandler *handlers.ProductFilterHandler,
+	abandonedCartHandler *handlers.AbandonedCartHandler,
 ) {
 	// Apply global middleware
-	router.Use(gin.Recovery()) // Add panic recovery middleware
+	router.Use(gin.Recovery())                       // Add panic recovery middleware
 	router.Use(middleware.CORSMiddleware(&cfg.CORS)) // Enable CORS
 	router.Use(middleware.SecurityHeadersMiddleware())
 	router.Use(middleware.RequestSizeLimitMiddleware(10 << 20)) // 10MB limit
@@ -710,6 +711,15 @@ func SetupRoutes(
 				inventory.PUT("/alerts/:id/resolve", inventoryHandler.ResolveAlert)
 				inventory.GET("/low-stock", inventoryHandler.GetLowStockItems)
 				inventory.GET("/out-of-stock", inventoryHandler.GetOutOfStockItems)
+			}
+
+			// Abandoned cart management routes
+			abandonedCarts := admin.Group("/abandoned-carts")
+			{
+				abandonedCarts.GET("", abandonedCartHandler.GetAbandonedCarts)
+				abandonedCarts.GET("/stats", abandonedCartHandler.GetAbandonedCartStats)
+				abandonedCarts.POST("/process", abandonedCartHandler.ProcessAbandonedCarts)
+				abandonedCarts.POST("/:id/reminder", abandonedCartHandler.SendReminderEmail)
 			}
 
 			// Coupon management routes

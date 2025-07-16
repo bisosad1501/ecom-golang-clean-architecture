@@ -146,33 +146,33 @@ type AdminUsersRequest struct {
 
 // Customer search and segmentation request types
 type CustomerSearchRequest struct {
-	Query                string               `json:"query,omitempty"`
-	Role                 *entities.UserRole   `json:"role,omitempty"`
-	Status               *entities.UserStatus `json:"status,omitempty"`
-	IsActive             *bool                `json:"is_active,omitempty"`
-	EmailVerified        *bool                `json:"email_verified,omitempty"`
-	PhoneVerified        *bool                `json:"phone_verified,omitempty"`
-	TwoFactorEnabled     *bool                `json:"two_factor_enabled,omitempty"`
-	MembershipTier       string               `json:"membership_tier,omitempty"`
-	CustomerSegment      string               `json:"customer_segment,omitempty"`
-	MinTotalSpent        *float64             `json:"min_total_spent,omitempty"`
-	MaxTotalSpent        *float64             `json:"max_total_spent,omitempty"`
-	MinTotalOrders       *int                 `json:"min_total_orders,omitempty"`
-	MaxTotalOrders       *int                 `json:"max_total_orders,omitempty"`
-	MinLoyaltyPoints     *int                 `json:"min_loyalty_points,omitempty"`
-	MaxLoyaltyPoints     *int                 `json:"max_loyalty_points,omitempty"`
-	CreatedFrom          *time.Time           `json:"created_from,omitempty"`
-	CreatedTo            *time.Time           `json:"created_to,omitempty"`
-	LastLoginFrom        *time.Time           `json:"last_login_from,omitempty"`
-	LastLoginTo          *time.Time           `json:"last_login_to,omitempty"`
-	LastActivityFrom     *time.Time           `json:"last_activity_from,omitempty"`
-	LastActivityTo       *time.Time           `json:"last_activity_to,omitempty"`
-	IncludeInactive      bool                 `json:"include_inactive,omitempty"`
-	IncludeUnverified    bool                 `json:"include_unverified,omitempty"`
-	SortBy               string               `json:"sort_by,omitempty" validate:"omitempty,oneof=name email created_at last_login total_spent total_orders loyalty_points"`
-	SortOrder            string               `json:"sort_order,omitempty" validate:"omitempty,oneof=asc desc"`
-	Limit                int                  `json:"limit" validate:"min=1,max=100"`
-	Offset               int                  `json:"offset" validate:"min=0"`
+	Query             string               `json:"query,omitempty"`
+	Role              *entities.UserRole   `json:"role,omitempty"`
+	Status            *entities.UserStatus `json:"status,omitempty"`
+	IsActive          *bool                `json:"is_active,omitempty"`
+	EmailVerified     *bool                `json:"email_verified,omitempty"`
+	PhoneVerified     *bool                `json:"phone_verified,omitempty"`
+	TwoFactorEnabled  *bool                `json:"two_factor_enabled,omitempty"`
+	MembershipTier    string               `json:"membership_tier,omitempty"`
+	CustomerSegment   string               `json:"customer_segment,omitempty"`
+	MinTotalSpent     *float64             `json:"min_total_spent,omitempty"`
+	MaxTotalSpent     *float64             `json:"max_total_spent,omitempty"`
+	MinTotalOrders    *int                 `json:"min_total_orders,omitempty"`
+	MaxTotalOrders    *int                 `json:"max_total_orders,omitempty"`
+	MinLoyaltyPoints  *int                 `json:"min_loyalty_points,omitempty"`
+	MaxLoyaltyPoints  *int                 `json:"max_loyalty_points,omitempty"`
+	CreatedFrom       *time.Time           `json:"created_from,omitempty"`
+	CreatedTo         *time.Time           `json:"created_to,omitempty"`
+	LastLoginFrom     *time.Time           `json:"last_login_from,omitempty"`
+	LastLoginTo       *time.Time           `json:"last_login_to,omitempty"`
+	LastActivityFrom  *time.Time           `json:"last_activity_from,omitempty"`
+	LastActivityTo    *time.Time           `json:"last_activity_to,omitempty"`
+	IncludeInactive   bool                 `json:"include_inactive,omitempty"`
+	IncludeUnverified bool                 `json:"include_unverified,omitempty"`
+	SortBy            string               `json:"sort_by,omitempty" validate:"omitempty,oneof=name email created_at last_login total_spent total_orders loyalty_points"`
+	SortOrder         string               `json:"sort_order,omitempty" validate:"omitempty,oneof=asc desc"`
+	Limit             int                  `json:"limit" validate:"min=1,max=100"`
+	Offset            int                  `json:"offset" validate:"min=0"`
 }
 
 type CustomerAnalyticsRequest struct {
@@ -724,11 +724,11 @@ type CustomerSearchResult struct {
 }
 
 type CustomerSearchFacets struct {
-	Roles            []FacetCount `json:"roles"`
-	Statuses         []FacetCount `json:"statuses"`
-	MembershipTiers  []FacetCount `json:"membership_tiers"`
-	CustomerSegments []FacetCount `json:"customer_segments"`
-	SecurityLevels   []FacetCount `json:"security_levels"`
+	Roles              []FacetCount `json:"roles"`
+	Statuses           []FacetCount `json:"statuses"`
+	MembershipTiers    []FacetCount `json:"membership_tiers"`
+	CustomerSegments   []FacetCount `json:"customer_segments"`
+	SecurityLevels     []FacetCount `json:"security_levels"`
 	VerificationStatus struct {
 		EmailVerified    int64 `json:"email_verified"`
 		PhoneVerified    int64 `json:"phone_verified"`
@@ -787,9 +787,9 @@ type CustomerAnalyticsResponse struct {
 	} `json:"acquisition_trends"`
 
 	RetentionMetrics struct {
-		Day30Retention   float64 `json:"day_30_retention"`
-		Day90Retention   float64 `json:"day_90_retention"`
-		Day365Retention  float64 `json:"day_365_retention"`
+		Day30Retention     float64 `json:"day_30_retention"`
+		Day90Retention     float64 `json:"day_90_retention"`
+		Day365Retention    float64 `json:"day_365_retention"`
 		RepeatPurchaseRate float64 `json:"repeat_purchase_rate"`
 	} `json:"retention_metrics"`
 }
@@ -811,19 +811,19 @@ type CustomersBySegmentResponse struct {
 }
 
 type CustomerLifetimeValueResponse struct {
-	CustomerID       uuid.UUID `json:"customer_id"`
-	CustomerName     string    `json:"customer_name"`
-	LifetimeValue    float64   `json:"lifetime_value"`
-	TotalOrders      int64     `json:"total_orders"`
-	TotalSpent       float64   `json:"total_spent"`
-	AvgOrderValue    float64   `json:"avg_order_value"`
-	FirstOrderDate   *time.Time `json:"first_order_date"`
-	LastOrderDate    *time.Time `json:"last_order_date"`
-	CustomerAge      int       `json:"customer_age_days"`
-	PredictedLTV     float64   `json:"predicted_ltv"`
-	RiskScore        float64   `json:"risk_score"`
-	Segment          string    `json:"segment"`
-	Tier             string    `json:"tier"`
+	CustomerID     uuid.UUID  `json:"customer_id"`
+	CustomerName   string     `json:"customer_name"`
+	LifetimeValue  float64    `json:"lifetime_value"`
+	TotalOrders    int64      `json:"total_orders"`
+	TotalSpent     float64    `json:"total_spent"`
+	AvgOrderValue  float64    `json:"avg_order_value"`
+	FirstOrderDate *time.Time `json:"first_order_date"`
+	LastOrderDate  *time.Time `json:"last_order_date"`
+	CustomerAge    int        `json:"customer_age_days"`
+	PredictedLTV   float64    `json:"predicted_ltv"`
+	RiskScore      float64    `json:"risk_score"`
+	Segment        string     `json:"segment"`
+	Tier           string     `json:"tier"`
 }
 
 // GetDashboard gets admin dashboard data
@@ -1086,9 +1086,16 @@ func (uc *adminUseCase) GetOrderDetails(ctx context.Context, orderID uuid.UUID) 
 		return nil, fmt.Errorf("failed to get order: %w", err)
 	}
 
-	// Sync payment status based on current payments
+	// Auto-sync payment status based on current payments
 	oldPaymentStatus := order.PaymentStatus
-	order.SyncPaymentStatus(entities.PaymentStatusPaid)
+	order.AutoSyncPaymentStatus()
+
+	// Try auto-transition if needed
+	if err := order.TryAutoTransitionOnPayment(); err != nil {
+		fmt.Printf("❌ Failed to auto-transition order: %v\n", err)
+		// Don't fail the request, just log the error
+	}
+
 	if oldPaymentStatus != order.PaymentStatus {
 		// Update order if payment status changed
 		if err := uc.orderRepo.Update(ctx, order); err != nil {
@@ -2324,8 +2331,8 @@ func (uc *adminUseCase) GetCustomerAnalytics(ctx context.Context, req CustomerAn
 			AvgLifetimeValue:   calculateAvgLTV(highValueCustomers),
 			AvgOrderValue:      calculateAvgOrderValue(highValueCustomers),
 		},
-		SegmentBreakdown:       segmentsResp.Segments,
-		TierDistribution:       tierDistribution,
+		SegmentBreakdown: segmentsResp.Segments,
+		TierDistribution: tierDistribution,
 		GeographicDistribution: []struct {
 			Country    string  `json:"country"`
 			Count      int64   `json:"count"`
@@ -2341,10 +2348,10 @@ func (uc *adminUseCase) GetCustomerAnalytics(ctx context.Context, req CustomerAn
 			Day365Retention    float64 `json:"day_365_retention"`
 			RepeatPurchaseRate float64 `json:"repeat_purchase_rate"`
 		}{
-			Day30Retention:     85.0,  // TODO: Calculate actual retention
-			Day90Retention:     70.0,  // TODO: Calculate actual retention
-			Day365Retention:    55.0,  // TODO: Calculate actual retention
-			RepeatPurchaseRate: 45.0,  // TODO: Calculate actual repeat purchase rate
+			Day30Retention:     85.0, // TODO: Calculate actual retention
+			Day90Retention:     70.0, // TODO: Calculate actual retention
+			Day365Retention:    55.0, // TODO: Calculate actual retention
+			RepeatPurchaseRate: 45.0, // TODO: Calculate actual repeat purchase rate
 		},
 	}
 
@@ -3278,13 +3285,13 @@ func (uc *adminUseCase) GetUserAnalytics(ctx context.Context, req UserAnalyticsR
 	// TODO: Implement user analytics
 	return &UserAnalyticsResponse{
 		Overview: struct {
-			TotalUsers       int     `json:"total_users"`
-			ActiveUsers      int     `json:"active_users"`
-			NewUsers         int     `json:"new_users"`
-			VerifiedUsers    int     `json:"verified_users"`
-			GrowthRate       float64 `json:"growth_rate"`
-			ChurnRate        float64 `json:"churn_rate"`
-			EngagementRate   float64 `json:"engagement_rate"`
+			TotalUsers     int     `json:"total_users"`
+			ActiveUsers    int     `json:"active_users"`
+			NewUsers       int     `json:"new_users"`
+			VerifiedUsers  int     `json:"verified_users"`
+			GrowthRate     float64 `json:"growth_rate"`
+			ChurnRate      float64 `json:"churn_rate"`
+			EngagementRate float64 `json:"engagement_rate"`
 		}{
 			TotalUsers:     0,
 			ActiveUsers:    0,
@@ -3295,21 +3302,21 @@ func (uc *adminUseCase) GetUserAnalytics(ctx context.Context, req UserAnalyticsR
 			EngagementRate: 0,
 		},
 		Demographics: struct {
-			RoleDistribution   map[string]int `json:"role_distribution"`
-			StatusDistribution map[string]int `json:"status_distribution"`
-			TierDistribution   map[string]int `json:"tier_distribution"`
+			RoleDistribution    map[string]int `json:"role_distribution"`
+			StatusDistribution  map[string]int `json:"status_distribution"`
+			TierDistribution    map[string]int `json:"tier_distribution"`
 			CountryDistribution map[string]int `json:"country_distribution"`
 		}{
-			RoleDistribution:   make(map[string]int),
-			StatusDistribution: make(map[string]int),
-			TierDistribution:   make(map[string]int),
+			RoleDistribution:    make(map[string]int),
+			StatusDistribution:  make(map[string]int),
+			TierDistribution:    make(map[string]int),
 			CountryDistribution: make(map[string]int),
 		},
 		Activity: struct {
-			DailyActiveUsers   []DailyMetric `json:"daily_active_users"`
-			WeeklyActiveUsers  []WeeklyMetric `json:"weekly_active_users"`
+			DailyActiveUsers   []DailyMetric   `json:"daily_active_users"`
+			WeeklyActiveUsers  []WeeklyMetric  `json:"weekly_active_users"`
 			MonthlyActiveUsers []MonthlyMetric `json:"monthly_active_users"`
-			LoginFrequency     map[string]int `json:"login_frequency"`
+			LoginFrequency     map[string]int  `json:"login_frequency"`
 		}{
 			DailyActiveUsers:   []DailyMetric{},
 			WeeklyActiveUsers:  []WeeklyMetric{},
@@ -3326,12 +3333,12 @@ func (uc *adminUseCase) GetUserActivityAnalytics(ctx context.Context, req UserAc
 	return &UserActivityAnalyticsResponse{
 		UserID: *req.UserID,
 		Summary: struct {
-			TotalSessions    int     `json:"total_sessions"`
-			TotalDuration    int     `json:"total_duration"`
-			AverageSession   float64 `json:"average_session"`
-			LastActivity     time.Time `json:"last_activity"`
-			MostActiveHour   int     `json:"most_active_hour"`
-			MostActiveDay    string  `json:"most_active_day"`
+			TotalSessions  int       `json:"total_sessions"`
+			TotalDuration  int       `json:"total_duration"`
+			AverageSession float64   `json:"average_session"`
+			LastActivity   time.Time `json:"last_activity"`
+			MostActiveHour int       `json:"most_active_hour"`
+			MostActiveDay  string    `json:"most_active_day"`
 		}{
 			TotalSessions:  0,
 			TotalDuration:  0,
@@ -3360,9 +3367,9 @@ func (uc *adminUseCase) GetUserEngagementMetrics(ctx context.Context, req UserEn
 	// TODO: Implement user engagement metrics
 	return &UserEngagementResponse{
 		Overview: struct {
-			TotalEngagedUsers int     `json:"total_engaged_users"`
-			EngagementRate    float64 `json:"engagement_rate"`
-			RetentionRate     float64 `json:"retention_rate"`
+			TotalEngagedUsers  int     `json:"total_engaged_users"`
+			EngagementRate     float64 `json:"engagement_rate"`
+			RetentionRate      float64 `json:"retention_rate"`
 			AverageSessionTime float64 `json:"average_session_time"`
 		}{
 			TotalEngagedUsers:  0,
@@ -3404,11 +3411,11 @@ type BulkUserUpdateRequest struct {
 }
 
 type BulkUserUpdateResponse struct {
-	TotalUsers   int                    `json:"total_users"`
-	SuccessCount int                    `json:"success_count"`
-	FailureCount int                    `json:"failure_count"`
-	Results      []BulkUserResult       `json:"results"`
-	Summary      BulkOperationSummary   `json:"summary"`
+	TotalUsers   int                  `json:"total_users"`
+	SuccessCount int                  `json:"success_count"`
+	FailureCount int                  `json:"failure_count"`
+	Results      []BulkUserResult     `json:"results"`
+	Summary      BulkOperationSummary `json:"summary"`
 }
 
 type BulkUserDeleteRequest struct {
@@ -3418,11 +3425,11 @@ type BulkUserDeleteRequest struct {
 }
 
 type BulkUserDeleteResponse struct {
-	TotalUsers   int                    `json:"total_users"`
-	SuccessCount int                    `json:"success_count"`
-	FailureCount int                    `json:"failure_count"`
-	Results      []BulkUserResult       `json:"results"`
-	Summary      BulkOperationSummary   `json:"summary"`
+	TotalUsers   int                  `json:"total_users"`
+	SuccessCount int                  `json:"success_count"`
+	FailureCount int                  `json:"failure_count"`
+	Results      []BulkUserResult     `json:"results"`
+	Summary      BulkOperationSummary `json:"summary"`
 }
 
 type BulkUserActivateRequest struct {
@@ -3431,11 +3438,11 @@ type BulkUserActivateRequest struct {
 }
 
 type BulkUserActivateResponse struct {
-	TotalUsers   int                    `json:"total_users"`
-	SuccessCount int                    `json:"success_count"`
-	FailureCount int                    `json:"failure_count"`
-	Results      []BulkUserResult       `json:"results"`
-	Summary      BulkOperationSummary   `json:"summary"`
+	TotalUsers   int                  `json:"total_users"`
+	SuccessCount int                  `json:"success_count"`
+	FailureCount int                  `json:"failure_count"`
+	Results      []BulkUserResult     `json:"results"`
+	Summary      BulkOperationSummary `json:"summary"`
 }
 
 type BulkUserDeactivateRequest struct {
@@ -3444,25 +3451,25 @@ type BulkUserDeactivateRequest struct {
 }
 
 type BulkUserDeactivateResponse struct {
-	TotalUsers   int                    `json:"total_users"`
-	SuccessCount int                    `json:"success_count"`
-	FailureCount int                    `json:"failure_count"`
-	Results      []BulkUserResult       `json:"results"`
-	Summary      BulkOperationSummary   `json:"summary"`
+	TotalUsers   int                  `json:"total_users"`
+	SuccessCount int                  `json:"success_count"`
+	FailureCount int                  `json:"failure_count"`
+	Results      []BulkUserResult     `json:"results"`
+	Summary      BulkOperationSummary `json:"summary"`
 }
 
 type BulkUserRoleUpdateRequest struct {
-	UserIDs []uuid.UUID        `json:"user_ids" validate:"required"`
-	Role    entities.UserRole  `json:"role" validate:"required"`
-	Reason  string             `json:"reason,omitempty"`
+	UserIDs []uuid.UUID       `json:"user_ids" validate:"required"`
+	Role    entities.UserRole `json:"role" validate:"required"`
+	Reason  string            `json:"reason,omitempty"`
 }
 
 type BulkUserRoleUpdateResponse struct {
-	TotalUsers   int                    `json:"total_users"`
-	SuccessCount int                    `json:"success_count"`
-	FailureCount int                    `json:"failure_count"`
-	Results      []BulkUserResult       `json:"results"`
-	Summary      BulkOperationSummary   `json:"summary"`
+	TotalUsers   int                  `json:"total_users"`
+	SuccessCount int                  `json:"success_count"`
+	FailureCount int                  `json:"failure_count"`
+	Results      []BulkUserResult     `json:"results"`
+	Summary      BulkOperationSummary `json:"summary"`
 }
 
 type BulkUserResult struct {
@@ -3472,14 +3479,12 @@ type BulkUserResult struct {
 	Error   string    `json:"error,omitempty"`
 }
 
-
-
 // User communication request/response types
 type UserNotificationRequest struct {
-	UserID  uuid.UUID `json:"user_id" validate:"required"`
-	Title   string    `json:"title" validate:"required"`
-	Message string    `json:"message" validate:"required"`
-	Type    string    `json:"type" validate:"required"` // info, warning, success, error
+	UserID  uuid.UUID              `json:"user_id" validate:"required"`
+	Title   string                 `json:"title" validate:"required"`
+	Message string                 `json:"message" validate:"required"`
+	Type    string                 `json:"type" validate:"required"` // info, warning, success, error
 	Data    map[string]interface{} `json:"data,omitempty"`
 }
 
@@ -3490,19 +3495,19 @@ type UserNotificationResponse struct {
 }
 
 type BulkNotificationRequest struct {
-	UserIDs []uuid.UUID `json:"user_ids" validate:"required"`
-	Title   string      `json:"title" validate:"required"`
-	Message string      `json:"message" validate:"required"`
-	Type    string      `json:"type" validate:"required"`
+	UserIDs []uuid.UUID            `json:"user_ids" validate:"required"`
+	Title   string                 `json:"title" validate:"required"`
+	Message string                 `json:"message" validate:"required"`
+	Type    string                 `json:"type" validate:"required"`
 	Data    map[string]interface{} `json:"data,omitempty"`
 }
 
 type BulkNotificationResponse struct {
-	TotalUsers   int                         `json:"total_users"`
-	SuccessCount int                         `json:"success_count"`
-	FailureCount int                         `json:"failure_count"`
-	Results      []BulkNotificationResult    `json:"results"`
-	Summary      BulkOperationSummary        `json:"summary"`
+	TotalUsers   int                      `json:"total_users"`
+	SuccessCount int                      `json:"success_count"`
+	FailureCount int                      `json:"failure_count"`
+	Results      []BulkNotificationResult `json:"results"`
+	Summary      BulkOperationSummary     `json:"summary"`
 }
 
 type BulkNotificationResult struct {
@@ -3514,10 +3519,10 @@ type BulkNotificationResult struct {
 }
 
 type UserEmailRequest struct {
-	UserID   uuid.UUID `json:"user_id" validate:"required"`
-	Subject  string    `json:"subject" validate:"required"`
-	Body     string    `json:"body" validate:"required"`
-	Template string    `json:"template,omitempty"`
+	UserID   uuid.UUID              `json:"user_id" validate:"required"`
+	Subject  string                 `json:"subject" validate:"required"`
+	Body     string                 `json:"body" validate:"required"`
+	Template string                 `json:"template,omitempty"`
 	Data     map[string]interface{} `json:"data,omitempty"`
 }
 
@@ -3528,19 +3533,19 @@ type UserEmailResponse struct {
 }
 
 type BulkEmailRequest struct {
-	UserIDs  []uuid.UUID `json:"user_ids" validate:"required"`
-	Subject  string      `json:"subject" validate:"required"`
-	Body     string      `json:"body" validate:"required"`
-	Template string      `json:"template,omitempty"`
+	UserIDs  []uuid.UUID            `json:"user_ids" validate:"required"`
+	Subject  string                 `json:"subject" validate:"required"`
+	Body     string                 `json:"body" validate:"required"`
+	Template string                 `json:"template,omitempty"`
 	Data     map[string]interface{} `json:"data,omitempty"`
 }
 
 type BulkEmailResponse struct {
-	TotalUsers   int                    `json:"total_users"`
-	SuccessCount int                    `json:"success_count"`
-	FailureCount int                    `json:"failure_count"`
-	Results      []BulkEmailResult      `json:"results"`
-	Summary      BulkOperationSummary   `json:"summary"`
+	TotalUsers   int                  `json:"total_users"`
+	SuccessCount int                  `json:"success_count"`
+	FailureCount int                  `json:"failure_count"`
+	Results      []BulkEmailResult    `json:"results"`
+	Summary      BulkOperationSummary `json:"summary"`
 }
 
 type BulkEmailResult struct {
@@ -3552,54 +3557,54 @@ type BulkEmailResult struct {
 }
 
 type AnnouncementRequest struct {
-	Title       string    `json:"title" validate:"required"`
-	Content     string    `json:"content" validate:"required"`
-	Type        string    `json:"type" validate:"required"` // general, maintenance, promotion, urgent
+	Title       string              `json:"title" validate:"required"`
+	Content     string              `json:"content" validate:"required"`
+	Type        string              `json:"type" validate:"required"` // general, maintenance, promotion, urgent
 	TargetRoles []entities.UserRole `json:"target_roles,omitempty"`
-	TargetUsers []uuid.UUID `json:"target_users,omitempty"`
-	StartDate   *time.Time  `json:"start_date,omitempty"`
-	EndDate     *time.Time  `json:"end_date,omitempty"`
-	IsActive    bool        `json:"is_active"`
+	TargetUsers []uuid.UUID         `json:"target_users,omitempty"`
+	StartDate   *time.Time          `json:"start_date,omitempty"`
+	EndDate     *time.Time          `json:"end_date,omitempty"`
+	IsActive    bool                `json:"is_active"`
 }
 
 type AnnouncementResponse struct {
-	ID           uuid.UUID `json:"id"`
-	Title        string    `json:"title"`
-	Content      string    `json:"content"`
-	Type         string    `json:"type"`
-	TargetRoles  []entities.UserRole `json:"target_roles"`
-	TargetUsers  []uuid.UUID `json:"target_users"`
-	StartDate    *time.Time  `json:"start_date"`
-	EndDate      *time.Time  `json:"end_date"`
-	IsActive     bool        `json:"is_active"`
-	CreatedBy    uuid.UUID   `json:"created_by"`
-	CreatedAt    time.Time   `json:"created_at"`
-	UpdatedAt    time.Time   `json:"updated_at"`
+	ID          uuid.UUID           `json:"id"`
+	Title       string              `json:"title"`
+	Content     string              `json:"content"`
+	Type        string              `json:"type"`
+	TargetRoles []entities.UserRole `json:"target_roles"`
+	TargetUsers []uuid.UUID         `json:"target_users"`
+	StartDate   *time.Time          `json:"start_date"`
+	EndDate     *time.Time          `json:"end_date"`
+	IsActive    bool                `json:"is_active"`
+	CreatedBy   uuid.UUID           `json:"created_by"`
+	CreatedAt   time.Time           `json:"created_at"`
+	UpdatedAt   time.Time           `json:"updated_at"`
 }
 
 // User import/export request/response types
 type UserImportRequest struct {
-	FileData    []byte `json:"file_data" validate:"required"`
-	FileName    string `json:"file_name" validate:"required"`
-	FileType    string `json:"file_type" validate:"required"` // csv, xlsx
-	Options     struct {
-		SkipHeader       bool `json:"skip_header"`
-		UpdateExisting   bool `json:"update_existing"`
-		SendWelcomeEmail bool `json:"send_welcome_email"`
-		DefaultRole      entities.UserRole `json:"default_role"`
+	FileData []byte `json:"file_data" validate:"required"`
+	FileName string `json:"file_name" validate:"required"`
+	FileType string `json:"file_type" validate:"required"` // csv, xlsx
+	Options  struct {
+		SkipHeader       bool                `json:"skip_header"`
+		UpdateExisting   bool                `json:"update_existing"`
+		SendWelcomeEmail bool                `json:"send_welcome_email"`
+		DefaultRole      entities.UserRole   `json:"default_role"`
 		DefaultStatus    entities.UserStatus `json:"default_status"`
 	} `json:"options"`
 }
 
 type UserImportResponse struct {
-	ImportID      uuid.UUID `json:"import_id"`
-	TotalRows     int       `json:"total_rows"`
-	SuccessCount  int       `json:"success_count"`
-	FailureCount  int       `json:"failure_count"`
-	SkippedCount  int       `json:"skipped_count"`
-	Results       []UserImportResult `json:"results"`
-	Summary       BulkOperationSummary `json:"summary"`
-	ErrorFile     string    `json:"error_file,omitempty"` // URL to download error report
+	ImportID     uuid.UUID            `json:"import_id"`
+	TotalRows    int                  `json:"total_rows"`
+	SuccessCount int                  `json:"success_count"`
+	FailureCount int                  `json:"failure_count"`
+	SkippedCount int                  `json:"skipped_count"`
+	Results      []UserImportResult   `json:"results"`
+	Summary      BulkOperationSummary `json:"summary"`
+	ErrorFile    string               `json:"error_file,omitempty"` // URL to download error report
 }
 
 type UserImportResult struct {
@@ -3612,10 +3617,10 @@ type UserImportResult struct {
 }
 
 type UserExportRequest struct {
-	UserIDs    []uuid.UUID `json:"user_ids,omitempty"` // If empty, export all
-	Format     string      `json:"format" validate:"required"` // csv, xlsx, json
-	Fields     []string    `json:"fields,omitempty"` // Specific fields to export
-	Filters    struct {
+	UserIDs []uuid.UUID `json:"user_ids,omitempty"`         // If empty, export all
+	Format  string      `json:"format" validate:"required"` // csv, xlsx, json
+	Fields  []string    `json:"fields,omitempty"`           // Specific fields to export
+	Filters struct {
 		Role           *entities.UserRole   `json:"role,omitempty"`
 		Status         *entities.UserStatus `json:"status,omitempty"`
 		IsActive       *bool                `json:"is_active,omitempty"`
@@ -3627,13 +3632,13 @@ type UserExportRequest struct {
 }
 
 type UserExportResponse struct {
-	ExportID    uuid.UUID `json:"export_id"`
-	FileName    string    `json:"file_name"`
-	FileURL     string    `json:"file_url"`
-	TotalUsers  int       `json:"total_users"`
-	FileSize    int64     `json:"file_size"`
-	ExpiresAt   time.Time `json:"expires_at"`
-	CreatedAt   time.Time `json:"created_at"`
+	ExportID   uuid.UUID `json:"export_id"`
+	FileName   string    `json:"file_name"`
+	FileURL    string    `json:"file_url"`
+	TotalUsers int       `json:"total_users"`
+	FileSize   int64     `json:"file_size"`
+	ExpiresAt  time.Time `json:"expires_at"`
+	CreatedAt  time.Time `json:"created_at"`
 }
 
 type ImportHistoryRequest struct {
@@ -3647,26 +3652,26 @@ type ImportHistoryResponse struct {
 }
 
 type UserImportHistory struct {
-	ID           uuid.UUID `json:"id"`
-	FileName     string    `json:"file_name"`
-	TotalRows    int       `json:"total_rows"`
-	SuccessCount int       `json:"success_count"`
-	FailureCount int       `json:"failure_count"`
-	Status       string    `json:"status"` // pending, processing, completed, failed
-	CreatedBy    uuid.UUID `json:"created_by"`
-	CreatedAt    time.Time `json:"created_at"`
+	ID           uuid.UUID  `json:"id"`
+	FileName     string     `json:"file_name"`
+	TotalRows    int        `json:"total_rows"`
+	SuccessCount int        `json:"success_count"`
+	FailureCount int        `json:"failure_count"`
+	Status       string     `json:"status"` // pending, processing, completed, failed
+	CreatedBy    uuid.UUID  `json:"created_by"`
+	CreatedAt    time.Time  `json:"created_at"`
 	CompletedAt  *time.Time `json:"completed_at,omitempty"`
 }
 
 // User audit logs request/response types
 type UserAuditLogsRequest struct {
-	UserID     *uuid.UUID `json:"user_id,omitempty"`
-	AdminID    *uuid.UUID `json:"admin_id,omitempty"`
-	Action     *string    `json:"action,omitempty"`
-	DateFrom   *time.Time `json:"date_from,omitempty"`
-	DateTo     *time.Time `json:"date_to,omitempty"`
-	Limit      int        `json:"limit,omitempty"`
-	Offset     int        `json:"offset,omitempty"`
+	UserID   *uuid.UUID `json:"user_id,omitempty"`
+	AdminID  *uuid.UUID `json:"admin_id,omitempty"`
+	Action   *string    `json:"action,omitempty"`
+	DateFrom *time.Time `json:"date_from,omitempty"`
+	DateTo   *time.Time `json:"date_to,omitempty"`
+	Limit    int        `json:"limit,omitempty"`
+	Offset   int        `json:"offset,omitempty"`
 }
 
 type UserAuditLogsResponse struct {
@@ -3675,27 +3680,27 @@ type UserAuditLogsResponse struct {
 }
 
 type UserAuditLog struct {
-	ID          uuid.UUID `json:"id"`
-	UserID      uuid.UUID `json:"user_id"`
-	AdminID     uuid.UUID `json:"admin_id"`
-	Action      string    `json:"action"`
-	Description string    `json:"description"`
+	ID          uuid.UUID              `json:"id"`
+	UserID      uuid.UUID              `json:"user_id"`
+	AdminID     uuid.UUID              `json:"admin_id"`
+	Action      string                 `json:"action"`
+	Description string                 `json:"description"`
 	OldValues   map[string]interface{} `json:"old_values,omitempty"`
 	NewValues   map[string]interface{} `json:"new_values,omitempty"`
-	IPAddress   string    `json:"ip_address,omitempty"`
-	UserAgent   string    `json:"user_agent,omitempty"`
-	CreatedAt   time.Time `json:"created_at"`
+	IPAddress   string                 `json:"ip_address,omitempty"`
+	UserAgent   string                 `json:"user_agent,omitempty"`
+	CreatedAt   time.Time              `json:"created_at"`
 }
 
 type CreateUserAuditLogRequest struct {
-	UserID      uuid.UUID `json:"user_id" validate:"required"`
-	AdminID     uuid.UUID `json:"admin_id" validate:"required"`
-	Action      string    `json:"action" validate:"required"`
-	Description string    `json:"description" validate:"required"`
+	UserID      uuid.UUID              `json:"user_id" validate:"required"`
+	AdminID     uuid.UUID              `json:"admin_id" validate:"required"`
+	Action      string                 `json:"action" validate:"required"`
+	Description string                 `json:"description" validate:"required"`
 	OldValues   map[string]interface{} `json:"old_values,omitempty"`
 	NewValues   map[string]interface{} `json:"new_values,omitempty"`
-	IPAddress   string    `json:"ip_address,omitempty"`
-	UserAgent   string    `json:"user_agent,omitempty"`
+	IPAddress   string                 `json:"ip_address,omitempty"`
+	UserAgent   string                 `json:"user_agent,omitempty"`
 }
 
 // User analytics request/response types
@@ -3707,27 +3712,27 @@ type UserAnalyticsRequest struct {
 
 type UserAnalyticsResponse struct {
 	Overview struct {
-		TotalUsers       int     `json:"total_users"`
-		ActiveUsers      int     `json:"active_users"`
-		NewUsers         int     `json:"new_users"`
-		VerifiedUsers    int     `json:"verified_users"`
-		GrowthRate       float64 `json:"growth_rate"`
-		ChurnRate        float64 `json:"churn_rate"`
-		EngagementRate   float64 `json:"engagement_rate"`
+		TotalUsers     int     `json:"total_users"`
+		ActiveUsers    int     `json:"active_users"`
+		NewUsers       int     `json:"new_users"`
+		VerifiedUsers  int     `json:"verified_users"`
+		GrowthRate     float64 `json:"growth_rate"`
+		ChurnRate      float64 `json:"churn_rate"`
+		EngagementRate float64 `json:"engagement_rate"`
 	} `json:"overview"`
 
 	Demographics struct {
-		RoleDistribution   map[string]int `json:"role_distribution"`
-		StatusDistribution map[string]int `json:"status_distribution"`
-		TierDistribution   map[string]int `json:"tier_distribution"`
+		RoleDistribution    map[string]int `json:"role_distribution"`
+		StatusDistribution  map[string]int `json:"status_distribution"`
+		TierDistribution    map[string]int `json:"tier_distribution"`
 		CountryDistribution map[string]int `json:"country_distribution"`
 	} `json:"demographics"`
 
 	Activity struct {
-		DailyActiveUsers   []DailyMetric `json:"daily_active_users"`
-		WeeklyActiveUsers  []WeeklyMetric `json:"weekly_active_users"`
+		DailyActiveUsers   []DailyMetric   `json:"daily_active_users"`
+		WeeklyActiveUsers  []WeeklyMetric  `json:"weekly_active_users"`
 		MonthlyActiveUsers []MonthlyMetric `json:"monthly_active_users"`
-		LoginFrequency     map[string]int `json:"login_frequency"`
+		LoginFrequency     map[string]int  `json:"login_frequency"`
 	} `json:"activity"`
 
 	Trends []UserTrendData `json:"trends"`
@@ -3740,14 +3745,14 @@ type UserActivityAnalyticsRequest struct {
 }
 
 type UserActivityAnalyticsResponse struct {
-	UserID   uuid.UUID `json:"user_id"`
-	Summary  struct {
-		TotalSessions    int     `json:"total_sessions"`
-		TotalDuration    int     `json:"total_duration"` // in minutes
-		AverageSession   float64 `json:"average_session"`
-		LastActivity     time.Time `json:"last_activity"`
-		MostActiveHour   int     `json:"most_active_hour"`
-		MostActiveDay    string  `json:"most_active_day"`
+	UserID  uuid.UUID `json:"user_id"`
+	Summary struct {
+		TotalSessions  int       `json:"total_sessions"`
+		TotalDuration  int       `json:"total_duration"` // in minutes
+		AverageSession float64   `json:"average_session"`
+		LastActivity   time.Time `json:"last_activity"`
+		MostActiveHour int       `json:"most_active_hour"`
+		MostActiveDay  string    `json:"most_active_day"`
 	} `json:"summary"`
 
 	Activities []UserActivity `json:"activities"`
@@ -3767,9 +3772,9 @@ type UserEngagementRequest struct {
 
 type UserEngagementResponse struct {
 	Overview struct {
-		TotalEngagedUsers int     `json:"total_engaged_users"`
-		EngagementRate    float64 `json:"engagement_rate"`
-		RetentionRate     float64 `json:"retention_rate"`
+		TotalEngagedUsers  int     `json:"total_engaged_users"`
+		EngagementRate     float64 `json:"engagement_rate"`
+		RetentionRate      float64 `json:"retention_rate"`
 		AverageSessionTime float64 `json:"average_session_time"`
 	} `json:"overview"`
 

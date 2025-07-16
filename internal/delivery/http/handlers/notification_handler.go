@@ -5,6 +5,7 @@ import (
 	"strconv"
 
 	"ecom-golang-clean-architecture/internal/usecases"
+
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 )
@@ -43,7 +44,7 @@ func (h *NotificationHandler) CreateNotification(c *gin.Context) {
 
 	c.JSON(http.StatusCreated, SuccessResponse{
 		Message: "Notification created successfully",
-		Data: notification,
+		Data:    notification,
 	})
 }
 
@@ -70,7 +71,7 @@ func (h *NotificationHandler) GetNotification(c *gin.Context) {
 
 	c.JSON(http.StatusOK, SuccessResponse{
 		Message: "Notification retrieved successfully",
-		Data: notification,
+		Data:    notification,
 	})
 }
 
@@ -79,9 +80,9 @@ func (h *NotificationHandler) GetUserNotifications(c *gin.Context) {
 	userID, exists := c.Get("userID")
 	if !exists {
 		c.JSON(http.StatusUnauthorized, ErrorResponse{
-		Error: "User not authenticated",
-		Details: "",
-	})
+			Error:   "User not authenticated",
+			Details: "",
+		})
 		return
 	}
 
@@ -122,9 +123,9 @@ func (h *NotificationHandler) MarkAsRead(c *gin.Context) {
 	userID, exists := c.Get("userID")
 	if !exists {
 		c.JSON(http.StatusUnauthorized, ErrorResponse{
-		Error: "User not authenticated",
-		Details: "",
-	})
+			Error:   "User not authenticated",
+			Details: "",
+		})
 		return
 	}
 
@@ -149,7 +150,7 @@ func (h *NotificationHandler) MarkAsRead(c *gin.Context) {
 
 	c.JSON(http.StatusOK, SuccessResponse{
 		Message: "Notification marked as read",
-		Data: nil,
+		Data:    nil,
 	})
 }
 
@@ -158,9 +159,9 @@ func (h *NotificationHandler) MarkAllAsRead(c *gin.Context) {
 	userID, exists := c.Get("userID")
 	if !exists {
 		c.JSON(http.StatusUnauthorized, ErrorResponse{
-		Error: "User not authenticated",
-		Details: "",
-	})
+			Error:   "User not authenticated",
+			Details: "",
+		})
 		return
 	}
 
@@ -175,7 +176,7 @@ func (h *NotificationHandler) MarkAllAsRead(c *gin.Context) {
 
 	c.JSON(http.StatusOK, SuccessResponse{
 		Message: "All notifications marked as read",
-		Data: nil,
+		Data:    nil,
 	})
 }
 
@@ -184,9 +185,9 @@ func (h *NotificationHandler) GetUnreadCount(c *gin.Context) {
 	userID, exists := c.Get("userID")
 	if !exists {
 		c.JSON(http.StatusUnauthorized, ErrorResponse{
-		Error: "User not authenticated",
-		Details: "",
-	})
+			Error:   "User not authenticated",
+			Details: "",
+		})
 		return
 	}
 
@@ -201,13 +202,13 @@ func (h *NotificationHandler) GetUnreadCount(c *gin.Context) {
 
 	c.JSON(http.StatusOK, SuccessResponse{
 		Message: "Unread count retrieved successfully",
-		Data: gin.H{"count": count},
+		Data:    gin.H{"count": count},
 	})
 }
 
 // CreateTemplate creates a notification template
 func (h *NotificationHandler) CreateTemplate(c *gin.Context) {
-	var req usecases.CreateTemplateRequest
+	var req usecases.CreateNotificationTemplateRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, ErrorResponse{
 			Error:   "Invalid request body",
@@ -227,7 +228,7 @@ func (h *NotificationHandler) CreateTemplate(c *gin.Context) {
 
 	c.JSON(http.StatusCreated, SuccessResponse{
 		Message: "Template created successfully",
-		Data: template,
+		Data:    template,
 	})
 }
 
@@ -252,6 +253,6 @@ func (h *NotificationHandler) GetTemplates(c *gin.Context) {
 
 	c.JSON(http.StatusOK, SuccessResponse{
 		Message: "Templates retrieved successfully",
-		Data: templates,
+		Data:    templates,
 	})
 }

@@ -121,47 +121,47 @@ type ProcessPaymentRequest struct {
 }
 
 type ProcessRefundRequest struct {
-	PaymentID         uuid.UUID                    `json:"payment_id" validate:"required"`
-	OrderID           uuid.UUID                    `json:"order_id" validate:"required"`
-	Amount            float64                      `json:"amount" validate:"required,gt=0"`
-	Reason            entities.RefundReason        `json:"reason" validate:"required"`
-	Description       string                       `json:"description,omitempty"`
-	Type              entities.RefundType          `json:"type" validate:"required"`
-	ForceApproval     bool                         `json:"force_approval,omitempty"`
-	ProcessedBy       *uuid.UUID                   `json:"processed_by,omitempty"`
-	Metadata          map[string]interface{}       `json:"metadata,omitempty"`
+	PaymentID     uuid.UUID              `json:"payment_id" validate:"required"`
+	OrderID       uuid.UUID              `json:"order_id" validate:"required"`
+	Amount        float64                `json:"amount" validate:"required,gt=0"`
+	Reason        entities.RefundReason  `json:"reason" validate:"required"`
+	Description   string                 `json:"description,omitempty"`
+	Type          entities.RefundType    `json:"type" validate:"required"`
+	ForceApproval bool                   `json:"force_approval,omitempty"`
+	ProcessedBy   *uuid.UUID             `json:"processed_by,omitempty"`
+	Metadata      map[string]interface{} `json:"metadata,omitempty"`
 }
 
 type SavePaymentMethodRequest struct {
-	UserID            uuid.UUID              `json:"user_id" validate:"required"`
-	Type              entities.PaymentMethod `json:"type" validate:"required"`
-	Token             string                 `json:"token" validate:"required"`
+	UserID uuid.UUID              `json:"user_id" validate:"required"`
+	Type   entities.PaymentMethod `json:"type" validate:"required"`
+	Token  string                 `json:"token" validate:"required"`
 
 	// Card information (for card payments)
-	Last4             string                 `json:"last4"`
-	Brand             string                 `json:"brand"`
-	ExpiryMonth       int                    `json:"expiry_month"`
-	ExpiryYear        int                    `json:"expiry_year"`
+	Last4       string `json:"last4"`
+	Brand       string `json:"brand"`
+	ExpiryMonth int    `json:"expiry_month"`
+	ExpiryYear  int    `json:"expiry_year"`
 
 	// Gateway information
-	Gateway           string                 `json:"gateway"`
-	GatewayCustomerID string                 `json:"gateway_customer_id"`
+	Gateway           string `json:"gateway"`
+	GatewayCustomerID string `json:"gateway_customer_id"`
 
 	// Billing information
-	BillingName       string                 `json:"billing_name"`
-	BillingEmail      string                 `json:"billing_email"`
-	BillingAddress    string                 `json:"billing_address"`
+	BillingName    string `json:"billing_name"`
+	BillingEmail   string `json:"billing_email"`
+	BillingAddress string `json:"billing_address"`
 
 	// Preferences
-	IsDefault         bool                   `json:"is_default"`
+	IsDefault bool `json:"is_default"`
 
 	// Security
-	Fingerprint       string                 `json:"fingerprint"`
+	Fingerprint string `json:"fingerprint"`
 
 	// Metadata
-	Metadata          map[string]interface{} `json:"metadata,omitempty"`
-	MetadataJSON      string                 `json:"-"` // Internal use
-	Notes             string                 `json:"notes"`
+	Metadata     map[string]interface{} `json:"metadata,omitempty"`
+	MetadataJSON string                 `json:"-"` // Internal use
+	Notes        string                 `json:"notes"`
 }
 
 type BillingAddressRequest struct {
@@ -225,46 +225,46 @@ type PaymentResponse struct {
 }
 
 type RefundResponse struct {
-	ID               uuid.UUID                  `json:"id"`
-	PaymentID        uuid.UUID                  `json:"payment_id"`
-	OrderID          uuid.UUID                  `json:"order_id"`
-	Amount           float64                    `json:"amount"`
-	RefundFee        float64                    `json:"refund_fee"`
-	NetAmount        float64                    `json:"net_amount"`
-	Reason           entities.RefundReason      `json:"reason"`
-	Description      string                     `json:"description"`
-	Status           entities.RefundStatus      `json:"status"`
-	Type             entities.RefundType        `json:"type"`
-	TransactionID    string                     `json:"transaction_id"`
-	RequiresApproval bool                       `json:"requires_approval"`
-	ApprovedBy       *uuid.UUID                 `json:"approved_by"`
-	ApprovedAt       *time.Time                 `json:"approved_at"`
-	ProcessedAt      *time.Time                 `json:"processed_at"`
-	ProcessedBy      *uuid.UUID                 `json:"processed_by"`
-	FailureReason    string                     `json:"failure_reason"`
-	Metadata         map[string]interface{}     `json:"metadata"`
-	CreatedAt        time.Time                  `json:"created_at"`
-	UpdatedAt        time.Time                  `json:"updated_at"`
+	ID               uuid.UUID              `json:"id"`
+	PaymentID        uuid.UUID              `json:"payment_id"`
+	OrderID          uuid.UUID              `json:"order_id"`
+	Amount           float64                `json:"amount"`
+	RefundFee        float64                `json:"refund_fee"`
+	NetAmount        float64                `json:"net_amount"`
+	Reason           entities.RefundReason  `json:"reason"`
+	Description      string                 `json:"description"`
+	Status           entities.RefundStatus  `json:"status"`
+	Type             entities.RefundType    `json:"type"`
+	TransactionID    string                 `json:"transaction_id"`
+	RequiresApproval bool                   `json:"requires_approval"`
+	ApprovedBy       *uuid.UUID             `json:"approved_by"`
+	ApprovedAt       *time.Time             `json:"approved_at"`
+	ProcessedAt      *time.Time             `json:"processed_at"`
+	ProcessedBy      *uuid.UUID             `json:"processed_by"`
+	FailureReason    string                 `json:"failure_reason"`
+	Metadata         map[string]interface{} `json:"metadata"`
+	CreatedAt        time.Time              `json:"created_at"`
+	UpdatedAt        time.Time              `json:"updated_at"`
 }
 
 type PaymentMethodResponse struct {
-	ID            uuid.UUID              `json:"id"`
-	UserID        uuid.UUID              `json:"user_id"`
-	Type          entities.PaymentMethod `json:"type"`
-	Last4         string                 `json:"last4,omitempty"`
-	Brand         string                 `json:"brand,omitempty"`
-	ExpiryMonth   int                    `json:"expiry_month,omitempty"`
-	ExpiryYear    int                    `json:"expiry_year,omitempty"`
-	Gateway       string                 `json:"gateway,omitempty"`
-	BillingName   string                 `json:"billing_name,omitempty"`
-	BillingEmail  string                 `json:"billing_email,omitempty"`
-	IsDefault     bool                   `json:"is_default"`
-	IsActive      bool                   `json:"is_active"`
-	IsExpired     bool                   `json:"is_expired"`
-	DisplayName   string                 `json:"display_name"`
-	CreatedAt     time.Time              `json:"created_at"`
-	UpdatedAt     time.Time              `json:"updated_at"`
-	LastUsedAt    *time.Time             `json:"last_used_at,omitempty"`
+	ID           uuid.UUID              `json:"id"`
+	UserID       uuid.UUID              `json:"user_id"`
+	Type         entities.PaymentMethod `json:"type"`
+	Last4        string                 `json:"last4,omitempty"`
+	Brand        string                 `json:"brand,omitempty"`
+	ExpiryMonth  int                    `json:"expiry_month,omitempty"`
+	ExpiryYear   int                    `json:"expiry_year,omitempty"`
+	Gateway      string                 `json:"gateway,omitempty"`
+	BillingName  string                 `json:"billing_name,omitempty"`
+	BillingEmail string                 `json:"billing_email,omitempty"`
+	IsDefault    bool                   `json:"is_default"`
+	IsActive     bool                   `json:"is_active"`
+	IsExpired    bool                   `json:"is_expired"`
+	DisplayName  string                 `json:"display_name"`
+	CreatedAt    time.Time              `json:"created_at"`
+	UpdatedAt    time.Time              `json:"updated_at"`
+	LastUsedAt   *time.Time             `json:"last_used_at,omitempty"`
 }
 
 type BillingAddressResponse struct {
@@ -333,7 +333,7 @@ func (uc *paymentUseCase) ProcessPayment(ctx context.Context, req ProcessPayment
 	totalPaid := 0.0
 	if existingPayments != nil {
 		for _, p := range existingPayments {
-			if p.Status == entities.PaymentStatusPaid || p.Status == entities.PaymentStatusCompleted {
+			if p.Status == entities.PaymentStatusPaid {
 				totalPaid += p.Amount
 			}
 		}
@@ -342,7 +342,7 @@ func (uc *paymentUseCase) ProcessPayment(ctx context.Context, req ProcessPayment
 	// Calculate remaining amount with floating point tolerance
 	remainingAmount := order.Total - totalPaid
 	const epsilon = 0.01
-	if req.Amount > remainingAmount + epsilon {
+	if req.Amount > remainingAmount+epsilon {
 		return nil, fmt.Errorf("payment amount %.2f exceeds remaining balance %.2f", req.Amount, remainingAmount)
 	}
 
@@ -513,8 +513,28 @@ func (uc *paymentUseCase) ProcessPayment(ctx context.Context, req ProcessPayment
 			return nil, err
 		}
 
-		// Sync payment status based on all payments
-		order.SyncPaymentStatus(payment.Status)
+		// Auto-sync payment status based on all payments (not just this one)
+		order.AutoSyncPaymentStatus()
+
+		// Try auto-transition if needed
+		if err := order.TryAutoTransitionOnPayment(); err != nil {
+			fmt.Printf("❌ Failed to auto-transition order: %v\n", err)
+			// Don't fail the payment, just log the error
+		}
+
+		// If order was confirmed (paid), confirm stock reservations
+		if order.Status == entities.OrderStatusConfirmed && order.HasInventoryReserved() {
+			if err := uc.stockReservationService.ConfirmReservations(ctx, order.ID); err != nil {
+				fmt.Printf("❌ Failed to confirm stock reservations: %v\n", err)
+				// Don't fail the payment, but log the error
+			} else {
+				fmt.Printf("✅ Stock reservations confirmed for order %s\n", order.ID)
+			}
+
+			// Release reservation flags since stock is now actually reduced
+			order.ReleaseReservation()
+		}
+
 		if err := uc.orderRepo.Update(ctx, order); err != nil {
 			return nil, err
 		}
@@ -610,15 +630,18 @@ func (uc *paymentUseCase) updatePaymentStatusInTransaction(ctx context.Context, 
 		return nil, fmt.Errorf("failed to reload order with payments: %v", err)
 	}
 
-	// Sync payment status based on all payments
+	// Auto-sync payment status based on all payments (not just this one)
 	oldPaymentStatus := order.PaymentStatus
-	order.SyncPaymentStatus(status)
+	order.AutoSyncPaymentStatus()
 
-	// Update order status if payment is completed
-	if status == entities.PaymentStatusPaid && order.Status == entities.OrderStatusPending && order.IsFullyPaid() {
-		order.Status = entities.OrderStatusConfirmed
+	// Try auto-transition based on payment status
+	if err := order.TryAutoTransitionOnPayment(); err != nil {
+		fmt.Printf("❌ Failed to auto-transition order: %v\n", err)
+		return nil, fmt.Errorf("failed to auto-transition order: %v", err)
+	}
 
-		// Confirm stock reservations (convert to actual stock reduction)
+	// If order was confirmed, confirm stock reservations (convert to actual stock reduction)
+	if order.Status == entities.OrderStatusConfirmed {
 		if err := uc.stockReservationService.ConfirmReservations(ctx, order.ID); err != nil {
 			fmt.Printf("❌ Failed to confirm stock reservations: %v\n", err)
 			return nil, fmt.Errorf("failed to confirm stock reservations: %v", err)
@@ -757,8 +780,8 @@ func (uc *paymentUseCase) validateRefundRequest(ctx context.Context, payment *en
 
 	for _, refund := range existingRefunds {
 		if refund.Status == entities.RefundStatusPending ||
-		   refund.Status == entities.RefundStatusAwaitingApproval ||
-		   refund.Status == entities.RefundStatusProcessing {
+			refund.Status == entities.RefundStatusAwaitingApproval ||
+			refund.Status == entities.RefundStatusProcessing {
 			return fmt.Errorf("payment has pending refunds")
 		}
 	}
@@ -1038,13 +1061,28 @@ func (uc *paymentUseCase) confirmPaymentInTransaction(ctx context.Context, sessi
 	oldStatus := order.Status
 	oldPaymentStatus := order.PaymentStatus
 
-	// Sync payment status based on all payments
-	order.SyncPaymentStatus(entities.PaymentStatusPaid)
-	// Update order status to confirmed if it was pending and fully paid
-	if order.Status == entities.OrderStatusPending && order.IsFullyPaid() {
-		order.Status = entities.OrderStatusConfirmed
+	// Auto-sync payment status based on all payments
+	order.AutoSyncPaymentStatus()
 
-		// Update user metrics when order is confirmed
+	// Try auto-transition based on payment status
+	if err := order.TryAutoTransitionOnPayment(); err != nil {
+		fmt.Printf("❌ Failed to auto-transition order: %v\n", err)
+		return fmt.Errorf("failed to auto-transition order: %v", err)
+	}
+
+	// If order was confirmed, confirm stock reservations and update user metrics
+	if order.Status == entities.OrderStatusConfirmed {
+		// Confirm stock reservations (convert to actual stock reduction)
+		if order.HasInventoryReserved() {
+			if err := uc.stockReservationService.ConfirmReservations(ctx, order.ID); err != nil {
+				fmt.Printf("❌ Failed to confirm stock reservations: %v\n", err)
+				// Don't fail the payment process for stock confirmation failure
+			} else {
+				fmt.Printf("✅ Stock reservations confirmed for order %s\n", order.ID)
+			}
+		}
+
+		// Update user metrics
 		if uc.userMetricsService != nil {
 			if err := uc.userMetricsService.UpdateUserMetricsOnOrderConfirmed(ctx, order.UserID, order.Total); err != nil {
 				fmt.Printf("❌ Failed to update user metrics: %v\n", err)
@@ -1053,9 +1091,10 @@ func (uc *paymentUseCase) confirmPaymentInTransaction(ctx context.Context, sessi
 				fmt.Printf("✅ User metrics updated for order confirmation\n")
 			}
 		}
+
+		// Release reservation flags since stock is now actually reduced
+		order.ReleaseReservation()
 	}
-	// Release reservation flags since stock is now actually reduced
-	order.ReleaseReservation()
 	order.UpdatedAt = time.Now()
 
 	if err := uc.orderRepo.Update(ctx, order); err != nil {
@@ -1132,16 +1171,24 @@ func (uc *paymentUseCase) handlePaymentIntentSucceeded(ctx context.Context, even
 		return fmt.Errorf("failed to reload order: %v", err)
 	}
 
-	order.SyncPaymentStatus(entities.PaymentStatusPaid)
-	if order.Status == entities.OrderStatusPending && order.IsFullyPaid() {
-		order.Status = entities.OrderStatusConfirmed
+	// Auto-sync payment status based on all payments
+	order.AutoSyncPaymentStatus()
 
-		// Confirm stock reservations (convert to actual stock reduction)
-		if err := uc.stockReservationService.ConfirmReservations(ctx, order.ID); err != nil {
-			fmt.Printf("❌ Failed to confirm stock reservations: %v\n", err)
-			return fmt.Errorf("failed to confirm stock reservations: %v", err)
+	// Try auto-transition based on payment status
+	if err := order.TryAutoTransitionOnPayment(); err != nil {
+		fmt.Printf("❌ Failed to auto-transition order: %v\n", err)
+		return fmt.Errorf("failed to auto-transition order: %v", err)
+	}
+
+	// If order was confirmed, confirm stock reservations (convert to actual stock reduction)
+	if order.Status == entities.OrderStatusConfirmed {
+		if order.HasInventoryReserved() {
+			if err := uc.stockReservationService.ConfirmReservations(ctx, order.ID); err != nil {
+				fmt.Printf("❌ Failed to confirm stock reservations: %v\n", err)
+				return fmt.Errorf("failed to confirm stock reservations: %v", err)
+			}
+			fmt.Printf("✅ Stock reservations confirmed and converted to actual stock reduction\n")
 		}
-		fmt.Printf("✅ Stock reservations confirmed and converted to actual stock reduction\n")
 
 		// Update user metrics when order is confirmed
 		if uc.userMetricsService != nil {
@@ -1606,11 +1653,17 @@ func (uc *paymentUseCase) ConfirmPaymentSuccess(ctx context.Context, orderID, us
 	oldStatus := order.Status
 	oldPaymentStatus := order.PaymentStatus
 
-	order.SyncPaymentStatus(entities.PaymentStatusPaid)
-	if order.Status == entities.OrderStatusPending && order.IsFullyPaid() {
-		order.Status = entities.OrderStatusConfirmed
+	// Auto-sync payment status based on all payments
+	order.AutoSyncPaymentStatus()
 
-		// Confirm stock reservations (convert to actual stock reduction)
+	// Try auto-transition based on payment status
+	if err := order.TryAutoTransitionOnPayment(); err != nil {
+		fmt.Printf("❌ Failed to auto-transition order: %v\n", err)
+		return fmt.Errorf("failed to auto-transition order: %v", err)
+	}
+
+	// If order was confirmed, confirm stock reservations (convert to actual stock reduction)
+	if order.Status == entities.OrderStatusConfirmed {
 		if err := uc.stockReservationService.ConfirmReservations(ctx, order.ID); err != nil {
 			fmt.Printf("❌ Failed to confirm stock reservations: %v\n", err)
 			return fmt.Errorf("failed to confirm stock reservations: %v", err)
@@ -1656,23 +1709,23 @@ func (uc *paymentUseCase) ConfirmPaymentSuccess(ctx context.Context, orderID, us
 // toPaymentMethodResponse converts PaymentMethodEntity to PaymentMethodResponse
 func (uc *paymentUseCase) toPaymentMethodResponse(pm *entities.PaymentMethodEntity) *PaymentMethodResponse {
 	return &PaymentMethodResponse{
-		ID:            pm.ID,
-		UserID:        pm.UserID,
-		Type:          pm.Type,
-		Last4:         pm.Last4,
-		Brand:         pm.Brand,
-		ExpiryMonth:   pm.ExpiryMonth,
-		ExpiryYear:    pm.ExpiryYear,
-		Gateway:       pm.Gateway,
-		BillingName:   pm.BillingName,
-		BillingEmail:  pm.BillingEmail,
-		IsDefault:     pm.IsDefault,
-		IsActive:      pm.IsActive,
-		IsExpired:     pm.IsExpired(),
-		DisplayName:   pm.GetDisplayName(),
-		CreatedAt:     pm.CreatedAt,
-		UpdatedAt:     pm.UpdatedAt,
-		LastUsedAt:    pm.LastUsedAt,
+		ID:           pm.ID,
+		UserID:       pm.UserID,
+		Type:         pm.Type,
+		Last4:        pm.Last4,
+		Brand:        pm.Brand,
+		ExpiryMonth:  pm.ExpiryMonth,
+		ExpiryYear:   pm.ExpiryYear,
+		Gateway:      pm.Gateway,
+		BillingName:  pm.BillingName,
+		BillingEmail: pm.BillingEmail,
+		IsDefault:    pm.IsDefault,
+		IsActive:     pm.IsActive,
+		IsExpired:    pm.IsExpired(),
+		DisplayName:  pm.GetDisplayName(),
+		CreatedAt:    pm.CreatedAt,
+		UpdatedAt:    pm.UpdatedAt,
+		LastUsedAt:   pm.LastUsedAt,
 	}
 }
 
@@ -1726,5 +1779,3 @@ func isRetryableError(err error) bool {
 
 	return false
 }
-
-
