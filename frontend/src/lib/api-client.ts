@@ -12,6 +12,7 @@ interface ApiResponse<T = any> {
   errors?: Record<string, string>
 }
 
+
 // HTTP Client class
 class ApiClient {
   private baseURL: string
@@ -346,4 +347,3 @@ export const categoriesApi = {
 
 // Export default client
 export default apiClient
-export { apiClient, authApi }

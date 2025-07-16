@@ -62,67 +62,77 @@ class ApiClient {
     if (error.response) {
       // Server responded with error status
       const { status, data } = error.response
-      
+
       switch (status) {
         case 400:
-          return {
-            message: data.message || ERROR_MESSAGES.VALIDATION_ERROR,
-            code: 'VALIDATION_ERROR',
-            details: data.details,
-          }
+          return new ApiError(
+            data.message || ERROR_MESSAGES.VALIDATION_ERROR,
+            status,
+            'VALIDATION_ERROR',
+            data.details
+          )
         case 401:
           this.handleUnauthorized()
-          return {
-            message: ERROR_MESSAGES.UNAUTHORIZED,
-            code: 'UNAUTHORIZED',
-          }
+          return new ApiError(
+            ERROR_MESSAGES.UNAUTHORIZED,
+            status,
+            'UNAUTHORIZED'
+          )
         case 403:
-          return {
-            message: ERROR_MESSAGES.FORBIDDEN,
-            code: 'FORBIDDEN',
-          }
+          return new ApiError(
+            ERROR_MESSAGES.FORBIDDEN,
+            status,
+            'FORBIDDEN'
+          )
         case 404:
-          return {
-            message: ERROR_MESSAGES.NOT_FOUND,
-            code: 'NOT_FOUND',
-          }
+          return new ApiError(
+            ERROR_MESSAGES.NOT_FOUND,
+            status,
+            'NOT_FOUND'
+          )
         case 409:
-          return {
-            message: data.message || 'Conflict occurred',
-            code: 'CONFLICT',
-            details: data.details,
-          }
+          return new ApiError(
+            data.message || 'Conflict occurred',
+            status,
+            'CONFLICT',
+            data.details
+          )
         case 422:
-          return {
-            message: data.message || 'Unprocessable entity',
-            code: 'UNPROCESSABLE_ENTITY',
-            details: data.details,
-          }
+          return new ApiError(
+            data.message || 'Unprocessable entity',
+            status,
+            'UNPROCESSABLE_ENTITY',
+            data.details
+          )
         case 429:
-          return {
-            message: ERROR_MESSAGES.RATE_LIMIT,
-            code: 'RATE_LIMIT',
-          }
+          return new ApiError(
+            ERROR_MESSAGES.RATE_LIMIT,
+            status,
+            'RATE_LIMIT'
+          )
         case 500:
         default:
-          return {
-            message: data.message || ERROR_MESSAGES.SERVER_ERROR,
-            code: 'SERVER_ERROR',
-            details: data.details,
-          }
+          return new ApiError(
+            data.message || ERROR_MESSAGES.SERVER_ERROR,
+            status,
+            'SERVER_ERROR',
+            data.details
+          )
       }
     } else if (error.request) {
       // Network error
-      return {
-        message: ERROR_MESSAGES.NETWORK_ERROR,
-        code: 'NETWORK_ERROR',
-      }
+      return new ApiError(
+        ERROR_MESSAGES.NETWORK_ERROR,
+        0,
+        'NETWORK_ERROR'
+      )
     } else {
       // Other error
-      return {
-        message: error.message || ERROR_MESSAGES.SERVER_ERROR,
-        code: 'UNKNOWN_ERROR',
-      }
+      return new ApiError(
+        error.message || ERROR_MESSAGES.SERVER_ERROR,
+        0,
+        'UNKNOWN_ERROR'
+      )
     }
   }
 
