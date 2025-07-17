@@ -65,7 +65,8 @@ export interface CreateProductRequest {
   tax_class?: string
   country_of_origin?: string
 
-  // Categorization
+  // Categorization - Backend uses ProductCategory many-to-many internally
+  // but accepts category_id for primary category assignment
   category_id: string
   brand_id?: string
 
@@ -154,7 +155,8 @@ export interface UpdateProductRequest {
   tax_class?: string
   country_of_origin?: string
 
-  // Categorization
+  // Categorization - Backend uses ProductCategory many-to-many internally
+  // but accepts category_id for primary category assignment
   category_id?: string
   brand_id?: string
 
@@ -212,6 +214,7 @@ class ProductService {
 
       // Add search and filter parameters
       if (params.search) queryParams.search = params.search
+      // Backend supports category_id for search (uses ProductCategory many-to-many internally)
       if (params.category_id) queryParams.category_id = params.category_id
       if (params.min_price) queryParams.min_price = params.min_price
       if (params.max_price) queryParams.max_price = params.max_price

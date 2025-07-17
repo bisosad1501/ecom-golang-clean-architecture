@@ -601,6 +601,7 @@ export const productsApi = {
     const queryParams = new URLSearchParams()
     if (params?.limit) queryParams.append('limit', params.limit.toString())
     if (params?.offset) queryParams.append('offset', params.offset.toString())
+    // Backend supports category_id for search (uses ProductCategory many-to-many internally)
     if (params?.category_id) queryParams.append('category_id', params.category_id)
     if (params?.search) queryParams.append('search', params.search)
     if (params?.sort) queryParams.append('sort', params.sort)

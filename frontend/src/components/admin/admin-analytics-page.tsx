@@ -28,7 +28,7 @@ import {
   Eye,
   Zap,
 } from 'lucide-react'
-import { RequirePermission } from '@/components/auth/require-permission'
+import { PermissionGuard } from '@/components/auth/permission-guard'
 import { PERMISSIONS } from '@/constants/permissions'
 import { formatPrice, formatDate } from '@/lib/utils'
 

@@ -1104,12 +1104,7 @@ export function AdminProductsPage() {
                         <span className="text-gray-400 font-medium">Updated:</span>
                         <span className="text-gray-200">{new Date((selectedProduct as any).updated_at).toLocaleDateString()}</span>
                       </div>
-                      {(selectedProduct as any).category_id && (
-                        <div className="flex justify-between py-2">
-                          <span className="text-gray-400 font-medium">Category ID:</span>
-                          <span className="text-gray-300 font-mono text-xs bg-gray-700 px-2 py-1 rounded border border-gray-600">{(selectedProduct as any).category_id}</span>
-                        </div>
-                      )}
+                      {/* Category ID removed - Backend uses ProductCategory many-to-many */}
                     </div>
                   </div>
                 </div>

@@ -186,7 +186,7 @@ type ChangePasswordRequest struct {
 	NewPassword     string `json:"new_password" validate:"required,min=6"`
 }
 
-// UserResponse represents user response
+// UserResponse represents user response (matches frontend User interface)
 type UserResponse struct {
 	ID        uuid.UUID            `json:"id"`
 	Email     string               `json:"email"`
@@ -195,6 +195,13 @@ type UserResponse struct {
 	Phone     string               `json:"phone"`
 	Role      entities.UserRole    `json:"role"`
 	IsActive  bool                 `json:"is_active"`
+
+	// User metrics (from User entity - matches frontend expectations)
+	TotalOrders    int     `json:"total_orders"`
+	TotalSpent     float64 `json:"total_spent"`
+	LoyaltyPoints  int     `json:"loyalty_points"`
+	MembershipTier string  `json:"membership_tier"`
+
 	Profile   *UserProfileResponse `json:"profile,omitempty"`
 	CreatedAt time.Time            `json:"created_at"`
 	UpdatedAt time.Time            `json:"updated_at"`
@@ -778,7 +785,7 @@ func (uc *userUseCase) generateJWTToken(user *entities.User) (string, error) {
 	return token.SignedString([]byte(uc.jwtSecret))
 }
 
-// toUserResponse converts user entity to response
+// toUserResponse converts user entity to response (includes user metrics)
 func (uc *userUseCase) toUserResponse(user *entities.User) *UserResponse {
 	return &UserResponse{
 		ID:        user.ID,
@@ -788,6 +795,13 @@ func (uc *userUseCase) toUserResponse(user *entities.User) *UserResponse {
 		Phone:     user.Phone,
 		Role:      user.Role,
 		IsActive:  user.IsActive,
+
+		// User metrics (matches frontend expectations)
+		TotalOrders:    user.TotalOrders,
+		TotalSpent:     user.TotalSpent,
+		LoyaltyPoints:  user.LoyaltyPoints,
+		MembershipTier: user.MembershipTier,
+
 		CreatedAt: user.CreatedAt,
 		UpdatedAt: user.UpdatedAt,
 	}

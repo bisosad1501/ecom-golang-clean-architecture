@@ -58,7 +58,8 @@ export function AddProductForm({ onSuccess, onCancel }: AddProductFormProps) {
     tax_class: 'standard',
     country_of_origin: '',
 
-    // Categorization
+    // Categorization - Backend uses ProductCategory many-to-many internally
+    // but accepts category_id for primary category assignment
     category_id: '',
     brand_id: undefined,
 

@@ -28,9 +28,9 @@ import {
   Calendar,
   Edit,
   Save,
+  Shield,
   X,
   Camera,
-  Shield,
   ShoppingBag,
   Lock,
   Package,
@@ -88,11 +88,13 @@ export default function ProfilePage() {
 
   const orders = ordersData?.data || []
 
-  // Calculate user stats
+  // Use backend user metrics as single source of truth (matches UserMetricsService)
   const userStats = {
-    totalOrders: orders.length,
+    totalOrders: user?.total_orders || 0,
     completedOrders: orders.filter(order => order.status === 'delivered').length,
-    totalSpent: orders.reduce((sum, order) => sum + order.total_amount, 0),
+    totalSpent: user?.total_spent || 0,
+    loyaltyPoints: user?.loyalty_points || 0,
+    membershipTier: user?.membership_tier || 'bronze',
     memberSince: user?.created_at ? new Date(user.created_at).getFullYear() : new Date().getFullYear(),
   }
 
@@ -288,7 +290,7 @@ export default function ProfilePage() {
         </div>
 
         {/* Stats Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+        <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-6 gap-6 mb-8">
           <BiHubStatCard
             title="Total Orders"
             value={userStats.totalOrders}
@@ -308,10 +310,22 @@ export default function ProfilePage() {
             color="info"
           />
           <BiHubStatCard
-            title="Member Since"
-            value={userStats.memberSince}
+            title="Loyalty Points"
+            value={userStats.loyaltyPoints.toLocaleString()}
             icon={<Award className="h-8 w-8 text-white" />}
             color="warning"
+          />
+          <BiHubStatCard
+            title="Membership Tier"
+            value={userStats.membershipTier.charAt(0).toUpperCase() + userStats.membershipTier.slice(1)}
+            icon={<Shield className="h-8 w-8 text-white" />}
+            color="secondary"
+          />
+          <BiHubStatCard
+            title="Member Since"
+            value={userStats.memberSince}
+            icon={<Calendar className="h-8 w-8 text-white" />}
+            color="accent"
           />
         </div>
 
@@ -510,6 +524,70 @@ export default function ProfilePage() {
                           <p className="text-gray-400 text-sm">No recent activity</p>
                         </div>
                       )}
+                    </div>
+                  </BiHubAdminCard>
+
+                  {/* Membership Tier Card */}
+                  <BiHubAdminCard
+                    title="Membership Tier"
+                    subtitle="Your current membership benefits"
+                    icon={<Award className="h-5 w-5 text-white" />}
+                  >
+                    <div className="space-y-4">
+                      <div className="text-center">
+                        <div className={cn(
+                          "inline-flex items-center px-4 py-2 rounded-full text-sm font-medium",
+                          userStats.membershipTier === 'bronze' && "bg-amber-100 text-amber-800",
+                          userStats.membershipTier === 'silver' && "bg-gray-100 text-gray-800",
+                          userStats.membershipTier === 'gold' && "bg-yellow-100 text-yellow-800",
+                          userStats.membershipTier === 'platinum' && "bg-purple-100 text-purple-800"
+                        )}>
+                          <Shield className="h-4 w-4 mr-2" />
+                          {userStats.membershipTier.charAt(0).toUpperCase() + userStats.membershipTier.slice(1)} Member
+                        </div>
+                      </div>
+
+                      <div className="space-y-3">
+                        <div className="flex items-center justify-between">
+                          <span className="text-gray-400 text-sm">Loyalty Points</span>
+                          <span className="text-white font-medium">{userStats.loyaltyPoints.toLocaleString()}</span>
+                        </div>
+                        <div className="flex items-center justify-between">
+                          <span className="text-gray-400 text-sm">Total Spent</span>
+                          <span className="text-white font-medium">{formatPrice(userStats.totalSpent)}</span>
+                        </div>
+
+                        {/* Membership Benefits */}
+                        <div className="mt-4 p-3 bg-gray-800 rounded-lg">
+                          <p className="text-white text-sm font-medium mb-2">Current Benefits:</p>
+                          <ul className="text-gray-400 text-xs space-y-1">
+                            {userStats.membershipTier === 'bronze' && (
+                              <li>• Basic member benefits</li>
+                            )}
+                            {userStats.membershipTier === 'silver' && (
+                              <>
+                                <li>• 5% discount on orders</li>
+                                <li>• Priority customer support</li>
+                              </>
+                            )}
+                            {userStats.membershipTier === 'gold' && (
+                              <>
+                                <li>• 10% discount on orders</li>
+                                <li>• Free shipping on all orders</li>
+                                <li>• Priority customer support</li>
+                              </>
+                            )}
+                            {userStats.membershipTier === 'platinum' && (
+                              <>
+                                <li>• 15% discount on orders</li>
+                                <li>• Free shipping on all orders</li>
+                                <li>• Priority customer support</li>
+                                <li>• Exclusive early access to sales</li>
+                              </>
+                            )}
+                          </ul>
+                        </div>
+                      </div>
                     </div>
                   </BiHubAdminCard>
                 </div>

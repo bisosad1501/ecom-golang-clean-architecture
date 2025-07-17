@@ -82,7 +82,8 @@ export function EditProductForm({ product, onSuccess, onCancel }: EditProductFor
       compare_price: (product as any).compare_price || undefined,
       cost_price: (product as any).cost_price || undefined,
       stock: (product as any).stock,
-      category_id: product.category?.id || (product as any).category_id || '',
+      // Backend uses ProductCategory many-to-many, but accepts category_id for primary category
+      category_id: product.category?.id || '',
       weight: (product as any).weight || undefined,
       status: (product.status as any) || 'active',
       is_digital: Boolean((product as any).is_digital),
@@ -321,7 +322,8 @@ export function EditProductForm({ product, onSuccess, onCancel }: EditProductFor
       console.log('Form data:', data)
       console.log('Category ID from form:', data.category_id)
       console.log('Original product category:', product.category)
-      console.log('Original product category_id:', product.category_id)
+      // Note: product.category_id removed - Backend uses ProductCategory many-to-many
+      console.log('Original product category ID:', product.category?.id)
       console.log('Current watchedFields:', watchedFields)
       console.log('Current categories available:', categories)
       console.log('Current images:', images)

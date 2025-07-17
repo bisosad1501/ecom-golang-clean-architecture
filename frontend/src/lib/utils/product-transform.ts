@@ -36,8 +36,10 @@ export function transformUpdateProductData(formData: any): UpdateProductRequest 
     transformed.weight = Number(formData.weight)
   }
   
+  // Category assignment - Backend uses ProductCategory many-to-many internally
+  // but still accepts category_id in requests for primary category assignment
   if (formData.category_id && formData.category_id.length > 0) {
-    console.log('=== transformUpdateProductData: Processing category_id ===')
+    console.log('=== transformUpdateProductData: Processing category_id (ProductCategory many-to-many) ===')
     console.log('formData.category_id:', formData.category_id)
     console.log('formData.category_id type:', typeof formData.category_id)
     console.log('formData.category_id length:', formData.category_id.length)

@@ -8,6 +8,24 @@ export type UserRole = 'customer' | 'admin' | 'moderator' | 'super_admin'
 // User status types
 export type UserStatus = 'active' | 'inactive' | 'suspended' | 'pending_verification'
 
+// Membership tier types (matches backend UserMetricsService)
+export type MembershipTier = 'bronze' | 'silver' | 'gold' | 'platinum'
+
+// Membership tier configuration (matches backend)
+export interface MembershipTierConfig {
+  name: MembershipTier
+  threshold: number
+  benefits: string
+}
+
+// User metrics interface (matches backend User entity fields)
+export interface UserMetrics {
+  total_orders: number
+  total_spent: number
+  loyalty_points: number
+  membership_tier: MembershipTier
+}
+
 // User preferences
 export interface UserPreferences {
   newsletter_subscribed: boolean
@@ -35,7 +53,7 @@ export interface UserProfile extends BaseEntity {
   contact_info?: ContactInfo
 }
 
-// Main user interface
+// Main user interface (matches backend User entity)
 export interface User extends BaseEntity {
   email: string
   first_name: string
@@ -49,6 +67,13 @@ export interface User extends BaseEntity {
   two_factor_enabled: boolean
   last_login_at?: string
   login_count: number
+
+  // User metrics (from backend User entity)
+  total_orders: number
+  total_spent: number
+  loyalty_points: number
+  membership_tier: MembershipTier
+
   profile?: UserProfile
   addresses?: Address[]
 }
