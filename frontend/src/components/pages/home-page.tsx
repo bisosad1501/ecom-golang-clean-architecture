@@ -12,7 +12,8 @@ import { APP_CONFIG } from '@/constants/app'
 import { DESIGN_TOKENS } from '@/constants/design-tokens'
 
 export function HomePage() {
-  const { data: featuredProducts, isLoading, error } = useFeaturedProducts(8)
+  const { data, isLoading, error } = useFeaturedProducts(8)
+  const featuredProducts = data?.data || []
   const { data: categories, isLoading: categoriesLoading } = useCategories()
 
   return (
@@ -270,7 +271,7 @@ export function HomePage() {
                 </Button>
               </div>
             </div>
-          ) : featuredProducts && featuredProducts.length > 0 ? (
+          ) : featuredProducts.length > 0 ? (
             <div className="animate-fade-in">
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                 {featuredProducts.map((product, index) => (
