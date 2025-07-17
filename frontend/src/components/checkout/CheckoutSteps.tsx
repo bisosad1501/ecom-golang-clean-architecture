@@ -15,18 +15,19 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import { 
-  User, 
-  Mail, 
-  Phone, 
-  MapPin, 
-  Building, 
-  Truck, 
-  Gift, 
+import {
+  User,
+  Mail,
+  Phone,
+  MapPin,
+  Building,
+  Truck,
+  Gift,
   Clock,
   DollarSign,
   Star,
-  Package
+  Package,
+  Shield
 } from 'lucide-react'
 import { cn, formatPrice } from '@/lib/utils'
 
@@ -47,6 +48,7 @@ interface CheckoutFormData {
   }
   use_shipping_for_billing: boolean
   billing_address?: any
+  payment_method: 'stripe' | 'cash' | 'bank_transfer'
   shipping_method: 'standard' | 'express' | 'overnight'
   is_gift: boolean
   gift_message?: string
@@ -314,7 +316,141 @@ export function BillingAddressStep({ register, errors, watch, setValue }: StepPr
   )
 }
 
-// Step 4: Shipping & Gift Options
+// Step 4: Payment Method
+export function PaymentMethodStep({ register, errors, watch, setValue }: StepProps) {
+  const paymentMethod = watch('payment_method')
+
+  const paymentOptions = [
+    {
+      id: 'stripe',
+      name: 'Credit/Debit Card',
+      description: 'Pay securely with Stripe - Instant processing',
+      icon: '💳',
+      recommended: true,
+      processingTime: 'Instant',
+      security: 'Bank-level encryption',
+    },
+    {
+      id: 'cash',
+      name: 'Cash on Delivery',
+      description: 'Pay when you receive your order - No upfront payment',
+      icon: '💵',
+      recommended: false,
+      processingTime: 'On delivery',
+      security: 'Pay in person',
+    },
+    {
+      id: 'bank_transfer',
+      name: 'Bank Transfer',
+      description: 'Transfer payment to our bank account - 1-2 business days',
+      icon: '🏦',
+      recommended: false,
+      processingTime: '1-2 business days',
+      security: 'Bank-to-bank transfer',
+    },
+  ]
+
+  return (
+    <Card className="bg-gray-900/50 border-gray-800">
+      <CardHeader>
+        <CardTitle className="text-white flex items-center gap-2">
+          <DollarSign className="h-5 w-5 text-[#ff9000]" />
+          Payment Method
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        <div className="grid gap-4">
+          {paymentOptions.map((option) => (
+            <div
+              key={option.id}
+              className={cn(
+                "relative flex items-center space-x-3 rounded-lg border p-4 cursor-pointer transition-all",
+                paymentMethod === option.id
+                  ? "border-[#ff9000] bg-[#ff9000]/10"
+                  : "border-gray-700 hover:border-gray-600"
+              )}
+              onClick={() => setValue('payment_method', option.id as any)}
+            >
+              <div className="text-2xl">{option.icon}</div>
+              <div className="flex-1">
+                <div className="flex items-center gap-2">
+                  <h3 className="text-white font-medium">{option.name}</h3>
+                  {option.recommended && (
+                    <Badge className="bg-[#ff9000] text-black text-xs">
+                      Recommended
+                    </Badge>
+                  )}
+                </div>
+                <p className="text-gray-400 text-sm">{option.description}</p>
+                <div className="flex items-center gap-4 mt-2">
+                  <div className="flex items-center gap-1">
+                    <Clock className="h-3 w-3 text-gray-500" />
+                    <span className="text-xs text-gray-500">{option.processingTime}</span>
+                  </div>
+                  <div className="flex items-center gap-1">
+                    <Shield className="h-3 w-3 text-gray-500" />
+                    <span className="text-xs text-gray-500">{option.security}</span>
+                  </div>
+                </div>
+              </div>
+              <div className="flex items-center">
+                <div
+                  className={cn(
+                    "w-4 h-4 rounded-full border-2 flex items-center justify-center",
+                    paymentMethod === option.id
+                      ? "border-[#ff9000] bg-[#ff9000]"
+                      : "border-gray-600"
+                  )}
+                >
+                  {paymentMethod === option.id && (
+                    <div className="w-2 h-2 rounded-full bg-black" />
+                  )}
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+
+        {/* Hidden input for form validation */}
+        <input
+          type="hidden"
+          {...register('payment_method')}
+          value={paymentMethod}
+        />
+        {errors.payment_method && (
+          <p className="text-red-400 text-sm">{errors.payment_method.message}</p>
+        )}
+
+        {/* Payment method specific information */}
+        {paymentMethod === 'stripe' && (
+          <div className="mt-4 p-4 bg-blue-900/20 border border-blue-800 rounded-lg">
+            <p className="text-blue-300 text-sm">
+              🔒 Your payment information is secure and encrypted. You'll be redirected to Stripe's secure checkout page.
+            </p>
+          </div>
+        )}
+
+        {paymentMethod === 'cash' && (
+          <div className="mt-4 p-4 bg-green-900/20 border border-green-800 rounded-lg">
+            <p className="text-green-300 text-sm">
+              💵 You'll pay in cash when your order is delivered. Please have the exact amount ready.
+            </p>
+          </div>
+        )}
+
+        {paymentMethod === 'bank_transfer' && (
+          <div className="mt-4 p-4 bg-yellow-900/20 border border-yellow-800 rounded-lg">
+            <p className="text-yellow-300 text-sm">
+              🏦 Bank transfer details will be provided after order confirmation. Payment must be completed within 24 hours.
+            </p>
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  )
+}
+
+// Step 5: Shipping & Gift Options
 export function ShippingOptionsStep({ register, errors, watch, setValue }: StepProps) {
   const shippingMethod = watch('shipping_method')
   const isGift = watch('is_gift')
@@ -509,7 +645,7 @@ export function ShippingOptionsStep({ register, errors, watch, setValue }: StepP
   )
 }
 
-// Step 5: Review & Payment
+// Step 6: Review & Payment
 export function ReviewStep({
   watch,
   cartTotal,
@@ -555,6 +691,39 @@ export function ReviewStep({
                 </div>
               </div>
             ))}
+          </div>
+
+          <Separator className="bg-gray-700" />
+
+          {/* Payment Method */}
+          <div className="flex items-center justify-between p-3 bg-gray-800/50 rounded-lg">
+            <div className="flex items-center gap-2">
+              <DollarSign className="h-4 w-4 text-[#ff9000]" />
+              <span className="text-white font-medium">Payment Method</span>
+            </div>
+            <div className="flex items-center gap-2">
+              {formData.payment_method === 'stripe' && (
+                <>
+                  <span className="text-2xl">💳</span>
+                  <span className="text-white">Credit/Debit Card</span>
+                  <Badge className="bg-blue-600 text-white text-xs">Secure</Badge>
+                </>
+              )}
+              {formData.payment_method === 'cash' && (
+                <>
+                  <span className="text-2xl">💵</span>
+                  <span className="text-white">Cash on Delivery</span>
+                  <Badge className="bg-green-600 text-white text-xs">COD</Badge>
+                </>
+              )}
+              {formData.payment_method === 'bank_transfer' && (
+                <>
+                  <span className="text-2xl">🏦</span>
+                  <span className="text-white">Bank Transfer</span>
+                  <Badge className="bg-yellow-600 text-white text-xs">1-2 Days</Badge>
+                </>
+              )}
+            </div>
           </div>
 
           <Separator className="bg-gray-700" />

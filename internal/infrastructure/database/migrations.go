@@ -39,7 +39,7 @@ func migration001Up(db *gorm.DB) error {
 		&entities.Payment{},
 		&entities.PaymentMethodEntity{},
 		&entities.Refund{},
-		&entities.StockReservation{},
+
 
 		// File uploads
 		&entities.FileUpload{},
@@ -137,7 +137,7 @@ func migration001Down(db *gorm.DB) error {
 		"user_loyalty_points", "loyalty_programs", "promotions", "coupon_usages", "coupons",
 		"product_ratings", "review_votes", "review_images", "reviews",
 		"password_resets", "account_verifications", "user_preferences", "wishlists", "addresses",
-		"file_uploads", "stock_reservations", "payments", "order_events", "order_items", "orders",
+		"file_uploads", "payments", "order_events", "order_items", "orders",
 		"cart_items", "carts", "product_variant_attributes", "product_attribute_values",
 		"product_attribute_terms", "product_attributes", "product_variants", "brands",
 		"product_images", "products", "categories", "user_profiles", "users",
@@ -355,11 +355,7 @@ func migration004Up(db *gorm.DB) error {
 		"CREATE INDEX IF NOT EXISTS idx_payments_method ON payments(method)",
 		"CREATE INDEX IF NOT EXISTS idx_payments_created_at ON payments(created_at)",
 
-		// Stock reservation indexes
-		"CREATE INDEX IF NOT EXISTS idx_stock_reservations_product_id ON stock_reservations(product_id)",
-		"CREATE INDEX IF NOT EXISTS idx_stock_reservations_user_id ON stock_reservations(user_id)",
-		"CREATE INDEX IF NOT EXISTS idx_stock_reservations_expires_at ON stock_reservations(expires_at)",
-		"CREATE INDEX IF NOT EXISTS idx_stock_reservations_status ON stock_reservations(status)",
+
 
 		// Analytics indexes
 		"CREATE INDEX IF NOT EXISTS idx_analytics_events_event_type ON analytics_events(event_type)",
@@ -386,7 +382,7 @@ func migration004Down(db *gorm.DB) error {
 	indexes := []string{
 		"idx_notifications_created_at", "idx_notifications_status", "idx_notifications_user_id",
 		"idx_analytics_events_created_at", "idx_analytics_events_user_id", "idx_analytics_events_event_type",
-		"idx_stock_reservations_status", "idx_stock_reservations_expires_at", "idx_stock_reservations_user_id", "idx_stock_reservations_product_id",
+
 		"idx_payments_created_at", "idx_payments_method", "idx_payments_status", "idx_payments_order_id",
 		"idx_categories_is_active", "idx_categories_slug", "idx_categories_parent_id",
 		"idx_reviews_created_at", "idx_reviews_rating", "idx_reviews_status", "idx_reviews_user_id", "idx_reviews_product_id",
@@ -410,19 +406,15 @@ func migration005Up(db *gorm.DB) error {
 	sqls := []string{
 		// Add expiration fields to various tables
 		"ALTER TABLE orders ADD COLUMN IF NOT EXISTS expires_at TIMESTAMP WITH TIME ZONE",
-		"ALTER TABLE stock_reservations ADD COLUMN IF NOT EXISTS expires_at TIMESTAMP WITH TIME ZONE",
 
 		// Add cleanup tracking fields
 		"ALTER TABLE carts ADD COLUMN IF NOT EXISTS last_activity_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()",
 		"ALTER TABLE orders ADD COLUMN IF NOT EXISTS last_status_change_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()",
-		"ALTER TABLE stock_reservations ADD COLUMN IF NOT EXISTS last_updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()",
 
 		// Create indexes for cleanup operations
 		"CREATE INDEX IF NOT EXISTS idx_orders_expires_at ON orders(expires_at)",
-		"CREATE INDEX IF NOT EXISTS idx_stock_reservations_expires_at ON stock_reservations(expires_at)",
 		"CREATE INDEX IF NOT EXISTS idx_carts_last_activity_at ON carts(last_activity_at)",
 		"CREATE INDEX IF NOT EXISTS idx_orders_last_status_change_at ON orders(last_status_change_at)",
-		"CREATE INDEX IF NOT EXISTS idx_stock_reservations_last_updated_at ON stock_reservations(last_updated_at)",
 	}
 
 	for _, sql := range sqls {
@@ -438,17 +430,13 @@ func migration005Up(db *gorm.DB) error {
 func migration005Down(db *gorm.DB) error {
 	sqls := []string{
 		// Drop indexes
-		"DROP INDEX IF EXISTS idx_stock_reservations_last_updated_at",
 		"DROP INDEX IF EXISTS idx_orders_last_status_change_at",
 		"DROP INDEX IF EXISTS idx_carts_last_activity_at",
-		"DROP INDEX IF EXISTS idx_stock_reservations_expires_at",
 		"DROP INDEX IF EXISTS idx_orders_expires_at",
 
 		// Drop columns
-		"ALTER TABLE stock_reservations DROP COLUMN IF EXISTS last_updated_at",
 		"ALTER TABLE orders DROP COLUMN IF EXISTS last_status_change_at",
 		"ALTER TABLE carts DROP COLUMN IF EXISTS last_activity_at",
-		"ALTER TABLE stock_reservations DROP COLUMN IF EXISTS expires_at",
 		"ALTER TABLE orders DROP COLUMN IF EXISTS expires_at",
 	}
 

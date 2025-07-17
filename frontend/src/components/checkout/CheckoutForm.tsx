@@ -17,12 +17,13 @@ import { formatPrice } from '@/lib/utils'
 import { Loader2, CreditCard, Lock, Shield, ChevronLeft, ChevronRight } from 'lucide-react'
 import { toast } from 'sonner'
 import { CheckoutProgress, CheckoutProgressMobile } from './CheckoutProgress'
-import { 
-  ContactInfoStep, 
-  ShippingAddressStep, 
-  BillingAddressStep, 
-  ShippingOptionsStep, 
-  ReviewStep 
+import {
+  ContactInfoStep,
+  ShippingAddressStep,
+  BillingAddressStep,
+  PaymentMethodStep,
+  ShippingOptionsStep,
+  ReviewStep
 } from './CheckoutSteps'
 
 // Schema matching Backend exactly
@@ -43,17 +44,31 @@ const checkoutSchema = z.object({
   // Contact Information
   email: z.string().email('Valid email is required'),
   phone: z.string().min(1, 'Phone number is required'),
-  
+
   // Shipping Address
   shipping_address: addressSchema,
-  
+
   // Billing Address
   use_shipping_for_billing: z.boolean().default(true),
-  billing_address: addressSchema.optional(),
+  billing_address: z.object({
+    first_name: z.string().optional(),
+    last_name: z.string().optional(),
+    company: z.string().optional(),
+    address1: z.string().optional(),
+    address2: z.string().optional(),
+    city: z.string().optional(),
+    state: z.string().optional(),
+    zip_code: z.string().optional(),
+    country: z.string().optional(),
+    phone: z.string().optional(),
+  }).optional(),
   
+  // Payment Method
+  payment_method: z.enum(['stripe', 'cash', 'bank_transfer']).default('stripe'),
+
   // Shipping Options
   shipping_method: z.enum(['standard', 'express', 'overnight']).default('standard'),
-  
+
   // Gift Options
   is_gift: z.boolean().default(false),
   gift_message: z.string().optional(),
@@ -67,6 +82,18 @@ const checkoutSchema = z.object({
   // Promo & Notes
   coupon_code: z.string().optional(),
   notes: z.string().optional(),
+}).refine((data) => {
+  // If not using shipping for billing, billing address fields are required
+  if (!data.use_shipping_for_billing) {
+    const billing = data.billing_address
+    if (!billing) return false
+    return !!(billing.first_name && billing.last_name && billing.address1 &&
+             billing.city && billing.state && billing.zip_code)
+  }
+  return true
+}, {
+  message: "Complete billing address is required when not using shipping address",
+  path: ["billing_address"]
 })
 
 type CheckoutFormData = z.infer<typeof checkoutSchema>
@@ -74,20 +101,31 @@ type CheckoutFormData = z.infer<typeof checkoutSchema>
 export default function CheckoutForm() {
   const router = useRouter()
   const [isProcessing, setIsProcessing] = useState(false)
+  const [processingMessage, setProcessingMessage] = useState('')
   const [currentStep, setCurrentStep] = useState(1)
   
   const steps = [
     { id: 1, title: 'Contact Info', description: 'Your contact information' },
     { id: 2, title: 'Shipping', description: 'Where to send your order' },
     { id: 3, title: 'Billing', description: 'Payment address' },
-    { id: 4, title: 'Options', description: 'Shipping & gift options' },
-    { id: 5, title: 'Review', description: 'Review and pay' },
+    { id: 4, title: 'Payment', description: 'Choose payment method' },
+    { id: 5, title: 'Options', description: 'Shipping & gift options' },
+    { id: 6, title: 'Review', description: 'Review and pay' },
   ]
 
   const { cart, fetchCart } = useCartStore()
   const { createOrder } = useOrderStore()
   const paymentStore = usePaymentStore()
-  const { user, isAuthenticated } = useAuthStore()
+  const { user, isAuthenticated, token } = useAuthStore()
+
+  // Check authentication
+  useEffect(() => {
+    if (!isAuthenticated || !token) {
+      toast.error('Please log in to continue with checkout')
+      router.push('/auth/login?redirect=/checkout')
+      return
+    }
+  }, [isAuthenticated, token, router])
 
   // Fetch cart data when component mounts
   useEffect(() => {
@@ -100,6 +138,7 @@ export default function CheckoutForm() {
     handleSubmit,
     watch,
     setValue,
+    getValues,
     formState: { errors },
   } = useForm<CheckoutFormData>({
     resolver: zodResolver(checkoutSchema),
@@ -118,12 +157,29 @@ export default function CheckoutForm() {
         country: 'US',
         phone: '',
       },
+      billing_address: {
+        first_name: '',
+        last_name: '',
+        company: '',
+        address1: '',
+        address2: '',
+        city: '',
+        state: '',
+        zip_code: '',
+        country: 'US',
+        phone: '',
+      },
       use_shipping_for_billing: true,
+      payment_method: 'stripe',
       shipping_method: 'standard',
       is_gift: false,
+      gift_message: '',
       gift_wrap: false,
+      delivery_instructions: '',
       priority: 'normal',
       tip_amount: 0,
+      coupon_code: '',
+      notes: '',
     },
   })
 
@@ -155,8 +211,18 @@ export default function CheckoutForm() {
   // Watch form values for dynamic updates
   const watchedValues = watch()
   const useShippingForBilling = watch('use_shipping_for_billing')
+  const shippingAddress = watch('shipping_address')
   const isGift = watch('is_gift')
   const shippingMethod = watch('shipping_method')
+
+  // Copy shipping address to billing address when checkbox is checked
+  useEffect(() => {
+    console.log('🔄 useEffect triggered:', { useShippingForBilling, shippingAddress })
+    if (useShippingForBilling && shippingAddress) {
+      console.log('✅ Copying shipping to billing:', shippingAddress)
+      setValue('billing_address', shippingAddress)
+    }
+  }, [useShippingForBilling, shippingAddress, setValue])
 
   // Navigation functions
   const nextStep = () => {
@@ -184,9 +250,11 @@ export default function CheckoutForm() {
                watchedValues.shipping_address?.zip_code
       case 3: // Billing Address
         return true // Always can proceed (using shipping address)
-      case 4: // Shipping Options
+      case 4: // Payment Method
+        return watchedValues.payment_method
+      case 5: // Shipping Options
         return watchedValues.shipping_method
-      case 5: // Review
+      case 6: // Review
         return true
       default:
         return false
@@ -194,8 +262,10 @@ export default function CheckoutForm() {
   }
 
   const onSubmit = async (data: CheckoutFormData) => {
+    console.log('🚀 onSubmit called!')
     console.log('Cart data:', cart)
     console.log('Form data:', data)
+    console.log('Form errors:', errors)
 
     if (!cart || cart.items.length === 0) {
       toast.error('Your cart is empty')
@@ -213,46 +283,117 @@ export default function CheckoutForm() {
       }
       const selectedShippingCost = shippingCosts[data.shipping_method]
 
-      // Create order data matching Backend CreateOrderRequest
-      const orderData = {
-        shipping_address: data.shipping_address,
-        billing_address: data.use_shipping_for_billing ? data.shipping_address : data.billing_address,
-        payment_method: 'stripe' as const,
-        notes: data.notes || '',
-        tax_rate: 0.08,
-        shipping_cost: selectedShippingCost,
-        discount_amount: 0,
-      }
+      // Handle different payment methods
+      if (data.payment_method === 'stripe') {
+        setProcessingMessage('Creating secure checkout session...')
 
-      console.log('Order data being sent:', JSON.stringify(orderData, null, 2))
+        // Use new checkout session API for Stripe
+        const checkoutSessionData = {
+          shipping_address: data.shipping_address,
+          billing_address: data.use_shipping_for_billing ? data.shipping_address : data.billing_address,
+          payment_method: 'stripe' as const,
+          notes: data.notes || '',
+          tax_rate: 0.08,
+          shipping_cost: selectedShippingCost,
+          discount_amount: 0,
+        }
 
-      const orderResponse = await createOrder(orderData)
-      const order = orderResponse.data || orderResponse
-      const orderId = order.id
+        console.log('Checkout session data being sent:', JSON.stringify(checkoutSessionData, null, 2))
 
-      // Create Stripe checkout session
-      const checkoutData = {
-        order_id: orderId,
-        amount: finalTotal,
-        currency: 'usd',
-        description: `Order ${order.order_number}`,
-        success_url: `${window.location.origin}/checkout/success?session_id={CHECKOUT_SESSION_ID}&order_id=${orderId}`,
-        cancel_url: `${window.location.origin}/checkout/cancel?order_id=${orderId}`,
-        metadata: {
-          order_id: orderId,
-          order_number: order.order_number,
-        },
-      }
+        // Create checkout session (includes Stripe URL)
+        setProcessingMessage('Connecting to Stripe...')
 
-      const session = await paymentStore.createCheckoutSession(checkoutData)
+        // Get token from auth store
+        const token = useAuthStore.getState().token
+        console.log('Token available:', !!token)
+        console.log('Token length:', token?.length)
+        console.log('Is authenticated:', isAuthenticated)
 
-      // Redirect to Stripe Checkout
-      if (session.id) {
-        await redirectToCheckout(session.id)
-      } else if (session.url) {
-        window.location.href = session.url
+        if (!token) {
+          throw new Error('Please log in to continue with checkout')
+        }
+
+        const response = await fetch('http://localhost:8080/api/v1/checkout/session', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`,
+          },
+          body: JSON.stringify(checkoutSessionData),
+        })
+
+        const sessionResult = await response.json()
+
+        if (!response.ok) {
+          throw new Error(sessionResult.error || 'Failed to create checkout session')
+        }
+
+        // Redirect to Stripe hosted page
+        if (sessionResult.data?.stripe_url) {
+          setProcessingMessage('Redirecting to secure payment page...')
+          toast.success('Redirecting to Stripe for secure payment...')
+          setTimeout(() => {
+            window.location.href = sessionResult.data.stripe_url
+          }, 1000)
+        } else {
+          throw new Error('No Stripe URL received from checkout session')
+        }
       } else {
-        throw new Error('No session ID or URL received from payment service')
+        setProcessingMessage(`Creating ${data.payment_method === 'cash' ? 'COD' : 'bank transfer'} order...`)
+
+        // Use direct order creation for COD and Bank Transfer
+        const orderData = {
+          shipping_address: data.shipping_address,
+          billing_address: data.use_shipping_for_billing ? data.shipping_address : data.billing_address,
+          payment_method: data.payment_method,
+          notes: data.notes || '',
+          tax_rate: 0.08,
+          shipping_cost: selectedShippingCost,
+          discount_amount: 0,
+        }
+
+        console.log('Order data being sent:', JSON.stringify(orderData, null, 2))
+
+        // Get token from auth store
+        const token = useAuthStore.getState().token
+        if (!token) {
+          throw new Error('Please log in to continue with checkout')
+        }
+
+        let orderResponse
+        if (data.payment_method === 'cash') {
+          orderResponse = await fetch('http://localhost:8080/api/v1/checkout/cod', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${token}`,
+            },
+            body: JSON.stringify(orderData),
+          })
+        } else {
+          orderResponse = await fetch('http://localhost:8080/api/v1/orders', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${token}`,
+            },
+            body: JSON.stringify(orderData),
+          })
+        }
+
+        const orderResult = await orderResponse.json()
+
+        if (!orderResponse.ok) {
+          throw new Error(orderResult.error || 'Failed to create order')
+        }
+
+        // Redirect to order confirmation
+        const order = orderResult.data || orderResult
+        setProcessingMessage('Order created successfully! Redirecting...')
+        toast.success(`${data.payment_method === 'cash' ? 'COD' : 'Bank transfer'} order created successfully!`)
+        setTimeout(() => {
+          router.push(`/order-confirmation?order_id=${order.id}`)
+        }, 1000)
       }
       
     } catch (error: any) {
@@ -385,7 +526,15 @@ export default function CheckoutForm() {
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
               {/* Checkout Form */}
               <div className="lg:col-span-2 space-y-6">
-                <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
+                <form onSubmit={handleSubmit((data) => {
+                  console.log('🚀 onSubmit called!')
+                  console.log('Cart data:', cart)
+                  console.log('Form data:', data)
+                  console.log('Form errors:', errors)
+                  onSubmit(data)
+                }, (errors) => {
+                  console.log('❌ Form validation failed:', errors)
+                })} className="space-y-6">
                   {/* Step Content */}
                   {currentStep === 1 && (
                     <ContactInfoStep 
@@ -415,15 +564,24 @@ export default function CheckoutForm() {
                   )}
                   
                   {currentStep === 4 && (
-                    <ShippingOptionsStep 
-                      register={register} 
-                      errors={errors} 
-                      watch={watch} 
-                      setValue={setValue} 
+                    <PaymentMethodStep
+                      register={register}
+                      errors={errors}
+                      watch={watch}
+                      setValue={setValue}
                     />
                   )}
-                  
+
                   {currentStep === 5 && (
+                    <ShippingOptionsStep
+                      register={register}
+                      errors={errors}
+                      watch={watch}
+                      setValue={setValue}
+                    />
+                  )}
+
+                  {currentStep === 6 && (
                     <ReviewStep 
                       register={register} 
                       errors={errors} 
@@ -436,6 +594,11 @@ export default function CheckoutForm() {
                       cartItems={effectiveCart?.items || []}
                     />
                   )}
+
+                  {/* Debug Info */}
+                  <div className="text-sm text-gray-500 mb-4">
+                    Current Step: {currentStep} / 6
+                  </div>
 
                   {/* Navigation Buttons */}
                   <div className="flex justify-between pt-6">
@@ -450,10 +613,13 @@ export default function CheckoutForm() {
                       Previous
                     </Button>
 
-                    {currentStep < 5 ? (
+                    {currentStep < 6 ? (
                       <Button
                         type="button"
-                        onClick={nextStep}
+                        onClick={() => {
+                          console.log('🔄 Next button clicked, currentStep:', currentStep)
+                          nextStep()
+                        }}
                         disabled={!canProceedToNext()}
                         className="bg-[#ff9000] hover:bg-[#e68100] text-white"
                       >
@@ -465,11 +631,17 @@ export default function CheckoutForm() {
                         type="submit"
                         disabled={isProcessing}
                         className="bg-[#ff9000] hover:bg-[#e68100] text-white"
+                        onClick={() => {
+                          console.log('🔥 Complete Order button clicked!')
+                          console.log('Current form values:', getValues())
+                          console.log('Form is valid:', formState.isValid)
+                          console.log('Form errors:', errors)
+                        }}
                       >
                         {isProcessing ? (
                           <>
                             <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                            Processing...
+                            {processingMessage || 'Processing...'}
                           </>
                         ) : (
                           <>

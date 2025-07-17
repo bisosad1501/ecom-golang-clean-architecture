@@ -25,17 +25,18 @@ func getOrderTimeoutMinutes() int {
 type OrderStatus string
 
 const (
-	OrderStatusPending        OrderStatus = "pending"
-	OrderStatusConfirmed      OrderStatus = "confirmed"
-	OrderStatusProcessing     OrderStatus = "processing"
-	OrderStatusReadyToShip    OrderStatus = "ready_to_ship"
-	OrderStatusShipped        OrderStatus = "shipped"
-	OrderStatusOutForDelivery OrderStatus = "out_for_delivery"
-	OrderStatusDelivered      OrderStatus = "delivered"
-	OrderStatusCancelled      OrderStatus = "cancelled"
-	OrderStatusRefunded       OrderStatus = "refunded"
-	OrderStatusReturned       OrderStatus = "returned"
-	OrderStatusExchanged      OrderStatus = "exchanged"
+	OrderStatusDraft          OrderStatus = "draft"          // Order created from checkout session but not confirmed
+	OrderStatusPending        OrderStatus = "pending"        // Order created, waiting for payment confirmation (COD/Bank Transfer)
+	OrderStatusConfirmed      OrderStatus = "confirmed"      // Payment confirmed, ready for processing
+	OrderStatusProcessing     OrderStatus = "processing"     // Order being prepared
+	OrderStatusReadyToShip    OrderStatus = "ready_to_ship"  // Ready for shipping
+	OrderStatusShipped        OrderStatus = "shipped"        // Order shipped
+	OrderStatusOutForDelivery OrderStatus = "out_for_delivery" // Out for delivery
+	OrderStatusDelivered      OrderStatus = "delivered"      // Order delivered
+	OrderStatusCancelled      OrderStatus = "cancelled"      // Order cancelled
+	OrderStatusRefunded       OrderStatus = "refunded"       // Order refunded
+	OrderStatusReturned       OrderStatus = "returned"       // Order returned
+	OrderStatusExchanged      OrderStatus = "exchanged"      // Order exchanged
 )
 
 // FulfillmentStatus represents the fulfillment status of an order
@@ -151,10 +152,8 @@ type Order struct {
 	ShippedAt   *time.Time `json:"shipped_at"`
 	ProcessedAt *time.Time `json:"processed_at"`
 
-	// Stock reservation fields
-	InventoryReserved bool       `json:"inventory_reserved" gorm:"default:false"`
-	ReservedUntil     *time.Time `json:"reserved_until" gorm:"index"`  // Index for cleanup jobs
-	PaymentTimeout    *time.Time `json:"payment_timeout" gorm:"index"` // Index for cleanup jobs
+	// Payment timeout for pending orders
+	PaymentTimeout *time.Time `json:"payment_timeout" gorm:"index"` // Index for cleanup jobs
 
 	// Audit fields
 	Version        int        `json:"version" gorm:"default:1"` // For optimistic locking
@@ -292,8 +291,7 @@ const (
 	OrderEventTypeReturned          OrderEventType = "returned"
 	OrderEventTypeNoteAdded         OrderEventType = "note_added"
 	OrderEventTypeTrackingUpdated   OrderEventType = "tracking_updated"
-	OrderEventTypeInventoryReserved OrderEventType = "inventory_reserved"
-	OrderEventTypeInventoryReleased OrderEventType = "inventory_released"
+
 	OrderEventTypeCustom            OrderEventType = "custom"
 )
 
@@ -357,13 +355,7 @@ func (o *Order) IsPaid() bool {
 	return o.PaymentStatus == PaymentStatusPaid
 }
 
-// IsReservationExpired checks if inventory reservation has expired
-func (o *Order) IsReservationExpired() bool {
-	if o.ReservedUntil == nil {
-		return false
-	}
-	return time.Now().After(*o.ReservedUntil)
-}
+
 
 // IsPaymentExpired checks if payment timeout has expired
 func (o *Order) IsPaymentExpired() bool {
@@ -373,20 +365,9 @@ func (o *Order) IsPaymentExpired() bool {
 	return time.Now().After(*o.PaymentTimeout)
 }
 
-// HasInventoryReserved checks if inventory is currently reserved
-func (o *Order) HasInventoryReserved() bool {
-	return o.InventoryReserved && !o.IsReservationExpired()
-}
 
-// SetReservationTimeout sets the reservation timeout (default 30 minutes)
-func (o *Order) SetReservationTimeout(minutes int) {
-	if minutes <= 0 {
-		minutes = 30 // Default 30 minutes
-	}
-	timeout := time.Now().Add(time.Duration(minutes) * time.Minute)
-	o.ReservedUntil = &timeout
-	o.InventoryReserved = true
-}
+
+
 
 // SetPaymentTimeout sets the payment timeout (default 24 hours)
 func (o *Order) SetPaymentTimeout(hours int) {
@@ -399,9 +380,6 @@ func (o *Order) SetPaymentTimeout(hours int) {
 
 // ValidateTimeouts validates and sets default timeouts if not set
 func (o *Order) ValidateTimeouts() {
-	if o.ReservedUntil == nil && o.InventoryReserved {
-		o.SetReservationTimeout(30) // 30 minutes for stock reservation
-	}
 	if o.PaymentTimeout == nil && o.Status == OrderStatusPending {
 		o.SetPaymentTimeout(24) // 24 hours for payment
 	}
@@ -413,12 +391,7 @@ func (o *Order) IncrementVersion() {
 	o.UpdatedAt = time.Now()
 }
 
-// ReleaseReservation releases the inventory reservation
-func (o *Order) ReleaseReservation() {
-	o.InventoryReserved = false
-	o.ReservedUntil = nil
-	// Optionally, update stock here if needed
-}
+
 
 // Validate validates order data
 func (o *Order) Validate() error {
@@ -503,6 +476,8 @@ func (o *Order) Validate() error {
 // CanTransitionTo checks if order can transition to the given status
 func (o *Order) CanTransitionTo(newStatus OrderStatus) bool {
 	switch o.Status {
+	case OrderStatusDraft:
+		return newStatus == OrderStatusPending || newStatus == OrderStatusConfirmed || newStatus == OrderStatusCancelled
 	case OrderStatusPending:
 		return newStatus == OrderStatusConfirmed || newStatus == OrderStatusCancelled
 	case OrderStatusConfirmed:
@@ -590,9 +565,11 @@ func (o *Order) SyncPaymentStatus(paymentStatus PaymentStatus) {
 // This is separated from SyncPaymentStatus to give explicit control over when transitions happen
 func (o *Order) TryAutoTransitionOnPayment() error {
 	switch {
+	case o.PaymentStatus == PaymentStatusPaid && o.Status == OrderStatusDraft:
+		return o.TransitionTo(OrderStatusConfirmed)
 	case o.PaymentStatus == PaymentStatusPaid && o.Status == OrderStatusPending:
 		return o.TransitionTo(OrderStatusConfirmed)
-	case o.PaymentStatus == PaymentStatusFailed && o.Status == OrderStatusPending:
+	case o.PaymentStatus == PaymentStatusFailed && (o.Status == OrderStatusDraft || o.Status == OrderStatusPending):
 		return o.TransitionTo(OrderStatusCancelled)
 	default:
 		// No transition needed or possible
@@ -815,6 +792,8 @@ func (o *Order) IsGiftOrder() bool {
 // GetStatusDisplayName returns a human-readable status name
 func (o *Order) GetStatusDisplayName() string {
 	switch o.Status {
+	case OrderStatusDraft:
+		return "Draft"
 	case OrderStatusPending:
 		return "Pending"
 	case OrderStatusConfirmed:

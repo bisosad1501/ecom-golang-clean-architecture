@@ -120,7 +120,7 @@ func AutoMigrate(db *gorm.DB) error {
 		&entities.OrderItem{},
 		&entities.OrderEvent{},
 		&entities.Payment{},
-		&entities.StockReservation{},
+
 
 		// File uploads
 		&entities.FileUpload{},

@@ -27,8 +27,7 @@ type OrderEventService interface {
 	CreateRefundedEvent(ctx context.Context, orderID uuid.UUID, amount float64, reason string, userID *uuid.UUID) error
 	CreateNoteAddedEvent(ctx context.Context, orderID uuid.UUID, note string, userID *uuid.UUID, isPublic bool) error
 	CreateTrackingUpdatedEvent(ctx context.Context, orderID uuid.UUID, trackingNumber, status string, userID *uuid.UUID) error
-	CreateInventoryReservedEvent(ctx context.Context, orderID uuid.UUID, items []entities.CartItem, userID *uuid.UUID) error
-	CreateInventoryReleasedEvent(ctx context.Context, orderID uuid.UUID, reason string, userID *uuid.UUID) error
+
 	
 	// Get events
 	GetOrderEvents(ctx context.Context, orderID uuid.UUID, publicOnly bool) ([]*entities.OrderEvent, error)
@@ -260,41 +259,7 @@ func (s *orderEventService) CreateTrackingUpdatedEvent(ctx context.Context, orde
 	)
 }
 
-// CreateInventoryReservedEvent creates an inventory reserved event
-func (s *orderEventService) CreateInventoryReservedEvent(ctx context.Context, orderID uuid.UUID, items []entities.CartItem, userID *uuid.UUID) error {
-	data := map[string]interface{}{
-		"items": items,
-	}
-	
-	return s.CreateEvent(
-		ctx,
-		orderID,
-		entities.OrderEventTypeInventoryReserved,
-		"Inventory Reserved",
-		"Inventory has been reserved for this order",
-		data,
-		userID,
-		false, // Internal event
-	)
-}
 
-// CreateInventoryReleasedEvent creates an inventory released event
-func (s *orderEventService) CreateInventoryReleasedEvent(ctx context.Context, orderID uuid.UUID, reason string, userID *uuid.UUID) error {
-	data := map[string]interface{}{
-		"reason": reason,
-	}
-	
-	return s.CreateEvent(
-		ctx,
-		orderID,
-		entities.OrderEventTypeInventoryReleased,
-		"Inventory Released",
-		fmt.Sprintf("Inventory reservation released: %s", reason),
-		data,
-		userID,
-		false, // Internal event
-	)
-}
 
 // GetOrderEvents gets order events
 func (s *orderEventService) GetOrderEvents(ctx context.Context, orderID uuid.UUID, publicOnly bool) ([]*entities.OrderEvent, error) {

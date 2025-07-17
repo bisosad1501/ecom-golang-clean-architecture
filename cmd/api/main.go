@@ -93,6 +93,7 @@ func main() {
 	imageRepo := database.NewImageRepository(db)
 	cartRepo := database.NewCartRepository(db)
 	orderRepo := database.NewOrderRepository(db)
+	checkoutRepo := repositories.NewCheckoutSessionRepository(db)
 	paymentRepo := database.NewPaymentRepository(db)
 	paymentMethodRepo := database.NewPaymentMethodRepository(db)
 	fileRepo := database.NewFileRepository(db)
@@ -108,7 +109,6 @@ func main() {
 	shippingRepo := database.NewShippingRepository(db)
 	auditRepo := database.NewAuditRepository(db)
 	warehouseRepo := database.NewWarehouseRepository(db)
-	stockReservationRepo := database.NewStockReservationRepository(db)
 	orderEventRepo := database.NewOrderEventRepository(db)
 
 	// Initialize transaction manager
@@ -117,11 +117,7 @@ func main() {
 	// Initialize domain services
 	passwordService := services.NewPasswordService()
 	orderService := services.NewOrderService(orderRepo)
-	stockReservationService := services.NewStockReservationService(
-		stockReservationRepo,
-		productRepo,
-		inventoryRepo,
-	)
+	simpleStockService := services.NewSimpleStockService(productRepo, inventoryRepo)
 	userMetricsService := services.NewUserMetricsService(userRepo, orderRepo)
 	_ = services.NewProductCategoryService(productCategoryRepo, productRepo, categoryRepo) // Will be used later
 	orderEventService := services.NewOrderEventService(orderEventRepo)
@@ -180,7 +176,7 @@ func main() {
 	cartUseCase := usecases.NewCartUseCase(
 		cartRepo,
 		productRepo,
-		stockReservationService, // Pass the stockReservationService
+		simpleStockService, // Use simple stock service instead
 	)
 
 	// Initialize notification use case (without email service for now)
@@ -216,19 +212,44 @@ func main() {
 		3,              // max retries
 	)
 
+	// Initialize payment gateway services
+	stripeService := payment.NewStripeServiceWithWebhook(cfg.Payment.StripeSecretKey, cfg.Payment.StripeWebhookSecret)
+	paypalService := payment.NewPayPalService(cfg.Payment.PayPalClientID, cfg.Payment.PayPalClientSecret, cfg.Payment.PayPalSandbox)
+
+	// Initialize payment use case
+	paymentUseCase := usecases.NewPaymentUseCase(
+		paymentRepo, paymentMethodRepo, orderRepo, userRepo,
+		stripeService, paypalService,
+		notificationUseCase,
+		orderEventService,
+		userMetricsService,
+		txManager,
+		simpleStockService,
+	)
+
 	orderUseCase := usecases.NewOrderUseCase(
 		orderRepo,
 		cartRepo,
 		productRepo,
 		paymentRepo,
 		inventoryRepo,
-		stockReservationRepo,
 		orderEventRepo,
 		orderService,
-		stockReservationService,
+		simpleStockService,
 		orderEventService,
 		userMetricsService,
 		notificationUseCase, // Pass notification service
+		txManager,
+	)
+
+	checkoutUseCase := usecases.NewCheckoutUseCase(
+		checkoutRepo,
+		cartRepo,
+		orderRepo,
+		productRepo,
+		simpleStockService,
+		orderService,
+		paymentUseCase,
 		txManager,
 	)
 
@@ -245,20 +266,7 @@ func main() {
 		analyticsRepo, orderRepo, productRepo, userRepo, inventoryRepo,
 	)
 
-	// Initialize payment gateway services
-	stripeService := payment.NewStripeServiceWithWebhook(cfg.Payment.StripeSecretKey, cfg.Payment.StripeWebhookSecret)
-	paypalService := payment.NewPayPalService(cfg.Payment.PayPalClientID, cfg.Payment.PayPalClientSecret, cfg.Payment.PayPalSandbox)
 
-	// Initialize payment use case
-	paymentUseCase := usecases.NewPaymentUseCase(
-		paymentRepo, paymentMethodRepo, orderRepo, userRepo,
-		stripeService, paypalService,
-		notificationUseCase,
-		stockReservationService,
-		orderEventService,
-		userMetricsService,
-		txManager,
-	)
 
 	// Initialize distance service
 	distanceService := services.NewDistanceService()
@@ -286,13 +294,13 @@ func main() {
 		cartRepo, userRepo, emailUseCase, productRepo, orderRepo,
 	)
 
-	// Initialize stock cleanup use case
-	stockCleanupUseCase := usecases.NewStockCleanupUseCase(
-		stockReservationService,
-		orderRepo,
-		stockReservationRepo,
-		cartRepo, // Pass the cartRepo
-	)
+	// Initialize stock cleanup use case - DEPRECATED (using simple stock service now)
+	// stockCleanupUseCase := usecases.NewStockCleanupUseCase(
+	//	stockReservationService,
+	//	orderRepo,
+	//	stockReservationRepo,
+	//	cartRepo, // Pass the cartRepo
+	// )
 
 	// Initialize JWT service
 	jwtService := infraServices.NewJWTService(cfg.JWT.Secret)
@@ -327,6 +335,7 @@ func main() {
 	brandHandler := handlers.NewBrandHandler(brandUseCase)
 	cartHandler := handlers.NewCartHandler(cartUseCase)
 	orderHandler := handlers.NewOrderHandler(orderUseCase)
+	checkoutHandler := handlers.NewCheckoutHandler(checkoutUseCase)
 	fileHandler := handlers.NewFileHandler(fileUseCase)
 	couponHandler := handlers.NewCouponHandler(couponUseCase)
 	reviewHandler := handlers.NewReviewHandler(reviewUseCase, fileUseCase)
@@ -337,7 +346,7 @@ func main() {
 	addressHandler := handlers.NewAddressHandler(addressUseCase)
 	paymentHandler := handlers.NewPaymentHandler(paymentUseCase)
 	shippingHandler := handlers.NewShippingHandler(shippingUseCase)
-	adminHandler := handlers.NewAdminHandler(adminUseCase, stockCleanupUseCase)
+	adminHandler := handlers.NewAdminHandler(adminUseCase)
 	oauthHandler := handlers.NewOAuthHandler(oauthUseCase)
 	migrationHandler := handlers.NewMigrationHandler(db)
 	searchHandler := handlers.NewSearchHandler(searchUseCase)
@@ -359,6 +368,7 @@ func main() {
 		brandHandler,
 		cartHandler,
 		orderHandler,
+		checkoutHandler,
 		fileHandler,
 		reviewHandler,
 		wishlistHandler,
@@ -379,11 +389,7 @@ func main() {
 		abandonedCartHandler,
 	)
 
-	// Start background cleanup scheduler
-	go func() {
-		ctx := context.Background()
-		usecases.StartCleanupScheduler(ctx, stockCleanupUseCase)
-	}()
+	// Background cleanup scheduler removed - using simple stock service
 
 	// Start notification queue processor
 	go func() {

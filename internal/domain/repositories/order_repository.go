@@ -111,6 +111,9 @@ type PaymentRepository interface {
 	// GetByExternalID retrieves a payment by external ID (e.g., Stripe session ID)
 	GetByExternalID(ctx context.Context, externalID string) (*entities.Payment, error)
 
+	// GetByCustomSessionID retrieves a payment by custom session ID through checkout session mapping
+	GetByCustomSessionID(ctx context.Context, customSessionID string) (*entities.Payment, error)
+
 	// Update updates an existing payment
 	Update(ctx context.Context, payment *entities.Payment) error
 

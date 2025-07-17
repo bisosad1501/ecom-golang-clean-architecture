@@ -11,22 +11,26 @@ import { Separator } from '@/components/ui/separator'
 import { useCartStore } from '@/store/cart'
 import { useAuthStore } from '@/store/auth'
 import { apiClient } from '@/lib/api'
+import { useQueryClient } from '@tanstack/react-query'
+import { orderKeys } from '@/hooks/use-orders'
 
 export default function CheckoutSuccessPage() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const sessionId = searchParams.get('session_id')
   const orderId = searchParams.get('order_id')
+  const checkoutSessionId = searchParams.get('checkout_session_id')
 
   const [isLoading, setIsLoading] = useState(true)
   const [orderDetails, setOrderDetails] = useState<any>(null)
 
   const { clearCart } = useCartStore()
   const { isAuthenticated, token, user } = useAuthStore()
+  const queryClient = useQueryClient()
 
   useEffect(() => {
     const handleSuccess = async () => {
-      if (!sessionId) {
+      if (!sessionId && !checkoutSessionId) {
         router.push('/checkout')
         return
       }
@@ -61,9 +65,9 @@ export default function CheckoutSuccessPage() {
         await clearCart()
 
         // Confirm payment success with backend (fallback if webhook fails)
-        if (sessionId && orderId) {
+        if (sessionId) {
           try {
-            console.log('🔄 Attempting payment confirmation for order:', orderId, 'session:', sessionId)
+            console.log('🔄 Attempting payment confirmation for session:', sessionId, 'order:', orderId || 'unknown')
 
             // Try without auth first (public endpoint)
             const confirmResponse = await fetch(`http://localhost:8080/api/v1/payments/confirm-success`, {
@@ -73,7 +77,7 @@ export default function CheckoutSuccessPage() {
               },
               body: JSON.stringify({
                 session_id: sessionId,
-                order_id: orderId
+                ...(orderId && { order_id: orderId })
               })
             })
 
@@ -81,6 +85,10 @@ export default function CheckoutSuccessPage() {
               console.log('✅ Payment confirmation sent to backend successfully')
               const confirmData = await confirmResponse.json()
               console.log('Confirmation response:', confirmData)
+
+              // Invalidate orders cache to refresh data
+              queryClient.invalidateQueries({ queryKey: orderKeys.all })
+              console.log('🔄 Orders cache invalidated - data will refresh')
             } else {
               console.warn('❌ Failed to confirm payment with backend:', confirmResponse.status, confirmResponse.statusText)
               const errorText = await confirmResponse.text()
@@ -98,12 +106,16 @@ export default function CheckoutSuccessPage() {
                   },
                   body: JSON.stringify({
                     session_id: sessionId,
-                    order_id: orderId
+                    ...(orderId && { order_id: orderId })
                   })
                 })
 
                 if (authConfirmResponse.ok) {
                   console.log('✅ Payment confirmation with auth successful')
+
+                  // Invalidate orders cache to refresh data
+                  queryClient.invalidateQueries({ queryKey: orderKeys.all })
+                  console.log('🔄 Orders cache invalidated - data will refresh')
                 } else {
                   console.warn('❌ Auth confirmation also failed:', authConfirmResponse.status)
                 }

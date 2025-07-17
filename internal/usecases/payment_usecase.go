@@ -57,6 +57,7 @@ type PaymentUseCase interface {
 
 	// Payment confirmation (fallback method)
 	ConfirmPaymentSuccess(ctx context.Context, orderID, userID uuid.UUID, sessionID string) error
+	ConfirmPaymentSuccessWithSession(ctx context.Context, orderID, userID uuid.UUID, sessionID string) error
 
 	// Reports
 	GetPaymentReport(ctx context.Context, req PaymentReportRequest) (*PaymentReportResponse, error)
@@ -73,10 +74,10 @@ type paymentUseCase struct {
 	stripeService           PaymentGatewayService
 	paypalService           PaymentGatewayService
 	notificationUseCase     NotificationUseCase
-	stockReservationService services.StockReservationService
-	orderEventService       services.OrderEventService
-	userMetricsService      services.UserMetricsService
-	txManager               *database.TransactionManager
+	orderEventService  services.OrderEventService
+	userMetricsService services.UserMetricsService
+	txManager          *database.TransactionManager
+	simpleStockService services.SimpleStockService
 }
 
 // NewPaymentUseCase creates a new payment use case
@@ -88,23 +89,23 @@ func NewPaymentUseCase(
 	stripeService PaymentGatewayService,
 	paypalService PaymentGatewayService,
 	notificationUseCase NotificationUseCase,
-	stockReservationService services.StockReservationService,
 	orderEventService services.OrderEventService,
 	userMetricsService services.UserMetricsService,
 	txManager *database.TransactionManager,
+	simpleStockService services.SimpleStockService,
 ) PaymentUseCase {
 	return &paymentUseCase{
-		paymentRepo:             paymentRepo,
-		paymentMethodRepo:       paymentMethodRepo,
-		orderRepo:               orderRepo,
-		userRepo:                userRepo,
-		stripeService:           stripeService,
-		paypalService:           paypalService,
-		notificationUseCase:     notificationUseCase,
-		stockReservationService: stockReservationService,
-		orderEventService:       orderEventService,
-		userMetricsService:      userMetricsService,
-		txManager:               txManager,
+		paymentRepo:        paymentRepo,
+		paymentMethodRepo:  paymentMethodRepo,
+		orderRepo:          orderRepo,
+		userRepo:           userRepo,
+		stripeService:      stripeService,
+		paypalService:      paypalService,
+		notificationUseCase: notificationUseCase,
+		orderEventService:  orderEventService,
+		userMetricsService: userMetricsService,
+		txManager:          txManager,
+		simpleStockService: simpleStockService,
 	}
 }
 
@@ -522,18 +523,7 @@ func (uc *paymentUseCase) ProcessPayment(ctx context.Context, req ProcessPayment
 			// Don't fail the payment, just log the error
 		}
 
-		// If order was confirmed (paid), confirm stock reservations
-		if order.Status == entities.OrderStatusConfirmed && order.HasInventoryReserved() {
-			if err := uc.stockReservationService.ConfirmReservations(ctx, order.ID); err != nil {
-				fmt.Printf("❌ Failed to confirm stock reservations: %v\n", err)
-				// Don't fail the payment, but log the error
-			} else {
-				fmt.Printf("✅ Stock reservations confirmed for order %s\n", order.ID)
-			}
-
-			// Release reservation flags since stock is now actually reduced
-			order.ReleaseReservation()
-		}
+		// Stock reduction will be handled by order status transition logic
 
 		if err := uc.orderRepo.Update(ctx, order); err != nil {
 			return nil, err
@@ -642,6 +632,7 @@ func (uc *paymentUseCase) updatePaymentStatusInTransaction(ctx context.Context, 
 	}
 
 	// Auto-sync payment status based on all payments (not just this one)
+	oldStatus := order.Status
 	oldPaymentStatus := order.PaymentStatus
 	order.AutoSyncPaymentStatus()
 
@@ -651,15 +642,17 @@ func (uc *paymentUseCase) updatePaymentStatusInTransaction(ctx context.Context, 
 		return nil, fmt.Errorf("failed to auto-transition order: %v", err)
 	}
 
-	// If order was confirmed, confirm stock reservations (convert to actual stock reduction)
-	if order.Status == entities.OrderStatusConfirmed {
-		if err := uc.stockReservationService.ConfirmReservations(ctx, order.ID); err != nil {
-			fmt.Printf("❌ Failed to confirm stock reservations: %v\n", err)
-			return nil, fmt.Errorf("failed to confirm stock reservations: %v", err)
+	// Check if order status changed to confirmed and reduce stock only once
+	if oldStatus != entities.OrderStatusConfirmed && order.Status == entities.OrderStatusConfirmed {
+		if err := uc.simpleStockService.ReduceStockForOrder(ctx, order.Items); err != nil {
+			fmt.Printf("❌ Failed to reduce stock: %v\n", err)
+			return nil, fmt.Errorf("failed to reduce stock: %v", err)
 		}
-		fmt.Printf("✅ Stock reservations confirmed and converted to actual stock reduction\n")
+		fmt.Printf("✅ Stock reduced for order items (status changed from %s to %s)\n", oldStatus, order.Status)
+	}
 
-		// Update user metrics when order is confirmed
+	// Update user metrics when order is confirmed
+	if order.Status == entities.OrderStatusConfirmed {
 		if uc.userMetricsService != nil {
 			if err := uc.userMetricsService.UpdateUserMetricsOnOrderConfirmed(ctx, order.UserID, order.Total); err != nil {
 				fmt.Printf("❌ Failed to update user metrics: %v\n", err)
@@ -668,9 +661,6 @@ func (uc *paymentUseCase) updatePaymentStatusInTransaction(ctx context.Context, 
 				fmt.Printf("✅ User metrics updated for order confirmation\n")
 			}
 		}
-
-		// Release reservation flags since stock is now actually reduced
-		order.ReleaseReservation()
 	}
 
 	order.UpdatedAt = time.Now()
@@ -1020,11 +1010,18 @@ func (uc *paymentUseCase) handleCheckoutSessionCompleted(ctx context.Context, ev
 
 // confirmPaymentInTransaction handles payment confirmation within a transaction
 func (uc *paymentUseCase) confirmPaymentInTransaction(ctx context.Context, sessionID string) error {
-	// Find payment by session ID (stored in external_id)
+	// Try to find payment by Stripe session ID first (stored in external_id)
 	payment, err := uc.paymentRepo.GetByExternalID(ctx, sessionID)
 	if err != nil {
-		fmt.Printf("❌ Payment not found for session %s: %v\n", sessionID, err)
-		return fmt.Errorf("payment not found for session %s: %v", sessionID, err)
+		// If not found by Stripe session ID, try to find by custom session ID
+		payment, err = uc.paymentRepo.GetByCustomSessionID(ctx, sessionID)
+		if err != nil {
+			fmt.Printf("❌ Payment not found for session %s (tried both Stripe and custom session ID): %v\n", sessionID, err)
+			return fmt.Errorf("payment not found for session %s: %v", sessionID, err)
+		}
+		fmt.Printf("✅ Found payment by custom session ID: %s\n", sessionID)
+	} else {
+		fmt.Printf("✅ Found payment by Stripe session ID: %s\n", sessionID)
 	}
 
 	fmt.Printf("✅ Found payment: ID=%s, OrderID=%s, Status=%s\n", payment.ID, payment.OrderID, payment.Status)
@@ -1054,12 +1051,7 @@ func (uc *paymentUseCase) confirmPaymentInTransaction(ctx context.Context, sessi
 	fmt.Printf("✅ Found order: ID=%s, Number=%s, Status=%s, PaymentStatus=%s\n",
 		order.ID, order.OrderNumber, order.Status, order.PaymentStatus)
 
-	// Confirm stock reservations (convert to actual stock reduction)
-	if err := uc.stockReservationService.ConfirmReservations(ctx, order.ID); err != nil {
-		fmt.Printf("❌ Failed to confirm stock reservations: %v\n", err)
-		return fmt.Errorf("failed to confirm stock reservations: %v", err)
-	}
-	fmt.Printf("✅ Stock reservations confirmed and converted to actual stock reduction\n")
+	// Stock reduction will be handled by order status transition logic
 
 	// Reload order with payments to sync payment status
 	order, err = uc.orderRepo.GetByID(ctx, order.ID)
@@ -1081,17 +1073,18 @@ func (uc *paymentUseCase) confirmPaymentInTransaction(ctx context.Context, sessi
 		return fmt.Errorf("failed to auto-transition order: %v", err)
 	}
 
-	// If order was confirmed, confirm stock reservations and update user metrics
-	if order.Status == entities.OrderStatusConfirmed {
-		// Confirm stock reservations (convert to actual stock reduction)
-		if order.HasInventoryReserved() {
-			if err := uc.stockReservationService.ConfirmReservations(ctx, order.ID); err != nil {
-				fmt.Printf("❌ Failed to confirm stock reservations: %v\n", err)
-				// Don't fail the payment process for stock confirmation failure
-			} else {
-				fmt.Printf("✅ Stock reservations confirmed for order %s\n", order.ID)
-			}
+	// Check if order status changed to confirmed and reduce stock only once
+	if oldStatus != entities.OrderStatusConfirmed && order.Status == entities.OrderStatusConfirmed {
+		if err := uc.simpleStockService.ReduceStockForOrder(ctx, order.Items); err != nil {
+			fmt.Printf("❌ Failed to reduce stock: %v\n", err)
+			// Don't fail the payment process for stock reduction failure
+		} else {
+			fmt.Printf("✅ Stock reduced for order items (status changed from %s to %s)\n", oldStatus, order.Status)
 		}
+	}
+
+	// Update user metrics if order was confirmed
+	if order.Status == entities.OrderStatusConfirmed {
 
 		// Update user metrics
 		if uc.userMetricsService != nil {
@@ -1103,8 +1096,7 @@ func (uc *paymentUseCase) confirmPaymentInTransaction(ctx context.Context, sessi
 			}
 		}
 
-		// Release reservation flags since stock is now actually reduced
-		order.ReleaseReservation()
+
 	}
 	order.UpdatedAt = time.Now()
 
@@ -1183,6 +1175,7 @@ func (uc *paymentUseCase) handlePaymentIntentSucceeded(ctx context.Context, even
 	}
 
 	// Auto-sync payment status based on all payments
+	oldStatus := order.Status
 	order.AutoSyncPaymentStatus()
 
 	// Try auto-transition based on payment status
@@ -1191,15 +1184,17 @@ func (uc *paymentUseCase) handlePaymentIntentSucceeded(ctx context.Context, even
 		return fmt.Errorf("failed to auto-transition order: %v", err)
 	}
 
-	// If order was confirmed, confirm stock reservations (convert to actual stock reduction)
-	if order.Status == entities.OrderStatusConfirmed {
-		if order.HasInventoryReserved() {
-			if err := uc.stockReservationService.ConfirmReservations(ctx, order.ID); err != nil {
-				fmt.Printf("❌ Failed to confirm stock reservations: %v\n", err)
-				return fmt.Errorf("failed to confirm stock reservations: %v", err)
-			}
-			fmt.Printf("✅ Stock reservations confirmed and converted to actual stock reduction\n")
+	// Check if order status changed to confirmed and reduce stock only once
+	if oldStatus != entities.OrderStatusConfirmed && order.Status == entities.OrderStatusConfirmed {
+		if err := uc.simpleStockService.ReduceStockForOrder(ctx, order.Items); err != nil {
+			fmt.Printf("❌ Failed to reduce stock: %v\n", err)
+			return fmt.Errorf("failed to reduce stock: %v", err)
 		}
+		fmt.Printf("✅ Stock reduced for order items (status changed from %s to %s)\n", oldStatus, order.Status)
+	}
+
+	// Update user metrics if order was confirmed
+	if order.Status == entities.OrderStatusConfirmed {
 
 		// Update user metrics when order is confirmed
 		if uc.userMetricsService != nil {
@@ -1211,8 +1206,7 @@ func (uc *paymentUseCase) handlePaymentIntentSucceeded(ctx context.Context, even
 			}
 		}
 
-		// Release reservation flags since stock is now actually reduced
-		order.ReleaseReservation()
+
 	}
 	order.UpdatedAt = time.Now()
 
@@ -1269,14 +1263,7 @@ func (uc *paymentUseCase) handlePaymentIntentFailed(ctx context.Context, event *
 		return fmt.Errorf("order not found: %v", err)
 	}
 
-	// Release stock reservations since payment failed
-	if err := uc.stockReservationService.ReleaseReservations(ctx, order.ID); err != nil {
-		fmt.Printf("❌ Failed to release stock reservations for failed payment: %v\n", err)
-		// Continue with order update even if reservation release fails
-	}
-
 	order.PaymentStatus = entities.PaymentStatusFailed
-	order.ReleaseReservation()
 	order.UpdatedAt = time.Now()
 
 	if err := uc.orderRepo.Update(ctx, order); err != nil {
@@ -1684,13 +1671,17 @@ func (uc *paymentUseCase) ConfirmPaymentSuccess(ctx context.Context, orderID, us
 		return fmt.Errorf("failed to auto-transition order: %v", err)
 	}
 
-	// If order was confirmed, confirm stock reservations (convert to actual stock reduction)
-	if order.Status == entities.OrderStatusConfirmed {
-		if err := uc.stockReservationService.ConfirmReservations(ctx, order.ID); err != nil {
-			fmt.Printf("❌ Failed to confirm stock reservations: %v\n", err)
-			return fmt.Errorf("failed to confirm stock reservations: %v", err)
+	// Check if order status changed to confirmed and reduce stock only once
+	if oldStatus != entities.OrderStatusConfirmed && order.Status == entities.OrderStatusConfirmed {
+		if err := uc.simpleStockService.ReduceStockForOrder(ctx, order.Items); err != nil {
+			fmt.Printf("❌ Failed to reduce stock: %v\n", err)
+			return fmt.Errorf("failed to reduce stock: %v", err)
 		}
-		fmt.Printf("✅ Stock reservations confirmed and converted to actual stock reduction\n")
+		fmt.Printf("✅ Stock reduced for order items (status changed from %s to %s)\n", oldStatus, order.Status)
+	}
+
+	// Update user metrics if order was confirmed
+	if order.Status == entities.OrderStatusConfirmed {
 
 		// Update user metrics when order is confirmed
 		if uc.userMetricsService != nil {
@@ -1702,8 +1693,7 @@ func (uc *paymentUseCase) ConfirmPaymentSuccess(ctx context.Context, orderID, us
 			}
 		}
 
-		// Release reservation flags since stock is now actually reduced
-		order.ReleaseReservation()
+
 	}
 	order.UpdatedAt = time.Now()
 
@@ -1726,6 +1716,63 @@ func (uc *paymentUseCase) ConfirmPaymentSuccess(ctx context.Context, orderID, us
 
 	fmt.Printf("🎉 Fallback payment confirmation completed\n")
 	return nil
+}
+
+// ConfirmPaymentSuccessWithSession confirms payment success using session ID (can find order automatically)
+func (uc *paymentUseCase) ConfirmPaymentSuccessWithSession(ctx context.Context, orderID, userID uuid.UUID, sessionID string) error {
+	fmt.Printf("🔄 Payment confirmation with session: OrderID=%s, UserID=%s, SessionID=%s\n", orderID, userID, sessionID)
+
+	// Try to find payment by Stripe session ID first (stored in external_id)
+	payment, err := uc.paymentRepo.GetByExternalID(ctx, sessionID)
+	if err != nil {
+		// If not found by Stripe session ID, try to find by custom session ID
+		payment, err = uc.paymentRepo.GetByCustomSessionID(ctx, sessionID)
+		if err != nil {
+			fmt.Printf("❌ Payment not found for session %s (tried both Stripe and custom session ID): %v\n", sessionID, err)
+			return fmt.Errorf("payment not found for session %s: %v", sessionID, err)
+		}
+		fmt.Printf("✅ Found payment by custom session ID: %s\n", sessionID)
+	} else {
+		fmt.Printf("✅ Found payment by Stripe session ID: %s\n", sessionID)
+	}
+
+	fmt.Printf("✅ Found payment: ID=%s, OrderID=%s, Status=%s\n", payment.ID, payment.OrderID, payment.Status)
+
+	// If orderID is not provided, use the one from payment
+	if orderID == uuid.Nil {
+		orderID = payment.OrderID
+		fmt.Printf("🔍 Using order ID from payment: %s\n", orderID)
+	} else {
+		// Verify the payment belongs to the provided order
+		if payment.OrderID != orderID {
+			fmt.Printf("❌ Payment does not belong to order: PaymentOrderID=%s, RequestOrderID=%s\n", payment.OrderID, orderID)
+			return fmt.Errorf("payment does not belong to order")
+		}
+	}
+
+	// Get the order
+	order, err := uc.orderRepo.GetByID(ctx, orderID)
+	if err != nil {
+		fmt.Printf("❌ Order not found: %v\n", err)
+		return fmt.Errorf("order not found: %v", err)
+	}
+
+	// Verify the order belongs to the user (only if userID is provided)
+	if userID != uuid.Nil && order.UserID != userID {
+		fmt.Printf("❌ Order does not belong to user: OrderUserID=%s, RequestUserID=%s\n", order.UserID, userID)
+		return fmt.Errorf("order does not belong to user")
+	}
+
+	fmt.Printf("✅ Order verified: %s (Status: %s, PaymentStatus: %s)\n", order.OrderNumber, order.Status, order.PaymentStatus)
+
+	// If payment is already processed, skip
+	if payment.Status == entities.PaymentStatusPaid {
+		fmt.Printf("ℹ️ Payment already processed, skipping\n")
+		return nil
+	}
+
+	// Use the existing confirmation logic
+	return uc.confirmPaymentInTransaction(ctx, sessionID)
 }
 
 // toPaymentMethodResponse converts PaymentMethodEntity to PaymentMethodResponse

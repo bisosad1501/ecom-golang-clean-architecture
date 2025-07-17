@@ -507,6 +507,36 @@ func (r *paymentRepository) GetByExternalID(ctx context.Context, externalID stri
 	return &payment, nil
 }
 
+// GetByCustomSessionID retrieves a payment by custom session ID through checkout session mapping
+func (r *paymentRepository) GetByCustomSessionID(ctx context.Context, customSessionID string) (*entities.Payment, error) {
+	var payment entities.Payment
+
+	// First, find the checkout session by custom session ID
+	var checkoutSession entities.CheckoutSession
+	err := r.db.WithContext(ctx).Where("session_id = ?", customSessionID).First(&checkoutSession).Error
+	if err != nil {
+		if err == gorm.ErrRecordNotFound {
+			return nil, entities.ErrPaymentNotFound
+		}
+		return nil, err
+	}
+
+	// Then find the payment using the Stripe session ID stored in payment_intent_id
+	if checkoutSession.PaymentIntentID == "" {
+		return nil, entities.ErrPaymentNotFound
+	}
+
+	err = r.db.WithContext(ctx).Where("external_id = ?", checkoutSession.PaymentIntentID).First(&payment).Error
+	if err != nil {
+		if err == gorm.ErrRecordNotFound {
+			return nil, entities.ErrPaymentNotFound
+		}
+		return nil, err
+	}
+
+	return &payment, nil
+}
+
 // Update updates an existing payment
 func (r *paymentRepository) Update(ctx context.Context, payment *entities.Payment) error {
 	return r.db.WithContext(ctx).Save(payment).Error

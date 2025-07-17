@@ -512,6 +512,9 @@ func (h *PaymentHandler) SetDefaultPaymentMethod(c *gin.Context) {
 func (h *PaymentHandler) HandleWebhook(c *gin.Context) {
 	provider := c.Param("provider")
 
+	fmt.Printf("🔔 Webhook received for provider: %s\n", provider)
+	fmt.Printf("🔍 Request headers: %+v\n", c.Request.Header)
+
 	// Validate provider
 	validProviders := []string{"stripe", "paypal"}
 	isValidProvider := false
@@ -522,6 +525,7 @@ func (h *PaymentHandler) HandleWebhook(c *gin.Context) {
 		}
 	}
 	if !isValidProvider {
+		fmt.Printf("❌ Invalid provider: %s\n", provider)
 		c.JSON(http.StatusBadRequest, ErrorResponse{
 			Error: "Invalid payment provider",
 		})
@@ -533,8 +537,10 @@ func (h *PaymentHandler) HandleWebhook(c *gin.Context) {
 	switch provider {
 	case "stripe":
 		signature = c.GetHeader("Stripe-Signature")
+		fmt.Printf("🔐 Stripe signature: %s\n", signature)
 	case "paypal":
 		signature = c.GetHeader("PAYPAL-TRANSMISSION-SIG")
+		fmt.Printf("🔐 PayPal signature: %s\n", signature)
 	}
 
 	// Validate signature is present
@@ -598,16 +604,18 @@ func (h *PaymentHandler) HandleWebhook(c *gin.Context) {
 	}
 
 	// Process webhook
+	fmt.Printf("📦 Processing webhook payload: %s\n", string(payload))
 	if err := h.paymentUseCase.HandleWebhook(c.Request.Context(), provider, payload, signature); err != nil {
 		// For security, don't expose internal error details
 		// Log the actual error internally but return generic message
-		// TODO: Add proper logging here
+		fmt.Printf("❌ Webhook processing failed: %v\n", err)
 		c.JSON(http.StatusBadRequest, ErrorResponse{
 			Error: "Webhook processing failed",
 		})
 		return
 	}
 
+	fmt.Printf("✅ Webhook processed successfully\n")
 	c.JSON(http.StatusOK, SuccessResponse{
 		Message: "Webhook processed successfully",
 	})
@@ -681,7 +689,7 @@ func (h *PaymentHandler) CreateCheckoutSession(c *gin.Context) {
 func (h *PaymentHandler) ConfirmPaymentSuccess(c *gin.Context) {
 	var req struct {
 		SessionID string `json:"session_id" binding:"required"`
-		OrderID   string `json:"order_id" binding:"required"`
+		OrderID   string `json:"order_id"`
 	}
 
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -692,13 +700,19 @@ func (h *PaymentHandler) ConfirmPaymentSuccess(c *gin.Context) {
 		return
 	}
 
-	// Parse order ID
-	orderID, err := uuid.Parse(req.OrderID)
-	if err != nil {
-		c.JSON(http.StatusBadRequest, ErrorResponse{
-			Error: "Invalid order ID format",
-		})
-		return
+	fmt.Printf("🔄 Payment confirmation request: SessionID=%s, OrderID=%s\n", req.SessionID, req.OrderID)
+
+	// If order_id is provided, parse it
+	var orderID uuid.UUID
+	var err error
+	if req.OrderID != "" {
+		orderID, err = uuid.Parse(req.OrderID)
+		if err != nil {
+			c.JSON(http.StatusBadRequest, ErrorResponse{
+				Error: "Invalid order ID format",
+			})
+			return
+		}
 	}
 
 	// Get user ID from token (optional for public access)
@@ -710,7 +724,7 @@ func (h *PaymentHandler) ConfirmPaymentSuccess(c *gin.Context) {
 	}
 
 	// Confirm payment success
-	err = h.paymentUseCase.ConfirmPaymentSuccess(c.Request.Context(), orderID, userID, req.SessionID)
+	err = h.paymentUseCase.ConfirmPaymentSuccessWithSession(c.Request.Context(), orderID, userID, req.SessionID)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, ErrorResponse{
 			Error:   "Failed to confirm payment success",
@@ -721,6 +735,61 @@ func (h *PaymentHandler) ConfirmPaymentSuccess(c *gin.Context) {
 
 	c.JSON(http.StatusOK, SuccessResponse{
 		Message: "Payment confirmation processed successfully",
+	})
+}
+
+// TestWebhook manually triggers webhook processing for development
+func (h *PaymentHandler) TestWebhook(c *gin.Context) {
+	sessionID := c.Param("session_id")
+
+	if sessionID == "" {
+		c.JSON(http.StatusBadRequest, ErrorResponse{
+			Error: "Session ID is required",
+		})
+		return
+	}
+
+	// Create a mock webhook payload for checkout.session.completed
+	mockPayload := map[string]interface{}{
+		"id":      "evt_test_webhook",
+		"object":  "event",
+		"type":    "checkout.session.completed",
+		"created": 1234567890,
+		"data": map[string]interface{}{
+			"object": map[string]interface{}{
+				"id":             sessionID,
+				"object":         "checkout_session",
+				"payment_status": "paid",
+				"amount_total":   32400, // $324.00 in cents
+				"currency":       "usd",
+			},
+		},
+	}
+
+	payloadBytes, err := json.Marshal(mockPayload)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, ErrorResponse{
+			Error: "Failed to create mock payload",
+		})
+		return
+	}
+
+	// Process the mock webhook
+	err = h.paymentUseCase.HandleWebhook(c.Request.Context(), "stripe", payloadBytes, "")
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, ErrorResponse{
+			Error:   "Failed to process test webhook",
+			Details: err.Error(),
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, SuccessResponse{
+		Message: "Test webhook processed successfully",
+		Data: map[string]interface{}{
+			"session_id": sessionID,
+			"payload":    mockPayload,
+		},
 	})
 }
 

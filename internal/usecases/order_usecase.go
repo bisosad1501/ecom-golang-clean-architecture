@@ -51,10 +51,9 @@ type orderUseCase struct {
 	productRepo             repositories.ProductRepository
 	paymentRepo             repositories.PaymentRepository
 	inventoryRepo           repositories.InventoryRepository
-	stockReservationRepo    repositories.StockReservationRepository
 	orderEventRepo          repositories.OrderEventRepository
 	orderService            services.OrderService
-	stockReservationService services.StockReservationService
+	simpleStockService      services.SimpleStockService
 	orderEventService       services.OrderEventService
 	userMetricsService      services.UserMetricsService
 	notificationService     NotificationService
@@ -68,10 +67,9 @@ func NewOrderUseCase(
 	productRepo repositories.ProductRepository,
 	paymentRepo repositories.PaymentRepository,
 	inventoryRepo repositories.InventoryRepository,
-	stockReservationRepo repositories.StockReservationRepository,
 	orderEventRepo repositories.OrderEventRepository,
 	orderService services.OrderService,
-	stockReservationService services.StockReservationService,
+	simpleStockService services.SimpleStockService,
 	orderEventService services.OrderEventService,
 	userMetricsService services.UserMetricsService,
 	notificationService NotificationService,
@@ -83,10 +81,9 @@ func NewOrderUseCase(
 		productRepo:             productRepo,
 		paymentRepo:             paymentRepo,
 		inventoryRepo:           inventoryRepo,
-		stockReservationRepo:    stockReservationRepo,
 		orderEventRepo:          orderEventRepo,
 		orderService:            orderService,
-		stockReservationService: stockReservationService,
+		simpleStockService:      simpleStockService,
 		orderEventService:       orderEventService,
 		userMetricsService:      userMetricsService,
 		notificationService:     notificationService,
@@ -419,21 +416,13 @@ func (uc *orderUseCase) createOrderInTransaction(ctx context.Context, tx *gorm.D
 				WithContext("product_name", product.Name)
 		}
 
-		// Check if stock can be reserved first (don't create reservation yet)
-		canReserve, err := uc.stockReservationService.CanReserveStock(ctx, item.ProductID, item.Quantity)
-		if err != nil {
-			return nil, pkgErrors.Wrap(err, pkgErrors.ErrCodeInternalError, "Failed to check stock availability")
-		}
-
-		if !canReserve {
-			return nil, pkgErrors.InsufficientStock().
+		// Check stock availability using simple stock service
+		if err := uc.simpleStockService.CheckStockAvailability(ctx, []entities.CartItem{item}); err != nil {
+			return nil, pkgErrors.Wrap(err, pkgErrors.ErrCodeInsufficientStock, "Stock not available").
 				WithContext("product_id", item.ProductID).
 				WithContext("product_name", product.Name).
 				WithContext("requested_quantity", item.Quantity)
 		}
-
-		// Note: We'll create the actual stock reservations later in ReserveStockForOrder
-		// to avoid double reservation (cart reservation + order reservation)
 	}
 
 	// Calculate totals
@@ -480,9 +469,8 @@ func (uc *orderUseCase) createOrderInTransaction(ctx context.Context, tx *gorm.D
 	// Set timeouts and validate
 	order.ValidateTimeouts()
 
-	// Set reservation and payment timeouts
-	order.SetReservationTimeout(30) // 30 minutes for stock reservation
-	order.SetPaymentTimeout(24)     // 24 hours for payment
+	// Set payment timeout
+	order.SetPaymentTimeout(24) // 24 hours for payment
 
 	// Set addresses
 	order.ShippingAddress = &entities.OrderAddress{
@@ -571,15 +559,12 @@ func (uc *orderUseCase) createOrderInTransaction(ctx context.Context, tx *gorm.D
 		}
 	}
 
-	// Atomic operation: Reserve stock for order and release cart reservations
-	// This prevents race conditions between cart and order reservations
-	if err := uc.stockReservationService.TransferCartReservationsToOrder(ctx, userID, order.ID, cart.Items); err != nil {
-		return nil, pkgErrors.Wrap(err, pkgErrors.ErrCodeInsufficientStock, "Failed to transfer stock reservations")
+	// For bank transfer, only check stock availability - don't reduce until payment confirmed
+	// Since this is the only payment method allowed in this endpoint
+	if err := uc.simpleStockService.CheckStockAvailability(ctx, cart.Items); err != nil {
+		return nil, pkgErrors.Wrap(err, pkgErrors.ErrCodeInsufficientStock, "Stock not available")
 	}
-
-	// Mark order as having inventory reserved
-	order.InventoryReserved = true
-	order.SetReservationTimeout(30) // 30 minutes for order reservation
+	// Stock availability already checked above
 	if err := uc.orderRepo.Update(ctx, order); err != nil {
 		return nil, pkgErrors.Wrap(err, pkgErrors.ErrCodeInternalError, "Failed to update order inventory status")
 	}
@@ -618,10 +603,7 @@ func (uc *orderUseCase) createOrderInTransaction(ctx context.Context, tx *gorm.D
 		}()
 	}
 
-	if err := uc.orderEventService.CreateInventoryReservedEvent(ctx, order.ID, cart.Items, &userID); err != nil {
-		// Log warning but don't fail the transaction for event creation
-		// Note: Event creation failure is non-critical
-	}
+	// Order created successfully - no stock reservation needed with simple stock service
 
 	// Get created order with relations
 	createdOrder, err := uc.orderRepo.GetByID(ctx, order.ID)
@@ -884,27 +866,22 @@ func (uc *orderUseCase) CancelOrder(ctx context.Context, orderID uuid.UUID) (*Or
 				item.Quantity, item.ProductID, inventory.QuantityOnHand)
 		}
 
-	case !order.IsPaid() && order.HasInventoryReserved():
-		// Order is not paid but has reservations - release reservations
-		if err := uc.stockReservationService.ReleaseReservations(ctx, orderID); err != nil {
+	case !order.IsPaid():
+		// Order is not paid - restore stock (for bank transfer orders)
+		if err := uc.simpleStockService.RestoreStock(ctx, order.Items); err != nil {
 			// Don't fail the cancellation, but log the error
-			fmt.Printf("❌ Failed to release reservations: %v\n", err)
+			fmt.Printf("❌ Failed to restore stock: %v\n", err)
 		}
-
-	case !order.IsPaid() && !order.HasInventoryReserved():
-		// Order is not paid and no reservations (possibly expired) - nothing to do
-		fmt.Printf("ℹ️ Order not paid and no reservations - nothing to restore\n")
 
 	default:
 		// Unexpected order state for cancellation
-		fmt.Printf("⚠️ Unexpected order state for cancellation: IsPaid=%v, Status=%s, HasReservations=%v\n",
-			order.IsPaid(), order.Status, order.HasInventoryReserved())
+		fmt.Printf("⚠️ Unexpected order state for cancellation: IsPaid=%v, Status=%s\n",
+			order.IsPaid(), order.Status)
 	}
 
-	// Release order reservation flags
-	order.ReleaseReservation()
+	// Update order status
 	if err := uc.orderRepo.Update(ctx, order); err != nil {
-		return nil, fmt.Errorf("failed to update order reservation status: %w", err)
+		return nil, fmt.Errorf("failed to update order status: %w", err)
 	}
 
 	// Update user metrics if order was previously confirmed (paid)
@@ -924,10 +901,7 @@ func (uc *orderUseCase) CancelOrder(ctx context.Context, orderID uuid.UUID) (*Or
 		// Note: Event creation failure is non-critical
 	}
 
-	// Create inventory released event
-	if err := uc.orderEventService.CreateInventoryReleasedEvent(ctx, orderID, "Order cancelled", nil); err != nil {
-		// Note: Event creation failure is non-critical
-	}
+	// Order cancelled successfully - no inventory release event needed with simple stock service
 
 	return uc.UpdateOrderStatus(ctx, orderID, entities.OrderStatusCancelled)
 }

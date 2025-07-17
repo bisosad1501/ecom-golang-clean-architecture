@@ -16,14 +16,13 @@ import (
 // AdminHandler handles admin-related HTTP requests
 type AdminHandler struct {
 	adminUseCase        usecases.AdminUseCase
-	stockCleanupUseCase usecases.StockCleanupUseCase
+	// stockCleanupUseCase removed - using simple stock service
 }
 
 // NewAdminHandler creates a new admin handler
-func NewAdminHandler(adminUseCase usecases.AdminUseCase, stockCleanupUseCase usecases.StockCleanupUseCase) *AdminHandler {
+func NewAdminHandler(adminUseCase usecases.AdminUseCase) *AdminHandler {
 	return &AdminHandler{
 		adminUseCase:        adminUseCase,
-		stockCleanupUseCase: stockCleanupUseCase,
 	}
 }
 
@@ -1318,35 +1317,26 @@ func (h *AdminHandler) ReplyToReview(c *gin.Context) {
 	})
 }
 
-// GetCleanupStats returns cleanup statistics
+// GetCleanupStats returns cleanup statistics - DEPRECATED
 func (h *AdminHandler) GetCleanupStats(c *gin.Context) {
-	stats, err := h.stockCleanupUseCase.GetCleanupStats(c.Request.Context())
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, ErrorResponse{
-			Error:   "Failed to get cleanup statistics",
-			Details: err.Error(),
-		})
-		return
-	}
-
+	// Stock cleanup removed - using simple stock service
 	c.JSON(http.StatusOK, SuccessResponse{
-		Message: "Cleanup statistics retrieved successfully",
-		Data:    stats,
+		Message: "Cleanup statistics not available - using simple stock service",
+		Data:    map[string]interface{}{
+			"status": "deprecated",
+			"message": "Stock cleanup system removed in favor of simple stock service",
+		},
 	})
 }
 
-// TriggerCleanup manually triggers cleanup process
+// TriggerCleanup manually triggers cleanup process - DEPRECATED
 func (h *AdminHandler) TriggerCleanup(c *gin.Context) {
-	err := h.stockCleanupUseCase.RunCleanup(c.Request.Context())
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, ErrorResponse{
-			Error:   "Failed to run cleanup process",
-			Details: err.Error(),
-		})
-		return
-	}
-
+	// Stock cleanup removed - using simple stock service
 	c.JSON(http.StatusOK, SuccessResponse{
-		Message: "Cleanup process completed successfully",
+		Message: "Cleanup process not needed - using simple stock service",
+		Data: map[string]interface{}{
+			"status": "deprecated",
+			"message": "Stock cleanup system removed in favor of simple stock service",
+		},
 	})
 }

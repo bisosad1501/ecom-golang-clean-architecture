@@ -24,9 +24,9 @@ func NewOrderHandler(orderUseCase usecases.OrderUseCase) *OrderHandler {
 	}
 }
 
-// CreateOrder handles creating a new order
-// @Summary Create a new order
-// @Description Create a new order from user's cart
+// CreateOrder handles creating a new order (Bank Transfer only)
+// @Summary Create a new order for bank transfer
+// @Description Create a new order from user's cart for bank transfer payments only
 // @Tags orders
 // @Accept json
 // @Produce json
@@ -58,6 +58,14 @@ func (h *OrderHandler) CreateOrder(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, ErrorResponse{
 			Error:   "Invalid request format",
 			Details: err.Error(),
+		})
+		return
+	}
+
+	// Validate that this is a bank transfer request
+	if req.PaymentMethod != "bank_transfer" {
+		c.JSON(http.StatusBadRequest, ErrorResponse{
+			Error: "This endpoint is only for bank transfer orders. Use /checkout/session for online payments or /checkout/cod for COD orders",
 		})
 		return
 	}
@@ -601,19 +609,11 @@ func (h *OrderHandler) GetOrderEvents(c *gin.Context) {
 	})
 }
 
-// validateCreateOrderRequest validates create order request
+// validateCreateOrderRequest validates create order request (Bank Transfer only)
 func validateCreateOrderRequest(req *usecases.CreateOrderRequest) error {
-	// Validate payment method
-	validPaymentMethods := map[entities.PaymentMethod]bool{
-		entities.PaymentMethodCreditCard:   true,
-		entities.PaymentMethodDebitCard:    true,
-		entities.PaymentMethodPayPal:       true,
-		entities.PaymentMethodCash:         true,
-		entities.PaymentMethodBankTransfer: true,
-	}
-
-	if !validPaymentMethods[req.PaymentMethod] {
-		return fmt.Errorf("invalid payment method: %s", req.PaymentMethod)
+	// Only allow bank transfer for this endpoint
+	if req.PaymentMethod != entities.PaymentMethodBankTransfer {
+		return fmt.Errorf("only bank transfer payment method is allowed for this endpoint: %s", req.PaymentMethod)
 	}
 
 	// Validate financial amounts

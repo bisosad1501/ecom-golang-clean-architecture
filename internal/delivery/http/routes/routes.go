@@ -18,6 +18,7 @@ func SetupRoutes(
 	brandHandler *handlers.BrandHandler,
 	cartHandler *handlers.CartHandler,
 	orderHandler *handlers.OrderHandler,
+	checkoutHandler *handlers.CheckoutHandler,
 	fileHandler *handlers.FileHandler,
 	reviewHandler *handlers.ReviewHandler,
 	wishlistHandler *handlers.WishlistHandler,
@@ -294,6 +295,10 @@ func SetupRoutes(
 		publicPayments := v1.Group("/payments")
 		{
 			publicPayments.POST("/confirm-success", paymentHandler.ConfirmPaymentSuccess)
+			// Development endpoint to manually trigger webhook
+			if cfg.App.Env == "development" {
+				publicPayments.POST("/test-webhook/:session_id", paymentHandler.TestWebhook)
+			}
 		}
 
 		// Public review routes (no authentication required)
@@ -433,10 +438,20 @@ func SetupRoutes(
 				// cart.POST("/sync", cartHandler.SyncCart) // TODO: Implement SyncCart method
 			}
 
-			// Order routes
+			// Checkout routes (new checkout flow)
+			checkout := protected.Group("/checkout")
+			{
+				checkout.POST("/session", checkoutHandler.CreateCheckoutSession)           // Online payments
+				checkout.GET("/session/:session_id", checkoutHandler.GetCheckoutSession)
+				checkout.POST("/session/:session_id/complete", checkoutHandler.CompleteCheckoutSession)
+				checkout.POST("/session/:session_id/cancel", checkoutHandler.CancelCheckoutSession)
+				checkout.POST("/cod", checkoutHandler.CreateCODOrder)                     // COD orders
+			}
+
+			// Order routes (Bank Transfer only)
 			orders := protected.Group("/orders")
 			{
-				orders.POST("", orderHandler.CreateOrder)
+				orders.POST("", orderHandler.CreateOrder)                                // Bank Transfer only
 				orders.GET("", orderHandler.GetUserOrders)
 				orders.GET("/by-session", orderHandler.GetOrderBySessionID)
 				orders.GET("/:id", orderHandler.GetOrder)
