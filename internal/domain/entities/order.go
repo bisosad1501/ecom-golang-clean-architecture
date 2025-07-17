@@ -350,9 +350,10 @@ func (o *Order) IsCompleted() bool {
 	return o.Status == OrderStatusDelivered
 }
 
-// IsPaid checks if the order is paid
+// IsPaid checks if the order is paid (uses proper multiple payments logic)
 func (o *Order) IsPaid() bool {
-	return o.PaymentStatus == PaymentStatusPaid
+	// For multiple payments support, check if order is fully paid
+	return o.IsFullyPaid()
 }
 
 

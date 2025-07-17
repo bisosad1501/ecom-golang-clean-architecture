@@ -9,6 +9,13 @@ import (
 	"github.com/google/uuid"
 )
 
+// MembershipTier represents a membership tier configuration
+type MembershipTier struct {
+	Name      string  `json:"name"`
+	Threshold float64 `json:"threshold"`
+	Benefits  string  `json:"benefits"`
+}
+
 // UserMetricsService handles user metrics calculations and updates
 type UserMetricsService interface {
 	UpdateUserMetricsOnOrderConfirmed(ctx context.Context, userID uuid.UUID, orderTotal float64) error
@@ -16,11 +23,13 @@ type UserMetricsService interface {
 	RecalculateUserMetrics(ctx context.Context, userID uuid.UUID) error
 	UpdateLoyaltyPoints(ctx context.Context, userID uuid.UUID, points int) error
 	UpdateMembershipTier(ctx context.Context, userID uuid.UUID) error
+	GetMembershipTiers() []MembershipTier
 }
 
 type userMetricsService struct {
-	userRepo  repositories.UserRepository
-	orderRepo repositories.OrderRepository
+	userRepo        repositories.UserRepository
+	orderRepo       repositories.OrderRepository
+	membershipTiers []MembershipTier
 }
 
 // NewUserMetricsService creates a new user metrics service
@@ -28,9 +37,18 @@ func NewUserMetricsService(
 	userRepo repositories.UserRepository,
 	orderRepo repositories.OrderRepository,
 ) UserMetricsService {
+	// Define default membership tiers (configurable)
+	defaultTiers := []MembershipTier{
+		{Name: "bronze", Threshold: 0, Benefits: "Basic member benefits"},
+		{Name: "silver", Threshold: 1000, Benefits: "5% discount on orders"},
+		{Name: "gold", Threshold: 5000, Benefits: "10% discount + free shipping"},
+		{Name: "platinum", Threshold: 10000, Benefits: "15% discount + priority support + free shipping"},
+	}
+
 	return &userMetricsService{
-		userRepo:  userRepo,
-		orderRepo: orderRepo,
+		userRepo:        userRepo,
+		orderRepo:       orderRepo,
+		membershipTiers: defaultTiers,
 	}
 }
 
@@ -45,9 +63,9 @@ func (s *userMetricsService) UpdateUserMetricsOnOrderConfirmed(ctx context.Conte
 	user.TotalOrders++
 	user.TotalSpent += orderTotal
 
-	// Calculate loyalty points (1 point per $1 spent)
-	loyaltyPointsEarned := int(orderTotal)
-	user.LoyaltyPoints += loyaltyPointsEarned
+	// Calculate loyalty points using consistent logic (1 point per $1 total spent)
+	// Use total spent as single source of truth for loyalty points
+	user.LoyaltyPoints = int(user.TotalSpent)
 
 	// Update user in database
 	if err := s.userRepo.Update(ctx, user); err != nil {
@@ -157,18 +175,8 @@ func (s *userMetricsService) UpdateMembershipTier(ctx context.Context, userID uu
 		return fmt.Errorf("failed to get user: %w", err)
 	}
 
-	// Determine membership tier based on total spent
-	var newTier string
-	switch {
-	case user.TotalSpent >= 10000: // $10,000+
-		newTier = "platinum"
-	case user.TotalSpent >= 5000: // $5,000+
-		newTier = "gold"
-	case user.TotalSpent >= 1000: // $1,000+
-		newTier = "silver"
-	default:
-		newTier = "bronze"
-	}
+	// Determine membership tier based on total spent using configurable tiers
+	newTier := s.calculateMembershipTier(user.TotalSpent)
 
 	// Only update if tier changed
 	if user.MembershipTier != newTier {
@@ -177,4 +185,27 @@ func (s *userMetricsService) UpdateMembershipTier(ctx context.Context, userID uu
 	}
 
 	return nil
+}
+
+// GetMembershipTiers returns the configured membership tiers
+func (s *userMetricsService) GetMembershipTiers() []MembershipTier {
+	return s.membershipTiers
+}
+
+// calculateMembershipTier determines the appropriate tier based on total spent
+func (s *userMetricsService) calculateMembershipTier(totalSpent float64) string {
+	// Sort tiers by threshold descending to find the highest qualifying tier
+	for i := len(s.membershipTiers) - 1; i >= 0; i-- {
+		tier := s.membershipTiers[i]
+		if totalSpent >= tier.Threshold {
+			return tier.Name
+		}
+	}
+
+	// Default to the lowest tier if no threshold is met
+	if len(s.membershipTiers) > 0 {
+		return s.membershipTiers[0].Name
+	}
+
+	return "bronze" // Fallback
 }

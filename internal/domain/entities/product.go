@@ -88,8 +88,7 @@ type Product struct {
 	TaxClass         string `json:"tax_class" gorm:"default:'standard'"`
 	CountryOfOrigin  string `json:"country_of_origin"`
 
-	// Categorization
-	CategoryID uuid.UUID  `json:"category_id" gorm:"type:uuid;index"`
+	// Categorization - CategoryID removed, use ProductCategory many-to-many as single source of truth
 	BrandID    *uuid.UUID `json:"brand_id" gorm:"type:uuid;index"`
 
 	// Status and Type
@@ -101,8 +100,7 @@ type Product struct {
 	CreatedAt time.Time `json:"created_at" gorm:"autoCreateTime"`
 	UpdatedAt time.Time `json:"updated_at" gorm:"autoUpdateTime"`
 
-	// Relationships
-	Category        Category                `json:"category,omitempty" gorm:"foreignKey:CategoryID"`
+	// Relationships - Category relationship removed, use ProductCategory many-to-many
 	Brand           *Brand                  `json:"brand,omitempty" gorm:"foreignKey:BrandID"`
 	Images          []ProductImage          `json:"images,omitempty" gorm:"foreignKey:ProductID"`
 	Tags            []ProductTag            `json:"tags,omitempty" gorm:"many2many:product_tag_associations;"`

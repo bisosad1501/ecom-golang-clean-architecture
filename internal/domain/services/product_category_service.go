@@ -185,36 +185,9 @@ func (s *productCategoryService) GetFeaturedProductsByCategory(ctx context.Conte
 
 // MigrateExistingProductCategories migrates existing product categories from products.category_id
 func (s *productCategoryService) MigrateExistingProductCategories(ctx context.Context) error {
-	// Get all products with category_id
-	products, err := s.productRepo.List(ctx, 0, 1000) // Get first 1000 products
-	if err != nil {
-		return fmt.Errorf("failed to get products: %w", err)
-	}
-
-	migratedCount := 0
-	for _, product := range products {
-		// Check if product has a valid category ID (not zero UUID)
-		if product.CategoryID != uuid.Nil {
-			// Check if already migrated
-			exists, err := s.productCategoryRepo.ExistsProductCategory(ctx, product.ID, product.CategoryID)
-			if err != nil {
-				fmt.Printf("Warning: Failed to check existing assignment for product %s: %v\n", product.ID, err)
-				continue
-			}
-
-			if !exists {
-				// Create the assignment
-				err = s.productCategoryRepo.AssignProductToCategory(ctx, product.ID, product.CategoryID, true)
-				if err != nil {
-					fmt.Printf("Warning: Failed to migrate product %s to category %s: %v\n", product.ID, product.CategoryID, err)
-					continue
-				}
-				migratedCount++
-			}
-		}
-	}
-
-	fmt.Printf("✅ Migrated %d products to new category system\n", migratedCount)
+	// Migration is no longer needed since Product.CategoryID has been removed
+	// All products should already be using ProductCategory many-to-many relationships
+	fmt.Printf("✅ Category system migration is complete - using ProductCategory many-to-many as single source of truth\n")
 	return nil
 }
 

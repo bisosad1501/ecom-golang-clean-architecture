@@ -77,17 +77,19 @@ type CategoryUseCase interface {
 }
 
 type categoryUseCase struct {
-	categoryRepo repositories.CategoryRepository
-	productRepo  repositories.ProductRepository
-	fileService  services.FileService
+	categoryRepo        repositories.CategoryRepository
+	productRepo         repositories.ProductRepository
+	productCategoryRepo repositories.ProductCategoryRepository
+	fileService         services.FileService
 }
 
 // NewCategoryUseCase creates a new category use case
-func NewCategoryUseCase(categoryRepo repositories.CategoryRepository, productRepo repositories.ProductRepository, fileService services.FileService) CategoryUseCase {
+func NewCategoryUseCase(categoryRepo repositories.CategoryRepository, productRepo repositories.ProductRepository, productCategoryRepo repositories.ProductCategoryRepository, fileService services.FileService) CategoryUseCase {
 	return &categoryUseCase{
-		categoryRepo: categoryRepo,
-		productRepo:  productRepo,
-		fileService:  fileService,
+		categoryRepo:        categoryRepo,
+		productRepo:         productRepo,
+		productCategoryRepo: productCategoryRepo,
+		fileService:         fileService,
 	}
 }
 
@@ -833,12 +835,12 @@ func (uc *categoryUseCase) toProductResponse(product *entities.Product) *Product
 		}
 	}
 
-	// Set category
-	if product.CategoryID != uuid.Nil && product.Category.ID != uuid.Nil {
+	// Set category using ProductCategory many-to-many (get primary category)
+	if primaryCategory, err := uc.productCategoryRepo.GetPrimaryCategory(context.Background(), product.ID); err == nil && primaryCategory != nil {
 		response.Category = &ProductCategoryResponse{
-			ID:   product.Category.ID,
-			Name: product.Category.Name,
-			Slug: product.Category.Slug,
+			ID:   primaryCategory.ID,
+			Name: primaryCategory.Name,
+			Slug: primaryCategory.Slug,
 		}
 	}
 

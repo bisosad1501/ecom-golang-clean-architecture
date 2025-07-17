@@ -559,8 +559,8 @@ func (uc *orderUseCase) createOrderInTransaction(ctx context.Context, tx *gorm.D
 		}
 	}
 
-	// For bank transfer, only check stock availability - don't reduce until payment confirmed
-	// Since this is the only payment method allowed in this endpoint
+	// For bank transfer, only check stock availability - stock will be reduced when payment is confirmed
+	// This is consistent with COD and other payment methods
 	if err := uc.simpleStockService.CheckStockAvailability(ctx, cart.Items); err != nil {
 		return nil, pkgErrors.Wrap(err, pkgErrors.ErrCodeInsufficientStock, "Stock not available")
 	}

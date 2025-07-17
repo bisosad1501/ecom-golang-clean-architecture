@@ -35,7 +35,6 @@ func (r *orderRepository) GetByID(ctx context.Context, id uuid.UUID) (*entities.
 		Preload("Items").
 		Preload("Items.Product").
 		Preload("Items.Product.Images").
-		Preload("Items.Product.Category").
 		Preload("Payments").
 		Where("id = ?", id).
 		First(&order).Error
@@ -56,7 +55,6 @@ func (r *orderRepository) GetByOrderNumber(ctx context.Context, orderNumber stri
 		Preload("Items").
 		Preload("Items.Product").
 		Preload("Items.Product.Images").
-		Preload("Items.Product.Category").
 		Preload("Payments").
 		Where("order_number = ?", orderNumber).
 		First(&order).Error
@@ -119,7 +117,6 @@ func (r *orderRepository) Search(ctx context.Context, params repositories.OrderS
 		Preload("User").
 		Preload("Items").
 		Preload("Items.Product").
-		Preload("Items.Product.Category").
 		Preload("Items.Product.Images", func(db *gorm.DB) *gorm.DB {
 			return db.Where("position >= 0").Order("position ASC")
 		}).
@@ -222,7 +219,6 @@ func (r *orderRepository) GetByUserID(ctx context.Context, userID uuid.UUID, lim
 	err := r.db.WithContext(ctx).
 		Preload("Items").
 		Preload("Items.Product").
-		Preload("Items.Product.Category").
 		Preload("Items.Product.Images", func(db *gorm.DB) *gorm.DB {
 			return db.Where("position >= 0").Order("position ASC")
 		}).

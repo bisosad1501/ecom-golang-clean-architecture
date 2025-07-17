@@ -62,18 +62,21 @@ type ProductComparisonUseCase interface {
 }
 
 type productComparisonUseCase struct {
-	comparisonRepo repositories.ProductComparisonRepository
-	productRepo    repositories.ProductRepository
+	comparisonRepo      repositories.ProductComparisonRepository
+	productRepo         repositories.ProductRepository
+	productCategoryRepo repositories.ProductCategoryRepository
 }
 
 // NewProductComparisonUseCase creates a new product comparison use case
 func NewProductComparisonUseCase(
 	comparisonRepo repositories.ProductComparisonRepository,
 	productRepo repositories.ProductRepository,
+	productCategoryRepo repositories.ProductCategoryRepository,
 ) ProductComparisonUseCase {
 	return &productComparisonUseCase{
-		comparisonRepo: comparisonRepo,
-		productRepo:    productRepo,
+		comparisonRepo:      comparisonRepo,
+		productRepo:         productRepo,
+		productCategoryRepo: productCategoryRepo,
 	}
 }
 
@@ -274,7 +277,7 @@ func (uc *productComparisonUseCase) mapComparisonToResponse(comparison *entities
 	for i, item := range comparison.Items {
 		response.Products[i] = ProductComparisonItemResponse{
 			Position: item.Position,
-			Product:  mapProductToResponse(&item.Product),
+			Product:  uc.mapProductToResponse(&item.Product),
 		}
 	}
 
@@ -282,7 +285,7 @@ func (uc *productComparisonUseCase) mapComparisonToResponse(comparison *entities
 }
 
 // mapProductToResponse converts product entity to response
-func mapProductToResponse(product *entities.Product) *ProductResponse {
+func (uc *productComparisonUseCase) mapProductToResponse(product *entities.Product) *ProductResponse {
 	if product == nil {
 		return nil
 	}
@@ -336,14 +339,14 @@ func mapProductToResponse(product *entities.Product) *ProductResponse {
 		UpdatedAt:         product.UpdatedAt,
 	}
 
-	// Convert category
-	if product.Category.ID != uuid.Nil {
+	// Convert category using ProductCategory many-to-many (get primary category)
+	if primaryCategory, err := uc.productCategoryRepo.GetPrimaryCategory(context.Background(), product.ID); err == nil && primaryCategory != nil {
 		response.Category = &ProductCategoryResponse{
-			ID:          product.Category.ID,
-			Name:        product.Category.Name,
-			Description: product.Category.Description,
-			Slug:        product.Category.Slug,
-			Image:       product.Category.Image,
+			ID:          primaryCategory.ID,
+			Name:        primaryCategory.Name,
+			Description: primaryCategory.Description,
+			Slug:        primaryCategory.Slug,
+			Image:       primaryCategory.Image,
 		}
 	}
 
@@ -409,7 +412,7 @@ func (uc *productComparisonUseCase) CompareProducts(ctx context.Context, product
 	for i, product := range products {
 		comparisonResponse.Products[i] = ProductComparisonItemResponse{
 			Position: i,
-			Product:  mapProductToResponse(product),
+			Product:  uc.mapProductToResponse(product),
 		}
 	}
 
@@ -457,7 +460,7 @@ func (uc *productComparisonUseCase) GetPopularComparedProducts(ctx context.Conte
 
 	responses := make([]*ProductResponse, len(products))
 	for i, product := range products {
-		responses[i] = mapProductToResponse(&product)
+		responses[i] = uc.mapProductToResponse(&product)
 	}
 
 	return responses, nil
@@ -487,7 +490,12 @@ func (uc *productComparisonUseCase) generateComparisonMatrix(products []*entitie
 		matrix["names"].([]string)[i] = product.Name
 		matrix["prices"].([]float64)[i] = product.Price
 		matrix["current_prices"].([]float64)[i] = product.GetCurrentPrice()
-		matrix["categories"].([]string)[i] = product.Category.Name
+		// Get primary category name using ProductCategory many-to-many
+		if primaryCategory, err := uc.productCategoryRepo.GetPrimaryCategory(context.Background(), product.ID); err == nil && primaryCategory != nil {
+			matrix["categories"].([]string)[i] = primaryCategory.Name
+		} else {
+			matrix["categories"].([]string)[i] = ""
+		}
 		if product.Brand != nil {
 			matrix["brands"].([]string)[i] = product.Brand.Name
 		} else {

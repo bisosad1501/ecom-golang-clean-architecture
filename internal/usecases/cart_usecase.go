@@ -661,16 +661,9 @@ func (uc *cartUseCase) toProductResponse(product *entities.Product) *ProductResp
 		return nil
 	}
 
-	categoryResponse := &ProductCategoryResponse{}
-	if product.Category.ID != uuid.Nil { // Check if category is loaded
-		categoryResponse.ID = product.Category.ID
-		categoryResponse.Name = product.Category.Name
-		categoryResponse.Description = product.Category.Description
-		categoryResponse.Slug = product.Category.Slug
-		categoryResponse.Image = product.Category.Image
-	} else {
-		categoryResponse = nil // Set to nil if no category
-	}
+	// Category information is now handled via ProductCategory many-to-many
+	// For cart items, we don't need category info, so set to nil
+	var categoryResponse *ProductCategoryResponse = nil
 
 	var imageResponses []ProductImageResponse
 	for _, img := range product.Images {
@@ -931,13 +924,41 @@ func (uc *cartUseCase) getCartWithRepo(ctx context.Context, repo repositories.Ca
 
 // mergeCartItemsWithRepo merges guest cart items into user cart using specific repository
 func (uc *cartUseCase) mergeCartItemsWithRepo(ctx context.Context, repo repositories.CartRepository, userCart, guestCart *entities.Cart) (*CartResponse, error) {
-	// Merge guest cart items into user cart
+	// Merge guest cart items into user cart with proper validation
 	for _, guestItem := range guestCart.Items {
+		// Get current product to ensure we use current price and validate availability
+		product, err := uc.productRepo.GetByID(ctx, guestItem.ProductID)
+		if err != nil {
+			// Skip unavailable products but log warning
+			fmt.Printf("Warning: Skipping product %s during merge: %v\n", guestItem.ProductID, err)
+			continue
+		}
+		if !product.IsAvailable() {
+			// Skip unavailable products
+			fmt.Printf("Warning: Skipping unavailable product %s during merge\n", product.Name)
+			continue
+		}
+
+		// Check stock availability for the quantity being merged
+		if err := uc.simpleStockService.CheckStockAvailability(ctx, []entities.CartItem{guestItem}); err != nil {
+			// Skip items with insufficient stock but log warning
+			fmt.Printf("Warning: Skipping product %s due to insufficient stock: %v\n", product.Name, err)
+			continue
+		}
+
 		existingItem := userCart.GetItem(guestItem.ProductID)
 		if existingItem != nil {
-			// Update quantity and price
-			existingItem.Quantity += guestItem.Quantity
-			existingItem.Price = guestItem.Price // Use latest price
+			// Check if merged quantity exceeds maximum
+			newQuantity := existingItem.Quantity + guestItem.Quantity
+			if newQuantity > 100 {
+				// Cap at maximum allowed quantity
+				newQuantity = 100
+			}
+
+			// Update quantity and use current product price (consistent with other merge method)
+			existingItem.Quantity = newQuantity
+			existingItem.Price = product.Price // Use current price instead of old guest price
+			existingItem.CalculateTotal()
 			existingItem.UpdatedAt = time.Now()
 
 			if err := repo.UpdateItem(ctx, existingItem); err != nil {
@@ -950,7 +971,7 @@ func (uc *cartUseCase) mergeCartItemsWithRepo(ctx context.Context, repo reposito
 				CartID:    userCart.ID,
 				ProductID: guestItem.ProductID,
 				Quantity:  guestItem.Quantity,
-				Price:     guestItem.Price,
+				Price:     product.Price, // Use current price instead of old guest price
 				CreatedAt: time.Now(),
 				UpdatedAt: time.Now(),
 			}

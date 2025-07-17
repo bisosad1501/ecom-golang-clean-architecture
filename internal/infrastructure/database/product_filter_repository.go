@@ -183,7 +183,7 @@ func (r *productFilterRepository) FilterProducts(ctx context.Context, params rep
 	}
 
 	// Preload relationships
-	query = query.Preload("Category").
+	query = query.
 		Preload("Brand").
 		Preload("Images", func(db *gorm.DB) *gorm.DB {
 			return db.Where("position >= 0").Order("position ASC")

@@ -426,10 +426,9 @@ func (uc *checkoutUseCase) completeCheckoutSessionInTransaction(ctx context.Cont
 		return nil, pkgErrors.Wrap(err, pkgErrors.ErrCodeInternalError, "Failed to create order")
 	}
 
-	// Reduce stock
-	if err := uc.stockService.ReduceStock(ctx, session.CartItems); err != nil {
-		return nil, pkgErrors.Wrap(err, pkgErrors.ErrCodeInsufficientStock, "Failed to reduce stock")
-	}
+	// NOTE: Stock reduction moved to payment confirmation for consistency
+	// All payment methods (online, COD, bank transfer) now reduce stock when payment is confirmed
+	// This prevents stock reduction for unpaid orders
 
 	// Mark session as completed
 	session.MarkAsCompleted(order.ID)
@@ -577,7 +576,8 @@ func (uc *checkoutUseCase) createCODOrderInTransaction(ctx context.Context, user
 		return nil, pkgErrors.Wrap(err, pkgErrors.ErrCodeInternalError, "Failed to create order")
 	}
 
-	// For COD, only check stock availability - don't reduce until delivery confirmed
+	// For COD, only check stock availability - stock will be reduced when payment is confirmed
+	// This is consistent with other payment methods (bank transfer, online payments)
 	if err := uc.stockService.CheckStockAvailability(ctx, cart.Items); err != nil {
 		return nil, pkgErrors.Wrap(err, pkgErrors.ErrCodeInsufficientStock, "Stock not available")
 	}

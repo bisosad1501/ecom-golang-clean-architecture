@@ -199,19 +199,21 @@ type ProductUseCase interface {
 }
 
 type productUseCase struct {
-	productRepo   repositories.ProductRepository
-	categoryRepo  repositories.CategoryRepository
-	tagRepo       repositories.TagRepository
-	imageRepo     repositories.ImageRepository
-	cartRepo      repositories.CartRepository
-	inventoryRepo repositories.InventoryRepository
-	warehouseRepo repositories.WarehouseRepository
+	productRepo         repositories.ProductRepository
+	categoryRepo        repositories.CategoryRepository
+	productCategoryRepo repositories.ProductCategoryRepository
+	tagRepo             repositories.TagRepository
+	imageRepo           repositories.ImageRepository
+	cartRepo            repositories.CartRepository
+	inventoryRepo       repositories.InventoryRepository
+	warehouseRepo       repositories.WarehouseRepository
 }
 
 // NewProductUseCase creates a new product use case
 func NewProductUseCase(
 	productRepo repositories.ProductRepository,
 	categoryRepo repositories.CategoryRepository,
+	productCategoryRepo repositories.ProductCategoryRepository,
 	tagRepo repositories.TagRepository,
 	imageRepo repositories.ImageRepository,
 	cartRepo repositories.CartRepository,
@@ -219,13 +221,14 @@ func NewProductUseCase(
 	warehouseRepo repositories.WarehouseRepository,
 ) ProductUseCase {
 	return &productUseCase{
-		productRepo:   productRepo,
-		categoryRepo:  categoryRepo,
-		tagRepo:       tagRepo,
-		imageRepo:     imageRepo,
-		cartRepo:      cartRepo,
-		inventoryRepo: inventoryRepo,
-		warehouseRepo: warehouseRepo,
+		productRepo:         productRepo,
+		categoryRepo:        categoryRepo,
+		productCategoryRepo: productCategoryRepo,
+		tagRepo:             tagRepo,
+		imageRepo:           imageRepo,
+		cartRepo:            cartRepo,
+		inventoryRepo:       inventoryRepo,
+		warehouseRepo:       warehouseRepo,
 	}
 }
 
@@ -417,8 +420,7 @@ func (uc *productUseCase) CreateProduct(ctx context.Context, req CreateProductRe
 		TaxClass:         req.TaxClass,
 		CountryOfOrigin:  req.CountryOfOrigin,
 
-		// Categorization
-		CategoryID: req.CategoryID,
+		// Categorization (CategoryID removed - using ProductCategory many-to-many)
 		BrandID:    req.BrandID,
 
 		// Status and Type
@@ -461,6 +463,13 @@ func (uc *productUseCase) CreateProduct(ctx context.Context, req CreateProductRe
 	// Create product first
 	if err := uc.productRepo.Create(ctx, product); err != nil {
 		return nil, err
+	}
+
+	// Assign category using ProductCategory many-to-many (as primary category)
+	if req.CategoryID != uuid.Nil {
+		if err := uc.productCategoryRepo.AssignProductToCategory(ctx, product.ID, req.CategoryID, true); err != nil {
+			return nil, fmt.Errorf("failed to assign category: %w", err)
+		}
 	}
 
 	// Create initial inventory record for default warehouse
@@ -601,7 +610,14 @@ func (uc *productUseCase) UpdateProduct(ctx context.Context, id uuid.UUID, req U
 		if err != nil {
 			return nil, entities.ErrCategoryNotFound
 		}
-		product.CategoryID = *req.CategoryID
+		// Use ProductCategory many-to-many as single source of truth
+		// Remove all existing categories and assign new primary category
+		if err := uc.productCategoryRepo.RemoveProductFromAllCategories(ctx, product.ID); err != nil {
+			return nil, fmt.Errorf("failed to remove existing categories: %w", err)
+		}
+		if err := uc.productCategoryRepo.AssignProductToCategory(ctx, product.ID, *req.CategoryID, true); err != nil {
+			return nil, fmt.Errorf("failed to assign primary category: %w", err)
+		}
 		hasChanges = true
 	}
 
@@ -874,7 +890,14 @@ func (uc *productUseCase) PatchProduct(ctx context.Context, id uuid.UUID, req Pa
 		if err != nil {
 			return nil, entities.ErrCategoryNotFound
 		}
-		product.CategoryID = *req.CategoryID
+		// Use ProductCategory many-to-many as single source of truth
+		// Remove all existing categories and assign new primary category
+		if err := uc.productCategoryRepo.RemoveProductFromAllCategories(ctx, product.ID); err != nil {
+			return nil, fmt.Errorf("failed to remove existing categories: %w", err)
+		}
+		if err := uc.productCategoryRepo.AssignProductToCategory(ctx, product.ID, *req.CategoryID, true); err != nil {
+			return nil, fmt.Errorf("failed to assign primary category: %w", err)
+		}
 		hasChanges = true
 	}
 
@@ -1484,13 +1507,14 @@ func (uc *productUseCase) toProductResponse(product *entities.Product) *ProductR
 		}
 	}
 
-	if product.Category.ID != uuid.Nil {
+	// Get primary category from ProductCategory many-to-many (single source of truth)
+	if primaryCategory, err := uc.productCategoryRepo.GetPrimaryCategory(context.Background(), product.ID); err == nil && primaryCategory != nil {
 		response.Category = &ProductCategoryResponse{
-			ID:          product.Category.ID,
-			Name:        product.Category.Name,
-			Description: product.Category.Description,
-			Slug:        product.Category.Slug,
-			Image:       product.Category.Image,
+			ID:          primaryCategory.ID,
+			Name:        primaryCategory.Name,
+			Description: primaryCategory.Description,
+			Slug:        primaryCategory.Slug,
+			Image:       primaryCategory.Image,
 		}
 	}
 
@@ -1826,13 +1850,8 @@ func (uc *productUseCase) GetTrendingProductsPaginated(ctx context.Context, page
 
 // GetRelatedProductsPaginated gets related products with pagination
 func (uc *productUseCase) GetRelatedProductsPaginated(ctx context.Context, productID uuid.UUID, page, limit int) (*RelatedProductsPaginatedResponse, error) {
-	// Get product to find related products
-	product, err := uc.productRepo.GetByID(ctx, productID)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get product: %w", err)
-	}
-
 	// Get all products and filter related ones (in real implementation, this would be optimized)
+	// Note: Product.CategoryID removed - related products logic simplified
 	req := GetProductsRequest{
 		Limit:  limit * 10, // Get more to simulate related products
 		Offset: 0,
@@ -1869,7 +1888,7 @@ func (uc *productUseCase) GetRelatedProductsPaginated(ctx context.Context, produ
 	// Create pagination context
 	context := &EcommercePaginationContext{
 		EntityType: "products",
-		CategoryID: product.CategoryID.String(),
+		// CategoryID removed - using ProductCategory many-to-many
 	}
 
 	// Create enhanced pagination info

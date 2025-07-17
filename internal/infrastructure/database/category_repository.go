@@ -251,7 +251,6 @@ func (r *categoryRepository) GetWithProductsOptimized(ctx context.Context, id uu
 	// Get products with all relations in one query
 	var products []*entities.Product
 	err = r.db.WithContext(ctx).
-		Preload("Category").
 		Preload("Brand").
 		Preload("Images", func(db *gorm.DB) *gorm.DB {
 			return db.Where("position >= 0").Order("position ASC")

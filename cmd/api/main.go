@@ -85,9 +85,11 @@ func main() {
 	userPreferencesRepo := database.NewUserPreferencesRepository(db)
 	userVerificationRepo := database.NewUserVerificationRepository(db)
 	passwordResetRepo := database.NewPasswordResetRepository(db)
-	productRepo := database.NewProductRepository(db)
 	categoryRepo := database.NewCategoryRepository(db)
 	productCategoryRepo := repositories.NewProductCategoryRepository(db)
+	// Initialize category hierarchy service for optimized category queries
+	categoryHierarchyService := services.NewCategoryHierarchyService(categoryRepo)
+	productRepo := database.NewProductRepository(db, categoryHierarchyService)
 	brandRepo := database.NewBrandRepository(db)
 	tagRepo := database.NewTagRepository(db)
 	imageRepo := database.NewImageRepository(db)
@@ -156,6 +158,7 @@ func main() {
 	productUseCase := usecases.NewProductUseCase(
 		productRepo,
 		categoryRepo,
+		productCategoryRepo,
 		tagRepo,
 		imageRepo,
 		cartRepo,
@@ -166,6 +169,7 @@ func main() {
 	categoryUseCase := usecases.NewCategoryUseCase(
 		categoryRepo,
 		productRepo,
+		productCategoryRepo,
 		fileService,
 	)
 
@@ -258,7 +262,7 @@ func main() {
 	// Initialize all use cases
 	couponUseCase := usecases.NewCouponUseCase(couponRepo, userRepo)
 	reviewUseCase := usecases.NewReviewUseCase(reviewRepo, reviewVoteRepo, productRatingRepo, productRepo, orderRepo, userRepo, notificationUseCase)
-	wishlistUseCase := usecases.NewWishlistUseCase(wishlistRepo, productRepo)
+	wishlistUseCase := usecases.NewWishlistUseCase(wishlistRepo, productRepo, productCategoryRepo)
 	inventoryUseCase := usecases.NewInventoryUseCase(inventoryRepo, productRepo, warehouseRepo, notificationUseCase)
 	addressUseCase := usecases.NewAddressUseCase(addressRepo)
 
@@ -314,7 +318,7 @@ func main() {
 
 	// Initialize search repository and use case
 	searchRepo := database.NewSearchRepository(db)
-	searchUseCase := usecases.NewSearchUseCase(searchRepo, productRepo)
+	searchUseCase := usecases.NewSearchUseCase(searchRepo, productRepo, productCategoryRepo)
 
 	// Initialize recommendation repository and use case
 	recommendationRepo := database.NewRecommendationRepository(db)
@@ -322,11 +326,11 @@ func main() {
 
 	// Initialize product comparison system
 	comparisonRepo := database.NewProductComparisonRepository(db)
-	comparisonUseCase := usecases.NewProductComparisonUseCase(comparisonRepo, productRepo)
+	comparisonUseCase := usecases.NewProductComparisonUseCase(comparisonRepo, productRepo, productCategoryRepo)
 
 	// Initialize advanced product filtering system
 	productFilterRepo := database.NewProductFilterRepository(db)
-	productFilterUseCase := usecases.NewProductFilterUseCase(productFilterRepo, productRepo)
+	productFilterUseCase := usecases.NewProductFilterUseCase(productFilterRepo, productRepo, productCategoryRepo)
 
 	// Initialize handlers
 	userHandler := handlers.NewUserHandler(userUseCase)

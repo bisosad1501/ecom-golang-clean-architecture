@@ -84,13 +84,13 @@ func (s *stockSyncService) SyncProductWithInventory(ctx context.Context, product
 		}
 	}
 
-	// Update product stock to match inventory
+	// Update product stock to match inventory (Product.Stock is cached value)
 	oldStock := product.Stock
 	if err := s.productRepo.UpdateStock(ctx, productID, inventory.QuantityOnHand); err != nil {
-		return fmt.Errorf("failed to update product stock for %s: %w", productID, err)
+		return fmt.Errorf("failed to sync product stock from inventory: %w", err)
 	}
 
-	fmt.Printf("✅ Synced product %s stock: %d -> %d (from inventory)\n",
+	fmt.Printf("✅ Synced product %s stock: %d -> %d (from inventory source of truth)\n",
 		productID, oldStock, inventory.QuantityOnHand)
 
 	return nil

@@ -233,7 +233,6 @@ func (r *searchRepository) DeleteSearchFilter(ctx context.Context, id uuid.UUID)
 // FullTextSearch performs advanced full-text search with enhanced ranking and fuzzy matching
 func (r *searchRepository) FullTextSearch(ctx context.Context, params repositories.FullTextSearchParams) ([]*entities.Product, int64, error) {
 	query := r.db.WithContext(ctx).
-		Preload("Category").
 		Preload("Brand").
 		Preload("Images", func(db *gorm.DB) *gorm.DB {
 			return db.Where("position >= 0").Order("position ASC")

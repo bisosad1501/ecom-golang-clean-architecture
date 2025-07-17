@@ -20,18 +20,21 @@ type WishlistUseCase interface {
 }
 
 type wishlistUseCase struct {
-	wishlistRepo repositories.WishlistRepository
-	productRepo  repositories.ProductRepository
+	wishlistRepo        repositories.WishlistRepository
+	productRepo         repositories.ProductRepository
+	productCategoryRepo repositories.ProductCategoryRepository
 }
 
 // NewWishlistUseCase creates a new wishlist use case
 func NewWishlistUseCase(
 	wishlistRepo repositories.WishlistRepository,
 	productRepo repositories.ProductRepository,
+	productCategoryRepo repositories.ProductCategoryRepository,
 ) WishlistUseCase {
 	return &wishlistUseCase{
-		wishlistRepo: wishlistRepo,
-		productRepo:  productRepo,
+		wishlistRepo:        wishlistRepo,
+		productRepo:         productRepo,
+		productCategoryRepo: productCategoryRepo,
 	}
 }
 
@@ -127,14 +130,14 @@ func (uc *wishlistUseCase) GetWishlist(ctx context.Context, userID uuid.UUID, re
 			UpdatedAt:   item.Product.UpdatedAt,
 		}
 
-		// Add category if available
-		if item.Product.Category.ID != uuid.Nil {
+		// Add category using ProductCategory many-to-many (get primary category)
+		if primaryCategory, err := uc.productCategoryRepo.GetPrimaryCategory(ctx, item.Product.ID); err == nil && primaryCategory != nil {
 			productResponse.Category = &ProductCategoryResponse{
-				ID:          item.Product.Category.ID,
-				Name:        item.Product.Category.Name,
-				Description: item.Product.Category.Description,
-				Slug:        item.Product.Category.Slug,
-				Image:       item.Product.Category.Image,
+				ID:          primaryCategory.ID,
+				Name:        primaryCategory.Name,
+				Description: primaryCategory.Description,
+				Slug:        primaryCategory.Slug,
+				Image:       primaryCategory.Image,
 			}
 		}
 

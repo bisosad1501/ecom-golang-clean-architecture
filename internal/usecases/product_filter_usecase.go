@@ -119,18 +119,21 @@ type ProductFilterUseCase interface {
 }
 
 type productFilterUseCase struct {
-	filterRepo  repositories.ProductFilterRepository
-	productRepo repositories.ProductRepository
+	filterRepo          repositories.ProductFilterRepository
+	productRepo         repositories.ProductRepository
+	productCategoryRepo repositories.ProductCategoryRepository
 }
 
 // NewProductFilterUseCase creates a new product filter use case
 func NewProductFilterUseCase(
 	filterRepo repositories.ProductFilterRepository,
 	productRepo repositories.ProductRepository,
+	productCategoryRepo repositories.ProductCategoryRepository,
 ) ProductFilterUseCase {
 	return &productFilterUseCase{
-		filterRepo:  filterRepo,
-		productRepo: productRepo,
+		filterRepo:          filterRepo,
+		productRepo:         productRepo,
+		productCategoryRepo: productCategoryRepo,
 	}
 }
 
@@ -474,14 +477,14 @@ func (uc *productFilterUseCase) mapProductToResponse(product *entities.Product) 
 		UpdatedAt:              product.UpdatedAt,
 	}
 
-	// Convert category
-	if product.Category.ID != uuid.Nil {
+	// Convert category using ProductCategory many-to-many (get primary category)
+	if primaryCategory, err := uc.productCategoryRepo.GetPrimaryCategory(context.Background(), product.ID); err == nil && primaryCategory != nil {
 		response.Category = &ProductCategoryResponse{
-			ID:          product.Category.ID,
-			Name:        product.Category.Name,
-			Description: product.Category.Description,
-			Slug:        product.Category.Slug,
-			Image:       product.Category.Image,
+			ID:          primaryCategory.ID,
+			Name:        primaryCategory.Name,
+			Description: primaryCategory.Description,
+			Slug:        primaryCategory.Slug,
+			Image:       primaryCategory.Image,
 		}
 	}
 

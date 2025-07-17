@@ -69,15 +69,17 @@ type SearchUseCase interface {
 }
 
 type searchUseCase struct {
-	searchRepo  repositories.SearchRepository
-	productRepo repositories.ProductRepository
+	searchRepo          repositories.SearchRepository
+	productRepo         repositories.ProductRepository
+	productCategoryRepo repositories.ProductCategoryRepository
 }
 
 // NewSearchUseCase creates a new search use case
-func NewSearchUseCase(searchRepo repositories.SearchRepository, productRepo repositories.ProductRepository) SearchUseCase {
+func NewSearchUseCase(searchRepo repositories.SearchRepository, productRepo repositories.ProductRepository, productCategoryRepo repositories.ProductCategoryRepository) SearchUseCase {
 	return &searchUseCase{
-		searchRepo:  searchRepo,
-		productRepo: productRepo,
+		searchRepo:          searchRepo,
+		productRepo:         productRepo,
+		productCategoryRepo: productCategoryRepo,
 	}
 }
 
@@ -564,12 +566,12 @@ func (uc *searchUseCase) toProductResponse(product *entities.Product) *ProductRe
 		response.MainImage = product.Images[0].URL
 	}
 
-	// Convert related entities
-	if product.Category.ID != uuid.Nil {
+	// Convert category using ProductCategory many-to-many (get primary category)
+	if primaryCategory, err := uc.productCategoryRepo.GetPrimaryCategory(context.Background(), product.ID); err == nil && primaryCategory != nil {
 		response.Category = &ProductCategoryResponse{
-			ID:   product.Category.ID,
-			Name: product.Category.Name,
-			Slug: product.Category.Slug,
+			ID:   primaryCategory.ID,
+			Name: primaryCategory.Name,
+			Slug: primaryCategory.Slug,
 		}
 	}
 

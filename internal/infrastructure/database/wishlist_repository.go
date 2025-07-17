@@ -256,7 +256,6 @@ func (r *wishlistRepository) GetWishlistProducts(ctx context.Context, userID uui
 		Joins("JOIN user_wishlists ON products.id = user_wishlists.product_id").
 		Where("user_wishlists.user_id = ?", userID).
 		Preload("Images").
-		Preload("Category").
 		Order("user_wishlists.created_at DESC").
 		Limit(limit).
 		Offset(offset).

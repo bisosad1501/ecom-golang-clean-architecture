@@ -459,7 +459,7 @@ func (uc *analyticsUseCase) TrackProductView(ctx context.Context, productID uuid
 		"product_name": product.Name,
 		"product_sku":  product.SKU,
 		"price":        product.Price,
-		"category_id":  product.CategoryID.String(),
+		// Note: category_id removed - use ProductCategory many-to-many for category info
 	}
 
 	return uc.TrackEvent(ctx, TrackEventRequest{

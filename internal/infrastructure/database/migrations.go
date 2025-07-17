@@ -315,8 +315,7 @@ func migration004Up(db *gorm.DB) error {
 		"CREATE INDEX IF NOT EXISTS idx_users_status ON users(status)",
 		"CREATE INDEX IF NOT EXISTS idx_users_created_at ON users(created_at)",
 
-		// Product indexes
-		"CREATE INDEX IF NOT EXISTS idx_products_category_id ON products(category_id)",
+		// Product indexes (category_id removed - using ProductCategory many-to-many)
 		"CREATE INDEX IF NOT EXISTS idx_products_brand_id ON products(brand_id)",
 		"CREATE INDEX IF NOT EXISTS idx_products_status ON products(status)",
 		"CREATE INDEX IF NOT EXISTS idx_products_price ON products(price)",
@@ -388,7 +387,7 @@ func migration004Down(db *gorm.DB) error {
 		"idx_reviews_created_at", "idx_reviews_rating", "idx_reviews_status", "idx_reviews_user_id", "idx_reviews_product_id",
 		"idx_cart_items_product_id", "idx_cart_items_cart_id", "idx_carts_user_id",
 		"idx_orders_total", "idx_orders_created_at", "idx_orders_payment_status", "idx_orders_status", "idx_orders_user_id",
-		"idx_products_description_gin", "idx_products_name_gin", "idx_products_created_at", "idx_products_stock", "idx_products_price", "idx_products_status", "idx_products_brand_id", "idx_products_category_id",
+		"idx_products_description_gin", "idx_products_name_gin", "idx_products_created_at", "idx_products_stock", "idx_products_price", "idx_products_status", "idx_products_brand_id",
 		"idx_users_created_at", "idx_users_status", "idx_users_is_active", "idx_users_role", "idx_users_email",
 	}
 
@@ -472,8 +471,7 @@ func migration006Up(db *gorm.DB) error {
 		// Tags search (using existing tags table)
 		"CREATE INDEX IF NOT EXISTS idx_tags_name_gin ON tags USING gin(to_tsvector('english', name))",
 
-		// Composite indexes for common filter combinations
-		"CREATE INDEX IF NOT EXISTS idx_products_category_status ON products(category_id, status)",
+		// Composite indexes for common filter combinations (category_id removed - using ProductCategory many-to-many)
 		"CREATE INDEX IF NOT EXISTS idx_products_brand_status ON products(brand_id, status)",
 		"CREATE INDEX IF NOT EXISTS idx_products_price_status ON products(price, status)",
 		"CREATE INDEX IF NOT EXISTS idx_products_featured_status ON products(featured, status)",
@@ -1010,19 +1008,9 @@ func migration011Up(db *gorm.DB) error {
 		return fmt.Errorf("failed to create product_categories table: %w", err)
 	}
 
-	// Migrate existing product category data from products table
-	result := db.Exec(`
-		INSERT INTO product_categories (id, product_id, category_id, is_primary, created_at, updated_at)
-		SELECT gen_random_uuid(), id, category_id, TRUE, NOW(), NOW()
-		FROM products
-		WHERE category_id IS NOT NULL
-		ON CONFLICT DO NOTHING
-	`)
-	if result.Error != nil {
-		return fmt.Errorf("failed to migrate existing product categories: %w", result.Error)
-	}
-
-	log.Printf("✅ Created product_categories table and migrated %d existing product categories", result.RowsAffected)
+	// Migration note: Product.CategoryID has been removed in favor of ProductCategory many-to-many
+	// All category assignments should now use ProductCategory table directly
+	fmt.Println("✅ ProductCategory many-to-many table created - category_id column removed from products")
 	return nil
 }
 

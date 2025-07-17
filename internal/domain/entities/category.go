@@ -16,7 +16,7 @@ type Category struct {
 	ParentID    *uuid.UUID `json:"parent_id" gorm:"type:uuid;index"`
 	Parent      *Category  `json:"parent" gorm:"foreignKey:ParentID"`
 	Children    []Category `json:"children" gorm:"foreignKey:ParentID"`
-	Products    []Product  `json:"products" gorm:"foreignKey:CategoryID"`
+	// Products relationship removed - use ProductCategory many-to-many as single source of truth
 	IsActive    bool       `json:"is_active" gorm:"default:true"`
 
 	// SEO fields

@@ -8,18 +8,23 @@ import (
 
 	"ecom-golang-clean-architecture/internal/domain/entities"
 	"ecom-golang-clean-architecture/internal/domain/repositories"
+	"ecom-golang-clean-architecture/internal/domain/services"
 
 	"github.com/google/uuid"
 	"gorm.io/gorm"
 )
 
 type productRepository struct {
-	db *gorm.DB
+	db               *gorm.DB
+	hierarchyService services.CategoryHierarchyService
 }
 
 // NewProductRepository creates a new product repository
-func NewProductRepository(db *gorm.DB) repositories.ProductRepository {
-	return &productRepository{db: db}
+func NewProductRepository(db *gorm.DB, hierarchyService services.CategoryHierarchyService) repositories.ProductRepository {
+	return &productRepository{
+		db:               db,
+		hierarchyService: hierarchyService,
+	}
 }
 
 // Create creates a new product
@@ -31,7 +36,6 @@ func (r *productRepository) Create(ctx context.Context, product *entities.Produc
 func (r *productRepository) GetByID(ctx context.Context, id uuid.UUID) (*entities.Product, error) {
 	var product entities.Product
 	err := r.db.WithContext(ctx).Session(&gorm.Session{}).
-		Preload("Category").
 		Preload("Brand").
 		Preload("Images", func(db *gorm.DB) *gorm.DB {
 			return db.Where("position >= 0").Order("position ASC")
@@ -52,7 +56,6 @@ func (r *productRepository) GetByID(ctx context.Context, id uuid.UUID) (*entitie
 func (r *productRepository) GetByIDForUpdate(ctx context.Context, id uuid.UUID) (*entities.Product, error) {
 	var product entities.Product
 	err := r.db.WithContext(ctx).Session(&gorm.Session{}).
-		Preload("Category").
 		Preload("Brand").
 		Preload("Images", func(db *gorm.DB) *gorm.DB {
 			return db.Where("position >= 0").Order("position ASC")
@@ -78,7 +81,6 @@ func (r *productRepository) GetByIDs(ctx context.Context, ids []uuid.UUID) ([]*e
 
 	var products []*entities.Product
 	err := r.db.WithContext(ctx).
-		Preload("Category").
 		Preload("Brand").
 		Preload("Images", func(db *gorm.DB) *gorm.DB {
 			return db.Where("position >= 0").Order("position ASC")
@@ -96,7 +98,6 @@ func (r *productRepository) GetByIDs(ctx context.Context, ids []uuid.UUID) ([]*e
 func (r *productRepository) GetBySKU(ctx context.Context, sku string) (*entities.Product, error) {
 	var product entities.Product
 	err := r.db.WithContext(ctx).
-		Preload("Category").
 		Preload("Brand").
 		Preload("Images", func(db *gorm.DB) *gorm.DB {
 			return db.Where("position >= 0").Order("position ASC")
@@ -139,8 +140,8 @@ func (r *productRepository) Update(ctx context.Context, product *entities.Produc
 		// Shipping and Tax
 		"requires_shipping", "shipping_class", "tax_class", "country_of_origin",
 
-		// Categorization
-		"category_id", "brand_id",
+		// Categorization (category_id removed - using ProductCategory many-to-many)
+		"brand_id",
 
 		// Status and Type
 		"status", "product_type", "is_digital",
@@ -198,7 +199,6 @@ func (r *productRepository) Delete(ctx context.Context, id uuid.UUID) error {
 func (r *productRepository) List(ctx context.Context, limit, offset int) ([]*entities.Product, error) {
 	var products []*entities.Product
 	err := r.db.WithContext(ctx).
-		Preload("Category").
 		Preload("Brand").
 		Preload("Images", func(db *gorm.DB) *gorm.DB {
 			return db.Where("position >= 0").Order("position ASC")
@@ -214,7 +214,6 @@ func (r *productRepository) List(ctx context.Context, limit, offset int) ([]*ent
 // Search searches products based on criteria
 func (r *productRepository) Search(ctx context.Context, params repositories.ProductSearchParams) ([]*entities.Product, error) {
 	query := r.db.WithContext(ctx).
-		Preload("Category").
 		Preload("Brand").
 		Preload("Images", func(db *gorm.DB) *gorm.DB {
 			return db.Where("position >= 0").Order("position ASC")
@@ -234,45 +233,27 @@ func (r *productRepository) Search(ctx context.Context, params repositories.Prod
 		)
 	}
 
-	// Enhanced category filter with recursive search (includes subcategories)
+	// Enhanced category filter using optimized hierarchy service (replaces expensive recursive CTE)
 	if params.CategoryID != nil {
-		// Get all descendant categories using recursive CTE
-		categoryQuery := `
-			WITH RECURSIVE category_tree AS (
-				-- Base case: start with the given category
-				SELECT id FROM categories WHERE id = $1 AND is_active = true
-				
-				UNION ALL
-				
-				-- Recursive case: find all children
-				SELECT c.id FROM categories c
-				INNER JOIN category_tree ct ON c.parent_id = ct.id
-				WHERE c.is_active = true
-			)
-			SELECT id FROM category_tree
-		`
-
+		// Use cached category hierarchy for better performance
 		var categoryIDs []uuid.UUID
-		rows, err := r.db.WithContext(ctx).Raw(categoryQuery, *params.CategoryID).Rows()
-		if err != nil {
-			return nil, err
-		}
-		defer rows.Close()
-
-		for rows.Next() {
-			var id uuid.UUID
-			if err := rows.Scan(&id); err != nil {
-				return nil, err
+		if r.hierarchyService != nil {
+			// Get descendant categories from cache
+			descendants, err := r.hierarchyService.GetDescendantCategoryIDs(ctx, *params.CategoryID)
+			if err == nil && len(descendants) > 0 {
+				categoryIDs = descendants
+			} else {
+				// Fallback to single category if hierarchy service fails
+				categoryIDs = []uuid.UUID{*params.CategoryID}
 			}
-			categoryIDs = append(categoryIDs, id)
+		} else {
+			// Fallback to single category if no hierarchy service
+			categoryIDs = []uuid.UUID{*params.CategoryID}
 		}
 
-		if len(categoryIDs) > 0 {
-			query = query.Where("category_id IN ?", categoryIDs)
-		} else {
-			// If no categories found, still filter by the original category
-			query = query.Where("category_id = ?", *params.CategoryID)
-		}
+		// Use ProductCategory many-to-many as single source of truth
+		query = query.Joins("JOIN product_categories ON products.id = product_categories.product_id").
+			Where("product_categories.category_id IN ?", categoryIDs)
 	}
 
 	if params.MinPrice != nil {
@@ -328,45 +309,27 @@ func (r *productRepository) SearchCount(ctx context.Context, params repositories
 		)
 	}
 
-	// Enhanced category filter with recursive search (includes subcategories)
+	// Enhanced category filter using optimized hierarchy service (replaces expensive recursive CTE)
 	if params.CategoryID != nil {
-		// Get all descendant categories using recursive CTE
-		categoryQuery := `
-			WITH RECURSIVE category_tree AS (
-				-- Base case: start with the given category
-				SELECT id FROM categories WHERE id = $1 AND is_active = true
-
-				UNION ALL
-
-				-- Recursive case: find all children
-				SELECT c.id FROM categories c
-				INNER JOIN category_tree ct ON c.parent_id = ct.id
-				WHERE c.is_active = true
-			)
-			SELECT id FROM category_tree
-		`
-
+		// Use cached category hierarchy for better performance
 		var categoryIDs []uuid.UUID
-		rows, err := r.db.WithContext(ctx).Raw(categoryQuery, *params.CategoryID).Rows()
-		if err != nil {
-			return 0, err
-		}
-		defer rows.Close()
-
-		for rows.Next() {
-			var id uuid.UUID
-			if err := rows.Scan(&id); err != nil {
-				return 0, err
+		if r.hierarchyService != nil {
+			// Get descendant categories from cache
+			descendants, err := r.hierarchyService.GetDescendantCategoryIDs(ctx, *params.CategoryID)
+			if err == nil && len(descendants) > 0 {
+				categoryIDs = descendants
+			} else {
+				// Fallback to single category if hierarchy service fails
+				categoryIDs = []uuid.UUID{*params.CategoryID}
 			}
-			categoryIDs = append(categoryIDs, id)
+		} else {
+			// Fallback to single category if no hierarchy service
+			categoryIDs = []uuid.UUID{*params.CategoryID}
 		}
 
-		if len(categoryIDs) > 0 {
-			query = query.Where("category_id IN ?", categoryIDs)
-		} else {
-			// If no categories found, still filter by the original category
-			query = query.Where("category_id = ?", *params.CategoryID)
-		}
+		// Use ProductCategory many-to-many as single source of truth
+		query = query.Joins("JOIN product_categories ON products.id = product_categories.product_id").
+			Where("product_categories.category_id IN ?", categoryIDs)
 	}
 
 	if params.MinPrice != nil {
@@ -426,7 +389,8 @@ func (r *productRepository) CountByCategory(ctx context.Context, categoryID uuid
 	var count int64
 	err = r.db.WithContext(ctx).
 		Model(&entities.Product{}).
-		Where("category_id IN ?", categoryIDs).
+		Joins("JOIN product_categories ON products.id = product_categories.product_id").
+		Where("product_categories.category_id IN ?", categoryIDs).
 		Count(&count).Error
 	return count, err
 }
@@ -470,13 +434,13 @@ func (r *productRepository) GetByCategory(ctx context.Context, categoryID uuid.U
 
 	var products []*entities.Product
 	err = r.db.WithContext(ctx).
-		Preload("Category").
 		Preload("Brand").
 		Preload("Images", func(db *gorm.DB) *gorm.DB {
 			return db.Where("position >= 0").Order("position ASC")
 		}).
 		Preload("Tags").
-		Where("category_id IN ?", categoryIDs).
+		Joins("JOIN product_categories ON products.id = product_categories.product_id").
+		Where("product_categories.category_id IN ?", categoryIDs).
 		Limit(limit).
 		Offset(offset).
 		Order("created_at DESC").
@@ -559,7 +523,7 @@ func (r *productRepository) GetExistingSlugs(ctx context.Context, prefix string)
 func (r *productRepository) GetFeatured(ctx context.Context, limit int) ([]*entities.Product, error) {
 	var products []*entities.Product
 	err := r.db.WithContext(ctx).
-		Preload("Category").
+		
 		Preload("Brand").
 		Preload("Images", func(db *gorm.DB) *gorm.DB {
 			return db.Where("position >= 0").Order("position ASC")
@@ -611,27 +575,28 @@ func (r *productRepository) GetFeaturedByCategory(ctx context.Context, categoryI
 
 	var products []*entities.Product
 	err = r.db.WithContext(ctx).
-		Preload("Category").
+		
 		Preload("Brand").
 		Preload("Images", func(db *gorm.DB) *gorm.DB {
 			return db.Where("position >= 0").Order("position ASC")
 		}).
 		Preload("Tags").
-		Where("category_id IN ? AND featured = ? AND status = ?", categoryIDs, true, entities.ProductStatusActive).
+		Joins("JOIN product_categories ON products.id = product_categories.product_id").
+		Where("product_categories.category_id IN ? AND featured = ? AND status = ?", categoryIDs, true, entities.ProductStatusActive).
 		Limit(limit).
 		Order("created_at DESC").
 		Find(&products).Error
 	return products, err
 }
 
-// GetRelated retrieves related products
+// GetRelated retrieves related products using ProductCategory many-to-many
 func (r *productRepository) GetRelated(ctx context.Context, productID uuid.UUID, limit int) ([]*entities.Product, error) {
-	// Get category_id directly without loading full product
+	// Get primary category ID using ProductCategory many-to-many
 	var categoryID uuid.UUID
 	err := r.db.WithContext(ctx).
-		Model(&entities.Product{}).
+		Table("product_categories").
 		Select("category_id").
-		Where("id = ?", productID).
+		Where("product_id = ? AND is_primary = true", productID).
 		Scan(&categoryID).Error
 	if err != nil {
 		if err == gorm.ErrRecordNotFound {
@@ -642,12 +607,13 @@ func (r *productRepository) GetRelated(ctx context.Context, productID uuid.UUID,
 
 	var products []*entities.Product
 	err = r.db.WithContext(ctx).
-		Preload("Category").
+
 		Preload("Images", func(db *gorm.DB) *gorm.DB {
 			return db.Where("position >= 0").Order("position ASC")
 		}).
 		Preload("Tags").
-		Where("category_id = ? AND id != ?", categoryID, productID).
+		Joins("JOIN product_categories ON products.id = product_categories.product_id").
+		Where("product_categories.category_id = ? AND products.id != ?", categoryID, productID).
 		Limit(limit).
 		Order("RANDOM()").
 		Find(&products).Error
@@ -736,7 +702,7 @@ func (r *productRepository) CountProducts(ctx context.Context) (int64, error) {
 func (r *productRepository) GetByBrand(ctx context.Context, brandID uuid.UUID, limit, offset int) ([]*entities.Product, error) {
 	var products []*entities.Product
 	err := r.db.WithContext(ctx).
-		Preload("Category").
+		
 		Preload("Brand").
 		Preload("Images", func(db *gorm.DB) *gorm.DB {
 			return db.Where("position >= 0").Order("position ASC")
@@ -757,7 +723,7 @@ func (r *productRepository) GetByIDsWithFullDetails(ctx context.Context, ids []u
 
 	var products []*entities.Product
 	err := r.db.WithContext(ctx).
-		Preload("Category").
+		
 		Preload("Brand").
 		Preload("Images", func(db *gorm.DB) *gorm.DB {
 			return db.Where("position >= 0").Order("position ASC")
@@ -775,7 +741,7 @@ func (r *productRepository) GetByIDsWithFullDetails(ctx context.Context, ids []u
 func (r *productRepository) GetBySlug(ctx context.Context, slug string) (*entities.Product, error) {
 	var product entities.Product
 	err := r.db.WithContext(ctx).
-		Preload("Category").
+		
 		Preload("Brand").
 		Preload("Images", func(db *gorm.DB) *gorm.DB {
 			return db.Where("position >= 0").Order("position ASC")
@@ -795,7 +761,7 @@ func (r *productRepository) GetBySlug(ctx context.Context, slug string) (*entiti
 // SearchAdvanced performs advanced search with multiple filters
 func (r *productRepository) SearchAdvanced(ctx context.Context, params repositories.AdvancedSearchParams) ([]*entities.Product, error) {
 	query := r.db.WithContext(ctx).
-		Preload("Category").
+		
 		Preload("Brand").
 		Preload("Images", func(db *gorm.DB) *gorm.DB {
 			return db.Where("position >= 0").Order("position ASC")
@@ -816,7 +782,9 @@ func (r *productRepository) SearchAdvanced(ctx context.Context, params repositor
 	}
 
 	if params.CategoryID != nil {
-		query = query.Where("category_id = ?", *params.CategoryID)
+		// Use ProductCategory many-to-many as single source of truth
+		query = query.Joins("JOIN product_categories ON products.id = product_categories.product_id").
+			Where("product_categories.category_id = ?", *params.CategoryID)
 	}
 
 	if params.BrandID != nil {
@@ -935,9 +903,29 @@ func (r *productRepository) GetSearchSuggestions(ctx context.Context, query stri
 	}
 
 	for _, product := range products {
-		// Get category name
+		// Get primary category name using ProductCategory many-to-many
 		var category entities.Category
-		r.db.WithContext(ctx).Where("id = ?", product.CategoryID).First(&category)
+		var categoryID uuid.UUID
+		err := r.db.WithContext(ctx).
+			Table("categories").
+			Joins("JOIN product_categories ON categories.id = product_categories.category_id").
+			Where("product_categories.product_id = ? AND product_categories.is_primary = true", product.ID).
+			Select("categories.*, product_categories.category_id").
+			First(&category).Error
+
+		if err != nil {
+			// If no primary category, get any category
+			err = r.db.WithContext(ctx).
+				Table("categories").
+				Joins("JOIN product_categories ON categories.id = product_categories.category_id").
+				Where("product_categories.product_id = ?", product.ID).
+				Select("categories.*, product_categories.category_id").
+				First(&category).Error
+		}
+
+		if err == nil {
+			categoryID = category.ID
+		}
 
 		// Get first image
 		var image string
@@ -951,7 +939,7 @@ func (r *productRepository) GetSearchSuggestions(ctx context.Context, query stri
 			SKU:        product.SKU,
 			Price:      product.Price,
 			Image:      image,
-			CategoryID: product.CategoryID,
+			CategoryID: categoryID,
 			Category:   category.Name,
 			Relevance:  calculateRelevance(product.Name, query),
 		}
@@ -967,10 +955,11 @@ func (r *productRepository) GetSearchSuggestions(ctx context.Context, query stri
 		Find(&categories).Error
 	if err == nil {
 		for _, category := range categories {
-			// Count products in category
+			// Count products in category using ProductCategory many-to-many
 			var productCount int64
 			r.db.WithContext(ctx).Model(&entities.Product{}).
-				Where("category_id = ? AND status = ?", category.ID, "active").
+				Joins("JOIN product_categories ON products.id = product_categories.product_id").
+				Where("product_categories.category_id = ? AND products.status = ?", category.ID, "active").
 				Count(&productCount)
 
 			suggestion := repositories.CategorySuggestion{
