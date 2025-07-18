@@ -642,14 +642,9 @@ func (uc *paymentUseCase) updatePaymentStatusInTransaction(ctx context.Context, 
 		return nil, fmt.Errorf("failed to auto-transition order: %v", err)
 	}
 
-	// Check if order status changed to confirmed and reduce stock only once
-	if oldStatus != entities.OrderStatusConfirmed && order.Status == entities.OrderStatusConfirmed {
-		if err := uc.simpleStockService.ReduceStockForOrder(ctx, order.Items); err != nil {
-			fmt.Printf("❌ Failed to reduce stock: %v\n", err)
-			return nil, fmt.Errorf("failed to reduce stock: %v", err)
-		}
-		fmt.Printf("✅ Stock reduced for order items (status changed from %s to %s)\n", oldStatus, order.Status)
-	}
+	// FIXED: Stock reduction is now handled in order creation, not here
+	// This prevents duplicate stock reduction and ensures consistency
+	fmt.Printf("✅ Order status updated from %s to %s (stock already reduced during order creation)\n", oldStatus, order.Status)
 
 	// Update user metrics when order is confirmed
 	if order.Status == entities.OrderStatusConfirmed {
@@ -1073,15 +1068,9 @@ func (uc *paymentUseCase) confirmPaymentInTransaction(ctx context.Context, sessi
 		return fmt.Errorf("failed to auto-transition order: %v", err)
 	}
 
-	// Check if order status changed to confirmed and reduce stock only once
-	if oldStatus != entities.OrderStatusConfirmed && order.Status == entities.OrderStatusConfirmed {
-		if err := uc.simpleStockService.ReduceStockForOrder(ctx, order.Items); err != nil {
-			fmt.Printf("❌ Failed to reduce stock: %v\n", err)
-			// Don't fail the payment process for stock reduction failure
-		} else {
-			fmt.Printf("✅ Stock reduced for order items (status changed from %s to %s)\n", oldStatus, order.Status)
-		}
-	}
+	// FIXED: Stock reduction is now handled in order creation, not here
+	// This prevents duplicate stock reduction and ensures consistency
+	fmt.Printf("✅ Order status updated from %s to %s (stock already reduced during order creation)\n", oldStatus, order.Status)
 
 	// Update user metrics if order was confirmed
 	if order.Status == entities.OrderStatusConfirmed {
@@ -1184,14 +1173,9 @@ func (uc *paymentUseCase) handlePaymentIntentSucceeded(ctx context.Context, even
 		return fmt.Errorf("failed to auto-transition order: %v", err)
 	}
 
-	// Check if order status changed to confirmed and reduce stock only once
-	if oldStatus != entities.OrderStatusConfirmed && order.Status == entities.OrderStatusConfirmed {
-		if err := uc.simpleStockService.ReduceStockForOrder(ctx, order.Items); err != nil {
-			fmt.Printf("❌ Failed to reduce stock: %v\n", err)
-			return fmt.Errorf("failed to reduce stock: %v", err)
-		}
-		fmt.Printf("✅ Stock reduced for order items (status changed from %s to %s)\n", oldStatus, order.Status)
-	}
+	// FIXED: Stock reduction is now handled in order creation, not here
+	// This prevents duplicate stock reduction and ensures consistency
+	fmt.Printf("✅ Order status updated from %s to %s (stock already reduced during order creation)\n", oldStatus, order.Status)
 
 	// Update user metrics if order was confirmed
 	if order.Status == entities.OrderStatusConfirmed {
@@ -1671,14 +1655,9 @@ func (uc *paymentUseCase) ConfirmPaymentSuccess(ctx context.Context, orderID, us
 		return fmt.Errorf("failed to auto-transition order: %v", err)
 	}
 
-	// Check if order status changed to confirmed and reduce stock only once
-	if oldStatus != entities.OrderStatusConfirmed && order.Status == entities.OrderStatusConfirmed {
-		if err := uc.simpleStockService.ReduceStockForOrder(ctx, order.Items); err != nil {
-			fmt.Printf("❌ Failed to reduce stock: %v\n", err)
-			return fmt.Errorf("failed to reduce stock: %v", err)
-		}
-		fmt.Printf("✅ Stock reduced for order items (status changed from %s to %s)\n", oldStatus, order.Status)
-	}
+	// FIXED: Stock reduction is now handled in order creation, not here
+	// This prevents duplicate stock reduction and ensures consistency
+	fmt.Printf("✅ Order status updated from %s to %s (stock already reduced during order creation)\n", oldStatus, order.Status)
 
 	// Update user metrics if order was confirmed
 	if order.Status == entities.OrderStatusConfirmed {

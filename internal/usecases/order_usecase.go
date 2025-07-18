@@ -559,6 +559,15 @@ func (uc *orderUseCase) createOrderInTransaction(ctx context.Context, tx *gorm.D
 		}
 	}
 
+	// FIXED: Reduce stock immediately for ALL payment methods when order is confirmed
+	// This ensures consistent behavior regardless of payment method
+	if order.Status == entities.OrderStatusConfirmed {
+		if err := uc.simpleStockService.ReduceStockForOrder(ctx, order.Items); err != nil {
+			return nil, pkgErrors.Wrap(err, pkgErrors.ErrCodeInsufficientStock, "Failed to reduce stock for order")
+		}
+		fmt.Printf("✅ Stock reduced immediately for order %s (all payment methods)\n", order.OrderNumber)
+	}
+
 	// For bank transfer, only check stock availability - stock will be reduced when payment is confirmed
 	// This is consistent with COD and other payment methods
 	if err := uc.simpleStockService.CheckStockAvailability(ctx, cart.Items); err != nil {
@@ -569,16 +578,15 @@ func (uc *orderUseCase) createOrderInTransaction(ctx context.Context, tx *gorm.D
 		return nil, pkgErrors.Wrap(err, pkgErrors.ErrCodeInternalError, "Failed to update order inventory status")
 	}
 
-	// Mark cart as converted and clear items atomically
+	// FIXED: Mark cart as converted and clear items atomically within transaction
 	cart.MarkAsConverted()
 	if err := uc.cartRepo.Update(ctx, cart); err != nil {
 		return nil, pkgErrors.Wrap(err, pkgErrors.ErrCodeInternalError, "Failed to update cart status")
 	}
 
-	// Clear cart items after successful order creation
+	// FIXED: Clear cart items within transaction - if this fails, entire transaction should fail
 	if err := uc.cartRepo.ClearCart(ctx, cart.ID); err != nil {
-		// Log warning but don't fail transaction - cart is already marked as converted
-		// This is a cleanup operation that can be retried later
+		return nil, pkgErrors.Wrap(err, pkgErrors.ErrCodeInternalError, "Failed to clear cart items")
 	}
 
 	// Create events within transaction to ensure consistency
@@ -1064,8 +1072,18 @@ func (uc *orderUseCase) toOrderResponse(order *entities.Order) *OrderResponse {
 
 		// Add product info if available
 		if item.Product.ID != uuid.Nil {
-			productUseCase := &productUseCase{}
-			response.Items[i].Product = productUseCase.toProductResponse(&item.Product)
+			response.Items[i].Product = &ProductResponse{
+				ID:          item.Product.ID,
+				Name:        item.Product.Name,
+				Description: item.Product.Description,
+				SKU:         item.Product.SKU,
+				Slug:        item.Product.Slug,
+				Price:       item.Product.Price,
+				CurrentPrice: item.Product.GetCurrentPrice(),
+				Stock:       item.Product.Stock,
+				Status:      item.Product.Status,
+				MainImage:   item.Product.GetMainImage(),
+			}
 		}
 	}
 

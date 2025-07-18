@@ -71,6 +71,13 @@ type notificationUseCase struct {
 	emailService     services.EmailService
 	smsService       SMSService
 	pushService      PushService
+	websocketHub     WebSocketHub
+}
+
+// WebSocketHub interface for real-time notifications
+type WebSocketHub interface {
+	SendToUser(userID uuid.UUID, notification *entities.Notification)
+	SendToAll(notification *entities.Notification)
 }
 
 // NewNotificationUseCase creates a new notification use case
@@ -85,6 +92,7 @@ func NewNotificationUseCase(
 	emailService services.EmailService,
 	smsService SMSService,
 	pushService PushService,
+	websocketHub WebSocketHub,
 ) NotificationUseCase {
 	return &notificationUseCase{
 		notificationRepo: notificationRepo,
@@ -97,6 +105,7 @@ func NewNotificationUseCase(
 		emailService:     emailService,
 		smsService:       smsService,
 		pushService:      pushService,
+		websocketHub:     websocketHub,
 	}
 }
 
@@ -605,8 +614,16 @@ func (uc *notificationUseCase) SendNotification(ctx context.Context, notificatio
 		// TODO: Implement push notification sending
 		fmt.Printf("🔔 Push notification would be sent: %s\n", notification.Message)
 	case entities.NotificationTypeInApp:
-		// In-app notifications are just stored in database
+		// In-app notifications are stored in database and sent via WebSocket
 		fmt.Printf("📱 In-app notification created: %s\n", notification.Title)
+
+		// Send real-time notification via WebSocket
+		if uc.websocketHub != nil && notification.UserID != nil {
+			uc.websocketHub.SendToUser(*notification.UserID, notification)
+		} else if uc.websocketHub != nil && notification.UserID == nil {
+			// System-wide notification (broadcast to all)
+			uc.websocketHub.SendToAll(notification)
+		}
 	}
 
 	// Mark as sent

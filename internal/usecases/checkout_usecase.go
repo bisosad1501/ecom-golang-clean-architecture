@@ -497,12 +497,12 @@ func (uc *checkoutUseCase) createCODOrderInTransaction(ctx context.Context, user
 		return nil, pkgErrors.Wrap(err, pkgErrors.ErrCodeInternalError, "Failed to generate order number")
 	}
 
-	// Create order
+	// FIXED: Create order with proper COD status logic
 	order := &entities.Order{
 		ID:             uuid.New(),
 		OrderNumber:    orderNumber,
 		UserID:         userID,
-		Status:         entities.OrderStatusPending, // Pending for COD
+		Status:         entities.OrderStatusConfirmed, // FIXED: COD orders should be confirmed immediately
 		PaymentStatus:  entities.PaymentStatusAwaitingPayment,
 		PaymentMethod:  entities.PaymentMethodCash,
 		Subtotal:       subtotal,
@@ -576,16 +576,15 @@ func (uc *checkoutUseCase) createCODOrderInTransaction(ctx context.Context, user
 		return nil, pkgErrors.Wrap(err, pkgErrors.ErrCodeInternalError, "Failed to create order")
 	}
 
-	// For COD, only check stock availability - stock will be reduced when payment is confirmed
-	// This is consistent with other payment methods (bank transfer, online payments)
-	if err := uc.stockService.CheckStockAvailability(ctx, cart.Items); err != nil {
-		return nil, pkgErrors.Wrap(err, pkgErrors.ErrCodeInsufficientStock, "Stock not available")
+	// FIXED: For COD, reduce stock immediately since order is confirmed
+	// This ensures consistent stock behavior for all payment methods
+	if err := uc.stockService.ReduceStock(ctx, cart.Items); err != nil {
+		return nil, pkgErrors.Wrap(err, pkgErrors.ErrCodeInsufficientStock, "Failed to reduce stock")
 	}
 
-	// Clear cart
+	// FIXED: Clear cart within transaction - if this fails, entire transaction should fail
 	if err := uc.cartRepo.ClearCart(ctx, cart.ID); err != nil {
-		// Log warning but don't fail
-		fmt.Printf("Warning: Failed to clear cart: %v\n", err)
+		return nil, pkgErrors.Wrap(err, pkgErrors.ErrCodeInternalError, "Failed to clear cart")
 	}
 
 	// Get created order with relations

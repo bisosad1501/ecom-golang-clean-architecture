@@ -81,6 +81,8 @@ export const ROUTES = {
   ADDRESSES: '/profile/addresses',
   WISHLIST: '/profile/wishlist',
   SETTINGS: '/profile/settings',
+  NOTIFICATIONS: '/notifications',
+  NOTIFICATIONS_REAL_TIME: '/notifications/real-time',
   
   // Shopping routes
   CART: '/cart',

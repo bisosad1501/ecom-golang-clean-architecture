@@ -106,10 +106,9 @@ func (s *simpleStockService) ReduceStock(ctx context.Context, items []entities.C
 			return fmt.Errorf("failed to update inventory for product %s: %w", item.ProductID, err)
 		}
 
-		// Sync product stock from inventory (Product.Stock is now cached value)
+		// FIXED: Sync product stock from inventory - this is critical, don't ignore failures
 		if err := s.productRepo.UpdateStock(ctx, item.ProductID, inventory.QuantityOnHand); err != nil {
-			// Log warning but don't fail - inventory is already updated (source of truth)
-			fmt.Printf("Warning: Failed to sync product stock for %s: %v\n", item.ProductID, err)
+			return fmt.Errorf("failed to sync product stock for %s: %w", item.ProductID, err)
 		}
 
 		fmt.Printf("✅ Reduced stock for product %s: %d -> %d (Inventory: %d available)\n",
@@ -150,10 +149,9 @@ func (s *simpleStockService) ReduceStockForOrder(ctx context.Context, items []en
 			return fmt.Errorf("failed to update inventory for product %s: %w", item.ProductID, err)
 		}
 
-		// Sync product stock from inventory (Product.Stock is now cached value)
+		// FIXED: Sync product stock from inventory - this is critical, don't ignore failures
 		if err := s.productRepo.UpdateStock(ctx, item.ProductID, inventory.QuantityOnHand); err != nil {
-			// Log warning but don't fail - inventory is already updated (source of truth)
-			fmt.Printf("Warning: Failed to sync product stock for %s: %v\n", item.ProductID, err)
+			return fmt.Errorf("failed to sync product stock for %s: %w", item.ProductID, err)
 		}
 
 		fmt.Printf("✅ Reduced stock for product %s: %d -> %d (Inventory: %d available)\n",
@@ -188,10 +186,9 @@ func (s *simpleStockService) RestoreStock(ctx context.Context, items []entities.
 			return fmt.Errorf("failed to update inventory for product %s: %w", item.ProductID, err)
 		}
 
-		// Sync product stock from inventory (Product.Stock is now cached value)
+		// FIXED: Sync product stock from inventory - this is critical, don't ignore failures
 		if err := s.productRepo.UpdateStock(ctx, item.ProductID, inventory.QuantityOnHand); err != nil {
-			// Log warning but don't fail - inventory is already updated (source of truth)
-			fmt.Printf("Warning: Failed to sync product stock for %s: %v\n", item.ProductID, err)
+			return fmt.Errorf("failed to sync product stock for %s: %w", item.ProductID, err)
 		}
 
 		fmt.Printf("✅ Restored stock for product %s: %d -> %d (Inventory: %d available)\n",

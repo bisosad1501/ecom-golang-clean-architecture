@@ -25,6 +25,7 @@ func SetupRoutes(
 	couponHandler *handlers.CouponHandler,
 	inventoryHandler *handlers.InventoryHandler,
 	notificationHandler *handlers.NotificationHandler,
+	websocketHandler *handlers.WebSocketHandler,
 	analyticsHandler *handlers.AnalyticsHandler,
 	addressHandler *handlers.AddressHandler,
 	paymentHandler *handlers.PaymentHandler,
@@ -534,6 +535,22 @@ func SetupRoutes(
 				notifications.GET("/count", notificationHandler.GetUnreadCount)
 				notifications.GET("/preferences", notificationHandler.GetUserPreferences)
 				notifications.PUT("/preferences", notificationHandler.UpdateUserPreferences)
+			}
+
+			// WebSocket routes for real-time notifications (some without auth for WebSocket connection)
+			websocket := v1.Group("/ws")
+			{
+				// WebSocket connection endpoint (no auth middleware - handles auth via token query param)
+				websocket.GET("/notifications", websocketHandler.HandleNotificationWebSocket)
+			}
+
+			// Protected WebSocket management routes
+			websocketProtected := protected.Group("/ws")
+			{
+				websocketProtected.GET("/stats", websocketHandler.GetWebSocketStats)
+				websocketProtected.GET("/users", websocketHandler.GetConnectedUsers)
+				websocketProtected.POST("/test/:user_id", websocketHandler.SendTestNotification)
+				websocketProtected.POST("/broadcast", websocketHandler.BroadcastTestNotification)
 			}
 		}
 

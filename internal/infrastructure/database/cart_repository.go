@@ -90,8 +90,6 @@ func (r *cartRepository) GetByID(ctx context.Context, id uuid.UUID) (*entities.C
 	err := r.db.WithContext(ctx).
 		Preload("Items").
 		Preload("Items.Product").
-		Preload("Items.Product.Category").
-		Preload("Items.Product.Images").
 		Where("id = ?", id).
 		First(&cart).Error
 	if err != nil {
@@ -109,9 +107,8 @@ func (r *cartRepository) GetByUserID(ctx context.Context, userID uuid.UUID) (*en
 	err := r.db.WithContext(ctx).
 		Preload("Items").
 		Preload("Items.Product").
-		Preload("Items.Product.Category").
-		Preload("Items.Product.Images").
 		Where("user_id = ? AND status = ?", userID, "active").
+		Order("created_at DESC").
 		First(&cart).Error
 	if err != nil {
 		if err == gorm.ErrRecordNotFound {
@@ -120,9 +117,6 @@ func (r *cartRepository) GetByUserID(ctx context.Context, userID uuid.UUID) (*en
 		return nil, err
 	}
 
-	// Calculated fields are updated by updateCartCalculatedFields after item operations
-	// No need to call UpdateCalculatedFields here as it's done by the SQL aggregation
-
 	return &cart, nil
 }
 
@@ -130,10 +124,18 @@ func (r *cartRepository) GetByUserID(ctx context.Context, userID uuid.UUID) (*en
 func (r *cartRepository) GetBySessionID(ctx context.Context, sessionID string) (*entities.Cart, error) {
 	var cart entities.Cart
 	err := r.db.WithContext(ctx).
-		Preload("Items").
-		Preload("Items.Product").
-		Preload("Items.Product.Category").
-		Preload("Items.Product.Images").
+		Preload("Items", func(db *gorm.DB) *gorm.DB {
+			return db.Order("created_at ASC")
+		}).
+		Preload("Items.Product", func(db *gorm.DB) *gorm.DB {
+			return db.Select("id, name, description, sku, slug, price, current_price, stock, status, category_id, created_at, updated_at")
+		}).
+		Preload("Items.Product.Category", func(db *gorm.DB) *gorm.DB {
+			return db.Select("id, name, description, slug, image")
+		}).
+		Preload("Items.Product.Images", func(db *gorm.DB) *gorm.DB {
+			return db.Order("position ASC").Select("id, product_id, url, alt_text, position")
+		}).
 		Where("session_id = ? AND status = ?", sessionID, "active").
 		First(&cart).Error
 	if err != nil {

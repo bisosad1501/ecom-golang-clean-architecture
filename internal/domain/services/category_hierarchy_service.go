@@ -74,9 +74,9 @@ func (s *categoryHierarchyService) GetDescendantCategoryIDs(ctx context.Context,
 	if descendants, exists := s.descendantsCache[categoryID]; exists {
 		return descendants, nil
 	}
-	
-	// If not in cache, return just the category itself
-	return []uuid.UUID{categoryID}, nil
+
+	// FIXED: If not in cache, fallback to database query instead of returning single category
+	return s.queryDescendantsFromDB(ctx, categoryID)
 }
 
 // GetAncestorCategoryIDs returns all ancestor category IDs (optimized with cache)
@@ -93,9 +93,9 @@ func (s *categoryHierarchyService) GetAncestorCategoryIDs(ctx context.Context, c
 	if ancestors, exists := s.ancestorsCache[categoryID]; exists {
 		return ancestors, nil
 	}
-	
-	// If not in cache, return just the category itself
-	return []uuid.UUID{categoryID}, nil
+
+	// FIXED: If not in cache, fallback to database query instead of returning single category
+	return s.queryAncestorsFromDB(ctx, categoryID)
 }
 
 // GetCategoryPath returns the full path from root to category (breadcrumb)
@@ -217,4 +217,30 @@ func (s *categoryHierarchyService) findAncestors(categoryID uuid.UUID, allCatego
 	}
 	
 	return ancestors
+}
+
+// FIXED: Add database fallback methods for cache misses
+// queryDescendantsFromDB queries descendants directly from database when cache misses
+func (s *categoryHierarchyService) queryDescendantsFromDB(ctx context.Context, categoryID uuid.UUID) ([]uuid.UUID, error) {
+	// Use the category repository's GetCategoryTree method
+	descendants, err := s.categoryRepo.GetCategoryTree(ctx, categoryID)
+	if err != nil {
+		// If database query fails, return just the category itself as fallback
+		return []uuid.UUID{categoryID}, nil
+	}
+	return descendants, nil
+}
+
+// queryAncestorsFromDB queries ancestors directly from database when cache misses
+func (s *categoryHierarchyService) queryAncestorsFromDB(ctx context.Context, categoryID uuid.UUID) ([]uuid.UUID, error) {
+	// Get all categories to build ancestor chain
+	categories, err := s.categoryRepo.List(ctx, 10000, 0)
+	if err != nil {
+		// If database query fails, return just the category itself as fallback
+		return []uuid.UUID{categoryID}, nil
+	}
+
+	// Find ancestors by traversing up the parent chain
+	ancestors := s.findAncestors(categoryID, categories)
+	return ancestors, nil
 }

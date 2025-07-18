@@ -370,7 +370,7 @@ func (uc *cartUseCase) addToCartInTransaction(ctx context.Context, userID uuid.U
 		}
 	}
 
-	// Get updated cart
+	// Get updated cart to ensure we have the latest data with all preloaded relationships
 	updatedCart, err := uc.cartRepo.GetByID(ctx, cart.ID)
 	if err != nil {
 		return nil, pkgErrors.Wrap(err, pkgErrors.ErrCodeCartNotFound, "Failed to get updated cart")
@@ -499,6 +499,7 @@ func (uc *cartUseCase) addToGuestCartInTransaction(ctx context.Context, sessionI
 
 	// Stock reservation was already created atomically above
 
+	// Get updated cart to ensure we have the latest data with all preloaded relationships
 	updatedCart, err := uc.cartRepo.GetByID(ctx, cart.ID)
 	if err != nil {
 		return nil, pkgErrors.Wrap(err, pkgErrors.ErrCodeCartNotFound, "Failed to get updated guest cart")

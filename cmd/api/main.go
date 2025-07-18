@@ -16,6 +16,7 @@ import (
 	"ecom-golang-clean-architecture/internal/infrastructure/repositories"
 	infraServices "ecom-golang-clean-architecture/internal/infrastructure/services"
 	localStorage "ecom-golang-clean-architecture/internal/infrastructure/storage"
+	"ecom-golang-clean-architecture/internal/infrastructure/websocket"
 	"ecom-golang-clean-architecture/internal/usecases"
 
 	"github.com/gin-gonic/gin"
@@ -183,11 +184,18 @@ func main() {
 		simpleStockService, // Use simple stock service instead
 	)
 
-	// Initialize notification use case (without email service for now)
+	// Initialize WebSocket hub for real-time notifications
+	websocketHub := websocket.NewHub(context.Background())
+
+	// Start WebSocket hub in background
+	go websocketHub.Run()
+
+	// Initialize notification use case with WebSocket hub
 	notificationUseCase := usecases.NewNotificationUseCase(
 		notificationRepo, userRepo, orderRepo, paymentRepo, inventoryRepo,
 		reviewRepo, productRepo,
 		nil, nil, nil, // email, sms, push services - TODO: implement
+		websocketHub,  // WebSocket hub for real-time notifications
 	)
 
 	// Re-initialize userUseCase with notificationUseCase
@@ -346,6 +354,7 @@ func main() {
 	wishlistHandler := handlers.NewWishlistHandler(wishlistUseCase)
 	inventoryHandler := handlers.NewInventoryHandler(inventoryUseCase)
 	notificationHandler := handlers.NewNotificationHandler(notificationUseCase)
+	websocketHandler := handlers.NewWebSocketHandler(websocketHub)
 	analyticsHandler := handlers.NewAnalyticsHandler(analyticsUseCase)
 	addressHandler := handlers.NewAddressHandler(addressUseCase)
 	paymentHandler := handlers.NewPaymentHandler(paymentUseCase)
@@ -379,6 +388,7 @@ func main() {
 		couponHandler,
 		inventoryHandler,
 		notificationHandler,
+		websocketHandler,
 		analyticsHandler,
 		addressHandler,
 		paymentHandler,
