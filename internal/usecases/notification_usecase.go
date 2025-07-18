@@ -1524,6 +1524,17 @@ func (uc *notificationUseCase) NotifyNewUser(ctx context.Context, userID uuid.UU
 		return fmt.Errorf("failed to get user: %w", err)
 	}
 
+	// Get all admin users (using a large limit to get all admins)
+	adminUsers, err := uc.userRepo.GetUsersByRole(ctx, entities.UserRoleAdmin, 100, 0)
+	if err != nil {
+		return fmt.Errorf("failed to get admin users: %w", err)
+	}
+
+	if len(adminUsers) == 0 {
+		fmt.Printf("⚠️ No admin users found to notify about new user registration\n")
+		return nil
+	}
+
 	// Create notification data
 	data := map[string]interface{}{
 		"user_id":    user.ID,
@@ -1535,25 +1546,30 @@ func (uc *notificationUseCase) NotifyNewUser(ctx context.Context, userID uuid.UU
 	}
 	dataJSON, _ := json.Marshal(data)
 
-	// Create system notification for admins
-	notification := &entities.Notification{
-		ID:            uuid.New(),
-		UserID:        nil, // System-wide notification for admins
-		Type:          entities.NotificationTypeInApp,
-		Category:      entities.NotificationCategorySystem,
-		Priority:      entities.NotificationPriorityLow,
-		Status:        entities.NotificationStatusPending,
-		Title:         "Người dùng mới đăng ký",
-		Message:       fmt.Sprintf("Người dùng mới %s %s (%s) đã đăng ký tài khoản", user.FirstName, user.LastName, user.Email),
-		Data:          string(dataJSON),
-		ReferenceType: "user",
-		ReferenceID:   &user.ID,
-		CreatedAt:     time.Now(),
-		UpdatedAt:     time.Now(),
-	}
+	// Create individual notifications for each admin
+	for _, admin := range adminUsers {
+		notification := &entities.Notification{
+			ID:            uuid.New(),
+			UserID:        &admin.ID, // Send to specific admin user
+			Type:          entities.NotificationTypeInApp,
+			Category:      entities.NotificationCategorySystem,
+			Priority:      entities.NotificationPriorityLow,
+			Status:        entities.NotificationStatusPending,
+			Title:         "Người dùng mới đăng ký",
+			Message:       fmt.Sprintf("Người dùng mới %s %s (%s) đã đăng ký tài khoản", user.FirstName, user.LastName, user.Email),
+			Data:          string(dataJSON),
+			ReferenceType: "user",
+			ReferenceID:   &user.ID,
+			CreatedAt:     time.Now(),
+			UpdatedAt:     time.Now(),
+		}
 
-	if err := uc.notificationRepo.Create(ctx, notification); err != nil {
-		return fmt.Errorf("failed to create new user notification: %w", err)
+		if err := uc.notificationRepo.Create(ctx, notification); err != nil {
+			fmt.Printf("❌ Failed to create new user notification for admin %s: %v\n", admin.Email, err)
+			continue
+		}
+
+		fmt.Printf("✅ New user notification created for admin %s\n", admin.Email)
 	}
 
 	return nil

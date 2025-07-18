@@ -76,7 +76,7 @@ func SetupRoutes(
 			auth.POST("/refresh", userHandler.RefreshToken)
 			auth.POST("/forgot-password", userHandler.ForgotPassword)
 			auth.POST("/reset-password", userHandler.ResetPassword)
-			auth.POST("/verify-email", userHandler.VerifyEmailWithToken)
+			auth.GET("/verify-email", userHandler.VerifyEmailByToken)
 			auth.POST("/resend-verification", userHandler.ResendVerification)
 
 			// OAuth routes
@@ -368,8 +368,6 @@ func SetupRoutes(
 				verification := users.Group("/verification")
 				{
 					verification.POST("/email/send", userHandler.SendEmailVerification)
-					verification.POST("/phone/send", userHandler.SendPhoneVerification)
-					verification.POST("/phone/verify", userHandler.VerifyPhone)
 					verification.GET("/status", userHandler.GetVerificationStatus)
 				}
 
@@ -380,6 +378,15 @@ func SetupRoutes(
 					sessions.DELETE("/:session_id", userHandler.InvalidateSession)
 					sessions.DELETE("", userHandler.InvalidateAllSessions)
 				}
+
+				// User login history routes
+				// loginHistory := users.Group("/login-history")
+				// {
+				//	loginHistory.GET("", userHandler.GetLoginHistory)
+				// }
+
+				// User login stats routes
+				// users.GET("/login-stats", userHandler.GetLoginStats)
 
 				if reviewHandler != nil {
 					users.GET("/:user_id/reviews", reviewHandler.GetUserReviews)
@@ -592,6 +599,10 @@ func SetupRoutes(
 				// User audit logs
 				adminUsers.GET("/audit-logs", adminHandler.GetUserAuditLogs)
 
+				// User login history management
+				adminUsers.GET("/:id/login-history", adminHandler.GetUserLoginHistory)
+				adminUsers.GET("/login-history", adminHandler.GetAllUsersLoginHistory)
+
 				// Announcements
 				adminUsers.POST("/announcements", adminHandler.CreateAnnouncement)
 			}
@@ -798,6 +809,13 @@ func SetupRoutes(
 				system.POST("/backup", adminHandler.BackupDatabase)
 				system.GET("/cleanup/stats", adminHandler.GetCleanupStats)
 				system.POST("/cleanup/trigger", adminHandler.TriggerCleanup)
+			}
+
+			// Security management routes
+			security := admin.Group("/security")
+			{
+				security.GET("/suspicious-activity", adminHandler.GetSuspiciousLoginActivity)
+				security.GET("/report", adminHandler.GetLoginSecurityReport)
 			}
 
 			// Migration management routes

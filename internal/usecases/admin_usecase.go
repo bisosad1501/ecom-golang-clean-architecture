@@ -48,6 +48,12 @@ type AdminUseCase interface {
 	GetUserAuditLogs(ctx context.Context, req UserAuditLogsRequest) (*UserAuditLogsResponse, error)
 	CreateUserAuditLog(ctx context.Context, req CreateUserAuditLogRequest) error
 
+	// User login history management
+	GetUserLoginHistory(ctx context.Context, userID uuid.UUID, req AdminLoginHistoryRequest) (*AdminLoginHistoryResponse, error)
+	GetAllUsersLoginHistory(ctx context.Context, req AdminAllLoginHistoryRequest) (*AdminAllLoginHistoryResponse, error)
+	GetSuspiciousLoginActivity(ctx context.Context, req SuspiciousActivityRequest) (*SuspiciousActivityResponse, error)
+	GetLoginSecurityReport(ctx context.Context, req SecurityReportRequest) (*SecurityReportResponse, error)
+
 	// Advanced user analytics
 	GetUserAnalytics(ctx context.Context, req UserAnalyticsRequest) (*UserAnalyticsResponse, error)
 	GetUserActivityAnalytics(ctx context.Context, req UserActivityAnalyticsRequest) (*UserActivityAnalyticsResponse, error)
@@ -90,15 +96,16 @@ type AdminUseCase interface {
 }
 
 type adminUseCase struct {
-	userRepo      repositories.UserRepository
-	orderRepo     repositories.OrderRepository
-	productRepo   repositories.ProductRepository
-	reviewRepo    repositories.ReviewRepository
-	analyticsRepo repositories.AnalyticsRepository
-	inventoryRepo repositories.InventoryRepository
-	paymentRepo   repositories.PaymentRepository
-	auditRepo     repositories.AuditRepository
-	orderUseCase  OrderUseCase
+	userRepo             repositories.UserRepository
+	orderRepo            repositories.OrderRepository
+	productRepo          repositories.ProductRepository
+	reviewRepo           repositories.ReviewRepository
+	analyticsRepo        repositories.AnalyticsRepository
+	inventoryRepo        repositories.InventoryRepository
+	paymentRepo          repositories.PaymentRepository
+	auditRepo            repositories.AuditRepository
+	userLoginHistoryRepo repositories.UserLoginHistoryRepository
+	orderUseCase         OrderUseCase
 }
 
 // NewAdminUseCase creates a new admin use case
@@ -111,18 +118,20 @@ func NewAdminUseCase(
 	inventoryRepo repositories.InventoryRepository,
 	paymentRepo repositories.PaymentRepository,
 	auditRepo repositories.AuditRepository,
+	userLoginHistoryRepo repositories.UserLoginHistoryRepository,
 	orderUseCase OrderUseCase,
 ) AdminUseCase {
 	return &adminUseCase{
-		userRepo:      userRepo,
-		orderRepo:     orderRepo,
-		productRepo:   productRepo,
-		reviewRepo:    reviewRepo,
-		analyticsRepo: analyticsRepo,
-		inventoryRepo: inventoryRepo,
-		paymentRepo:   paymentRepo,
-		auditRepo:     auditRepo,
-		orderUseCase:  orderUseCase,
+		userRepo:             userRepo,
+		orderRepo:            orderRepo,
+		productRepo:          productRepo,
+		reviewRepo:           reviewRepo,
+		analyticsRepo:        analyticsRepo,
+		inventoryRepo:        inventoryRepo,
+		paymentRepo:          paymentRepo,
+		auditRepo:            auditRepo,
+		userLoginHistoryRepo: userLoginHistoryRepo,
+		orderUseCase:         orderUseCase,
 	}
 }
 
@@ -3834,6 +3843,843 @@ type LocationData struct {
 	Country string `json:"country"`
 	City    string `json:"city"`
 	Count   int    `json:"count"`
+}
+
+// Admin Login History request/response types
+type AdminLoginHistoryRequest struct {
+	Limit    int        `json:"limit" validate:"min=1,max=100"`
+	Offset   int        `json:"offset" validate:"min=0"`
+	DateFrom *time.Time `json:"date_from,omitempty"`
+	DateTo   *time.Time `json:"date_to,omitempty"`
+	Success  *bool      `json:"success,omitempty"`
+	IPAddress string    `json:"ip_address,omitempty"`
+	SortBy   string     `json:"sort_by,omitempty"` // created_at, ip_address, success
+	SortOrder string    `json:"sort_order,omitempty"` // asc, desc
+}
+
+type AdminLoginHistoryResponse struct {
+	UserID       uuid.UUID                `json:"user_id"`
+	UserEmail    string                   `json:"user_email"`
+	UserName     string                   `json:"user_name"`
+	LoginHistory []AdminLoginHistoryItem  `json:"login_history"`
+	Total        int64                    `json:"total"`
+	Pagination   *PaginationInfo          `json:"pagination"`
+	Stats        *AdminLoginStatsInfo     `json:"stats,omitempty"`
+}
+
+type AdminLoginHistoryItem struct {
+	ID         uuid.UUID `json:"id"`
+	IPAddress  string    `json:"ip_address"`
+	UserAgent  string    `json:"user_agent"`
+	DeviceInfo string    `json:"device_info"`
+	Location   string    `json:"location"`
+	LoginType  string    `json:"login_type"`
+	Success    bool      `json:"success"`
+	FailReason string    `json:"fail_reason,omitempty"`
+	CreatedAt  time.Time `json:"created_at"`
+	IsRisky    bool      `json:"is_risky,omitempty"` // Admin-specific risk assessment
+}
+
+type AdminAllLoginHistoryRequest struct {
+	Limit     int        `json:"limit" validate:"min=1,max=100"`
+	Offset    int        `json:"offset" validate:"min=0"`
+	DateFrom  *time.Time `json:"date_from,omitempty"`
+	DateTo    *time.Time `json:"date_to,omitempty"`
+	Success   *bool      `json:"success,omitempty"`
+	UserID    *uuid.UUID `json:"user_id,omitempty"`
+	IPAddress string     `json:"ip_address,omitempty"`
+	Search    string     `json:"search,omitempty"` // Search by email, name, IP
+	SortBy    string     `json:"sort_by,omitempty"`
+	SortOrder string     `json:"sort_order,omitempty"`
+}
+
+type AdminAllLoginHistoryResponse struct {
+	LoginHistory []AdminAllLoginHistoryItem `json:"login_history"`
+	Total        int64                      `json:"total"`
+	Pagination   *PaginationInfo            `json:"pagination"`
+	Summary      *LoginSummaryStats         `json:"summary,omitempty"`
+}
+
+type AdminAllLoginHistoryItem struct {
+	ID         uuid.UUID `json:"id"`
+	UserID     uuid.UUID `json:"user_id"`
+	UserEmail  string    `json:"user_email"`
+	UserName   string    `json:"user_name"`
+	IPAddress  string    `json:"ip_address"`
+	UserAgent  string    `json:"user_agent"`
+	DeviceInfo string    `json:"device_info"`
+	Location   string    `json:"location"`
+	LoginType  string    `json:"login_type"`
+	Success    bool      `json:"success"`
+	FailReason string    `json:"fail_reason,omitempty"`
+	CreatedAt  time.Time `json:"created_at"`
+	RiskScore  float64   `json:"risk_score,omitempty"` // 0-100 risk assessment
+}
+
+type SuspiciousActivityRequest struct {
+	DateFrom      *time.Time `json:"date_from,omitempty"`
+	DateTo        *time.Time `json:"date_to,omitempty"`
+	MinRiskScore  float64    `json:"min_risk_score,omitempty"` // Default 70
+	Limit         int        `json:"limit" validate:"min=1,max=100"`
+	Offset        int        `json:"offset" validate:"min=0"`
+	ActivityType  string     `json:"activity_type,omitempty"` // failed_logins, unusual_ip, multiple_devices
+}
+
+type SuspiciousActivityResponse struct {
+	SuspiciousActivities []SuspiciousActivity `json:"suspicious_activities"`
+	Total                int64                `json:"total"`
+	Pagination           *PaginationInfo      `json:"pagination"`
+	RiskSummary          *RiskSummary         `json:"risk_summary"`
+}
+
+type SuspiciousActivity struct {
+	ID           uuid.UUID `json:"id"`
+	UserID       uuid.UUID `json:"user_id"`
+	UserEmail    string    `json:"user_email"`
+	ActivityType string    `json:"activity_type"`
+	Description  string    `json:"description"`
+	RiskScore    float64   `json:"risk_score"`
+	IPAddress    string    `json:"ip_address"`
+	Location     string    `json:"location"`
+	DetectedAt   time.Time `json:"detected_at"`
+	Status       string    `json:"status"` // new, investigating, resolved, false_positive
+}
+
+type SecurityReportRequest struct {
+	DateFrom   *time.Time `json:"date_from,omitempty"`
+	DateTo     *time.Time `json:"date_to,omitempty"`
+	ReportType string     `json:"report_type,omitempty"` // summary, detailed, security_incidents
+}
+
+type SecurityReportResponse struct {
+	ReportType      string                 `json:"report_type"`
+	GeneratedAt     time.Time              `json:"generated_at"`
+	DateRange       DateRange              `json:"date_range"`
+	LoginSummary    LoginSummaryStats      `json:"login_summary"`
+	SecurityMetrics SecurityMetrics        `json:"security_metrics"`
+	TopRiskyIPs     []RiskyIP             `json:"top_risky_ips"`
+	TopRiskyUsers   []RiskyUser           `json:"top_risky_users"`
+	Incidents       []SecurityIncident     `json:"incidents,omitempty"`
+}
+
+type AdminLoginStatsInfo struct {
+	TotalLogins         int64   `json:"total_logins"`
+	SuccessfulLogins    int64   `json:"successful_logins"`
+	FailedLogins        int64   `json:"failed_logins"`
+	SuccessRate         float64 `json:"success_rate"`
+	UniqueIPs           int     `json:"unique_ips"`
+	SuspiciousAttempts  int64   `json:"suspicious_attempts"`
+	BlockedAttempts     int64   `json:"blocked_attempts"`
+}
+
+type LoginSummaryStats struct {
+	TotalLogins         int64   `json:"total_logins"`
+	SuccessfulLogins    int64   `json:"successful_logins"`
+	FailedLogins        int64   `json:"failed_logins"`
+	SuccessRate         float64 `json:"success_rate"`
+	UniqueUsers         int     `json:"unique_users"`
+	UniqueIPs           int     `json:"unique_ips"`
+	SuspiciousAttempts  int64   `json:"suspicious_attempts"`
+}
+
+type RiskSummary struct {
+	HighRiskActivities   int64   `json:"high_risk_activities"`
+	MediumRiskActivities int64   `json:"medium_risk_activities"`
+	LowRiskActivities    int64   `json:"low_risk_activities"`
+	AverageRiskScore     float64 `json:"average_risk_score"`
+}
+
+type DateRange struct {
+	From time.Time `json:"from"`
+	To   time.Time `json:"to"`
+}
+
+type SecurityMetrics struct {
+	FailedLoginRate     float64 `json:"failed_login_rate"`
+	UnusualIPCount      int     `json:"unusual_ip_count"`
+	MultipleDeviceUsers int     `json:"multiple_device_users"`
+	SuspiciousPatterns  int     `json:"suspicious_patterns"`
+	BlockedIPs          int     `json:"blocked_ips"`
+}
+
+type RiskyIP struct {
+	IPAddress    string  `json:"ip_address"`
+	Location     string  `json:"location"`
+	FailedCount  int64   `json:"failed_count"`
+	SuccessCount int64   `json:"success_count"`
+	RiskScore    float64 `json:"risk_score"`
+	LastSeen     time.Time `json:"last_seen"`
+}
+
+type RiskyUser struct {
+	UserID       uuid.UUID `json:"user_id"`
+	UserEmail    string    `json:"user_email"`
+	FailedCount  int64     `json:"failed_count"`
+	UniqueIPs    int       `json:"unique_ips"`
+	RiskScore    float64   `json:"risk_score"`
+	LastActivity time.Time `json:"last_activity"`
+}
+
+type SecurityIncident struct {
+	ID          uuid.UUID `json:"id"`
+	Type        string    `json:"type"`
+	Description string    `json:"description"`
+	Severity    string    `json:"severity"` // low, medium, high, critical
+	UserID      *uuid.UUID `json:"user_id,omitempty"`
+	IPAddress   string    `json:"ip_address"`
+	DetectedAt  time.Time `json:"detected_at"`
+	Status      string    `json:"status"` // open, investigating, resolved
+}
+
+// GetUserLoginHistory retrieves login history for a specific user (admin view)
+func (uc *adminUseCase) GetUserLoginHistory(ctx context.Context, userID uuid.UUID, req AdminLoginHistoryRequest) (*AdminLoginHistoryResponse, error) {
+	// Set default values
+	if req.Limit == 0 {
+		req.Limit = 50
+	}
+	if req.Limit > 100 {
+		req.Limit = 100
+	}
+	if req.Offset < 0 {
+		req.Offset = 0
+	}
+
+	// Get user info
+	user, err := uc.userRepo.GetByID(ctx, userID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get user: %w", err)
+	}
+
+	// Get login history from repository
+	loginHistoryEntities, err := uc.userLoginHistoryRepo.GetByUserID(ctx, userID, req.Limit, req.Offset)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get login history: %w", err)
+	}
+
+	// Convert to admin response format with risk assessment
+	loginHistory := make([]AdminLoginHistoryItem, len(loginHistoryEntities))
+	for i, entity := range loginHistoryEntities {
+		loginHistory[i] = AdminLoginHistoryItem{
+			ID:         entity.ID,
+			IPAddress:  entity.IPAddress,
+			UserAgent:  entity.UserAgent,
+			DeviceInfo: entity.DeviceInfo,
+			Location:   entity.Location,
+			LoginType:  entity.LoginType,
+			Success:    entity.Success,
+			FailReason: entity.FailReason,
+			CreatedAt:  entity.CreatedAt,
+			IsRisky:    uc.assessLoginRisk(entity), // Admin-specific risk assessment
+		}
+	}
+
+	// Get total count for pagination
+	totalCount, err := uc.userLoginHistoryRepo.CountLoginAttempts(ctx, userID, time.Time{})
+	if err != nil {
+		totalCount = int64(len(loginHistory))
+	}
+
+	// Calculate admin-specific stats
+	stats, err := uc.calculateAdminLoginStats(ctx, userID, req.DateFrom, req.DateTo)
+	if err != nil {
+		// Log error but don't fail the request
+		stats = nil
+	}
+
+	// Create pagination info
+	pagination := &PaginationInfo{
+		Page:       (req.Offset / req.Limit) + 1,
+		Limit:      req.Limit,
+		Total:      totalCount,
+		TotalPages: int((totalCount + int64(req.Limit) - 1) / int64(req.Limit)),
+	}
+
+	return &AdminLoginHistoryResponse{
+		UserID:       userID,
+		UserEmail:    user.Email,
+		UserName:     user.FirstName + " " + user.LastName,
+		LoginHistory: loginHistory,
+		Total:        totalCount,
+		Pagination:   pagination,
+		Stats:        stats,
+	}, nil
+}
+
+// GetAllUsersLoginHistory retrieves login history for all users (admin overview)
+func (uc *adminUseCase) GetAllUsersLoginHistory(ctx context.Context, req AdminAllLoginHistoryRequest) (*AdminAllLoginHistoryResponse, error) {
+	// Set default values
+	if req.Limit == 0 {
+		req.Limit = 50
+	}
+	if req.Limit > 100 {
+		req.Limit = 100
+	}
+	if req.Offset < 0 {
+		req.Offset = 0
+	}
+
+	// This would require a more complex repository method to join users and login history
+	// For now, we'll implement a simplified version
+
+	// Get recent login history (simplified approach)
+	// In a real implementation, you'd want a dedicated repository method for this
+	users, err := uc.userRepo.List(ctx, 0, 1000) // Get users first
+	if err != nil {
+		return nil, fmt.Errorf("failed to get users: %w", err)
+	}
+
+	var allLoginHistory []AdminAllLoginHistoryItem
+	totalCount := int64(0)
+
+	// This is a simplified implementation - in production you'd want to optimize this
+	for _, user := range users {
+		if len(allLoginHistory) >= req.Limit {
+			break
+		}
+
+		userLogins, err := uc.userLoginHistoryRepo.GetByUserID(ctx, user.ID, 10, 0)
+		if err != nil {
+			continue
+		}
+
+		for _, login := range userLogins {
+			if len(allLoginHistory) >= req.Limit {
+				break
+			}
+
+			// Apply filters
+			if req.Success != nil && login.Success != *req.Success {
+				continue
+			}
+			if req.IPAddress != "" && login.IPAddress != req.IPAddress {
+				continue
+			}
+			if req.DateFrom != nil && login.CreatedAt.Before(*req.DateFrom) {
+				continue
+			}
+			if req.DateTo != nil && login.CreatedAt.After(*req.DateTo) {
+				continue
+			}
+
+			allLoginHistory = append(allLoginHistory, AdminAllLoginHistoryItem{
+				ID:         login.ID,
+				UserID:     user.ID,
+				UserEmail:  user.Email,
+				UserName:   user.FirstName + " " + user.LastName,
+				IPAddress:  login.IPAddress,
+				UserAgent:  login.UserAgent,
+				DeviceInfo: login.DeviceInfo,
+				Location:   login.Location,
+				LoginType:  login.LoginType,
+				Success:    login.Success,
+				FailReason: login.FailReason,
+				CreatedAt:  login.CreatedAt,
+				RiskScore:  uc.calculateRiskScore(login),
+			})
+			totalCount++
+		}
+	}
+
+	// Create pagination info
+	pagination := &PaginationInfo{
+		Page:       (req.Offset / req.Limit) + 1,
+		Limit:      req.Limit,
+		Total:      totalCount,
+		TotalPages: int((totalCount + int64(req.Limit) - 1) / int64(req.Limit)),
+	}
+
+	// Calculate summary stats
+	summary := uc.calculateLoginSummaryStats(allLoginHistory)
+
+	return &AdminAllLoginHistoryResponse{
+		LoginHistory: allLoginHistory,
+		Total:        totalCount,
+		Pagination:   pagination,
+		Summary:      summary,
+	}, nil
+}
+
+// GetSuspiciousLoginActivity identifies and returns suspicious login activities
+func (uc *adminUseCase) GetSuspiciousLoginActivity(ctx context.Context, req SuspiciousActivityRequest) (*SuspiciousActivityResponse, error) {
+	// Set default values
+	if req.Limit == 0 {
+		req.Limit = 20
+	}
+	if req.MinRiskScore == 0 {
+		req.MinRiskScore = 70 // Default high risk threshold
+	}
+
+	// Get recent failed login attempts
+	dateFrom := time.Now().AddDate(0, 0, -7) // Last 7 days
+	if req.DateFrom != nil {
+		dateFrom = *req.DateFrom
+	}
+
+	// This is a simplified implementation
+	// In production, you'd want more sophisticated detection algorithms
+	var suspiciousActivities []SuspiciousActivity
+
+	// Get users with recent failed logins
+	users, err := uc.userRepo.List(ctx, 0, 1000)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get users: %w", err)
+	}
+
+	for _, user := range users {
+		// Get failed login attempts
+		failedLogins, err := uc.userLoginHistoryRepo.GetFailedLoginAttempts(ctx, user.ID, dateFrom)
+		if err != nil {
+			continue
+		}
+
+		// Analyze for suspicious patterns
+		if len(failedLogins) >= 5 { // Multiple failed attempts
+			riskScore := float64(len(failedLogins)) * 10 // Simple risk calculation
+			if riskScore >= req.MinRiskScore {
+				suspiciousActivities = append(suspiciousActivities, SuspiciousActivity{
+					ID:           uuid.New(),
+					UserID:       user.ID,
+					UserEmail:    user.Email,
+					ActivityType: "multiple_failed_logins",
+					Description:  fmt.Sprintf("%d failed login attempts in the last 7 days", len(failedLogins)),
+					RiskScore:    riskScore,
+					IPAddress:    failedLogins[0].IPAddress,
+					Location:     failedLogins[0].Location,
+					DetectedAt:   time.Now(),
+					Status:       "new",
+				})
+			}
+		}
+
+		// Check for unusual IP addresses (simplified)
+		ipMap := make(map[string]int)
+		for _, login := range failedLogins {
+			ipMap[login.IPAddress]++
+		}
+		if len(ipMap) >= 3 { // Multiple IPs
+			riskScore := float64(len(ipMap)) * 15
+			if riskScore >= req.MinRiskScore {
+				suspiciousActivities = append(suspiciousActivities, SuspiciousActivity{
+					ID:           uuid.New(),
+					UserID:       user.ID,
+					UserEmail:    user.Email,
+					ActivityType: "unusual_ip_pattern",
+					Description:  fmt.Sprintf("Login attempts from %d different IP addresses", len(ipMap)),
+					RiskScore:    riskScore,
+					IPAddress:    "multiple",
+					Location:     "multiple",
+					DetectedAt:   time.Now(),
+					Status:       "new",
+				})
+			}
+		}
+	}
+
+	// Apply pagination
+	start := req.Offset
+	end := req.Offset + req.Limit
+	if start > len(suspiciousActivities) {
+		start = len(suspiciousActivities)
+	}
+	if end > len(suspiciousActivities) {
+		end = len(suspiciousActivities)
+	}
+
+	paginatedActivities := suspiciousActivities[start:end]
+
+	// Calculate risk summary
+	riskSummary := uc.calculateRiskSummary(suspiciousActivities)
+
+	pagination := &PaginationInfo{
+		Page:       (req.Offset / req.Limit) + 1,
+		Limit:      req.Limit,
+		Total:      int64(len(suspiciousActivities)),
+		TotalPages: int((int64(len(suspiciousActivities)) + int64(req.Limit) - 1) / int64(req.Limit)),
+	}
+
+	return &SuspiciousActivityResponse{
+		SuspiciousActivities: paginatedActivities,
+		Total:                int64(len(suspiciousActivities)),
+		Pagination:           pagination,
+		RiskSummary:          riskSummary,
+	}, nil
+}
+
+// GetLoginSecurityReport generates a comprehensive security report
+func (uc *adminUseCase) GetLoginSecurityReport(ctx context.Context, req SecurityReportRequest) (*SecurityReportResponse, error) {
+	// Set default date range
+	dateFrom := time.Now().AddDate(0, -1, 0) // Last month
+	dateTo := time.Now()
+
+	if req.DateFrom != nil {
+		dateFrom = *req.DateFrom
+	}
+	if req.DateTo != nil {
+		dateTo = *req.DateTo
+	}
+
+	reportType := "summary"
+	if req.ReportType != "" {
+		reportType = req.ReportType
+	}
+
+	// Get all users for analysis
+	users, err := uc.userRepo.List(ctx, 0, 1000)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get users: %w", err)
+	}
+
+	var allLogins []entities.UserLoginHistory
+	var riskyIPs []RiskyIP
+	var riskyUsers []RiskyUser
+
+	// Collect login data
+	for _, user := range users {
+		userLogins, err := uc.userLoginHistoryRepo.GetByUserID(ctx, user.ID, 100, 0)
+		if err != nil {
+			continue
+		}
+
+		var userFailedCount int64
+		var userUniqueIPs = make(map[string]bool)
+
+		for _, login := range userLogins {
+			if login.CreatedAt.After(dateFrom) && login.CreatedAt.Before(dateTo) {
+				allLogins = append(allLogins, *login)
+
+				if !login.Success {
+					userFailedCount++
+				}
+				userUniqueIPs[login.IPAddress] = true
+			}
+		}
+
+		// Identify risky users
+		if userFailedCount >= 5 || len(userUniqueIPs) >= 3 {
+			riskScore := float64(userFailedCount)*10 + float64(len(userUniqueIPs))*5
+
+			var lastActivity time.Time
+			if user.LastActivityAt != nil {
+				lastActivity = *user.LastActivityAt
+			} else {
+				lastActivity = user.UpdatedAt
+			}
+
+			riskyUsers = append(riskyUsers, RiskyUser{
+				UserID:       user.ID,
+				UserEmail:    user.Email,
+				FailedCount:  userFailedCount,
+				UniqueIPs:    len(userUniqueIPs),
+				RiskScore:    riskScore,
+				LastActivity: lastActivity,
+			})
+		}
+	}
+
+	// Analyze IP patterns
+	ipStats := make(map[string]struct {
+		failed  int64
+		success int64
+		lastSeen time.Time
+	})
+
+	for _, login := range allLogins {
+		stats := ipStats[login.IPAddress]
+		if login.Success {
+			stats.success++
+		} else {
+			stats.failed++
+		}
+		if login.CreatedAt.After(stats.lastSeen) {
+			stats.lastSeen = login.CreatedAt
+		}
+		ipStats[login.IPAddress] = stats
+	}
+
+	// Identify risky IPs
+	for ip, stats := range ipStats {
+		if stats.failed >= 10 || (stats.failed > stats.success && stats.failed >= 3) {
+			riskScore := float64(stats.failed) * 5
+			if stats.success == 0 {
+				riskScore *= 2 // Higher risk for IPs with no successful logins
+			}
+
+			riskyIPs = append(riskyIPs, RiskyIP{
+				IPAddress:    ip,
+				Location:     "Unknown", // Would need IP geolocation service
+				FailedCount:  stats.failed,
+				SuccessCount: stats.success,
+				RiskScore:    riskScore,
+				LastSeen:     stats.lastSeen,
+			})
+		}
+	}
+
+	// Calculate summary statistics
+	loginSummary := uc.calculateLoginSummaryFromEntities(allLogins)
+	securityMetrics := uc.calculateSecurityMetrics(allLogins, users)
+
+	return &SecurityReportResponse{
+		ReportType:      reportType,
+		GeneratedAt:     time.Now(),
+		DateRange:       DateRange{From: dateFrom, To: dateTo},
+		LoginSummary:    *loginSummary,
+		SecurityMetrics: *securityMetrics,
+		TopRiskyIPs:     riskyIPs,
+		TopRiskyUsers:   riskyUsers,
+		Incidents:       []SecurityIncident{}, // Would be populated from incident tracking system
+	}, nil
+}
+
+// Helper methods for admin login history functionality
+
+// assessLoginRisk assesses the risk level of a login attempt
+func (uc *adminUseCase) assessLoginRisk(login *entities.UserLoginHistory) bool {
+	// Simple risk assessment - in production this would be more sophisticated
+	if !login.Success {
+		return true // Failed logins are risky
+	}
+
+	// Check for unusual patterns (simplified)
+	// - Login from new IP
+	// - Login at unusual hours
+	// - Multiple rapid logins
+
+	return false // Default to not risky for successful logins
+}
+
+// calculateRiskScore calculates a risk score for a login attempt
+func (uc *adminUseCase) calculateRiskScore(login *entities.UserLoginHistory) float64 {
+	score := 0.0
+
+	if !login.Success {
+		score += 30.0 // Failed login adds significant risk
+	}
+
+	// Add more risk factors as needed
+	// - Unusual IP: +20
+	// - Unusual time: +10
+	// - Multiple attempts: +15
+
+	return score
+}
+
+// calculateAdminLoginStats calculates admin-specific login statistics
+func (uc *adminUseCase) calculateAdminLoginStats(ctx context.Context, userID uuid.UUID, dateFrom, dateTo *time.Time) (*AdminLoginStatsInfo, error) {
+	// Use default date range if not provided
+	if dateFrom == nil {
+		defaultFrom := time.Now().AddDate(0, -1, 0) // Last month
+		dateFrom = &defaultFrom
+	}
+	if dateTo == nil {
+		defaultTo := time.Now()
+		dateTo = &defaultTo
+	}
+
+	// Get login attempts in date range
+	totalCount, err := uc.userLoginHistoryRepo.CountLoginAttempts(ctx, userID, *dateFrom)
+	if err != nil {
+		return nil, err
+	}
+
+	failedCount, err := uc.userLoginHistoryRepo.CountFailedAttempts(ctx, userID, *dateFrom)
+	if err != nil {
+		return nil, err
+	}
+
+	successfulCount := totalCount - failedCount
+
+	var successRate float64
+	if totalCount > 0 {
+		successRate = float64(successfulCount) / float64(totalCount) * 100
+	}
+
+	// Get unique IPs count (simplified)
+	logins, err := uc.userLoginHistoryRepo.GetByUserID(ctx, userID, 100, 0)
+	if err != nil {
+		return nil, err
+	}
+
+	uniqueIPs := make(map[string]bool)
+	suspiciousAttempts := int64(0)
+
+	for _, login := range logins {
+		if login.CreatedAt.After(*dateFrom) && login.CreatedAt.Before(*dateTo) {
+			if login.IPAddress != "" {
+				uniqueIPs[login.IPAddress] = true
+			}
+
+			// Count suspicious attempts (simplified logic)
+			if !login.Success || uc.assessLoginRisk(login) {
+				suspiciousAttempts++
+			}
+		}
+	}
+
+	return &AdminLoginStatsInfo{
+		TotalLogins:         totalCount,
+		SuccessfulLogins:    successfulCount,
+		FailedLogins:        failedCount,
+		SuccessRate:         successRate,
+		UniqueIPs:           len(uniqueIPs),
+		SuspiciousAttempts:  suspiciousAttempts,
+		BlockedAttempts:     0, // Would need additional tracking
+	}, nil
+}
+
+// calculateLoginSummaryStats calculates summary statistics for login history
+func (uc *adminUseCase) calculateLoginSummaryStats(logins []AdminAllLoginHistoryItem) *LoginSummaryStats {
+	if len(logins) == 0 {
+		return &LoginSummaryStats{}
+	}
+
+	var totalLogins, successfulLogins, failedLogins int64
+	uniqueUsers := make(map[uuid.UUID]bool)
+	uniqueIPs := make(map[string]bool)
+	suspiciousAttempts := int64(0)
+
+	for _, login := range logins {
+		totalLogins++
+		uniqueUsers[login.UserID] = true
+		uniqueIPs[login.IPAddress] = true
+
+		if login.Success {
+			successfulLogins++
+		} else {
+			failedLogins++
+		}
+
+		if login.RiskScore >= 50 { // Threshold for suspicious
+			suspiciousAttempts++
+		}
+	}
+
+	var successRate float64
+	if totalLogins > 0 {
+		successRate = float64(successfulLogins) / float64(totalLogins) * 100
+	}
+
+	return &LoginSummaryStats{
+		TotalLogins:         totalLogins,
+		SuccessfulLogins:    successfulLogins,
+		FailedLogins:        failedLogins,
+		SuccessRate:         successRate,
+		UniqueUsers:         len(uniqueUsers),
+		UniqueIPs:           len(uniqueIPs),
+		SuspiciousAttempts:  suspiciousAttempts,
+	}
+}
+
+// calculateRiskSummary calculates risk summary from suspicious activities
+func (uc *adminUseCase) calculateRiskSummary(activities []SuspiciousActivity) *RiskSummary {
+	if len(activities) == 0 {
+		return &RiskSummary{}
+	}
+
+	var highRisk, mediumRisk, lowRisk int64
+	var totalRiskScore float64
+
+	for _, activity := range activities {
+		totalRiskScore += activity.RiskScore
+
+		if activity.RiskScore >= 80 {
+			highRisk++
+		} else if activity.RiskScore >= 50 {
+			mediumRisk++
+		} else {
+			lowRisk++
+		}
+	}
+
+	averageRiskScore := totalRiskScore / float64(len(activities))
+
+	return &RiskSummary{
+		HighRiskActivities:   highRisk,
+		MediumRiskActivities: mediumRisk,
+		LowRiskActivities:    lowRisk,
+		AverageRiskScore:     averageRiskScore,
+	}
+}
+
+// calculateLoginSummaryFromEntities calculates summary from login entities
+func (uc *adminUseCase) calculateLoginSummaryFromEntities(logins []entities.UserLoginHistory) *LoginSummaryStats {
+	if len(logins) == 0 {
+		return &LoginSummaryStats{}
+	}
+
+	var totalLogins, successfulLogins, failedLogins int64
+	uniqueUsers := make(map[uuid.UUID]bool)
+	uniqueIPs := make(map[string]bool)
+	suspiciousAttempts := int64(0)
+
+	for _, login := range logins {
+		totalLogins++
+		uniqueUsers[login.UserID] = true
+		uniqueIPs[login.IPAddress] = true
+
+		if login.Success {
+			successfulLogins++
+		} else {
+			failedLogins++
+			suspiciousAttempts++ // Failed logins are suspicious
+		}
+	}
+
+	var successRate float64
+	if totalLogins > 0 {
+		successRate = float64(successfulLogins) / float64(totalLogins) * 100
+	}
+
+	return &LoginSummaryStats{
+		TotalLogins:         totalLogins,
+		SuccessfulLogins:    successfulLogins,
+		FailedLogins:        failedLogins,
+		SuccessRate:         successRate,
+		UniqueUsers:         len(uniqueUsers),
+		UniqueIPs:           len(uniqueIPs),
+		SuspiciousAttempts:  suspiciousAttempts,
+	}
+}
+
+// calculateSecurityMetrics calculates security metrics
+func (uc *adminUseCase) calculateSecurityMetrics(logins []entities.UserLoginHistory, users []*entities.User) *SecurityMetrics {
+	if len(logins) == 0 {
+		return &SecurityMetrics{}
+	}
+
+	var failedLogins int64
+	ipMap := make(map[string]bool)
+	userDeviceMap := make(map[uuid.UUID]map[string]bool)
+
+	for _, login := range logins {
+		if !login.Success {
+			failedLogins++
+		}
+
+		ipMap[login.IPAddress] = true
+
+		if userDeviceMap[login.UserID] == nil {
+			userDeviceMap[login.UserID] = make(map[string]bool)
+		}
+		userDeviceMap[login.UserID][login.DeviceInfo] = true
+	}
+
+	failedLoginRate := float64(failedLogins) / float64(len(logins)) * 100
+
+	multipleDeviceUsers := 0
+	for _, devices := range userDeviceMap {
+		if len(devices) > 1 {
+			multipleDeviceUsers++
+		}
+	}
+
+	return &SecurityMetrics{
+		FailedLoginRate:     failedLoginRate,
+		UnusualIPCount:      len(ipMap), // Simplified - would need baseline comparison
+		MultipleDeviceUsers: multipleDeviceUsers,
+		SuspiciousPatterns:  int(failedLogins), // Simplified
+		BlockedIPs:          0, // Would need IP blocking system
+	}
 }
 
 type CohortData struct {

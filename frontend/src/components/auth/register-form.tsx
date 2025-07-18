@@ -55,9 +55,14 @@ export function RegisterForm() {
       clearError()
       const { confirm_password, ...registerData } = data
       await registerUser(registerData as RegisterRequest)
-      toast.success('Account created successfully! Please login to continue.')
-      // Redirect to login page since backend register doesn't auto-login
-      router.push('/auth/login')
+      // Save email for verification purposes
+      localStorage.setItem('pendingVerificationEmail', data.email)
+
+      toast.success('Account created successfully! Please check your email to verify your account before logging in.', {
+        duration: 6000,
+      })
+      // Redirect to login page with verification message and email
+      router.push(`/auth/login?message=verify-email&email=${encodeURIComponent(data.email)}`)
     } catch (error: any) {
       if (error.code === 'VALIDATION_ERROR' && error.details) {
         // Handle field-specific validation errors

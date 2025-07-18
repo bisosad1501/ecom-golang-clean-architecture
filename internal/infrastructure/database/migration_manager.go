@@ -6,6 +6,8 @@ import (
 	"log"
 	"time"
 
+	"ecom-golang-clean-architecture/internal/domain/entities"
+
 	"gorm.io/gorm"
 )
 
@@ -267,6 +269,12 @@ func getMigrations() []Migration {
 			Up:      migration012Up,
 			Down:    migration012Down,
 		},
+		{
+			Version: "013_add_email_system",
+			Name:    "Add email system tables",
+			Up:      migration013Up,
+			Down:    migration013Down,
+		},
 		// Temporarily disabled due to product_tags issue
 		// {
 		// 	Version: "006_enhance_search",
@@ -275,4 +283,34 @@ func getMigrations() []Migration {
 		// 	Down:    migration006Down,
 		// },
 	}
+}
+
+// migration013Up adds email system tables
+func migration013Up(db *gorm.DB) error {
+	// Create email system tables
+	if err := db.AutoMigrate(
+		&entities.Email{},
+		&entities.EmailTemplate{},
+		&entities.EmailSubscription{},
+	); err != nil {
+		return fmt.Errorf("failed to create email system tables: %w", err)
+	}
+
+	return nil
+}
+
+// migration013Down removes email system tables
+func migration013Down(db *gorm.DB) error {
+	// Drop email system tables
+	if err := db.Migrator().DropTable(&entities.EmailSubscription{}); err != nil {
+		return fmt.Errorf("failed to drop email_subscriptions table: %w", err)
+	}
+	if err := db.Migrator().DropTable(&entities.EmailTemplate{}); err != nil {
+		return fmt.Errorf("failed to drop email_templates table: %w", err)
+	}
+	if err := db.Migrator().DropTable(&entities.Email{}); err != nil {
+		return fmt.Errorf("failed to drop emails table: %w", err)
+	}
+
+	return nil
 }

@@ -555,6 +555,49 @@ export const authApi = {
 
     return authData
   },
+
+  // Email verification methods
+  verifyEmail: async (token: string): Promise<any> => {
+    console.log('authApi.verifyEmail - Using Axios client')
+    const response = await apiClient.get<any>(`/auth/verify-email?token=${token}`)
+    console.log('authApi.verifyEmail - Raw response:', response)
+
+    const verificationData = response.data
+    if (!verificationData) {
+      throw new Error('Invalid verification response format')
+    }
+
+    console.log('authApi.verifyEmail - Verification data:', verificationData)
+    return verificationData
+  },
+
+  sendEmailVerification: async (): Promise<any> => {
+    console.log('authApi.sendEmailVerification - Using Axios client')
+    const response = await apiClient.post<any>('/users/verification/email/send', {})
+    console.log('authApi.sendEmailVerification - Raw response:', response)
+
+    const result = response.data
+    if (!result) {
+      throw new Error('Invalid send verification response format')
+    }
+
+    console.log('authApi.sendEmailVerification - Result:', result)
+    return result
+  },
+
+  resendVerification: async (email: string): Promise<any> => {
+    console.log('authApi.resendVerification - Using Axios client')
+    const response = await apiClient.post<any>('/auth/resend-verification', { email })
+    console.log('authApi.resendVerification - Raw response:', response)
+
+    const result = response.data
+    if (!result) {
+      throw new Error('Invalid resend verification response format')
+    }
+
+    console.log('authApi.resendVerification - Result:', result)
+    return result
+  },
 }
 
 // Helper function to build query string

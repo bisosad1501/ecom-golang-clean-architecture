@@ -98,7 +98,7 @@ export function AdminReviewsPage() {
   };
 
   const filteredReviews = reviewsData?.reviews.filter(review =>
-    review.comment.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    review.comment?.toLowerCase().includes(searchTerm.toLowerCase()) ||
     review.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
     `${review.user.first_name} ${review.user.last_name}`.toLowerCase().includes(searchTerm.toLowerCase())
   ) || [];

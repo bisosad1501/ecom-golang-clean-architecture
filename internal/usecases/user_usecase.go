@@ -69,6 +69,10 @@ type UserUseCase interface {
 	GetPersonalizedRecommendations(ctx context.Context, userID uuid.UUID, req PersonalizedRecommendationsRequest) (*PersonalizedRecommendationsResponse, error)
 	AnalyzeUserBehavior(ctx context.Context, userID uuid.UUID) (*UserBehaviorAnalysisResponse, error)
 
+	// Login History
+	GetLoginHistory(ctx context.Context, userID uuid.UUID, req LoginHistoryRequest) (*LoginHistoryResponse, error)
+	GetLoginStats(ctx context.Context, userID uuid.UUID) (*LoginStatsResponse, error)
+
 	// Profile analytics
 	GetProfileAnalytics(ctx context.Context, userID uuid.UUID) (*ProfileAnalyticsResponse, error)
 	GetActivitySummary(ctx context.Context, userID uuid.UUID, timeRange string) (*ActivitySummaryResponse, error)
@@ -77,8 +81,7 @@ type UserUseCase interface {
 	// User verification methods
 	SendEmailVerification(ctx context.Context, userID uuid.UUID) error
 	VerifyEmail(ctx context.Context, token string) error
-	SendPhoneVerification(ctx context.Context, userID uuid.UUID, phone string) error
-	VerifyPhone(ctx context.Context, userID uuid.UUID, code string) error
+	VerifyEmailByToken(ctx context.Context, token string) (*UserResponse, error)
 	GetVerificationStatus(ctx context.Context, userID uuid.UUID) (*VerificationStatusResponse, error)
 }
 
@@ -97,9 +100,20 @@ type userUseCase struct {
 	userVerificationRepo repositories.UserVerificationRepository
 	passwordResetRepo    repositories.PasswordResetRepository
 	passwordService      services.PasswordService
+	gmailService         GmailService
 	notificationService  UserNotificationService
 	jwtSecret            string
 }
+
+// GmailService interface for email operations
+type GmailService interface {
+	SendVerificationEmail(ctx context.Context, to, firstName, verificationLink string) error
+	SendPasswordResetEmail(ctx context.Context, to, firstName, resetLink string) error
+	SendWelcomeEmail(ctx context.Context, to, firstName string) error
+	ValidateConfiguration() error
+}
+
+
 
 // NewUserUseCase creates a new user use case
 func NewUserUseCase(
@@ -112,6 +126,7 @@ func NewUserUseCase(
 	userVerificationRepo repositories.UserVerificationRepository,
 	passwordResetRepo repositories.PasswordResetRepository,
 	passwordService services.PasswordService,
+	gmailService GmailService,
 	notificationService UserNotificationService,
 	jwtSecret string,
 ) UserUseCase {
@@ -125,6 +140,7 @@ func NewUserUseCase(
 		userVerificationRepo: userVerificationRepo,
 		passwordResetRepo:    passwordResetRepo,
 		passwordService:      passwordService,
+		gmailService:         gmailService,
 		notificationService:  notificationService,
 		jwtSecret:            jwtSecret,
 	}
@@ -141,8 +157,11 @@ type RegisterRequest struct {
 
 // LoginRequest represents user login request
 type LoginRequest struct {
-	Email    string `json:"email" validate:"required,email"`
-	Password string `json:"password" validate:"required"`
+	Email      string `json:"email" validate:"required,email"`
+	Password   string `json:"password" validate:"required"`
+	IPAddress  string `json:"ip_address,omitempty"`  // Client IP address
+	UserAgent  string `json:"user_agent,omitempty"`  // Browser/client user agent
+	DeviceInfo string `json:"device_info,omitempty"` // Device information
 }
 
 // ForgotPasswordRequest represents forgot password request
@@ -424,6 +443,13 @@ func (uc *userUseCase) Register(ctx context.Context, req RegisterRequest) (*User
 		return nil, err
 	}
 
+	// Send email verification automatically after registration
+	go func() {
+		if err := uc.SendEmailVerification(context.Background(), user.ID); err != nil {
+			fmt.Printf("❌ Failed to send email verification to %s: %v\n", user.Email, err)
+		}
+	}()
+
 	// Send new user notification to admin (async)
 	if uc.notificationService != nil {
 		go func() {
@@ -585,7 +611,7 @@ func (uc *userUseCase) Login(ctx context.Context, req LoginRequest) (*LoginRespo
 	user, err := uc.userRepo.GetByEmail(ctx, req.Email)
 	if err != nil {
 		// Log failed login attempt
-		_ = uc.logLoginAttempt(ctx, req.Email, false, "user not found", "127.0.0.1")
+		_ = uc.logLoginAttemptEnhanced(ctx, req.Email, false, "user not found", req.IPAddress, req.UserAgent, req.DeviceInfo)
 		_ = uc.incrementFailedLoginAttempts(ctx, req.Email)
 		return nil, entities.ErrInvalidCredentials
 	}
@@ -593,15 +619,23 @@ func (uc *userUseCase) Login(ctx context.Context, req LoginRequest) (*LoginRespo
 	// Check if user is active
 	if !user.IsActive {
 		// Log failed login attempt
-		_ = uc.logLoginAttempt(ctx, req.Email, false, "user not active", "127.0.0.1")
+		_ = uc.logLoginAttemptEnhanced(ctx, req.Email, false, "user not active", req.IPAddress, req.UserAgent, req.DeviceInfo)
 		_ = uc.incrementFailedLoginAttempts(ctx, req.Email)
 		return nil, entities.ErrUserNotActive
+	}
+
+	// Check if email is verified
+	if !user.EmailVerified {
+		// Log failed login attempt
+		_ = uc.logLoginAttemptEnhanced(ctx, req.Email, false, "email not verified", req.IPAddress, req.UserAgent, req.DeviceInfo)
+		_ = uc.incrementFailedLoginAttempts(ctx, req.Email)
+		return nil, fmt.Errorf("email not verified. Please check your email and verify your account before logging in")
 	}
 
 	// Check password
 	if err := uc.passwordService.CheckPassword(req.Password, user.Password); err != nil {
 		// Log failed login attempt
-		_ = uc.logLoginAttempt(ctx, req.Email, false, "invalid password", "127.0.0.1")
+		_ = uc.logLoginAttemptEnhanced(ctx, req.Email, false, "invalid password", req.IPAddress, req.UserAgent, req.DeviceInfo)
 		_ = uc.incrementFailedLoginAttempts(ctx, req.Email)
 		return nil, entities.ErrInvalidCredentials
 	}
@@ -621,15 +655,15 @@ func (uc *userUseCase) Login(ctx context.Context, req LoginRequest) (*LoginRespo
 		return nil, err
 	}
 
-	// Create user session
+	// Create user session with enhanced tracking
 	session := &entities.UserSession{
 		ID:           uuid.New(),
 		UserID:       user.ID,
 		SessionToken: token,
-		DeviceInfo:   "",          // TODO: Extract from request
-		IPAddress:    "127.0.0.1", // Default IP for now, TODO: Extract from request
-		UserAgent:    "",          // TODO: Extract from request
-		Location:     "",          // TODO: Extract from request
+		DeviceInfo:   req.DeviceInfo,
+		IPAddress:    req.IPAddress,
+		UserAgent:    req.UserAgent,
+		Location:     uc.getLocationFromIP(req.IPAddress), // TODO: Implement IP geolocation
 		IsActive:     true,
 		LastActivity: time.Now(),
 		ExpiresAt:    time.Now().Add(time.Hour * 24),
@@ -650,8 +684,8 @@ func (uc *userUseCase) Login(ctx context.Context, req LoginRequest) (*LoginRespo
 	user.UpdatedAt = now
 	_ = uc.userRepo.Update(ctx, user)
 
-	// Log successful login attempt
-	_ = uc.logLoginAttempt(ctx, req.Email, true, "", "127.0.0.1")
+	// Log successful login attempt with enhanced tracking
+	_ = uc.logLoginAttemptEnhanced(ctx, req.Email, true, "", req.IPAddress, req.UserAgent, req.DeviceInfo)
 
 	return &LoginResponse{
 		User:         uc.toUserResponse(user),
@@ -1223,9 +1257,17 @@ func (uc *userUseCase) SendEmailVerification(ctx context.Context, userID uuid.UU
 		}
 	}
 
-	// Log verification token for testing
-	fmt.Printf("Email verification token for %s: %s\n", user.Email, token)
-	fmt.Printf("Verification link: http://localhost:3000/verify-email?token=%s\n", token)
+	// Send email verification via Gmail service
+	verificationLink := fmt.Sprintf("http://localhost:8080/api/v1/auth/verify-email?token=%s", token)
+
+	if err := uc.gmailService.SendVerificationEmail(ctx, user.Email, user.FirstName, verificationLink); err != nil {
+		// Log error but don't fail the operation - fallback to console logging
+		fmt.Printf("⚠️ Failed to send email verification to %s: %v\n", user.Email, err)
+		fmt.Printf("📧 FALLBACK - Email verification token for %s: %s\n", user.Email, token)
+		fmt.Printf("📧 FALLBACK - Verification link: %s\n", verificationLink)
+	} else {
+		fmt.Printf("✅ Email verification sent to %s\n", user.Email)
+	}
 
 	// Track activity
 	_ = uc.TrackUserActivity(ctx, userID, "profile_update", "Email verification sent", "user", &user.ID, nil)
@@ -1286,128 +1328,63 @@ func (uc *userUseCase) VerifyEmail(ctx context.Context, token string) error {
 	return nil
 }
 
-// SendPhoneVerification sends phone verification
-func (uc *userUseCase) SendPhoneVerification(ctx context.Context, userID uuid.UUID, phone string) error {
-	user, err := uc.userRepo.GetByID(ctx, userID)
+// VerifyEmailByToken verifies email using verification token from link
+func (uc *userUseCase) VerifyEmailByToken(ctx context.Context, token string) (*UserResponse, error) {
+	if token == "" {
+		return nil, fmt.Errorf("verification token is required")
+	}
+
+	// Find verification record by token
+	verification, err := uc.userVerificationRepo.GetByCode(ctx, token, "email")
 	if err != nil {
-		return entities.ErrUserNotFound
+		return nil, fmt.Errorf("invalid or expired verification token")
 	}
 
-	// Generate 6-digit OTP code
-	code := fmt.Sprintf("%06d", time.Now().UnixNano()%1000000)
-
-	// Check if verification record already exists for this user (any type)
-	existingVerification, err := uc.userVerificationRepo.GetByUserID(ctx, userID)
-	if err != nil && err != entities.ErrUserNotFound {
-		return fmt.Errorf("failed to check existing verification: %w", err)
+	// Check if token is expired
+	if verification.CodeExpiresAt != nil && time.Now().After(*verification.CodeExpiresAt) {
+		return nil, fmt.Errorf("verification token has expired")
 	}
 
-	expiresAt := time.Now().Add(10 * time.Minute)
-
-	if existingVerification != nil {
-		// Update existing verification record for phone verification
-		existingVerification.VerificationCode = code
-		existingVerification.CodeExpiresAt = &expiresAt
-		existingVerification.VerificationType = "phone"
-		existingVerification.IsUsed = false
-		existingVerification.VerifiedAt = nil
-		existingVerification.UpdatedAt = time.Now()
-
-		if err := uc.userVerificationRepo.Update(ctx, existingVerification); err != nil {
-			return fmt.Errorf("failed to update verification record: %w", err)
-		}
-	} else {
-		// Create new verification record
-		verification := &entities.UserVerification{
-			ID:               uuid.New(),
-			UserID:           userID,
-			VerificationType: "phone",
-			VerificationCode: code,
-			CodeExpiresAt:    &expiresAt, // 10 minutes expiry
-			IsUsed:           false,
-			CreatedAt:        time.Now(),
-			UpdatedAt:        time.Now(),
-		}
-
-		if err := uc.userVerificationRepo.Create(ctx, verification); err != nil {
-			return fmt.Errorf("failed to create verification record: %w", err)
-		}
-	}
-
-	// Update user phone if provided
-	if phone != "" && phone != user.Phone {
-		user.Phone = phone
-		user.UpdatedAt = time.Now()
-		if err := uc.userRepo.Update(ctx, user); err != nil {
-			return fmt.Errorf("failed to update user phone: %w", err)
-		}
-	}
-
-	// Log verification code for testing
-	fmt.Printf("Phone verification code for user %s (phone: %s): %s\n", userID, phone, code)
-
-	// Track activity
-	_ = uc.TrackUserActivity(ctx, userID, "profile_update", "Phone verification sent", "user", &userID, nil)
-
-	return nil
-}
-
-// VerifyPhone verifies phone with code
-func (uc *userUseCase) VerifyPhone(ctx context.Context, userID uuid.UUID, code string) error {
-	if code == "" {
-		return entities.ErrInvalidVerificationCode
-	}
-
-	// Find verification record by code and user
-	verification, err := uc.userVerificationRepo.GetByCode(ctx, code, "phone")
-	if err != nil {
-		return entities.ErrAccountVerificationNotFound
-	}
-
-	// Check if verification belongs to this user
-	if verification.UserID != userID {
-		return entities.ErrInvalidVerificationCode
-	}
-
-	// Check if verification is expired
-	if verification.IsExpired() {
-		return entities.ErrVerificationCodeExpired
-	}
-
-	// Check if verification is already used
+	// Check if token is already used
 	if verification.IsUsed {
-		return fmt.Errorf("verification code already used")
+		return nil, fmt.Errorf("verification token has already been used")
+	}
+
+	// Get user
+	user, err := uc.userRepo.GetByID(ctx, verification.UserID)
+	if err != nil {
+		return nil, fmt.Errorf("user not found")
+	}
+
+	// Check if email is already verified
+	if user.EmailVerified {
+		return nil, fmt.Errorf("email is already verified")
 	}
 
 	// Mark verification as used
+	now := time.Now()
 	verification.IsUsed = true
-	verifiedAt := time.Now()
-	verification.VerifiedAt = &verifiedAt
-	verification.UpdatedAt = time.Now()
+	verification.VerifiedAt = &now
+	verification.UpdatedAt = now
 
 	if err := uc.userVerificationRepo.Update(ctx, verification); err != nil {
-		return fmt.Errorf("failed to update verification record: %w", err)
+		return nil, fmt.Errorf("failed to update verification record: %w", err)
 	}
 
-	// Mark user phone as verified
-	user, err := uc.userRepo.GetByID(ctx, userID)
-	if err != nil {
-		return entities.ErrUserNotFound
-	}
-
-	user.PhoneVerified = true
-	user.UpdatedAt = time.Now()
+	// Mark user email as verified
+	user.EmailVerified = true
+	user.UpdatedAt = now
 
 	if err := uc.userRepo.Update(ctx, user); err != nil {
-		return fmt.Errorf("failed to update user: %w", err)
+		return nil, fmt.Errorf("failed to update user: %w", err)
 	}
 
 	// Track activity
-	_ = uc.TrackUserActivity(ctx, userID, "profile_update", "Phone verified", "user", &userID, nil)
+	_ = uc.TrackUserActivity(ctx, user.ID, "profile_update", "Email verified", "user", &user.ID, nil)
 
-	fmt.Printf("Phone verification successful for user: %s\n", userID)
+	fmt.Printf("✅ Email verification successful for user: %s (%s)\n", user.Email, user.ID)
 
-	return nil
+	return uc.toUserResponse(user), nil
 }
 
 // GetVerificationStatus gets verification status
@@ -1516,9 +1493,17 @@ func (uc *userUseCase) ForgotPassword(ctx context.Context, req ForgotPasswordReq
 		return fmt.Errorf("failed to create password reset record: %w", err)
 	}
 
-	// Log reset token for testing
-	fmt.Printf("Password reset token for %s: %s\n", user.Email, resetToken)
-	fmt.Printf("Reset link: http://localhost:3000/reset-password?token=%s\n", resetToken)
+	// Send password reset email via Gmail service
+	resetLink := fmt.Sprintf("http://localhost:3000/reset-password?token=%s", resetToken)
+
+	if err := uc.gmailService.SendPasswordResetEmail(ctx, user.Email, user.FirstName, resetLink); err != nil {
+		// Log error but don't fail the operation - fallback to console logging
+		fmt.Printf("⚠️ Failed to send password reset email to %s: %v\n", user.Email, err)
+		fmt.Printf("📧 FALLBACK - Password reset token for %s: %s\n", user.Email, resetToken)
+		fmt.Printf("📧 FALLBACK - Reset link: %s\n", resetLink)
+	} else {
+		fmt.Printf("✅ Password reset email sent to %s\n", user.Email)
+	}
 
 	return nil
 }
@@ -1603,10 +1588,13 @@ func (uc *userUseCase) ResendVerification(ctx context.Context, req ResendVerific
 		return fmt.Errorf("email already verified")
 	}
 
-	// For now, just log the verification request
-	// TODO: Implement proper email verification sending
-	fmt.Printf("Email verification resent for: %s\n", user.Email)
+	// Send email verification using the existing SendEmailVerification method
+	if err := uc.SendEmailVerification(ctx, user.ID); err != nil {
+		fmt.Printf("❌ Failed to resend email verification to %s: %v\n", user.Email, err)
+		return fmt.Errorf("failed to send verification email")
+	}
 
+	fmt.Printf("✅ Email verification resent for: %s\n", user.Email)
 	return nil
 }
 
@@ -2346,21 +2334,239 @@ type ActionData struct {
 	Count  int    `json:"count"`
 }
 
-// logLoginAttempt logs a login attempt
-func (uc *userUseCase) logLoginAttempt(ctx context.Context, email string, success bool, failReason string, ipAddress string) error {
+// GetLoginHistory retrieves user's login history
+func (uc *userUseCase) GetLoginHistory(ctx context.Context, userID uuid.UUID, req LoginHistoryRequest) (*LoginHistoryResponse, error) {
+	// Set default values
+	if req.Limit == 0 {
+		req.Limit = 20
+	}
+	if req.Limit > 100 {
+		req.Limit = 100
+	}
+	if req.Offset < 0 {
+		req.Offset = 0
+	}
+
+	// Get login history from repository
+	loginHistoryEntities, err := uc.userLoginHistoryRepo.GetByUserID(ctx, userID, req.Limit, req.Offset)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get login history: %w", err)
+	}
+
+	// Convert to response format
+	loginHistory := make([]LoginHistoryItem, len(loginHistoryEntities))
+	for i, entity := range loginHistoryEntities {
+		loginHistory[i] = LoginHistoryItem{
+			ID:         entity.ID,
+			IPAddress:  entity.IPAddress,
+			UserAgent:  entity.UserAgent,
+			DeviceInfo: entity.DeviceInfo,
+			Location:   entity.Location,
+			LoginType:  entity.LoginType,
+			Success:    entity.Success,
+			FailReason: entity.FailReason,
+			CreatedAt:  entity.CreatedAt,
+		}
+	}
+
+	// Get total count for pagination
+	totalCount, err := uc.userLoginHistoryRepo.CountLoginAttempts(ctx, userID, time.Time{})
+	if err != nil {
+		totalCount = int64(len(loginHistory))
+	}
+
+	// Calculate stats
+	stats, err := uc.calculateLoginStats(ctx, userID, req.DateFrom, req.DateTo)
+	if err != nil {
+		// Log error but don't fail the request
+		stats = nil
+	}
+
+	// Create pagination info
+	pagination := &PaginationInfo{
+		Page:       (req.Offset / req.Limit) + 1,
+		Limit:      req.Limit,
+		Total:      totalCount,
+		TotalPages: int((totalCount + int64(req.Limit) - 1) / int64(req.Limit)),
+	}
+
+	return &LoginHistoryResponse{
+		LoginHistory: loginHistory,
+		Total:        totalCount,
+		Pagination:   pagination,
+		Stats:        stats,
+	}, nil
+}
+
+// GetLoginStats retrieves user's login statistics
+func (uc *userUseCase) GetLoginStats(ctx context.Context, userID uuid.UUID) (*LoginStatsResponse, error) {
+	// Get all login attempts
+	allLogins, err := uc.userLoginHistoryRepo.GetByUserID(ctx, userID, 1000, 0)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get login history: %w", err)
+	}
+
+	// Calculate statistics
+	var totalLogins, successfulLogins, failedLogins int64
+	var lastLogin, lastFailedLogin *time.Time
+	uniqueIPs := make(map[string]bool)
+	uniqueDevices := make(map[string]bool)
+	deviceCount := make(map[string]int)
+	locationCount := make(map[string]int)
+
+	// Recent failed attempts (last 24 hours)
+	recentFailedAttempts, _ := uc.userLoginHistoryRepo.CountFailedAttempts(ctx, userID, time.Now().Add(-24*time.Hour))
+
+	for _, login := range allLogins {
+		totalLogins++
+
+		if login.Success {
+			successfulLogins++
+			if lastLogin == nil || login.CreatedAt.After(*lastLogin) {
+				lastLogin = &login.CreatedAt
+			}
+		} else {
+			failedLogins++
+			if lastFailedLogin == nil || login.CreatedAt.After(*lastFailedLogin) {
+				lastFailedLogin = &login.CreatedAt
+			}
+		}
+
+		// Track unique IPs
+		if login.IPAddress != "" {
+			uniqueIPs[login.IPAddress] = true
+		}
+
+		// Track unique devices
+		if login.DeviceInfo != "" {
+			uniqueDevices[login.DeviceInfo] = true
+			deviceCount[login.DeviceInfo]++
+		}
+
+		// Track locations
+		if login.Location != "" {
+			locationCount[login.Location]++
+		}
+	}
+
+	// Calculate success rate
+	var successRate float64
+	if totalLogins > 0 {
+		successRate = float64(successfulLogins) / float64(totalLogins) * 100
+	}
+
+	// Find most used device and location
+	var mostUsedDevice, mostUsedLocation string
+	maxDeviceCount, maxLocationCount := 0, 0
+
+	for device, count := range deviceCount {
+		if count > maxDeviceCount {
+			maxDeviceCount = count
+			mostUsedDevice = device
+		}
+	}
+
+	for location, count := range locationCount {
+		if count > maxLocationCount {
+			maxLocationCount = count
+			mostUsedLocation = location
+		}
+	}
+
+	return &LoginStatsResponse{
+		UserID:               userID,
+		TotalLogins:          totalLogins,
+		SuccessfulLogins:     successfulLogins,
+		FailedLogins:         failedLogins,
+		SuccessRate:          successRate,
+		LastLogin:            lastLogin,
+		LastFailedLogin:      lastFailedLogin,
+		UniqueIPs:            len(uniqueIPs),
+		UniqueDevices:        len(uniqueDevices),
+		MostUsedDevice:       mostUsedDevice,
+		MostUsedLocation:     mostUsedLocation,
+		RecentFailedAttempts: recentFailedAttempts,
+	}, nil
+}
+
+// calculateLoginStats calculates login statistics for a date range
+func (uc *userUseCase) calculateLoginStats(ctx context.Context, userID uuid.UUID, dateFrom, dateTo *time.Time) (*LoginStatsInfo, error) {
+	// Use default date range if not provided
+	if dateFrom == nil {
+		defaultFrom := time.Now().AddDate(0, -1, 0) // Last month
+		dateFrom = &defaultFrom
+	}
+	if dateTo == nil {
+		defaultTo := time.Now()
+		dateTo = &defaultTo
+	}
+
+	// Get login attempts in date range
+	totalCount, err := uc.userLoginHistoryRepo.CountLoginAttempts(ctx, userID, *dateFrom)
+	if err != nil {
+		return nil, err
+	}
+
+	failedCount, err := uc.userLoginHistoryRepo.CountFailedAttempts(ctx, userID, *dateFrom)
+	if err != nil {
+		return nil, err
+	}
+
+	successfulCount := totalCount - failedCount
+
+	var successRate float64
+	if totalCount > 0 {
+		successRate = float64(successfulCount) / float64(totalCount) * 100
+	}
+
+	// Get unique IPs count (simplified - would need additional repository method for exact count)
+	logins, err := uc.userLoginHistoryRepo.GetByUserID(ctx, userID, 100, 0)
+	if err != nil {
+		return nil, err
+	}
+
+	uniqueIPs := make(map[string]bool)
+	for _, login := range logins {
+		if login.IPAddress != "" && login.CreatedAt.After(*dateFrom) && login.CreatedAt.Before(*dateTo) {
+			uniqueIPs[login.IPAddress] = true
+		}
+	}
+
+	return &LoginStatsInfo{
+		TotalLogins:      totalCount,
+		SuccessfulLogins: successfulCount,
+		FailedLogins:     failedCount,
+		SuccessRate:      successRate,
+		UniqueIPs:        len(uniqueIPs),
+	}, nil
+}
+
+// logLoginAttemptEnhanced logs a login attempt with enhanced tracking information
+func (uc *userUseCase) logLoginAttemptEnhanced(ctx context.Context, email string, success bool, failReason string, ipAddress, userAgent, deviceInfo string) error {
 	// Try to get user ID by email
 	var userID uuid.UUID
 	if user, err := uc.userRepo.GetByEmail(ctx, email); err == nil {
 		userID = user.ID
 	}
 
+	// Set default values if not provided
+	if ipAddress == "" {
+		ipAddress = "unknown"
+	}
+	if userAgent == "" {
+		userAgent = "unknown"
+	}
+	if deviceInfo == "" {
+		deviceInfo = uc.extractDeviceInfoFromUserAgent(userAgent)
+	}
+
 	loginHistory := &entities.UserLoginHistory{
 		ID:         uuid.New(),
 		UserID:     userID,
 		IPAddress:  ipAddress,
-		UserAgent:  "", // TODO: Extract from request context
-		DeviceInfo: "", // TODO: Extract from request context
-		Location:   "", // TODO: Extract from request context
+		UserAgent:  userAgent,
+		DeviceInfo: deviceInfo,
+		Location:   uc.getLocationFromIP(ipAddress),
 		LoginType:  "password",
 		Success:    success,
 		FailReason: failReason,
@@ -2368,4 +2574,116 @@ func (uc *userUseCase) logLoginAttempt(ctx context.Context, email string, succes
 	}
 
 	return uc.userLoginHistoryRepo.Create(ctx, loginHistory)
+}
+
+// logLoginAttempt logs a login attempt (legacy method for backward compatibility)
+func (uc *userUseCase) logLoginAttempt(ctx context.Context, email string, success bool, failReason string, ipAddress string) error {
+	return uc.logLoginAttemptEnhanced(ctx, email, success, failReason, ipAddress, "", "")
+}
+
+// getLocationFromIP gets location information from IP address
+func (uc *userUseCase) getLocationFromIP(ipAddress string) string {
+	// TODO: Implement IP geolocation service integration
+	// For now, return empty string or basic classification
+	if ipAddress == "" || ipAddress == "unknown" || ipAddress == "127.0.0.1" || ipAddress == "::1" {
+		return "Local"
+	}
+
+	// This would integrate with a geolocation service like MaxMind, IPStack, etc.
+	return "Unknown Location"
+}
+
+// extractDeviceInfoFromUserAgent extracts device information from user agent string
+func (uc *userUseCase) extractDeviceInfoFromUserAgent(userAgent string) string {
+	if userAgent == "" || userAgent == "unknown" {
+		return "Unknown Device"
+	}
+
+	// Simple device detection - in production you'd use a proper user agent parser
+	userAgent = strings.ToLower(userAgent)
+
+	if strings.Contains(userAgent, "mobile") || strings.Contains(userAgent, "android") || strings.Contains(userAgent, "iphone") {
+		if strings.Contains(userAgent, "android") {
+			return "Android Mobile"
+		} else if strings.Contains(userAgent, "iphone") {
+			return "iPhone"
+		} else if strings.Contains(userAgent, "ipad") {
+			return "iPad"
+		}
+		return "Mobile Device"
+	} else if strings.Contains(userAgent, "tablet") || strings.Contains(userAgent, "ipad") {
+		return "Tablet"
+	} else if strings.Contains(userAgent, "windows") {
+		return "Windows Desktop"
+	} else if strings.Contains(userAgent, "mac") || strings.Contains(userAgent, "macintosh") {
+		return "Mac Desktop"
+	} else if strings.Contains(userAgent, "linux") {
+		return "Linux Desktop"
+	}
+
+	return "Desktop Browser"
+}
+
+// Login History request/response types
+type LoginHistoryRequest struct {
+	Limit    int        `json:"limit" validate:"min=1,max=100"`
+	Offset   int        `json:"offset" validate:"min=0"`
+	DateFrom *time.Time `json:"date_from,omitempty"`
+	DateTo   *time.Time `json:"date_to,omitempty"`
+	Success  *bool      `json:"success,omitempty"` // Filter by success/failure
+}
+
+type LoginHistoryResponse struct {
+	LoginHistory []LoginHistoryItem `json:"login_history"`
+	Total        int64              `json:"total"`
+	Pagination   *PaginationInfo    `json:"pagination"`
+	Stats        *LoginStatsInfo    `json:"stats,omitempty"`
+}
+
+type LoginHistoryItem struct {
+	ID         uuid.UUID `json:"id"`
+	IPAddress  string    `json:"ip_address"`
+	UserAgent  string    `json:"user_agent"`
+	DeviceInfo string    `json:"device_info"`
+	Location   string    `json:"location"`
+	LoginType  string    `json:"login_type"`
+	Success    bool      `json:"success"`
+	FailReason string    `json:"fail_reason,omitempty"`
+	CreatedAt  time.Time `json:"created_at"`
+}
+
+type LoginStatsRequest struct {
+	DateFrom *time.Time `json:"date_from,omitempty"`
+	DateTo   *time.Time `json:"date_to,omitempty"`
+}
+
+type LoginStatsResponse struct {
+	UserID              uuid.UUID           `json:"user_id"`
+	TotalLogins         int64               `json:"total_logins"`
+	SuccessfulLogins    int64               `json:"successful_logins"`
+	FailedLogins        int64               `json:"failed_logins"`
+	SuccessRate         float64             `json:"success_rate"`
+	LastLogin           *time.Time          `json:"last_login,omitempty"`
+	LastFailedLogin     *time.Time          `json:"last_failed_login,omitempty"`
+	UniqueIPs           int                 `json:"unique_ips"`
+	UniqueDevices       int                 `json:"unique_devices"`
+	MostUsedDevice      string              `json:"most_used_device,omitempty"`
+	MostUsedLocation    string              `json:"most_used_location,omitempty"`
+	RecentFailedAttempts int64              `json:"recent_failed_attempts"` // Last 24h
+	LoginsByDay         []LoginDayStats     `json:"logins_by_day,omitempty"`
+}
+
+type LoginStatsInfo struct {
+	TotalLogins      int64   `json:"total_logins"`
+	SuccessfulLogins int64   `json:"successful_logins"`
+	FailedLogins     int64   `json:"failed_logins"`
+	SuccessRate      float64 `json:"success_rate"`
+	UniqueIPs        int     `json:"unique_ips"`
+}
+
+type LoginDayStats struct {
+	Date             time.Time `json:"date"`
+	TotalLogins      int64     `json:"total_logins"`
+	SuccessfulLogins int64     `json:"successful_logins"`
+	FailedLogins     int64     `json:"failed_logins"`
 }

@@ -86,6 +86,11 @@ func migration001Up(db *gorm.DB) error {
 		&entities.NotificationPreferences{},
 		&entities.NotificationQueue{},
 
+		// Email System
+		&entities.Email{},
+		&entities.EmailTemplate{},
+		&entities.EmailSubscription{},
+
 		// Analytics
 		&entities.AnalyticsEvent{},
 		&entities.SalesReport{},

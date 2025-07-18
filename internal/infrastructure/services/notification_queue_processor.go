@@ -7,6 +7,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/google/uuid"
+
 	"ecom-golang-clean-architecture/internal/domain/entities"
 	"ecom-golang-clean-architecture/internal/domain/repositories"
 	"ecom-golang-clean-architecture/internal/usecases"
@@ -168,11 +170,9 @@ func (p *NotificationQueueProcessor) processBatch(ctx context.Context, workerID 
 func (p *NotificationQueueProcessor) processNotification(ctx context.Context, workerID int, notification *entities.Notification) {
 	log.Printf("Worker %d: Processing notification %s (type: %s)", workerID, notification.ID, notification.Type)
 
-	// Update status to processing
-	notification.Status = entities.NotificationStatusProcessing
-	notification.UpdatedAt = time.Now()
-	if err := p.notificationRepo.Update(ctx, notification); err != nil {
-		log.Printf("Worker %d: Failed to update notification status to processing: %v", workerID, err)
+	// Try to claim the notification atomically (prevent race condition between workers)
+	if !p.claimNotification(ctx, notification.ID, workerID) {
+		log.Printf("Worker %d: Notification %s already claimed by another worker", workerID, notification.ID)
 		return
 	}
 
@@ -185,6 +185,33 @@ func (p *NotificationQueueProcessor) processNotification(ctx context.Context, wo
 	}
 
 	log.Printf("Worker %d: Successfully sent notification %s", workerID, notification.ID)
+}
+
+// claimNotification atomically claims a notification for processing
+func (p *NotificationQueueProcessor) claimNotification(ctx context.Context, notificationID uuid.UUID, workerID int) bool {
+	// Get the notification first to update it
+	notification, err := p.notificationRepo.GetByID(ctx, notificationID)
+	if err != nil {
+		log.Printf("Worker %d: Failed to get notification %s: %v", workerID, notificationID, err)
+		return false
+	}
+
+	// Check if it's still pending
+	if notification.Status != entities.NotificationStatusPending {
+		return false
+	}
+
+	// Try to update the notification status from pending to processing atomically
+	notification.Status = entities.NotificationStatusProcessing
+	notification.UpdatedAt = time.Now()
+
+	if err := p.notificationRepo.Update(ctx, notification); err != nil {
+		log.Printf("Worker %d: Failed to claim notification %s: %v", workerID, notificationID, err)
+		return false
+	}
+
+	log.Printf("Worker %d: Successfully claimed notification %s", workerID, notificationID)
+	return true
 }
 
 // handleFailedNotification handles a failed notification

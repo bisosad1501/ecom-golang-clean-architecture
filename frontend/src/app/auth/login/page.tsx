@@ -1,12 +1,42 @@
 'use client'
 
+import { useEffect, useState } from 'react'
+import { useSearchParams } from 'next/navigation'
 import { LoginForm } from '@/components/auth/login-form'
 import { AuthLayout } from '@/components/auth/auth-layout'
 import Link from 'next/link'
 import { useGuestOnly } from '@/hooks/use-auth-guard'
+import { Alert, AlertDescription } from '@/components/ui/alert'
+import { Mail, CheckCircle } from 'lucide-react'
+import { ResendButton } from '@/components/auth/resend-button'
 
 export default function LoginPage() {
   useGuestOnly()
+
+  const searchParams = useSearchParams()
+  const [showAlert, setShowAlert] = useState(false)
+  const [alertType, setAlertType] = useState<'verify-email' | 'verified'>('verify-email')
+  const [userEmail, setUserEmail] = useState('')
+
+  useEffect(() => {
+    const message = searchParams.get('message')
+    const verified = searchParams.get('verified')
+    const email = searchParams.get('email')
+
+    if (email) {
+      setUserEmail(decodeURIComponent(email))
+    }
+
+    if (message === 'verify-email') {
+      setAlertType('verify-email')
+      setShowAlert(true)
+    } else if (verified === 'true') {
+      setAlertType('verified')
+      setShowAlert(true)
+      // Auto-hide verified message after 5 seconds
+      setTimeout(() => setShowAlert(false), 5000)
+    }
+  }, [searchParams])
 
   const features = [
     {
@@ -71,6 +101,63 @@ export default function LoginPage() {
       features={features}
       bottomContent={bottomContent}
     >
+      {showAlert && (
+        <div className="mb-4">
+          {alertType === 'verify-email' ? (
+            <div className="bg-blue-900/20 border border-blue-500/30 rounded-lg p-3 backdrop-blur-sm">
+              <div className="flex items-start space-x-3">
+                <Mail className="h-5 w-5 text-blue-400 mt-0.5 flex-shrink-0" />
+                <div className="flex-1">
+                  <p className="text-blue-200 text-sm font-medium">Email verification required</p>
+                  <p className="text-blue-300/80 text-xs mt-1">
+                    Check your inbox and click the verification link before logging in.
+                  </p>
+                  {userEmail && (
+                    <div className="mt-2">
+                      <ResendButton
+                        email={userEmail}
+                        variant="ghost"
+                        size="sm"
+                        className="text-xs text-blue-400 hover:text-blue-300 p-0 h-auto font-normal underline hover:no-underline"
+                      />
+                    </div>
+                  )}
+                  {!userEmail && (
+                    <Link
+                      href="/auth/resend-verification"
+                      className="text-blue-400 hover:text-blue-300 text-xs underline hover:no-underline mt-1 inline-block"
+                    >
+                      Resend verification email
+                    </Link>
+                  )}
+                </div>
+                <button
+                  onClick={() => setShowAlert(false)}
+                  className="text-blue-400/60 hover:text-blue-300 text-lg leading-none"
+                >
+                  ×
+                </button>
+              </div>
+            </div>
+          ) : (
+            <div className="bg-green-900/20 border border-green-500/30 rounded-lg p-3 backdrop-blur-sm">
+              <div className="flex items-start space-x-3">
+                <CheckCircle className="h-5 w-5 text-green-400 mt-0.5 flex-shrink-0" />
+                <div className="flex-1">
+                  <p className="text-green-200 text-sm font-medium">Email verified!</p>
+                  <p className="text-green-300/80 text-xs mt-1">You can now log in to your account.</p>
+                </div>
+                <button
+                  onClick={() => setShowAlert(false)}
+                  className="text-green-400/60 hover:text-green-300 text-lg leading-none"
+                >
+                  ×
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
       <LoginForm />
     </AuthLayout>
   )

@@ -55,14 +55,18 @@ type JWTConfig struct {
 	ExpireHours int
 }
 
-// EmailConfig holds email configuration
+// EmailConfig holds Gmail SMTP configuration
 type EmailConfig struct {
 	SMTPHost     string
 	SMTPPort     string
 	SMTPUsername string
 	SMTPPassword string
 	FromEmail    string
+	FromName     string
+	ReplyToEmail string
 }
+
+
 
 // PaymentConfig holds payment configuration
 type PaymentConfig struct {
@@ -132,6 +136,8 @@ func Load() (*Config, error) {
 			SMTPUsername: getEnv("SMTP_USERNAME", ""),
 			SMTPPassword: getEnv("SMTP_PASSWORD", ""),
 			FromEmail:    getEnv("FROM_EMAIL", ""),
+			FromName:     getEnv("FROM_NAME", "BiHub Store"),
+			ReplyToEmail: getEnv("REPLY_TO_EMAIL", ""),
 		},
 		Payment: PaymentConfig{
 			StripeSecretKey:      getEnv("STRIPE_SECRET_KEY", ""),

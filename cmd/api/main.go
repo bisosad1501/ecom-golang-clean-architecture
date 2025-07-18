@@ -67,6 +67,15 @@ func main() {
 		log.Fatal("Failed to run database migrations:", err)
 	}
 
+	// Initialize default email templates
+	emailTemplateRepo := database.NewEmailTemplateRepository(db)
+	emailTemplateService := infraServices.NewEmailTemplateService(emailTemplateRepo)
+	if err := emailTemplateService.InitializeDefaultTemplates(ctx); err != nil {
+		log.Printf("⚠️ Failed to initialize default email templates: %v", err)
+	} else {
+		log.Printf("✅ Default email templates initialized")
+	}
+
 	// Create database indexes
 	if err := database.CreateIndexes(db); err != nil {
 		log.Fatal("Failed to create database indexes:", err)
@@ -141,6 +150,17 @@ func main() {
 
 	fileService := services.NewFileService(storageProvider, fileRepo, fileSecurityService)
 
+	// Initialize Gmail service
+	gmailService := infraServices.NewGmailService(&cfg.Email)
+
+	// Validate Gmail configuration
+	if err := gmailService.ValidateConfiguration(); err != nil {
+		log.Printf("⚠️ Gmail configuration validation failed: %v", err)
+		log.Printf("📧 Email functionality will use fallback console logging")
+	} else {
+		log.Printf("✅ Gmail service configured successfully")
+	}
+
 	// Initialize use cases
 	userUseCase := usecases.NewUserUseCase(
 		userRepo,
@@ -152,6 +172,7 @@ func main() {
 		userVerificationRepo,
 		passwordResetRepo,
 		passwordService,
+		gmailService,
 		nil, // notificationService - will be set later
 		cfg.JWT.Secret,
 	)
@@ -209,6 +230,7 @@ func main() {
 		userVerificationRepo,
 		passwordResetRepo,
 		passwordService,
+		gmailService,
 		notificationUseCase, // Now we have notificationUseCase
 		cfg.JWT.Secret,
 	)
@@ -217,10 +239,10 @@ func main() {
 	queueProcessor := infraServices.NewNotificationQueueProcessor(
 		notificationRepo,
 		notificationUseCase,
-		3,              // workers
-		10,             // batch size
-		30*time.Second, // poll interval
-		5*time.Minute,  // retry interval
+		1,              // workers (reduced to 1 to avoid race conditions)
+		5,              // batch size (reduced for better control)
+		10*time.Second, // poll interval (reduced for faster processing)
+		2*time.Minute,  // retry interval
 		3,              // max retries
 	)
 
@@ -292,7 +314,7 @@ func main() {
 	adminUseCase := usecases.NewAdminUseCase(
 		userRepo, orderRepo, productRepo, reviewRepo,
 		analyticsRepo, inventoryRepo, paymentRepo, auditRepo,
-		orderUseCase,
+		userLoginHistoryRepo, orderUseCase,
 	)
 
 	// Initialize email use case (with nil repositories for now)

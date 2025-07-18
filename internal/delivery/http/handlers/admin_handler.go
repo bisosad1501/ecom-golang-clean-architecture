@@ -1340,3 +1340,207 @@ func (h *AdminHandler) TriggerCleanup(c *gin.Context) {
 		},
 	})
 }
+
+// GetUserLoginHistory retrieves login history for a specific user (admin view)
+// @Summary Get user login history (Admin)
+// @Description Get login history for a specific user with admin privileges
+// @Tags admin
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Param user_id path string true "User ID"
+// @Param limit query int false "Limit" default(50)
+// @Param offset query int false "Offset" default(0)
+// @Param date_from query string false "Date from (RFC3339 format)"
+// @Param date_to query string false "Date to (RFC3339 format)"
+// @Param success query bool false "Filter by success status"
+// @Success 200 {object} usecases.AdminLoginHistoryResponse
+// @Failure 400 {object} ErrorResponse
+// @Failure 403 {object} ErrorResponse
+// @Router /admin/users/{user_id}/login-history [get]
+func (h *AdminHandler) GetUserLoginHistory(c *gin.Context) {
+	userIDStr := c.Param("id")
+	userID, err := uuid.Parse(userIDStr)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, ErrorResponse{
+			Error:   "Invalid user ID",
+			Details: err.Error(),
+		})
+		return
+	}
+
+	var req usecases.AdminLoginHistoryRequest
+	if err := c.ShouldBindQuery(&req); err != nil {
+		c.JSON(http.StatusBadRequest, ErrorResponse{
+			Error:   "Invalid query parameters",
+			Details: err.Error(),
+		})
+		return
+	}
+
+	// Set default values
+	if req.Limit == 0 {
+		req.Limit = 50
+	}
+	if req.Offset < 0 {
+		req.Offset = 0
+	}
+
+	response, err := h.adminUseCase.GetUserLoginHistory(c.Request.Context(), userID, req)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, ErrorResponse{
+			Error:   "Failed to get user login history",
+			Details: err.Error(),
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, SuccessResponse{
+		Message: "User login history retrieved successfully",
+		Data:    response,
+	})
+}
+
+// GetAllUsersLoginHistory retrieves login history for all users (admin overview)
+// @Summary Get all users login history (Admin)
+// @Description Get login history overview for all users with filtering and search
+// @Tags admin
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Param limit query int false "Limit" default(50)
+// @Param offset query int false "Offset" default(0)
+// @Param date_from query string false "Date from (RFC3339 format)"
+// @Param date_to query string false "Date to (RFC3339 format)"
+// @Param success query bool false "Filter by success status"
+// @Param user_id query string false "Filter by user ID"
+// @Param ip_address query string false "Filter by IP address"
+// @Param search query string false "Search by email, name, or IP"
+// @Success 200 {object} usecases.AdminAllLoginHistoryResponse
+// @Failure 400 {object} ErrorResponse
+// @Failure 403 {object} ErrorResponse
+// @Router /admin/users/login-history [get]
+func (h *AdminHandler) GetAllUsersLoginHistory(c *gin.Context) {
+	var req usecases.AdminAllLoginHistoryRequest
+	if err := c.ShouldBindQuery(&req); err != nil {
+		c.JSON(http.StatusBadRequest, ErrorResponse{
+			Error:   "Invalid query parameters",
+			Details: err.Error(),
+		})
+		return
+	}
+
+	// Set default values
+	if req.Limit == 0 {
+		req.Limit = 50
+	}
+	if req.Offset < 0 {
+		req.Offset = 0
+	}
+
+	response, err := h.adminUseCase.GetAllUsersLoginHistory(c.Request.Context(), req)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, ErrorResponse{
+			Error:   "Failed to get login history",
+			Details: err.Error(),
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, SuccessResponse{
+		Message: "Login history retrieved successfully",
+		Data:    response,
+	})
+}
+
+// GetSuspiciousLoginActivity identifies and returns suspicious login activities
+// @Summary Get suspicious login activities (Admin)
+// @Description Identify and retrieve suspicious login activities with risk assessment
+// @Tags admin
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Param limit query int false "Limit" default(20)
+// @Param offset query int false "Offset" default(0)
+// @Param date_from query string false "Date from (RFC3339 format)"
+// @Param date_to query string false "Date to (RFC3339 format)"
+// @Param min_risk_score query number false "Minimum risk score" default(70)
+// @Param activity_type query string false "Activity type filter"
+// @Success 200 {object} usecases.SuspiciousActivityResponse
+// @Failure 400 {object} ErrorResponse
+// @Failure 403 {object} ErrorResponse
+// @Router /admin/security/suspicious-activity [get]
+func (h *AdminHandler) GetSuspiciousLoginActivity(c *gin.Context) {
+	var req usecases.SuspiciousActivityRequest
+	if err := c.ShouldBindQuery(&req); err != nil {
+		c.JSON(http.StatusBadRequest, ErrorResponse{
+			Error:   "Invalid query parameters",
+			Details: err.Error(),
+		})
+		return
+	}
+
+	// Set default values
+	if req.Limit == 0 {
+		req.Limit = 20
+	}
+	if req.Offset < 0 {
+		req.Offset = 0
+	}
+	if req.MinRiskScore == 0 {
+		req.MinRiskScore = 70
+	}
+
+	response, err := h.adminUseCase.GetSuspiciousLoginActivity(c.Request.Context(), req)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, ErrorResponse{
+			Error:   "Failed to get suspicious activities",
+			Details: err.Error(),
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, SuccessResponse{
+		Message: "Suspicious activities retrieved successfully",
+		Data:    response,
+	})
+}
+
+// GetLoginSecurityReport generates a comprehensive security report
+// @Summary Get login security report (Admin)
+// @Description Generate comprehensive security report with login analytics and risk assessment
+// @Tags admin
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Param date_from query string false "Date from (RFC3339 format)"
+// @Param date_to query string false "Date to (RFC3339 format)"
+// @Param report_type query string false "Report type" Enums(summary, detailed, security_incidents)
+// @Success 200 {object} usecases.SecurityReportResponse
+// @Failure 400 {object} ErrorResponse
+// @Failure 403 {object} ErrorResponse
+// @Router /admin/security/report [get]
+func (h *AdminHandler) GetLoginSecurityReport(c *gin.Context) {
+	var req usecases.SecurityReportRequest
+	if err := c.ShouldBindQuery(&req); err != nil {
+		c.JSON(http.StatusBadRequest, ErrorResponse{
+			Error:   "Invalid query parameters",
+			Details: err.Error(),
+		})
+		return
+	}
+
+	response, err := h.adminUseCase.GetLoginSecurityReport(c.Request.Context(), req)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, ErrorResponse{
+			Error:   "Failed to generate security report",
+			Details: err.Error(),
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, SuccessResponse{
+		Message: "Security report generated successfully",
+		Data:    response,
+	})
+}

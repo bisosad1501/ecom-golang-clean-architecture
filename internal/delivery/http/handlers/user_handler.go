@@ -613,16 +613,15 @@ func (h *UserHandler) SendEmailVerification(c *gin.Context) {
 		return
 	}
 
-	userID, err := uuid.Parse(userIDStr.(string))
-	if err != nil {
+	userID, ok := userIDStr.(uuid.UUID)
+	if !ok {
 		c.JSON(http.StatusBadRequest, ErrorResponse{
-			Error: "Invalid user ID",
+			Error: "Invalid user ID format",
 		})
 		return
 	}
 
-	err = h.userUseCase.SendEmailVerification(c.Request.Context(), userID)
-	if err != nil {
+	if err := h.userUseCase.SendEmailVerification(c.Request.Context(), userID); err != nil {
 		c.JSON(getErrorStatusCode(err), ErrorResponse{
 			Error: err.Error(),
 		})
@@ -666,122 +665,33 @@ func (h *UserHandler) VerifyEmail(c *gin.Context) {
 	})
 }
 
-// SendPhoneVerification handles sending phone verification
-// @Summary Send phone verification
-// @Description Send phone verification OTP to current user
+// VerifyEmailByToken handles email verification via GET request with token
+// @Summary Verify email by token
+// @Description Verify user email using verification token from email link
 // @Tags users
 // @Accept json
 // @Produce json
-// @Security BearerAuth
-// @Param request body map[string]string true "Phone request"
-// @Success 200 {object} SuccessResponse
-// @Failure 401 {object} ErrorResponse
-// @Failure 400 {object} ErrorResponse
-// @Router /users/verification/phone/send [post]
-func (h *UserHandler) SendPhoneVerification(c *gin.Context) {
-	userIDStr, exists := c.Get("user_id")
-	if !exists {
-		c.JSON(http.StatusUnauthorized, ErrorResponse{
-			Error: "User ID not found in token",
-		})
+// @Param token query string true "Verification token"
+// @Success 302 {string} string "Redirect to frontend"
+// @Failure 302 {string} string "Redirect to frontend with error"
+// @Router /auth/verify-email [get]
+func (h *UserHandler) VerifyEmailByToken(c *gin.Context) {
+	token := c.Query("token")
+	if token == "" {
+		// Redirect to frontend with error
+		c.Redirect(http.StatusFound, "http://localhost:3000/auth/verify-email?error=missing-token")
 		return
 	}
 
-	userID, err := uuid.Parse(userIDStr.(string))
+	user, err := h.userUseCase.VerifyEmailByToken(c.Request.Context(), token)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, ErrorResponse{
-			Error: "Invalid user ID",
-		})
+		// Redirect to frontend with error
+		c.Redirect(http.StatusFound, "http://localhost:3000/auth/verify-email?error=verification-failed")
 		return
 	}
 
-	var req map[string]string
-	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, ErrorResponse{
-			Error:   "Invalid request format",
-			Details: err.Error(),
-		})
-		return
-	}
-
-	phone, exists := req["phone"]
-	if !exists {
-		c.JSON(http.StatusBadRequest, ErrorResponse{
-			Error: "Phone number is required",
-		})
-		return
-	}
-
-	err = h.userUseCase.SendPhoneVerification(c.Request.Context(), userID, phone)
-	if err != nil {
-		c.JSON(getErrorStatusCode(err), ErrorResponse{
-			Error: err.Error(),
-		})
-		return
-	}
-
-	c.JSON(http.StatusOK, SuccessResponse{
-		Message: "Phone verification sent successfully",
-	})
-}
-
-// VerifyPhone handles phone verification
-// @Summary Verify phone
-// @Description Verify phone with OTP code
-// @Tags users
-// @Accept json
-// @Produce json
-// @Security BearerAuth
-// @Param request body map[string]string true "Code request"
-// @Success 200 {object} SuccessResponse
-// @Failure 401 {object} ErrorResponse
-// @Failure 400 {object} ErrorResponse
-// @Router /users/verification/phone/verify [post]
-func (h *UserHandler) VerifyPhone(c *gin.Context) {
-	userIDStr, exists := c.Get("user_id")
-	if !exists {
-		c.JSON(http.StatusUnauthorized, ErrorResponse{
-			Error: "User ID not found in token",
-		})
-		return
-	}
-
-	userID, err := uuid.Parse(userIDStr.(string))
-	if err != nil {
-		c.JSON(http.StatusBadRequest, ErrorResponse{
-			Error: "Invalid user ID",
-		})
-		return
-	}
-
-	var req map[string]string
-	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, ErrorResponse{
-			Error:   "Invalid request format",
-			Details: err.Error(),
-		})
-		return
-	}
-
-	code, exists := req["code"]
-	if !exists {
-		c.JSON(http.StatusBadRequest, ErrorResponse{
-			Error: "Verification code is required",
-		})
-		return
-	}
-
-	err = h.userUseCase.VerifyPhone(c.Request.Context(), userID, code)
-	if err != nil {
-		c.JSON(getErrorStatusCode(err), ErrorResponse{
-			Error: err.Error(),
-		})
-		return
-	}
-
-	c.JSON(http.StatusOK, SuccessResponse{
-		Message: "Phone verified successfully",
-	})
+	// Redirect to frontend with success
+	c.Redirect(http.StatusFound, "http://localhost:3000/auth/verify-email?success=true&email="+user.Email)
 }
 
 // GetVerificationStatus handles getting verification status

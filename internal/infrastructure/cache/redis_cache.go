@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"ecom-golang-clean-architecture/internal/usecases"
+
 	"github.com/go-redis/redis/v8"
 	"github.com/google/uuid"
 )
@@ -40,7 +41,7 @@ func NewRedisCache(client *redis.Client, prefix string) Cache {
 // Get retrieves a value from cache
 func (c *RedisCache) Get(ctx context.Context, key string, dest interface{}) error {
 	fullKey := c.getFullKey(key)
-	
+
 	val, err := c.client.Get(ctx, fullKey).Result()
 	if err != nil {
 		if err == redis.Nil {
@@ -55,7 +56,7 @@ func (c *RedisCache) Get(ctx context.Context, key string, dest interface{}) erro
 // Set stores a value in cache
 func (c *RedisCache) Set(ctx context.Context, key string, value interface{}, expiration time.Duration) error {
 	fullKey := c.getFullKey(key)
-	
+
 	data, err := json.Marshal(value)
 	if err != nil {
 		return err
@@ -73,7 +74,7 @@ func (c *RedisCache) Delete(ctx context.Context, key string) error {
 // DeletePattern removes all keys matching a pattern
 func (c *RedisCache) DeletePattern(ctx context.Context, pattern string) error {
 	fullPattern := c.getFullKey(pattern)
-	
+
 	keys, err := c.client.Keys(ctx, fullPattern).Result()
 	if err != nil {
 		return err
@@ -257,7 +258,7 @@ func (c *CachedProductUseCase) DeleteProduct(ctx context.Context, id uuid.UUID) 
 	return c.useCase.DeleteProduct(ctx, id)
 }
 
-func (c *CachedProductUseCase) GetProducts(ctx context.Context, req usecases.GetProductsRequest) ([]*usecases.ProductResponse, error) {
+func (c *CachedProductUseCase) GetProducts(ctx context.Context, req usecases.GetProductsRequest) (*usecases.GetProductsResponse, error) {
 	return c.useCase.GetProducts(ctx, req)
 }
 
@@ -265,12 +266,50 @@ func (c *CachedProductUseCase) SearchProducts(ctx context.Context, req usecases.
 	return c.useCase.SearchProducts(ctx, req)
 }
 
-func (c *CachedProductUseCase) GetProductsByCategory(ctx context.Context, categoryID uuid.UUID, limit, offset int) ([]*usecases.ProductResponse, error) {
+func (c *CachedProductUseCase) SearchProductsPaginated(ctx context.Context, req usecases.SearchProductsRequest) (*usecases.GetProductsResponse, error) {
+	return c.useCase.SearchProductsPaginated(ctx, req)
+}
+
+func (c *CachedProductUseCase) GetProductsByCategory(ctx context.Context, categoryID uuid.UUID, limit, offset int) (*usecases.GetProductsResponse, error) {
 	return c.useCase.GetProductsByCategory(ctx, categoryID, limit, offset)
+}
+
+// Paginated product methods
+func (c *CachedProductUseCase) GetFeaturedProductsPaginated(ctx context.Context, page, limit int) (*usecases.FeaturedProductsPaginatedResponse, error) {
+	return c.useCase.GetFeaturedProductsPaginated(ctx, page, limit)
+}
+
+func (c *CachedProductUseCase) GetTrendingProductsPaginated(ctx context.Context, page, limit int) (*usecases.TrendingProductsPaginatedResponse, error) {
+	return c.useCase.GetTrendingProductsPaginated(ctx, page, limit)
+}
+
+func (c *CachedProductUseCase) GetRelatedProductsPaginated(ctx context.Context, productID uuid.UUID, page, limit int) (*usecases.RelatedProductsPaginatedResponse, error) {
+	return c.useCase.GetRelatedProductsPaginated(ctx, productID, page, limit)
 }
 
 func (c *CachedProductUseCase) UpdateStock(ctx context.Context, productID uuid.UUID, stock int) error {
 	return c.useCase.UpdateStock(ctx, productID, stock)
+}
+
+func (c *CachedProductUseCase) GetPopularSearches(ctx context.Context, limit int) (*usecases.PopularSearchesResponse, error) {
+	return c.useCase.GetPopularSearches(ctx, limit)
+}
+
+func (c *CachedProductUseCase) GetSearchHistory(ctx context.Context, userID uuid.UUID, limit int) (*usecases.SearchHistoryResponse, error) {
+	return c.useCase.GetSearchHistory(ctx, userID, limit)
+}
+
+// GetSearchSuggestions provides search suggestions
+func (c *CachedProductUseCase) GetSearchSuggestions(ctx context.Context, query string, limit int) ([]string, error) {
+	req := usecases.SearchSuggestionsRequest{
+		Query: query,
+		Limit: limit,
+	}
+	resp, err := c.useCase.GetSearchSuggestions(ctx, req)
+	if err != nil {
+		return nil, err
+	}
+	return resp.Suggestions, nil
 }
 
 // Cache invalidation helper
@@ -342,9 +381,9 @@ func (ci *CacheInvalidator) InvalidateUser(ctx context.Context, userID string) e
 
 // Cache warming strategies
 type CacheWarmer struct {
-	cache    Cache
-	keys     *CacheKeys
-	useCase  interface{} // Would be specific use cases
+	cache   Cache
+	keys    *CacheKeys
+	useCase interface{} // Would be specific use cases
 }
 
 // NewCacheWarmer creates a new cache warmer
@@ -369,8 +408,8 @@ func (cw *CacheWarmer) WarmCategoryCache(ctx context.Context) error {
 
 // Cache metrics
 type CacheMetrics struct {
-	cache Cache
-	hits  int64
+	cache  Cache
+	hits   int64
 	misses int64
 }
 

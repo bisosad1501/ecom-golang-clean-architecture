@@ -87,6 +87,18 @@ export function LoginForm() {
       
     } catch (error: any) {
       console.error('Login error:', error)
+
+      // Check if error is related to email verification
+      if (error.message && error.message.includes('email not verified')) {
+        toast.error('Please verify your email before logging in', {
+          action: {
+            label: 'Resend Email',
+            onClick: () => router.push('/auth/resend-verification'),
+          },
+        })
+        return
+      }
+
       if (error.code === 'VALIDATION_ERROR' && error.details) {
         // Handle field-specific validation errors
         Object.entries(error.details).forEach(([field, message]) => {
