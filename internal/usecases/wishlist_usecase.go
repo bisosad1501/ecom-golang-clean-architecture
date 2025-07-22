@@ -117,17 +117,75 @@ func (uc *wishlistUseCase) GetWishlist(ctx context.Context, userID uuid.UUID, re
 	items := make([]*WishlistItemResponse, len(wishlistItems))
 	for i, item := range wishlistItems {
 		productResponse := &ProductResponse{
-			ID:          item.Product.ID,
-			Name:        item.Product.Name,
-			Description: item.Product.Description,
-			SKU:         item.Product.SKU,
-			Price:       item.Product.Price,
-			Stock:       item.Product.Stock,
+			ID:               item.Product.ID,
+			Name:             item.Product.Name,
+			Description:      item.Product.Description,
+			ShortDescription: item.Product.ShortDescription,
+			SKU:              item.Product.SKU,
+			Slug:             item.Product.Slug,
+			MetaTitle:        item.Product.MetaTitle,
+			MetaDescription:  item.Product.MetaDescription,
+			Keywords:         item.Product.Keywords,
+			Featured:         item.Product.Featured,
+			Visibility:       item.Product.Visibility,
+
+			// Pricing
+			Price:        item.Product.Price,
+			ComparePrice: item.Product.ComparePrice,
+			CostPrice:    item.Product.CostPrice,
+
+			// Sale Pricing
+			SalePrice:     item.Product.SalePrice,
+			SaleStartDate: item.Product.SaleStartDate,
+			SaleEndDate:   item.Product.SaleEndDate,
+
+			// Computed Price Fields
+			CurrentPrice:           item.Product.GetCurrentPrice(),
+			OriginalPrice:          item.Product.GetOriginalPrice(),
+			IsOnSale:               item.Product.IsOnSale(),
+			HasDiscount:            item.Product.HasDiscount(),
+			SaleDiscountPercentage: item.Product.GetSaleDiscountPercentage(),
+			DiscountPercentage:     item.Product.GetDiscountPercentage(),
+
+			// Inventory
+			Stock:             item.Product.Stock,
+			LowStockThreshold: item.Product.LowStockThreshold,
+			TrackQuantity:     item.Product.TrackQuantity,
+			AllowBackorder:    item.Product.AllowBackorder,
+			StockStatus:       item.Product.StockStatus,
+			IsLowStock:        item.Product.Stock <= item.Product.LowStockThreshold,
+			IsAvailable:       item.Product.Status == entities.ProductStatusActive && item.Product.Stock > 0,
+
+			// Physical Properties
+			Weight: item.Product.Weight,
+			RequiresShipping: item.Product.RequiresShipping,
+			ShippingClass:    item.Product.ShippingClass,
+			TaxClass:         item.Product.TaxClass,
+			CountryOfOrigin:  item.Product.CountryOfOrigin,
+
+			// Status and Type
 			Status:      item.Product.Status,
+			ProductType: item.Product.ProductType,
 			IsDigital:   item.Product.IsDigital,
-			Weight:      item.Product.Weight,
-			CreatedAt:   item.Product.CreatedAt,
-			UpdatedAt:   item.Product.UpdatedAt,
+			HasVariants: len(item.Product.Variants) > 0,
+
+			// Timestamps
+			CreatedAt: item.Product.CreatedAt,
+			UpdatedAt: item.Product.UpdatedAt,
+		}
+
+		// Set main image
+		if len(item.Product.Images) > 0 {
+			productResponse.MainImage = item.Product.Images[0].URL
+		}
+
+		// Convert dimensions if available
+		if item.Product.Dimensions != nil {
+			productResponse.Dimensions = &DimensionsResponse{
+				Length: item.Product.Dimensions.Length,
+				Width:  item.Product.Dimensions.Width,
+				Height: item.Product.Dimensions.Height,
+			}
 		}
 
 		// Add category using ProductCategory many-to-many (get primary category)

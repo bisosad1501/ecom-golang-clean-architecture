@@ -58,7 +58,6 @@ func (r *wishlistRepository) GetByUser(ctx context.Context, userID uuid.UUID, li
 	query := r.db.WithContext(ctx).
 		Preload("Product").
 		Preload("Product.Images").
-		Preload("Product.Category").
 		Where("user_id = ?", userID).
 		Order("created_at DESC")
 
@@ -135,8 +134,7 @@ func (r *wishlistRepository) List(ctx context.Context, filters repositories.Wish
 	var wishlists []*entities.Wishlist
 	query := r.db.WithContext(ctx).
 		Preload("Product").
-		Preload("Product.Images").
-		Preload("Product.Category")
+		Preload("Product.Images")
 
 	if filters.UserID != nil {
 		query = query.Where("user_id = ?", *filters.UserID)

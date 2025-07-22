@@ -23,6 +23,7 @@ import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
 import { useAuthStore } from '@/store/auth'
 import { useCartStore, getCartItemCount, getCartTotal } from '@/store/cart'
+import { useWishlistCount, useWishlist } from '@/hooks/use-wishlist'
 import { APP_CONFIG } from '@/constants/app'
 import { USER_NAV } from '@/constants'
 import { getVisibleNavItems } from '@/lib/permissions'
@@ -42,6 +43,9 @@ export function Header() {
 
   const { user, isAuthenticated, logout, refreshUser, pendingCartConflict } = useAuthStore()
   const { cart, fetchCart } = useCartStore()
+  const { data: wishlistData } = useWishlist({ limit: 5 }) // Get first 5 items for preview
+  // Use actual data length for more accurate count
+  const wishlistCount = wishlistData?.data?.length ?? 0
 
   const cartItemCount = getCartItemCount(cart)
   const visibleNavItems = getVisibleNavItems(user?.role || null)
@@ -201,10 +205,22 @@ export function Header() {
             <RequireAuth>
               {(!isAdmin || isShoppingMode) && (
                 <div className="relative group">
-                  <Button variant="ghost" size="icon" className="relative h-10 w-10 rounded-xl hover:bg-orange-500/10 hover:scale-105 transition-all duration-200 text-white">
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="relative h-10 w-10 rounded-xl hover:bg-orange-500/10 hover:scale-105 transition-all duration-200 text-white"
+                    onClick={() => router.push('/wishlist')}
+                  >
                     <Heart className="h-4 w-4 group-hover:text-orange-500 transition-colors text-white" />
-                    {/* Add wishlist count badge if needed */}
-                    {/* <Badge variant="default" className="absolute -top-1 -right-1 h-6 w-6 rounded-full p-0 text-xs font-bold">0</Badge> */}
+                    {/* Wishlist count badge */}
+                    {wishlistCount?.data?.count > 0 && (
+                      <Badge
+                        variant="default"
+                        className="absolute -top-1 -right-1 h-5 w-5 rounded-full p-0 text-xs font-bold shadow-large animate-pulse flex items-center justify-center bg-orange-500 text-white border-0"
+                      >
+                        {(wishlistCount?.data?.count ?? 0) > 99 ? '99+' : (wishlistCount?.data?.count ?? 0)}
+                      </Badge>
+                    )}
                   </Button>
 
                   {/* Wishlist preview on hover */}
@@ -212,20 +228,58 @@ export function Header() {
                     <div className="p-6">
                       <div className="flex items-center justify-between mb-4">
                         <h3 className="font-semibold text-lg">Wishlist</h3>
-                        <Badge variant="secondary">0 items</Badge>
+                        <Badge variant="secondary">
+                          {wishlistCount?.data?.count || 0} items
+                        </Badge>
                       </div>
 
-                      {/* Empty wishlist state */}
-                      <div className="text-center py-8">
-                        <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                          <Heart className="h-8 w-8 text-gray-400" />
+                      {/* Wishlist items or empty state */}
+                      {(wishlistData?.data?.length ?? 0) === 0 ? (
+                        <div className="text-center py-8">
+                          <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                            <Heart className="h-8 w-8 text-gray-400" />
+                          </div>
+                          <h4 className="font-medium text-gray-900 mb-2">Your wishlist is empty</h4>
+                          <p className="text-sm text-gray-500 mb-4">Save items you love for later</p>
+                          <Button variant="gradient" onClick={() => router.push('/products')}>
+                            Discover Products
+                          </Button>
                         </div>
-                        <h4 className="font-medium text-gray-900 mb-2">Your wishlist is empty</h4>
-                        <p className="text-sm text-gray-500 mb-4">Save items you love for later</p>
-                        <Button variant="gradient" onClick={() => router.push('/products')}>
-                          Discover Products
-                        </Button>
-                      </div>
+                      ) : (
+                        <>
+                          {/* Wishlist items preview */}
+                          <div className="space-y-3 mb-4">
+                            {wishlistData?.data?.slice(0, 3).map((item: any) => (
+                              <div key={item.id} className="flex items-center gap-3 p-2 rounded-lg hover:bg-gray-50 transition-colors">
+                                <div className="w-12 h-12 bg-gray-100 rounded-lg overflow-hidden flex-shrink-0">
+                                  <img
+                                    src={item.product.images?.[0]?.url || '/placeholder-product.svg'}
+                                    alt={item.product.name}
+                                    className="w-full h-full object-cover"
+                                  />
+                                </div>
+                                <div className="flex-1 min-w-0">
+                                  <h4 className="font-medium text-sm text-gray-900 truncate">
+                                    {item.product.name}
+                                  </h4>
+                                  <p className="text-sm text-[#FF9000] font-semibold">
+                                    {formatPrice(item.product.current_price)}
+                                  </p>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+
+                          {/* View all button */}
+                          <Button
+                            variant="outline"
+                            className="w-full"
+                            onClick={() => router.push('/wishlist')}
+                          >
+                            View All ({wishlistCount?.data?.count || 0})
+                          </Button>
+                        </>
+                      )}
                     </div>
                   </div>
                 </div>

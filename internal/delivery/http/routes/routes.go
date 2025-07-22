@@ -488,6 +488,7 @@ func SetupRoutes(
 				wishlist.POST("/items", wishlistHandler.AddToWishlist)
 				wishlist.DELETE("/items/:id", wishlistHandler.RemoveFromWishlist)
 				wishlist.DELETE("/clear", wishlistHandler.ClearWishlist)
+				wishlist.GET("/items/:productId/status", wishlistHandler.CheckWishlistStatus)
 				// wishlist.POST("/items/:product_id/move-to-cart", wishlistHandler.MoveToCart) // TODO: Implement MoveToCart method
 				wishlist.GET("/count", wishlistHandler.GetWishlistCount)
 			}

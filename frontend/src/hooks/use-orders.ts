@@ -41,26 +41,14 @@ export function useOrders(params: {
         if (params.user_id) queryParams.append('user_id', params.user_id)
         
         const url = `/orders${queryParams.toString() ? `?${queryParams.toString()}` : ''}`
-        console.log('useOrders - Making API call to:', url)
-        console.log('useOrders - Query params (original):', params)
-        console.log('useOrders - Query params (converted):', { limit, offset, page })
 
         const response = await apiClient.get<any>(url)
-        console.log('useOrders - Raw API response:', response)
-        console.log('useOrders - Response data:', response.data)
-        
+
         // The backend now returns a paginated response structure directly
         const responseData = response.data
-        console.log('useOrders - Checking response structure...')
-        console.log('useOrders - Has data property:', !!responseData.data)
-        console.log('useOrders - Has pagination property:', !!responseData.pagination)
-        console.log('useOrders - Type of data:', typeof responseData.data)
-        console.log('useOrders - Type of pagination:', typeof responseData.pagination)
         
         // Check if the response has the new pagination structure
         if (responseData && responseData.data && responseData.pagination) {
-          console.log('useOrders - Using backend pagination structure')
-          console.log('useOrders - Pagination data:', responseData.pagination)
           return {
             data: responseData.data,
             pagination: {
@@ -90,9 +78,7 @@ export function useOrders(params: {
           ordersArray = responseData.orders
         }
         
-        console.log('useOrders - Using fallback pagination structure')
-        console.log('useOrders - Orders count:', ordersArray.length)
-        console.log('useOrders - Response structure not recognized, using fallback')
+
         
         // Create paginated response structure
         return {

@@ -9,7 +9,7 @@ import { Badge } from '@/components/ui/badge'
 import { Card } from '@/components/ui/card'
 import { useCartStore } from '@/store/cart'
 import { useAuthStore } from '@/store/auth'
-import { useAddToWishlist, useRemoveFromWishlist } from '@/hooks/use-products'
+import { useAddToWishlist, useRemoveFromWishlist, useIsInWishlist } from '@/hooks/use-wishlist'
 import { useProductRatingSummary } from '@/hooks/use-reviews'
 import { CompactReviewSummary } from '@/components/reviews'
 import { Product } from '@/types'
@@ -38,6 +38,7 @@ export function ProductCard({
   const { isAuthenticated } = useAuthStore()
   const addToWishlistMutation = useAddToWishlist()
   const removeFromWishlistMutation = useRemoveFromWishlist()
+  const { data: isInWishlist } = useIsInWishlist(product.id)
   const { data: ratingSummary } = useProductRatingSummary(product.id)
 
   const primaryImage = product.images?.[0]?.url || product.main_image || '/placeholder-product.jpg'
@@ -79,9 +80,6 @@ export function ProductCard({
     }
 
     try {
-      // TODO: Check if product is already in wishlist
-      const isInWishlist = false // This should come from wishlist state
-      
       if (isInWishlist) {
         await removeFromWishlistMutation.mutateAsync(product.id)
       } else {
@@ -244,7 +242,8 @@ export function ProductCard({
                     'h-9 w-9 rounded-lg backdrop-blur-sm border border-white/15 shadow-md transition-all duration-250',
                     'bg-white/85 hover:bg-white text-slate-700 hover:text-red-500',
                     'hover:scale-105',
-                    'transform-gpu'
+                    'transform-gpu',
+                    isInWishlist && 'text-red-500 bg-red-50 border-red-200'
                   )}
                   onClick={handleWishlistToggle}
                   disabled={addToWishlistMutation.isPending || removeFromWishlistMutation.isPending}
@@ -252,7 +251,10 @@ export function ProductCard({
                     boxShadow: '0 2px 12px rgba(0, 0, 0, 0.12)'
                   }}
                 >
-                  <Heart className="h-3.5 w-3.5" />
+                  <Heart className={cn(
+                    "h-3.5 w-3.5",
+                    isInWishlist && "fill-current"
+                  )} />
                 </Button>
               )}
 

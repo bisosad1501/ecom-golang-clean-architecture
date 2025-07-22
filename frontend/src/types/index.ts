@@ -3,6 +3,7 @@
 export * from './common'
 export * from './auth'
 export * from './product'
+export * from './wishlist'
 
 // Re-export commonly used types for convenience
 export type {

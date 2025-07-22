@@ -6,6 +6,8 @@ import type {
   LoginRequest,
   RegisterRequest,
   User,
+  UserPreferences,
+  UpdateUserPreferencesRequest,
 } from '@/types'
 
 export class AuthService {
@@ -54,7 +56,7 @@ export class AuthService {
     await apiClient.post('/auth/forgot-password', { email })
   }
 
-  async resetPassword(data: { token: string; password: string }): Promise<void> {
+  async resetPassword(data: { token: string; new_password: string }): Promise<void> {
     await apiClient.post('/auth/reset-password', data)
   }
 
@@ -64,6 +66,25 @@ export class AuthService {
 
   async resendVerification(email: string): Promise<void> {
     await apiClient.post('/auth/resend-verification', { email })
+  }
+
+  // User preferences methods
+  async getUserPreferences(): Promise<UserPreferences> {
+    const response = await apiClient.get<UserPreferences>('/users/preferences')
+    return response.data!
+  }
+
+  async updateUserPreferences(data: UpdateUserPreferencesRequest): Promise<UserPreferences> {
+    const response = await apiClient.put<UserPreferences>('/users/preferences', data)
+    return response.data!
+  }
+
+  async updateTheme(theme: string): Promise<void> {
+    await apiClient.put('/users/preferences/theme', { theme })
+  }
+
+  async updateLanguage(language: string): Promise<void> {
+    await apiClient.put('/users/preferences/language', { language })
   }
 }
 

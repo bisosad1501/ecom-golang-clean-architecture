@@ -476,7 +476,7 @@ class ProductService {
     return response
   }
 
-  // Wishlist
+  // Wishlist (deprecated - use wishlistService instead)
   async addToWishlist(productId: string): Promise<void> {
     await apiClient.post('/wishlist/items', { product_id: productId })
   }

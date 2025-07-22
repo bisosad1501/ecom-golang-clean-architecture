@@ -22,11 +22,8 @@ class ApiClient {
     this.client.interceptors.request.use(
       (config) => {
         const token = this.getToken()
-        console.log('API Client - Request URL:', config.url)
-        console.log('API Client - Token found:', token ? 'Yes' : 'No')
         if (token) {
           config.headers.Authorization = `Bearer ${token}`
-          console.log('API Client - Authorization header set')
         }
         return config
       },
@@ -39,8 +36,6 @@ class ApiClient {
     // Response interceptor to handle errors
     this.client.interceptors.response.use(
       (response: AxiosResponse) => {
-        console.log('API Client - Response status:', response.status)
-        console.log('API Client - Response data:', response.data)
         return response
       },
       (error) => {
@@ -244,10 +239,23 @@ class ApiClient {
   }
 
   // Set auth token
-  setToken(token: string) {
-    if (typeof window !== 'undefined') {
-      localStorage.setItem(AUTH_TOKEN_KEY, token)
+  setToken(token: string | null) {
+    if (token) {
+      this.client.defaults.headers.common['Authorization'] = `Bearer ${token}`
+      if (typeof window !== 'undefined') {
+        localStorage.setItem(AUTH_TOKEN_KEY, token)
+      }
+    } else {
+      delete this.client.defaults.headers.common['Authorization']
+      if (typeof window !== 'undefined') {
+        localStorage.removeItem(AUTH_TOKEN_KEY)
+      }
     }
+  }
+
+  // Clear auth token
+  clearToken() {
+    this.setToken(null)
   }
 
   // Clear auth token

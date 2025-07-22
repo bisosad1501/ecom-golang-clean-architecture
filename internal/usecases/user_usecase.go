@@ -1494,7 +1494,7 @@ func (uc *userUseCase) ForgotPassword(ctx context.Context, req ForgotPasswordReq
 	}
 
 	// Send password reset email via Gmail service
-	resetLink := fmt.Sprintf("http://localhost:3000/reset-password?token=%s", resetToken)
+	resetLink := fmt.Sprintf("http://localhost:3000/auth/reset-password?token=%s", resetToken)
 
 	if err := uc.gmailService.SendPasswordResetEmail(ctx, user.Email, user.FirstName, resetLink); err != nil {
 		// Log error but don't fail the operation - fallback to console logging

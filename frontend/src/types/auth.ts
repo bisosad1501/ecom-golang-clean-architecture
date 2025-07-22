@@ -26,17 +26,63 @@ export interface UserMetrics {
   membership_tier: MembershipTier
 }
 
-// User preferences
+// User preferences (matches backend UserPreferencesResponse)
 export interface UserPreferences {
-  newsletter_subscribed: boolean
-  marketing_emails: boolean
-  order_updates: boolean
-  sms_notifications: boolean
-  push_notifications: boolean
+  id: string
+  user_id: string
+
+  // Display preferences
   theme: 'light' | 'dark' | 'system'
   language: string
   currency: string
   timezone: string
+
+  // Notification preferences
+  email_notifications: boolean
+  sms_notifications: boolean
+  push_notifications: boolean
+  marketing_emails: boolean
+  order_updates: boolean
+  security_alerts: boolean
+  newsletter_enabled: boolean
+  promotional_emails: boolean
+
+  // Privacy preferences
+  profile_visibility: 'public' | 'private'
+  activity_visibility: 'public' | 'private'
+
+  // Shopping preferences
+  default_shipping_method: string
+  default_payment_method: string
+  save_payment_methods: boolean
+  auto_apply_coupons: boolean
+  wishlist_visibility: 'public' | 'private'
+
+  created_at: string
+  updated_at: string
+}
+
+// Update user preferences request (matches backend UpdateUserPreferencesRequest)
+export interface UpdateUserPreferencesRequest {
+  theme?: string
+  language?: string
+  currency?: string
+  timezone?: string
+  email_notifications?: boolean
+  sms_notifications?: boolean
+  push_notifications?: boolean
+  marketing_emails?: boolean
+  order_updates?: boolean
+  security_alerts?: boolean
+  newsletter_enabled?: boolean
+  promotional_emails?: boolean
+  profile_visibility?: string
+  activity_visibility?: string
+  default_shipping_method?: string
+  default_payment_method?: string
+  save_payment_methods?: boolean
+  auto_apply_coupons?: boolean
+  wishlist_visibility?: string
 }
 
 // User profile
@@ -121,11 +167,16 @@ export interface ForgotPasswordRequest {
   email: string
 }
 
-// Password reset confirmation
+// Password reset confirmation (matches backend)
 export interface ResetPasswordRequest {
   token: string
-  email: string
-  password: string
+  new_password: string
+}
+
+// Frontend form for reset password (with validation)
+export interface ResetPasswordFormRequest {
+  token: string
+  new_password: string
   password_confirmation: string
 }
 

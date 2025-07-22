@@ -333,16 +333,27 @@ export const useAuthStore = create<AuthStore>()(
       onRehydrateStorage: () => (state) => {
         // Set hydrated flag and check auth after rehydration
         if (state) {
+          console.log('Auth store rehydrated with state:', {
+            hasToken: !!state.token,
+            hasUser: !!state.user,
+            isAuthenticated: state.isAuthenticated
+          })
+
           state.isHydrated = true
           state.isLoading = false
 
           // Auto-check auth after hydration if we have a token
           // Use setTimeout to avoid blocking the hydration process
           if (state.token) {
+            console.log('Auto-checking auth after rehydration...')
             setTimeout(() => {
               state.checkAuth()
             }, 100)
+          } else {
+            console.log('No token found during rehydration')
           }
+        } else {
+          console.log('Auth store rehydration failed - no state')
         }
       },
     }

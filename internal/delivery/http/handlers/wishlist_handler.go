@@ -43,8 +43,8 @@ func (h *WishlistHandler) GetWishlist(c *gin.Context) {
 		return
 	}
 
-	userID, err := uuid.Parse(userIDStr.(string))
-	if err != nil {
+	userID, ok := userIDStr.(uuid.UUID)
+	if !ok {
 		c.JSON(http.StatusBadRequest, ErrorResponse{
 			Error: "Invalid user ID",
 		})
@@ -56,7 +56,7 @@ func (h *WishlistHandler) GetWishlist(c *gin.Context) {
 	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "0")) // 0 means use default
 
 	// Validate and normalize pagination for wishlist
-	page, limit, err = usecases.ValidateAndNormalizePaginationForEntity(page, limit, "wishlist")
+	page, limit, err := usecases.ValidateAndNormalizePaginationForEntity(page, limit, "wishlist")
 	if err != nil {
 		c.JSON(http.StatusBadRequest, ErrorResponse{
 			Error: err.Error(),
@@ -109,8 +109,8 @@ func (h *WishlistHandler) AddToWishlist(c *gin.Context) {
 		return
 	}
 
-	userID, err := uuid.Parse(userIDStr.(string))
-	if err != nil {
+	userID, ok := userIDStr.(uuid.UUID)
+	if !ok {
 		c.JSON(http.StatusBadRequest, ErrorResponse{
 			Error: "Invalid user ID",
 		})
@@ -171,15 +171,15 @@ func (h *WishlistHandler) RemoveFromWishlist(c *gin.Context) {
 		return
 	}
 
-	userID, err := uuid.Parse(userIDStr.(string))
-	if err != nil {
+	userID, ok := userIDStr.(uuid.UUID)
+	if !ok {
 		c.JSON(http.StatusBadRequest, ErrorResponse{
 			Error: "Invalid user ID",
 		})
 		return
 	}
 
-	productID, err := uuid.Parse(c.Param("productId"))
+	productID, err := uuid.Parse(c.Param("id"))
 	if err != nil {
 		c.JSON(http.StatusBadRequest, ErrorResponse{
 			Error: "Invalid product ID",
@@ -221,8 +221,8 @@ func (h *WishlistHandler) CheckWishlistStatus(c *gin.Context) {
 		return
 	}
 
-	userID, err := uuid.Parse(userIDStr.(string))
-	if err != nil {
+	userID, ok := userIDStr.(uuid.UUID)
+	if !ok {
 		c.JSON(http.StatusBadRequest, ErrorResponse{
 			Error: "Invalid user ID",
 		})
@@ -271,15 +271,15 @@ func (h *WishlistHandler) ClearWishlist(c *gin.Context) {
 		return
 	}
 
-	userID, err := uuid.Parse(userIDStr.(string))
-	if err != nil {
+	userID, ok := userIDStr.(uuid.UUID)
+	if !ok {
 		c.JSON(http.StatusBadRequest, ErrorResponse{
 			Error: "Invalid user ID",
 		})
 		return
 	}
 
-	err = h.wishlistUseCase.ClearWishlist(c.Request.Context(), userID)
+	err := h.wishlistUseCase.ClearWishlist(c.Request.Context(), userID)
 	if err != nil {
 		c.JSON(getErrorStatusCode(err), ErrorResponse{
 			Error: err.Error(),
@@ -311,8 +311,8 @@ func (h *WishlistHandler) GetWishlistCount(c *gin.Context) {
 		return
 	}
 
-	userID, err := uuid.Parse(userIDStr.(string))
-	if err != nil {
+	userID, ok := userIDStr.(uuid.UUID)
+	if !ok {
 		c.JSON(http.StatusBadRequest, ErrorResponse{
 			Error: "Invalid user ID",
 		})
