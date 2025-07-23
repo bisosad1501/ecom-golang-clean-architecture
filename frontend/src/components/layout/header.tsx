@@ -23,10 +23,7 @@ import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
 import { useAuthStore } from '@/store/auth'
 import { useCartStore, getCartItemCount, getCartTotal } from '@/store/cart'
-import { useWishlistCount, useWishlist } from '@/hooks/use-wishlist'
-import { APP_CONFIG } from '@/constants/app'
-import { USER_NAV } from '@/constants'
-import { getVisibleNavItems } from '@/lib/permissions'
+import { useWishlist } from '@/hooks/use-wishlist'
 import { RequireAuth, RequireGuest } from '@/components/auth/permission-guard'
 import { cn, formatPrice } from '@/lib/utils'
 import { CategoryMegaMenu } from './category-mega-menu'
@@ -41,14 +38,13 @@ export function Header() {
   const [isShoppingMode, setIsShoppingMode] = useState(true) // Toggle between admin and shopping mode
   const userMenuRef = useRef<HTMLDivElement>(null)
 
-  const { user, isAuthenticated, logout, refreshUser, pendingCartConflict } = useAuthStore()
+  const { user, isAuthenticated, logout, pendingCartConflict } = useAuthStore()
   const { cart, fetchCart } = useCartStore()
-  const { data: wishlistData } = useWishlist({ limit: 5 }) // Get first 5 items for preview
-  // Use actual data length for more accurate count
+  const { data: wishlistData } = useWishlist() // Lấy toàn bộ wishlist
+  // Số lượng sản phẩm wishlist
   const wishlistCount = wishlistData?.data?.length ?? 0
 
   const cartItemCount = getCartItemCount(cart)
-  const visibleNavItems = getVisibleNavItems(user?.role || null)
   const isAdmin = user?.role === 'admin'
 
   // Fetch cart when component mounts or authentication state changes
@@ -88,14 +84,7 @@ export function Header() {
     router.push('/')
   }
 
-  const handleRefreshUser = async () => {
-    try {
-      await refreshUser()
-      console.log('User data refreshed')
-    } catch (error) {
-      console.error('Failed to refresh user:', error)
-    }
-  }
+
 
   return (
     <header className="sticky top-0 z-50 w-full border-b border-black/20 bg-black backdrop-blur-lg shadow-lg">
@@ -213,24 +202,22 @@ export function Header() {
                   >
                     <Heart className="h-4 w-4 group-hover:text-orange-500 transition-colors text-white" />
                     {/* Wishlist count badge */}
-                    {wishlistCount?.data?.count > 0 && (
+                    {wishlistCount > 0 && (
                       <Badge
                         variant="default"
                         className="absolute -top-1 -right-1 h-5 w-5 rounded-full p-0 text-xs font-bold shadow-large animate-pulse flex items-center justify-center bg-orange-500 text-white border-0"
                       >
-                        {(wishlistCount?.data?.count ?? 0) > 99 ? '99+' : (wishlistCount?.data?.count ?? 0)}
+                        {wishlistCount > 99 ? '99+' : wishlistCount}
                       </Badge>
                     )}
                   </Button>
 
-                  {/* Wishlist preview on hover */}
-                  <div className="absolute top-full right-0 mt-2 w-80 bg-background border border-border rounded-2xl shadow-2xl opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-300 z-50">
+                  {/* Wishlist preview on hover - styled giống cart */}
+                  <div className="absolute top-full right-0 mt-2 w-80 bg-background border border-white rounded-2xl shadow-2xl opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-300 z-50">
                     <div className="p-6">
                       <div className="flex items-center justify-between mb-4">
-                        <h3 className="font-semibold text-lg">Wishlist</h3>
-                        <Badge variant="secondary">
-                          {wishlistCount?.data?.count || 0} items
-                        </Badge>
+                        <h3 className="font-semibold text-lg text-white">Wishlist</h3>
+                        <Badge variant="secondary">{wishlistCount || 0} items</Badge>
                       </div>
 
                       {/* Wishlist items or empty state */}
@@ -239,45 +226,77 @@ export function Header() {
                           <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
                             <Heart className="h-8 w-8 text-gray-400" />
                           </div>
-                          <h4 className="font-medium text-gray-900 mb-2">Your wishlist is empty</h4>
-                          <p className="text-sm text-gray-500 mb-4">Save items you love for later</p>
+                          <h4 className="font-medium text-white mb-2">Your wishlist is empty</h4>
+                          <p className="text-sm text-gray-400 mb-4">Save items you love for later</p>
                           <Button variant="gradient" onClick={() => router.push('/products')}>
-                            Discover Products
+                            Continue Shopping
                           </Button>
                         </div>
                       ) : (
                         <>
                           {/* Wishlist items preview */}
-                          <div className="space-y-3 mb-4">
-                            {wishlistData?.data?.slice(0, 3).map((item: any) => (
-                              <div key={item.id} className="flex items-center gap-3 p-2 rounded-lg hover:bg-gray-50 transition-colors">
-                                <div className="w-12 h-12 bg-gray-100 rounded-lg overflow-hidden flex-shrink-0">
-                                  <img
-                                    src={item.product.images?.[0]?.url || '/placeholder-product.svg'}
-                                    alt={item.product.name}
-                                    className="w-full h-full object-cover"
-                                  />
+                          <div className="space-y-3 max-h-64 overflow-y-auto">
+                            {wishlistData?.data?.map((item: any) => (
+                              <div key={item.id} className="flex items-center gap-3 p-2 hover:bg-gray-800/80 rounded-lg transition-colors">
+                                <div className="w-12 h-12 bg-muted rounded-lg overflow-hidden">
+                                  {item.product.images && item.product.images.length > 0 ? (
+                                    <img 
+                                      src={item.product.images[0].url || item.product.images[0].image_url || '/placeholder-product.svg'} 
+                                      alt={item.product.name}
+                                      className="w-full h-full object-cover"
+                                      onError={(e) => {
+                                        const target = e.target as HTMLImageElement;
+                                        target.src = '/placeholder-product.svg';
+                                      }}
+                                    />
+                                  ) : (
+                                    <div className="w-full h-full bg-gray-200 flex items-center justify-center">
+                                      <Heart className="h-6 w-6 text-gray-400" />
+                                    </div>
+                                  )}
                                 </div>
                                 <div className="flex-1 min-w-0">
-                                  <h4 className="font-medium text-sm text-gray-900 truncate">
-                                    {item.product.name}
-                                  </h4>
-                                  <p className="text-sm text-[#FF9000] font-semibold">
+                                  <div className="font-medium text-sm truncate text-white">{item.product.name}</div>
+                                  <div className="text-xs text-muted-foreground">Qty: 1</div>
+                                  {item.product.has_discount && (
+                                    <div className="text-xs text-orange-500 font-medium">
+                                      -{Math.round(item.product.discount_percentage || 0)}% OFF
+                                    </div>
+                                  )}
+                                </div>
+                                <div className="text-right">
+                                  <div className="text-sm font-semibold text-white">
                                     {formatPrice(item.product.current_price)}
-                                  </p>
+                                  </div>
+                                  {item.product.has_discount && item.product.original_price && (
+                                    <div className="text-xs text-gray-500 line-through">
+                                      {formatPrice(item.product.original_price)}
+                                    </div>
+                                  )}
                                 </div>
                               </div>
                             ))}
                           </div>
 
-                          {/* View all button */}
-                          <Button
-                            variant="outline"
-                            className="w-full"
-                            onClick={() => router.push('/wishlist')}
-                          >
-                            View All ({wishlistCount?.data?.count || 0})
-                          </Button>
+                          {/* Tổng giá trị wishlist */}
+                          <div className="border-t border-border mt-4 pt-4">
+                            <div className="flex items-center justify-between mb-3">
+                              <span className="font-semibold text-white">Total:</span>
+                              <span className="font-bold text-lg text-orange-500">
+                                {formatPrice(
+                                  Number(
+                                    wishlistData?.data?.reduce((sum: number, item: any) => {
+                                      const price = typeof item.product.current_price === 'number' ? item.product.current_price : 0;
+                                      return sum + price;
+                                    }, 0)
+                                  ) || 0
+                                )}
+                              </span>
+                            </div>
+                            <Button className="w-full" variant="gradient" onClick={() => router.push('/wishlist')}>
+                              View Wishlist
+                            </Button>
+                          </div>
                         </>
                       )}
                     </div>
@@ -468,7 +487,12 @@ export function Header() {
                       )}
                     </div>
                     
-                    {USER_NAV.map((item) => (
+                    {[
+                      { href: '/profile', icon: 'User', title: 'Profile' },
+                      { href: '/orders', icon: 'Package', title: 'Orders' },
+                      { href: '/wishlist', icon: 'Heart', title: 'Wishlist' },
+                      { href: '/settings', icon: 'Settings', title: 'Settings' },
+                    ].map((item) => (
                       <Link
                         key={item.href}
                         href={item.href}

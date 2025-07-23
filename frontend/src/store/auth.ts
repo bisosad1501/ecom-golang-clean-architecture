@@ -71,12 +71,8 @@ export const useAuthStore = create<AuthStore>()(
             const { useCartStore } = await import('@/store/cart')
             const cartStore = useCartStore.getState()
             const conflict = await cartStore.checkMergeConflict()
-            console.log('🔍 Conflict check result:', conflict)
             if (conflict && (conflict.guest_cart_exists || conflict.user_cart_exists)) {
-              console.log('🔍 Cart merge needed, showing modal for user choice')
               set({ pendingCartConflict: conflict })
-            } else {
-              console.log('ℹ️ No guest cart to merge')
             }
           } catch (cartError) {
             console.error('❌ Failed to handle cart merge:', cartError)
@@ -105,8 +101,7 @@ export const useAuthStore = create<AuthStore>()(
             localStorage.setItem(AUTH_TOKEN_KEY, token)
           }
 
-          // Log role for debugging
-          console.log('User logged in with role:', user.role)
+          // User logged in successfully
 
           set({
             user,
@@ -121,18 +116,12 @@ export const useAuthStore = create<AuthStore>()(
             const { useCartStore } = await import('@/store/cart')
             const cartStore = useCartStore.getState()
 
-            console.log('🔍 Checking for cart conflicts...')
-
             // Check if there are conflicts
             const conflict = await cartStore.checkMergeConflict()
-            console.log('🔍 Conflict check result:', conflict)
 
             if (conflict && (conflict.guest_cart_exists || conflict.user_cart_exists)) {
-              console.log('🔍 Cart merge needed, showing modal for user choice')
               // Always show modal when there's any cart to merge, let user decide
               set({ pendingCartConflict: conflict })
-            } else {
-              console.log('ℹ️ No guest cart to merge')
             }
           } catch (cartError) {
             console.error('❌ Failed to handle cart merge:', cartError)
@@ -232,7 +221,6 @@ export const useAuthStore = create<AuthStore>()(
           
           // Fetch fresh user data
           const user = await authApi.getProfile()
-          console.log('refreshUser response:', user)
 
           set({
             user,
@@ -271,7 +259,6 @@ export const useAuthStore = create<AuthStore>()(
 
       checkAuth: async () => {
         const { token } = get()
-        console.log('checkAuth - starting with token:', !!token)
         if (!token) {
           set({ isLoading: false })
           return
@@ -288,7 +275,6 @@ export const useAuthStore = create<AuthStore>()(
 
           // Verify token by fetching user profile
           const user = await authApi.getProfile()
-          console.log('checkAuth extracted user:', user)
 
           set({
             user,
@@ -296,8 +282,6 @@ export const useAuthStore = create<AuthStore>()(
             isLoading: false,
             error: null,
           })
-
-          console.log('checkAuth - auth state updated successfully')
         } catch (error: any) {
           console.error('checkAuth error:', error)
           // Token is invalid, clear auth state silently (don't call logout to avoid redirect)
@@ -333,27 +317,16 @@ export const useAuthStore = create<AuthStore>()(
       onRehydrateStorage: () => (state) => {
         // Set hydrated flag and check auth after rehydration
         if (state) {
-          console.log('Auth store rehydrated with state:', {
-            hasToken: !!state.token,
-            hasUser: !!state.user,
-            isAuthenticated: state.isAuthenticated
-          })
-
           state.isHydrated = true
           state.isLoading = false
 
           // Auto-check auth after hydration if we have a token
           // Use setTimeout to avoid blocking the hydration process
           if (state.token) {
-            console.log('Auto-checking auth after rehydration...')
             setTimeout(() => {
               state.checkAuth()
             }, 100)
-          } else {
-            console.log('No token found during rehydration')
           }
-        } else {
-          console.log('Auth store rehydration failed - no state')
         }
       },
     }

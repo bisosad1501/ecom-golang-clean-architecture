@@ -15,17 +15,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   }, [setHydrated])
 
-  useEffect(() => {
-    // Log auth state changes for debugging
-    if (process.env.NODE_ENV === 'development') {
-      console.log('Auth Provider: Auth state changed', { 
-        hasToken: !!token, 
-        hasUser: !!user,
-        isAuthenticated,
-        userRole: user?.role 
-      })
-    }
-  }, [token, user, isAuthenticated])
+  // Remove excessive logging in development
 
   return <>{children}</>
 }

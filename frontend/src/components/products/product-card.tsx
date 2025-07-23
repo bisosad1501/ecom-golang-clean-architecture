@@ -41,7 +41,7 @@ export function ProductCard({
   const { data: isInWishlist } = useIsInWishlist(product.id)
   const { data: ratingSummary } = useProductRatingSummary(product.id)
 
-  const primaryImage = product.images?.[0]?.url || product.main_image || '/placeholder-product.jpg'
+  const primaryImage = product.images?.[0]?.url || product.main_image || '/placeholder-product.svg'
   const secondaryImage = product.images?.[1]?.url
 
   // Use backend computed fields directly

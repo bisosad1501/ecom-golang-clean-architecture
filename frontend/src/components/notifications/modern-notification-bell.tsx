@@ -126,31 +126,29 @@ export function ModernNotificationBell({ className }: ModernNotificationBellProp
       <DropdownMenuTrigger asChild>
         <Button
           variant="ghost"
-          size="sm"
+          size="icon"
           className={cn(
-            "relative h-10 w-10 rounded-full hover:bg-gray-100 transition-all duration-200 focus:ring-2 focus:ring-blue-500 focus:ring-offset-2",
+            "relative h-10 w-10 rounded-xl hover:bg-orange-500/10 hover:scale-105 transition-all duration-200 text-white",
             className
           )}
         >
           {isConnected ? (
             <BellRing className={cn(
               "h-5 w-5 transition-colors",
-              unreadCount > 0 ? "text-blue-600" : "text-gray-600"
+              unreadCount > 0 ? "text-orange-500" : "text-white"
             )} />
           ) : (
             <Bell className="h-5 w-5 text-gray-400" />
           )}
-          
           {/* Unread count badge */}
           {unreadCount > 0 && (
             <Badge
-              variant="destructive"
-              className="absolute -top-1 -right-1 h-5 w-5 rounded-full p-0 flex items-center justify-center text-xs font-bold animate-pulse"
+              variant="default"
+              className="absolute -top-1 -right-1 h-5 w-5 rounded-full p-0 text-xs font-bold shadow-large animate-pulse flex items-center justify-center bg-orange-500 text-white border-0"
             >
               {unreadCount > 99 ? '99+' : unreadCount}
             </Badge>
           )}
-          
           {/* Connection status indicator */}
           <div
             className={cn(
@@ -203,91 +201,62 @@ export function ModernNotificationBell({ className }: ModernNotificationBellProp
                       <Trash2 className="h-4 w-4 mr-2" />
                       Clear All
                     </DropdownMenuItem>
-                    <DropdownMenuSeparator />
-                    <DropdownMenuItem>
-                      <Settings className="h-4 w-4 mr-2" />
-                      Preferences
-                    </DropdownMenuItem>
                   </DropdownMenuContent>
                 </DropdownMenu>
               </div>
             </div>
-            
-            {/* Error state */}
-            {error && (
-              <div className="flex items-center gap-2 text-sm text-red-600 bg-red-100 p-2 rounded-lg mt-2">
-                <AlertCircle className="h-4 w-4 flex-shrink-0" />
-                <span className="text-xs">{error}</span>
-              </div>
-            )}
           </CardHeader>
-
           <CardContent className="p-0">
-            {notifications.length === 0 ? (
-              <div className="flex flex-col items-center justify-center py-12 text-center">
-                <div className="relative mb-4">
-                  <Bell className="h-16 w-16 text-gray-200" />
-                  <div className="absolute -top-1 -right-1 h-4 w-4 bg-gray-100 rounded-full flex items-center justify-center">
-                    <Check className="h-2.5 w-2.5 text-gray-400" />
-                  </div>
-                </div>
-                <p className="text-sm text-gray-600 font-medium mb-1">All caught up!</p>
-                <p className="text-xs text-gray-400">
-                  {isAdmin ? "Business alerts will appear here" : "Your updates will appear here"}
-                </p>
-              </div>
-            ) : (
-              <ScrollArea className="h-96">
-                <div className="space-y-0.5 p-2">
-                  {notifications.map((notification, index) => (
-                    <div
-                      key={notification.id}
-                      className={cn(
-                        "p-3 rounded-lg border-l-4 cursor-pointer transition-all duration-200",
-                        getPriorityColor(notification.priority),
-                        !notification.is_read && "shadow-sm",
-                        notification.is_read && "opacity-75"
-                      )}
-                      onClick={() => markAsRead(notification.id)}
-                    >
-                      <div className="flex items-start gap-3">
-                        <div className="flex-shrink-0 mt-0.5">
-                          {getNotificationIcon(notification.category, isAdmin)}
+            <ScrollArea className="h-96">
+              <div className="space-y-1 p-2">
+                {notifications.map((notification, index) => (
+                  <div
+                    key={notification.id}
+                    className={cn(
+                      "p-3 rounded-xl border-l-4 cursor-pointer transition-all duration-200 group",
+                      getPriorityColor(notification.priority),
+                      !notification.is_read ? "shadow-lg ring-2 ring-orange-500/30" : "opacity-70",
+                      "hover:scale-[1.01]"
+                    )}
+                    onClick={() => markAsRead(notification.id)}
+                  >
+                    <div className="flex items-start gap-3">
+                      <div className="flex-shrink-0 mt-0.5">
+                        {getNotificationIcon(notification.category, isAdmin)}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-start justify-between mb-1">
+                          <h4 className="text-sm font-semibold text-gray-900 line-clamp-1 pr-2">
+                            {notification.title}
+                          </h4>
+                          {!notification.is_read && (
+                            <div className="h-2 w-2 bg-orange-500 rounded-full flex-shrink-0 mt-1 animate-pulse" />
+                          )}
                         </div>
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-start justify-between mb-1">
-                            <h4 className="text-sm font-medium text-gray-900 line-clamp-1 pr-2">
-                              {notification.title}
-                            </h4>
-                            {!notification.is_read && (
-                              <div className="h-2 w-2 bg-blue-600 rounded-full flex-shrink-0 mt-1" />
-                            )}
-                          </div>
-                          <p className="text-sm text-gray-600 line-clamp-2 mb-3 leading-relaxed">
-                            {notification.message}
-                          </p>
-                          <div className="flex items-center justify-between">
-                            <span className="text-xs text-gray-400 flex items-center gap-1">
-                              <Clock className="h-3 w-3" />
-                              {formatDistanceToNow(new Date(notification.created_at), {
-                                addSuffix: true,
-                                locale: vi,
-                              })}
-                            </span>
-                            <Badge
-                              variant="outline"
-                              className="text-xs capitalize border-gray-200 text-gray-600"
-                            >
-                              {notification.category}
-                            </Badge>
-                          </div>
+                        <p className="text-sm text-gray-600 line-clamp-2 mb-3 leading-relaxed">
+                          {notification.message}
+                        </p>
+                        <div className="flex items-center justify-between">
+                          <span className="text-xs text-gray-400 flex items-center gap-1">
+                            <Clock className="h-3 w-3" />
+                            {formatDistanceToNow(new Date(notification.created_at), {
+                              addSuffix: true,
+                              locale: vi,
+                            })}
+                          </span>
+                          <Badge
+                            variant="default"
+                            className="text-xs capitalize bg-orange-100 text-orange-700 border-0"
+                          >
+                            {notification.category}
+                          </Badge>
                         </div>
                       </div>
                     </div>
-                  ))}
-                </div>
-              </ScrollArea>
-            )}
+                  </div>
+                ))}
+              </div>
+            </ScrollArea>
 
             {/* Footer */}
             {notifications.length > 0 && (

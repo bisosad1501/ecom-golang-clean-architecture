@@ -12,6 +12,8 @@ export const userKeys = {
   detail: (id: string) => [...userKeys.details(), id] as const,
   profile: () => [...userKeys.all, 'profile'] as const,
   admin: () => [...userKeys.all, 'admin'] as const,
+  preferences: () => [...userKeys.all, 'preferences'] as const,
+  sessions: () => [...userKeys.all, 'sessions'] as const,
 }
 
 // Get current user profile
@@ -109,23 +111,15 @@ export function useUser(id: string) {
   })
 }
 
-// Update profile
+// Update profile - matches backend UpdateProfileRequest exactly
 export function useUpdateProfile() {
   const queryClient = useQueryClient()
-  
+
   return useMutation({
     mutationFn: async (data: {
       first_name?: string
       last_name?: string
       phone?: string
-      profile?: {
-        date_of_birth?: string
-        gender?: string
-        address?: string
-        city?: string
-        country?: string
-        postal_code?: string
-      }
     }): Promise<User> => {
       const response = await apiClient.put<User>('/users/profile', data)
       return response.data
@@ -144,11 +138,7 @@ export function useUpdateProfile() {
 // Change password
 export function useChangePassword() {
   return useMutation({
-    mutationFn: async (data: {
-      current_password: string
-      new_password: string
-      confirm_password: string
-    }): Promise<void> => {
+    mutationFn: async (data: { current_password: string; new_password: string }): Promise<void> => {
       await apiClient.post('/users/change-password', data)
     },
     onSuccess: () => {
@@ -156,6 +146,141 @@ export function useChangePassword() {
     },
     onError: (error: any) => {
       toast.error(error.message || 'Failed to change password')
+    },
+  })
+}
+
+// User preferences
+export function useUserPreferences() {
+  return useQuery({
+    queryKey: userKeys.preferences(),
+    queryFn: async () => {
+      const response = await apiClient.get('/users/preferences')
+      return response.data
+    },
+  })
+}
+
+export function useUpdateUserPreferences() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: async (data: any) => {
+      const response = await apiClient.put('/users/preferences', data)
+      return response.data
+    },
+    onSuccess: (data) => {
+      queryClient.setQueryData(userKeys.preferences(), data)
+      toast.success('Preferences updated successfully')
+    },
+    onError: (error: any) => {
+      toast.error(error.message || 'Failed to update preferences')
+    },
+  })
+}
+
+// User sessions
+export function useUserSessions(limit = 10, offset = 0) {
+  return useQuery({
+    queryKey: [...userKeys.sessions(), { limit, offset }],
+    queryFn: async () => {
+      const response = await apiClient.get(`/users/sessions?limit=${limit}&offset=${offset}`)
+      return response.data
+    },
+  })
+}
+
+export function useInvalidateSession() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: async (sessionId: string) => {
+      await apiClient.delete(`/users/sessions/${sessionId}`)
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: userKeys.sessions() })
+      toast.success('Session invalidated successfully')
+    },
+    onError: (error: any) => {
+      toast.error(error.message || 'Failed to invalidate session')
+    },
+  })
+}
+
+export function useInvalidateAllSessions() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: async () => {
+      await apiClient.delete('/users/sessions')
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: userKeys.sessions() })
+      toast.success('All sessions invalidated successfully')
+    },
+    onError: (error: any) => {
+      toast.error(error.message || 'Failed to invalidate all sessions')
+    },
+  })
+}
+
+// User activity
+export function useUserActivity(limit = 10, offset = 0) {
+  return useQuery({
+    queryKey: [...userKeys.all, 'activity', { limit, offset }],
+    queryFn: async () => {
+      const response = await apiClient.get(`/users/activity?limit=${limit}&offset=${offset}`)
+      return response.data
+    },
+  })
+}
+
+// User stats
+export function useUserStats() {
+  return useQuery({
+    queryKey: [...userKeys.all, 'stats'],
+    queryFn: async () => {
+      const response = await apiClient.get('/users/stats')
+      return response.data
+    },
+  })
+}
+
+// Search history
+export function useSearchHistory() {
+  return useQuery({
+    queryKey: [...userKeys.all, 'search-history'],
+    queryFn: async () => {
+      const response = await apiClient.get('/users/search-history')
+      return response.data
+    },
+  })
+}
+
+export function useClearSearchHistory() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: async () => {
+      await apiClient.delete('/users/search-history')
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [...userKeys.all, 'search-history'] })
+      toast.success('Search history cleared successfully')
+    },
+    onError: (error: any) => {
+      toast.error(error.message || 'Failed to clear search history')
+    },
+  })
+}
+
+// Browsing history
+export function useBrowsingHistory() {
+  return useQuery({
+    queryKey: [...userKeys.all, 'browsing-history'],
+    queryFn: async () => {
+      const response = await apiClient.get('/users/browsing-history')
+      return response.data
     },
   })
 }

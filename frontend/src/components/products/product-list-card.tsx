@@ -28,7 +28,7 @@ export function ProductListCard({ product, className }: ProductListCardProps) {
   const addToWishlistMutation = useAddToWishlist()
   const removeFromWishlistMutation = useRemoveFromWishlist()
 
-  const primaryImage = product.images?.[0]?.url || product.main_image || '/placeholder-product.jpg'
+  const primaryImage = product.images?.[0]?.url || product.main_image || '/placeholder-product.svg'
 
   // Use backend computed fields directly
   const currentPrice = product.current_price
