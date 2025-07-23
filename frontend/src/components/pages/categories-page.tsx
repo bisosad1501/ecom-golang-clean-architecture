@@ -1,37 +1,189 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import React, { useState, useMemo, useEffect } from 'react'
 import Link from 'next/link'
-import Image from 'next/image'
 import { useSearchParams } from 'next/navigation'
-import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { Badge } from '@/components/ui/badge'
-import { Search, Grid, FolderTree, ArrowRight, Package } from 'lucide-react'
-import { useCategories } from '@/hooks/use-categories'
+import { Card } from '@/components/ui/card'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { Grid, List, ChevronRight, Home, FolderTree, TreePine, Filter } from 'lucide-react'
+import { AnimatedBackground } from '@/components/ui/animated-background'
+import { CategoryCard } from '@/components/ui/category-card'
+import { Pagination } from '@/components/ui/pagination'
+import { ResponsiveGrid, GridItem, GridSkeleton } from '@/components/ui/responsive-grid'
+import { CategoryFilters, CategoryFilterState } from '@/components/ui/category-filters'
+import { CategoryHierarchyView } from '@/components/ui/category-hierarchy-view'
 import { Category } from '@/types'
+import { categoryService } from '@/lib/services/categories'
+import { useQuery } from '@tanstack/react-query'
+import { cn } from '@/lib/utils'
 
-export default function CategoriesPage() {
+export function CategoriesPage() {
   const searchParams = useSearchParams()
   const [searchQuery, setSearchQuery] = useState(searchParams.get('search') || '')
-  const [viewMode, setViewMode] = useState<'grid' | 'tree'>('grid')
-  
-  const { 
-    data: categories, 
-    isLoading, 
-    error 
-  } = useCategories()
+  const [viewMode, setViewMode] = useState<'grid' | 'list' | 'hierarchy'>('hierarchy')
+  const [showFilters, setShowFilters] = useState(false)
 
-  // Filter categories based on search query
-  const filteredCategories = categories?.filter(category =>
-    category.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    category.description?.toLowerCase().includes(searchQuery.toLowerCase())
-  ) || []
+  // Handle view mode change with localStorage persistence
+  const handleViewModeChange = (mode: 'grid' | 'list' | 'hierarchy') => {
+    setViewMode(mode)
+    localStorage.setItem('categories-view-mode', mode)
+  }
+
+  // Load view mode from localStorage on mount
+  useEffect(() => {
+    const savedViewMode = localStorage.getItem('categories-view-mode') as 'grid' | 'list' | 'hierarchy'
+    if (savedViewMode && ['grid', 'list', 'hierarchy'].includes(savedViewMode)) {
+      setViewMode(savedViewMode)
+    }
+  }, [])
+  const [currentPage, setCurrentPage] = useState(1)
+  const [itemsPerPage, setItemsPerPage] = useState(12)
+  const [filters, setFilters] = useState<CategoryFilterState>({
+    searchQuery: searchParams.get('search') || '',
+    sortBy: 'name',
+    sortOrder: 'asc',
+    showActiveOnly: true,
+    productCountRange: [0, 1000]
+  })
+
+  // Fetch category tree
+  const {
+    data: categoryTree,
+    isLoading,
+    error
+  } = useQuery({
+    queryKey: ['categories', 'tree'],
+    queryFn: () => categoryService.getCategoryTree(),
+  })
+
+  // Flatten tree for easier filtering
+  const flattenCategories = (categories: Category[]): Category[] => {
+    const result: Category[] = []
+    const flatten = (cats: Category[], level = 0) => {
+      cats.forEach(cat => {
+        result.push({ ...cat, level })
+        if (cat.children && cat.children.length > 0) {
+          flatten(cat.children, level + 1)
+        }
+      })
+    }
+    flatten(categories)
+    return result
+  }
+
+  const flatCategories = useMemo(() => {
+    return categoryTree ? flattenCategories(categoryTree) : []
+  }, [categoryTree])
+
+  // Enhanced filtering with better search capabilities
+  const filteredCategories = useMemo(() => {
+    let catsToFilter = flatCategories
+
+    // Active filter
+    if (filters.showActiveOnly) {
+      catsToFilter = catsToFilter.filter(category => category.is_active !== false)
+    }
+
+    // Enhanced search filter - search in name, description, and slug
+    if (filters.searchQuery.trim()) {
+      const query = filters.searchQuery.toLowerCase().trim()
+      catsToFilter = catsToFilter.filter(category => {
+        const searchableText = [
+          category.name,
+          category.description || '',
+          category.slug || ''
+        ].join(' ').toLowerCase()
+
+        return searchableText.includes(query)
+      })
+    }
+
+    // Parent category filter
+    if (filters.parentCategory) {
+      if (filters.parentCategory === 'root') {
+        catsToFilter = catsToFilter.filter(category => !category.parent_id)
+      } else {
+        catsToFilter = catsToFilter.filter(category =>
+          category.parent_id === filters.parentCategory
+        )
+      }
+    }
+
+    // Subcategories filter
+    if (filters.hasSubcategories !== undefined) {
+      catsToFilter = catsToFilter.filter(category =>
+        filters.hasSubcategories
+          ? category.children && category.children.length > 0
+          : !category.children || category.children.length === 0
+      )
+    }
+
+    // Recently updated filter
+    if (filters.recentlyUpdated) {
+      const sevenDaysAgo = new Date()
+      sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7)
+      catsToFilter = catsToFilter.filter(category =>
+        new Date(category.updated_at) > sevenDaysAgo
+      )
+    }
+
+    // Product count range filter
+    if (filters.productCountRange) {
+      const [min, max] = filters.productCountRange
+      catsToFilter = catsToFilter.filter(category => {
+        const count = category.product_count || 0
+        return count >= min && count <= max
+      })
+    }
+
+    // Enhanced sorting
+    catsToFilter.sort((a, b) => {
+      let result = 0
+      switch (filters.sortBy) {
+        case 'name':
+          result = a.name.localeCompare(b.name)
+          break
+        case 'product_count':
+          result = (a.product_count || 0) - (b.product_count || 0)
+          break
+        case 'created_at':
+          result = new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
+          break
+        case 'updated_at':
+          result = new Date(a.updated_at).getTime() - new Date(b.updated_at).getTime()
+          break
+        default:
+          result = 0
+      }
+      return filters.sortOrder === 'desc' ? -result : result
+    })
+
+    return catsToFilter
+  }, [flatCategories, filters])
+
+  // Pagination logic
+  const paginatedCategories = useMemo(() => {
+    const startIndex = (currentPage - 1) * itemsPerPage
+    const endIndex = startIndex + itemsPerPage
+    return filteredCategories.slice(startIndex, endIndex)
+  }, [filteredCategories, currentPage, itemsPerPage])
+
+  const totalPages = Math.ceil(filteredCategories.length / itemsPerPage)
+
+  // Reset to first page when filters change
+  const resetPagination = () => {
+    setCurrentPage(1)
+  }
+
+  // Update pagination when search or filters change
+  useEffect(() => {
+    resetPagination()
+  }, [filters])
 
   const handleSearch = (query: string) => {
     setSearchQuery(query)
-    // Update URL without page reload
+    setFilters((prev: CategoryFilterState) => ({ ...prev, searchQuery: query }))
     const url = new URL(window.location.href)
     if (query) {
       url.searchParams.set('search', query)
@@ -41,443 +193,266 @@ export default function CategoriesPage() {
     window.history.replaceState({}, '', url.toString())
   }
 
+  const handleFiltersChange = (newFilters: CategoryFilterState) => {
+    setFilters(newFilters)
+    setSearchQuery(newFilters.searchQuery)
+    resetPagination()
+  }
+
   if (error) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-background via-muted/20 to-background py-16">
-        <div className="container mx-auto px-4">
-          <div className="text-center">
-            <h1 className="text-3xl font-bold text-destructive mb-4">Error Loading Categories</h1>
-            <p className="text-muted-foreground mb-8">
-              We're having trouble loading the categories. Please try again later.
+      <div className="min-h-screen bg-black">
+        <div className="container mx-auto px-4 py-8">
+          <Card className="p-8 text-center bg-gray-900 border-gray-700">
+            <h2 className="text-2xl font-bold text-white mb-4">
+              Oops! Something went wrong
+            </h2>
+            <p className="text-gray-300 mb-6">
+              We couldn't load the categories. Please try again later.
             </p>
-            <Button onClick={() => window.location.reload()}>
+            <Button onClick={() => window.location.reload()} variant="outline" className="bg-[#ff9000] text-white border-[#ff9000] hover:bg-[#ff9000]/90">
               Try Again
             </Button>
-          </div>
+          </Card>
         </div>
       </div>
     )
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-background via-muted/20 to-background">
-      <div className="container mx-auto px-4 py-12">
-        {/* Enhanced Header */}
-        <div className="mb-12 text-center">
-          <div className="flex items-center justify-center gap-3 mb-6">
-            <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-primary-500 to-violet-600 flex items-center justify-center shadow-large">
-              <FolderTree className="h-6 w-6 text-white" />
-            </div>
-            <span className="text-primary font-semibold">PRODUCT CATEGORIES</span>
-          </div>
-          
-          <h1 className="text-4xl lg:text-6xl font-bold text-foreground mb-6">
-            Browse by <span className="text-gradient">Category</span>
-          </h1>
-          <p className="text-xl text-muted-foreground max-w-3xl mx-auto leading-relaxed">
-            Discover products organized by category. Find exactly what you're looking for 
-            with our intuitive category navigation.
-          </p>
-        </div>
+    <div className="min-h-screen bg-gradient-to-br from-black via-gray-900 to-black text-white relative overflow-hidden">
+      {/* Enhanced Background Pattern - Matching Products Page */}
+      <AnimatedBackground className="opacity-30" />
 
-        {/* Search and View Controls */}
-        <div className="mb-12">
-          <Card variant="elevated" className="border-0 shadow-large">
-            <CardContent className="p-8">
-              <div className="flex flex-col lg:flex-row items-center gap-6">
-                <div className="flex-1 w-full">
-                  <div className="relative">
-                    <Input
-                      placeholder="Search categories..."
-                      value={searchQuery}
-                      onChange={(e) => handleSearch(e.target.value)}
-                      leftIcon={<Search className="h-5 w-5" />}
-                      size="lg"
-                      className="w-full pr-12"
-                    />
+      {/* Main Content Area */}
+      <div className="container mx-auto px-4 lg:px-6 xl:px-8 py-8 relative z-10">
+        <div className="flex flex-col lg:flex-row gap-8">
+          {/* Mobile Filters Overlay */}
+          {showFilters && (
+            <div className="fixed inset-0 z-50 lg:hidden">
+              <div
+                className="absolute inset-0 bg-black/70 backdrop-blur-sm"
+                onClick={() => setShowFilters(false)}
+              />
+              <div className="absolute top-0 left-0 w-80 h-full bg-gray-900/95 backdrop-blur-2xl border-r border-white/20 rounded-r-xl shadow-2xl p-6 overflow-y-auto">
+                <div className="flex items-center justify-between mb-6">
+                  <h3 className="text-lg font-bold bg-gradient-to-r from-white to-gray-300 bg-clip-text text-transparent">Filters</h3>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setShowFilters(false)}
+                    className="text-gray-400 hover:text-white hover:bg-white/10 rounded-lg h-8 w-8 p-0 transition-all duration-300 border border-white/10"
+                  >
+                    <div className="text-sm">✕</div>
+                  </Button>
+                </div>
+                <CategoryFilters filters={filters} onFiltersChange={handleFiltersChange} />
+              </div>
+            </div>
+          )}
+
+          {/* Compact Sidebar Filters */}
+          <aside className="hidden lg:block lg:w-60 xl:w-64 flex-shrink-0">
+            <div className="sticky top-4 max-h-[calc(100vh-2rem)] overflow-y-auto">
+              <CategoryFilters
+                filters={filters}
+                onFiltersChange={handleFiltersChange}
+              />
+            </div>
+          </aside>
+
+          {/* Main Content */}
+          <main className="flex-1 min-w-0">
+            {/* Compact Page Header */}
+            <div className="mb-8">
+              {/* Title and Results */}
+              <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-6 mb-6">
+                <div className="space-y-2">
+                  <h1 className="text-2xl lg:text-3xl font-bold bg-gradient-to-r from-white via-gray-200 to-[#ff9000] bg-clip-text text-transparent leading-tight">
+                    Browse <span className="text-[#ff9000]">Categories</span>
+                  </h1>
+                  {filteredCategories.length > 0 && (
+                    <div className="flex items-center gap-3">
+                      <p className="text-gray-400 text-sm">
+                        Showing <span className="text-[#ff9000] font-medium">{paginatedCategories.length}</span> of <span className="text-[#ff9000] font-medium">{filteredCategories.length}</span> categories
+                      </p>
+                      <div className="bg-white/8 text-gray-300 border border-white/15 px-2 py-1 text-xs backdrop-blur-sm font-medium rounded-md">
+                        {filteredCategories.length} Total
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                {/* Compact View Controls */}
+                <div className="flex items-center gap-3">
+                  {/* View mode toggle */}
+                  <div className="flex items-center bg-white/[0.06] backdrop-blur-md border border-white/10 rounded-lg p-0.5 shadow-sm">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => handleViewModeChange('hierarchy')}
+                      className={`rounded-md h-7 px-2 text-xs font-medium transition-all duration-200 border-0 hover:text-[#ff9000] hover:bg-[#ff9000]/10 ${
+                        viewMode === 'hierarchy'
+                          ? 'bg-white/10 text-white'
+                          : 'text-gray-400'
+                      }`}
+                    >
+                      <TreePine className="h-3.5 w-3.5" />
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => handleViewModeChange('grid')}
+                      className={`rounded-md h-7 px-2 text-xs font-medium transition-all duration-200 border-0 hover:text-[#ff9000] hover:bg-[#ff9000]/10 ${
+                        viewMode === 'grid'
+                          ? 'bg-white/10 text-white'
+                          : 'text-gray-400'
+                      }`}
+                    >
+                      <Grid className="h-3.5 w-3.5" />
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => handleViewModeChange('list')}
+                      className={`rounded-md h-7 px-2 text-xs font-medium transition-all duration-200 border-0 hover:text-[#ff9000] hover:bg-[#ff9000]/10 ${
+                        viewMode === 'list'
+                          ? 'bg-white/10 text-white'
+                          : 'text-gray-400'
+                      }`}
+                    >
+                      <List className="h-3.5 w-3.5" />
+                    </Button>
+                  </div>
+
+                  {/* Items per page selector */}
+                  <Select value={itemsPerPage.toString()} onValueChange={(value) => setItemsPerPage(Number(value))}>
+                    <SelectTrigger className="w-16 h-7 bg-white/[0.06] backdrop-blur-md border-white/10 text-white text-xs rounded-lg">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent className="bg-gray-900 border-gray-700">
+                      <SelectItem value="12">12</SelectItem>
+                      <SelectItem value="24">24</SelectItem>
+                      <SelectItem value="48">48</SelectItem>
+                    </SelectContent>
+                  </Select>
+
+                  {/* Filters toggle (mobile) */}
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setShowFilters(!showFilters)}
+                    className="lg:hidden rounded-lg border border-white/10 bg-white/[0.06] backdrop-blur-md text-gray-400 hover:bg-white/[0.08] hover:border-white/15 hover:text-white transition-all duration-200 h-7 px-2.5 text-xs font-medium shadow-sm"
+                  >
+                    <Filter className="h-3 w-3 mr-1" />
+                    Filters
+                  </Button>
+                </div>
+              </div>
+
+              {/* Breadcrumb */}
+              <nav className="flex items-center space-x-2 text-sm text-gray-400 mb-6">
+                <Link href="/" className="hover:text-white transition-colors">
+                  <Home className="h-4 w-4" />
+                </Link>
+                <ChevronRight className="h-4 w-4" />
+                <span className="text-white">Categories</span>
+              </nav>
+            </div>
+
+            {/* Content */}
+            <div className="space-y-8">
+              {isLoading ? (
+                <GridSkeleton count={8} variant="categories" gap="lg" />
+              ) : filteredCategories.length > 0 ? (
+                <>
+                  {viewMode === 'hierarchy' ? (
+                    <div className="bg-white/[0.02] backdrop-blur-sm border border-white/10 rounded-xl p-6 shadow-lg">
+                      <CategoryHierarchyView
+                        categories={categoryTree || []}
+                        filteredCategories={filteredCategories}
+                        searchQuery={filters.searchQuery}
+                        viewMode="tree"
+                        showFilters={false}
+                      />
+                    </div>
+                  ) : viewMode === 'grid' ? (
+                    <ResponsiveGrid variant="categories" gap="lg">
+                      {paginatedCategories.map((category, index) => (
+                        <GridItem key={category.id} index={index} animationDelay={50}>
+                          <CategoryCard
+                            category={category}
+                            variant="default"
+                            showStats={true}
+                            showSubcategories={true}
+                            priority={index < 4} // Prioritize first 4 images
+                          />
+                        </GridItem>
+                      ))}
+                    </ResponsiveGrid>
+                  ) : (
+                    <div className="space-y-4">
+                      {paginatedCategories.map((category, index) => (
+                        <GridItem
+                          key={category.id}
+                          index={index}
+                          animationDelay={100}
+                          className="animate-in fade-in slide-in-from-left-4 duration-500"
+                        >
+                          <CategoryCard
+                            category={category}
+                            variant="list"
+                            showStats={true}
+                            showSubcategories={false}
+                          />
+                        </GridItem>
+                      ))}
+                    </div>
+                  )}
+                </>
+              ) : (
+                <div className="text-center py-20">
+                  <div className="bg-white/[0.03] backdrop-blur-sm border border-white/10 rounded-xl p-12 shadow-lg max-w-md mx-auto">
+                    <FolderTree className="h-16 w-16 text-gray-500 mx-auto mb-6" />
+                    <h3 className="text-xl font-semibold text-white mb-3">
+                      {searchQuery ? 'No matching categories' : 'No categories found'}
+                    </h3>
+                    <p className="text-gray-400 mb-6">
+                      {searchQuery
+                        ? `We couldn't find any categories matching "${searchQuery}".`
+                        : 'No categories are available at the moment.'
+                      }
+                    </p>
                     {searchQuery && (
                       <Button
-                        variant="ghost"
-                        size="sm"
                         onClick={() => handleSearch('')}
-                        className="absolute right-2 top-1/2 -translate-y-1/2 h-8 w-8 p-0"
+                        variant="outline"
+                        className="bg-[#ff9000] text-white border-[#ff9000] hover:bg-[#ff9000]/90"
                       >
-                        ×
+                        Clear Search
                       </Button>
                     )}
                   </div>
                 </div>
-                
-                <div className="flex items-center bg-background border-2 border-border rounded-2xl p-1 shadow-medium">
-                  <Button
-                    variant={viewMode === 'grid' ? 'default' : 'ghost'}
-                    size="sm"
-                    onClick={() => setViewMode('grid')}
-                    className="rounded-xl h-10 px-4"
-                  >
-                    <Grid className="h-4 w-4 mr-2" />
-                    Grid
-                  </Button>
-                  <Button
-                    variant={viewMode === 'tree' ? 'default' : 'ghost'}
-                    size="sm"
-                    onClick={() => setViewMode('tree')}
-                    className="rounded-xl h-10 px-4"
-                  >
-                    <FolderTree className="h-4 w-4 mr-2" />
-                    Tree
-                  </Button>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-
-        {/* Categories Content */}
-        {isLoading ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8">
-            {[...Array(8)].map((_, i) => (
-              <Card key={i} variant="elevated" className="border-0 shadow-large">
-                <CardContent className="p-6">
-                  <div className="w-full h-48 rounded-2xl mb-4 bg-muted animate-pulse" />
-                  <div className="h-6 w-3/4 mb-2 bg-muted animate-pulse rounded" />
-                  <div className="h-4 w-1/2 mb-4 bg-muted animate-pulse rounded" />
-                  <div className="h-4 w-1/4 bg-muted animate-pulse rounded" />
-                </CardContent>
-              </Card>
-            ))}
-          </div>
-        ) : filteredCategories.length > 0 ? (
-          viewMode === 'grid' ? (
-            <CategoryHierarchyGrid categories={filteredCategories} />
-          ) : (
-            <CategoryTree categories={filteredCategories} />
-          )
-        ) : (
-          <EmptyState searchQuery={searchQuery} onClearSearch={() => handleSearch('')} />
-        )}
-      </div>
-    </div>
-  )
-}
-
-// Category Card Component
-function CategoryCard({ 
-  category, 
-  isRoot = false, 
-  isOrphaned = false 
-}: { 
-  category: Category
-  isRoot?: boolean
-  isOrphaned?: boolean
-}) {
-  return (
-    <Card variant="elevated" className={`border-0 shadow-large hover:shadow-xl transition-all duration-300 group overflow-hidden ${
-      isOrphaned ? 'ring-2 ring-yellow-400 ring-opacity-50' : ''
-    }`}>
-      <CardContent className="p-0">
-        {/* Category Image */}
-        <div className="relative h-48 overflow-hidden bg-muted">
-          {category.image ? (
-            <Image
-              src={category.image}
-              alt={category.name}
-              fill
-              className="object-cover group-hover:scale-105 transition-transform duration-300"
-            />
-          ) : (
-            <div className="w-full h-full flex items-center justify-center text-muted-foreground bg-gradient-to-br from-muted to-muted/50">
-              {isRoot ? (
-                <FolderTree className="w-16 h-16" />
-              ) : (
-                <Package className="w-16 h-16" />
               )}
             </div>
-          )}
-          
-          {/* Category Type Badge */}
-          <div className="absolute top-3 left-3">
-            {isOrphaned ? (
-              <Badge variant="destructive" className="text-xs">
-                ⚠ Orphaned
-              </Badge>
-            ) : isRoot ? (
-              <Badge variant="default" className="text-xs bg-blue-600">
-                📁 Main Category
-              </Badge>
-            ) : (
-              <Badge variant="secondary" className="text-xs">
-                📂 Subcategory
-              </Badge>
-            )}
-          </div>
-          
-          {/* Level indicator */}
-          <div className="absolute top-3 right-3">
-            <Badge variant="outline" className="text-xs bg-white/90">
-              Level {category.level || 0}
-            </Badge>
-          </div>
-          
-          {/* Overlay */}
-          <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
-          
-          {/* View Products Button */}
-          <div className="absolute bottom-4 left-4 right-4 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
-            <Button asChild size="sm" variant="secondary" className="w-full">
-              <Link href={`/products?category=${category.id}`}>
-                View Products
-                <ArrowRight className="ml-2 h-4 w-4" />
-              </Link>
-            </Button>
-          </div>
-        </div>
-        
-        {/* Category Info */}
-        <div className="p-6">
-          <div className="mb-3">
-            <h3 className="text-xl font-bold text-foreground mb-1 group-hover:text-primary transition-colors">
-              {category.name}
-            </h3>
-            
-            {/* Path breadcrumb for non-root categories */}
-            {!isRoot && category.path && (
-              <p className="text-xs text-muted-foreground mb-2 font-mono bg-muted/50 px-2 py-1 rounded">
-                {category.path}
-              </p>
-            )}
-          </div>
-          
-          {category.description && (
-            <p className="text-muted-foreground text-sm mb-4 line-clamp-2">
-              {category.description}
-            </p>
-          )}
-          
-          <div className="flex items-center justify-between">
-            <Badge variant="outline" className="text-xs">
-              {category.product_count || 0} products
-            </Badge>
-            
-            <Button asChild variant="ghost" size="sm">
-              <Link href={`/products?category=${category.id}`}>
-                Browse
-                <ArrowRight className="ml-1 h-3 w-3" />
-              </Link>
-            </Button>
-          </div>
-        </div>
-      </CardContent>
-    </Card>
-  )
-}
 
-// Category Tree Component
-function CategoryTree({ categories }: { categories: Category[] }) {
-  // Group categories by parent
-  const rootCategories = categories.filter(cat => !cat.parent_id)
-  
-  return (
-    <div className="space-y-6">
-      {rootCategories.map((category) => (
-        <CategoryTreeNode key={category.id} category={category} allCategories={categories} />
-      ))}
-    </div>
-  )
-}
-
-// Category Tree Node Component
-function CategoryTreeNode({ category, allCategories, level = 0 }: { 
-  category: Category
-  allCategories: Category[]
-  level?: number 
-}) {
-  const children = allCategories.filter(cat => cat.parent_id === category.id)
-  const [isExpanded, setIsExpanded] = useState(level < 2)
-  
-  return (
-    <div className={`${level > 0 ? 'ml-8' : ''}`}>
-      <Card variant={level === 0 ? "elevated" : "outlined"} className="border-0 shadow-medium">
-        <CardContent className="p-6">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-4">
-              {category.image && (
-                <div className="w-12 h-12 rounded-xl overflow-hidden">
-                  <Image
-                    src={category.image}
-                    alt={category.name}
-                    width={48}
-                    height={48}
-                    className="object-cover"
+            {/* Pagination - only show for grid/list views */}
+            {viewMode !== 'hierarchy' && filteredCategories.length > itemsPerPage && (
+              <div className="mt-8">
+                <div className="flex justify-center">
+                  <Pagination
+                    currentPage={currentPage}
+                    totalPages={totalPages}
+                    hasNext={currentPage < totalPages}
+                    hasPrev={currentPage > 1}
                   />
                 </div>
-              )}
-              
-              <div>
-                <h3 className="text-lg font-semibold text-foreground">
-                  {category.name}
-                </h3>
-                {category.description && (
-                  <p className="text-sm text-muted-foreground">
-                    {category.description}
-                  </p>
-                )}
               </div>
-            </div>
-            
-            <div className="flex items-center gap-3">
-              <Badge variant="outline">
-                {category.product_count || 0} products
-              </Badge>
-              
-              <Button asChild variant="outline" size="sm">
-                <Link href={`/products?category=${category.id}`}>
-                  View Products
-                </Link>
-              </Button>
-              
-              {children.length > 0 && (
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => setIsExpanded(!isExpanded)}
-                >
-                  {isExpanded ? 'Collapse' : 'Expand'} ({children.length})
-                </Button>
-              )}
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-      
-      {isExpanded && children.length > 0 && (
-        <div className="mt-4 space-y-4">
-          {children.map((child) => (
-            <CategoryTreeNode
-              key={child.id}
-              category={child}
-              allCategories={allCategories}
-              level={level + 1}
-            />
-          ))}
-        </div>
-      )}
-    </div>
-  )
-}
-
-// Category Hierarchy Grid Component
-function CategoryHierarchyGrid({ categories }: { categories: Category[] }) {
-  // Group categories by hierarchy
-  const rootCategories = categories.filter(cat => !cat.parent_id)
-  const childCategories = categories.filter(cat => cat.parent_id)
-  
-  return (
-    <div className="space-y-12">
-      {/* Root Categories Section */}
-      <div>
-        <div className="flex items-center gap-3 mb-8">
-          <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center">
-            <FolderTree className="h-4 w-4 text-white" />
-          </div>
-          <h2 className="text-2xl font-bold text-foreground">Main Categories</h2>
-          <Badge variant="outline" className="ml-2">
-            {rootCategories.length} categories
-          </Badge>
-        </div>
-        
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-          {rootCategories.map((category) => (
-            <CategoryCard key={category.id} category={category} isRoot={true} />
-          ))}
+            )}
+          </main>
         </div>
       </div>
-
-      {/* Root Categories with their Children */}
-      {rootCategories.map((rootCategory) => {
-        const children = childCategories.filter(cat => cat.parent_id === rootCategory.id)
-        
-        if (children.length === 0) return null
-        
-        return (
-          <div key={`${rootCategory.id}-children`}>
-            <div className="flex items-center gap-3 mb-8">
-              <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-green-500 to-green-600 flex items-center justify-center">
-                <span className="text-white text-xs font-bold">└─</span>
-              </div>
-              <h2 className="text-2xl font-bold text-foreground">
-                <span className="text-muted-foreground">{rootCategory.name}</span> Subcategories
-              </h2>
-              <Badge variant="outline" className="ml-2">
-                {children.length} subcategories
-              </Badge>
-            </div>
-            
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-              {children.map((category) => (
-                <CategoryCard key={category.id} category={category} isRoot={false} />
-              ))}
-            </div>
-          </div>
-        )
-      })}
-      
-      {/* Orphaned Categories (if any) */}
-      {childCategories.filter(child => 
-        !rootCategories.some(root => root.id === child.parent_id)
-      ).length > 0 && (
-        <div>
-          <div className="flex items-center gap-3 mb-8">
-            <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-yellow-500 to-orange-500 flex items-center justify-center">
-              <span className="text-white text-xs">⚠</span>
-            </div>
-            <h2 className="text-2xl font-bold text-foreground">Uncategorized Items</h2>
-            <Badge variant="destructive" className="ml-2">
-              Needs attention
-            </Badge>
-          </div>
-          
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-            {childCategories.filter(child => 
-              !rootCategories.some(root => root.id === child.parent_id)
-            ).map((category) => (
-              <CategoryCard key={category.id} category={category} isRoot={false} isOrphaned={true} />
-            ))}
-          </div>
-        </div>
-      )}
-    </div>
-  )
-}
-
-// Empty State Component
-function EmptyState({ searchQuery, onClearSearch }: { 
-  searchQuery: string
-  onClearSearch: () => void 
-}) {
-  return (
-    <div className="text-center py-24">
-      <div className="relative mb-8">
-        <div className="w-32 h-32 mx-auto rounded-full bg-gradient-to-br from-muted to-muted/50 flex items-center justify-center shadow-large">
-          <FolderTree className="h-16 w-16 text-muted-foreground" />
-        </div>
-      </div>
-      
-      <h3 className="text-3xl font-bold text-foreground mb-4">
-        {searchQuery ? 'No categories found' : 'No categories available'}
-      </h3>
-      <p className="text-xl text-muted-foreground mb-12 max-w-md mx-auto leading-relaxed">
-        {searchQuery 
-          ? `No categories found matching "${searchQuery}". Try adjusting your search terms.` 
-          : 'Categories will appear here once they are added to the system.'
-        }
-      </p>
-      
-      {searchQuery && (
-        <Button onClick={onClearSearch} size="xl" variant="outline">
-          Clear Search
-        </Button>
-      )}
     </div>
   )
 }

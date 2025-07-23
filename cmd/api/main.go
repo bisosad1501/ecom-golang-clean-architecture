@@ -216,7 +216,7 @@ func main() {
 		notificationRepo, userRepo, orderRepo, paymentRepo, inventoryRepo,
 		reviewRepo, productRepo,
 		nil, nil, nil, // email, sms, push services - TODO: implement
-		websocketHub,  // WebSocket hub for real-time notifications
+		websocketHub, // WebSocket hub for real-time notifications
 	)
 
 	// Re-initialize userUseCase with notificationUseCase
@@ -300,8 +300,6 @@ func main() {
 		analyticsRepo, orderRepo, productRepo, userRepo, inventoryRepo,
 	)
 
-
-
 	// Initialize distance service
 	distanceService := services.NewDistanceService()
 
@@ -344,7 +342,7 @@ func main() {
 	oauthService := oauth.NewService(oauthConfig)
 
 	// Initialize OAuth use case
-	oauthUseCase := usecases.NewOAuthUseCase(userRepo, oauthService, jwtService)
+	oauthUseCase := usecases.NewOAuthUseCase(userRepo, userSessionRepo, oauthService, jwtService)
 
 	// Initialize search repository and use case
 	searchRepo := database.NewSearchRepository(db)
@@ -363,7 +361,7 @@ func main() {
 	productFilterUseCase := usecases.NewProductFilterUseCase(productFilterRepo, productRepo, productCategoryRepo)
 
 	// Initialize handlers
-	userHandler := handlers.NewUserHandler(userUseCase)
+	userHandler := handlers.NewUserHandler(userUseCase, userMetricsService)
 	productHandler := handlers.NewProductHandler(productUseCase)
 	categoryHandler := handlers.NewCategoryHandler(categoryUseCase)
 	brandHandler := handlers.NewBrandHandler(brandUseCase)

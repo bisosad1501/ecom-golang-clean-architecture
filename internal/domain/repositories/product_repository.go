@@ -275,6 +275,10 @@ type CategoryRepository interface {
 	ValidateTreeIntegrity(ctx context.Context) error
 	RebuildCategoryPaths(ctx context.Context) error
 
+	// Trending and popular categories
+	GetTrending(ctx context.Context, limit int, timeRange string) ([]*entities.Category, error)
+	GetPopular(ctx context.Context, limit int) ([]*entities.Category, error)
+
 	// Analytics and statistics
 	GetCategoryAnalytics(ctx context.Context, categoryID uuid.UUID, timeRange string) (*CategoryAnalytics, error)
 	GetTopCategories(ctx context.Context, limit int, sortBy string) ([]*CategoryStats, error)

@@ -173,6 +173,7 @@ func SetupRoutes(
 		{
 			categories.GET("", categoryHandler.GetCategories)
 			categories.GET("/:id", categoryHandler.GetCategory)
+			categories.GET("/slug/:slug", categoryHandler.GetCategoryBySlug)
 			categories.GET("/tree", categoryHandler.GetCategoryTree)
 			categories.GET("/root", categoryHandler.GetRootCategories)
 			categories.GET("/:id/children", categoryHandler.GetCategoryChildren)
@@ -183,6 +184,8 @@ func SetupRoutes(
 			// Enhanced category routes
 			categories.GET("/search", categoryHandler.SearchCategories)
 			categories.GET("/filter", categoryHandler.GetCategoriesWithFilters)
+			categories.GET("/trending", categoryHandler.GetTrendingCategories)
+			categories.GET("/popular", categoryHandler.GetPopularCategories)
 
 			// SEO routes (public access for frontend)
 			categories.GET("/:id/seo", categoryHandler.GetCategorySEO)
@@ -339,6 +342,8 @@ func SetupRoutes(
 				// User activity and stats routes
 				users.GET("/activity", userHandler.GetUserActivity)
 				users.GET("/stats", userHandler.GetUserStats)
+				users.POST("/stats/recalculate", userHandler.RecalculateUserStats)
+				users.GET("/membership-tiers", userHandler.GetMembershipTiers)
 
 				// Search history routes
 				searchHistory := users.Group("/search-history")

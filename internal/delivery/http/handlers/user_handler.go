@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"strconv"
 
+	"ecom-golang-clean-architecture/internal/domain/services"
 	"ecom-golang-clean-architecture/internal/usecases"
 
 	"github.com/gin-gonic/gin"
@@ -13,7 +14,8 @@ import (
 
 // UserHandler handles user-related HTTP requests
 type UserHandler struct {
-	userUseCase usecases.UserUseCase
+	userUseCase        usecases.UserUseCase
+	userMetricsService services.UserMetricsService
 }
 
 // getUserIDFromContext extracts user ID from gin context
@@ -32,9 +34,10 @@ func (h *UserHandler) getUserIDFromContext(c *gin.Context) (uuid.UUID, error) {
 }
 
 // NewUserHandler creates a new user handler
-func NewUserHandler(userUseCase usecases.UserUseCase) *UserHandler {
+func NewUserHandler(userUseCase usecases.UserUseCase, userMetricsService services.UserMetricsService) *UserHandler {
 	return &UserHandler{
-		userUseCase: userUseCase,
+		userUseCase:        userUseCase,
+		userMetricsService: userMetricsService,
 	}
 }
 
@@ -920,6 +923,57 @@ func (h *UserHandler) GetUserStats(c *gin.Context) {
 
 	c.JSON(http.StatusOK, SuccessResponse{
 		Data: stats,
+	})
+}
+
+// GetMembershipTiers handles getting membership tiers configuration
+// @Summary Get membership tiers
+// @Description Get membership tiers configuration and benefits
+// @Tags users
+// @Accept json
+// @Produce json
+// @Success 200 {object} SuccessResponse
+// @Router /users/membership-tiers [get]
+func (h *UserHandler) GetMembershipTiers(c *gin.Context) {
+	tiers := h.userMetricsService.GetMembershipTiers()
+
+	c.JSON(http.StatusOK, SuccessResponse{
+		Message: "Membership tiers retrieved successfully",
+		Data:    tiers,
+	})
+}
+
+// RecalculateUserStats handles recalculating user statistics (temporary fix)
+// @Summary Recalculate user statistics
+// @Description Recalculate current user's statistics from actual order data
+// @Tags users
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Success 200 {object} SuccessResponse
+// @Failure 401 {object} ErrorResponse
+// @Router /users/stats/recalculate [post]
+func (h *UserHandler) RecalculateUserStats(c *gin.Context) {
+	userID, err := h.getUserIDFromContext(c)
+	if err != nil {
+		c.JSON(http.StatusUnauthorized, ErrorResponse{
+			Error: err.Error(),
+		})
+		return
+	}
+
+	// Call user metrics service to recalculate
+	err = h.userMetricsService.RecalculateUserMetrics(c.Request.Context(), userID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, ErrorResponse{
+			Error:   "Failed to recalculate user metrics",
+			Details: err.Error(),
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, SuccessResponse{
+		Message: "User metrics recalculated successfully",
 	})
 }
 

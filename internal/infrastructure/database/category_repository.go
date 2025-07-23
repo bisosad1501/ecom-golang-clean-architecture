@@ -2,9 +2,12 @@ package database
 
 import (
 	"context"
+	"fmt"
+	"time"
 
 	"ecom-golang-clean-architecture/internal/domain/entities"
 	"ecom-golang-clean-architecture/internal/domain/repositories"
+
 	"github.com/google/uuid"
 	"gorm.io/gorm"
 )
@@ -74,7 +77,7 @@ func (r *categoryRepository) Delete(ctx context.Context, id uuid.UUID) error {
 	return nil
 }
 
-// List retrieves categories with pagination
+// List retrieves categories with pagination and product counts
 func (r *categoryRepository) List(ctx context.Context, limit, offset int) ([]*entities.Category, error) {
 	var categories []*entities.Category
 	err := r.db.WithContext(ctx).
@@ -84,7 +87,43 @@ func (r *categoryRepository) List(ctx context.Context, limit, offset int) ([]*en
 		Offset(offset).
 		Order("sort_order ASC, name ASC").
 		Find(&categories).Error
-	return categories, err
+	if err != nil {
+		return nil, err
+	}
+
+	// Get product counts for all categories in one query
+	type CategoryCount struct {
+		CategoryID uuid.UUID `json:"category_id"`
+		Count      int64     `json:"count"`
+	}
+
+	var counts []CategoryCount
+	err = r.db.WithContext(ctx).
+		Model(&entities.Product{}).
+		Select("category_id, COUNT(*) as count").
+		Where("status = ?", "active").
+		Group("category_id").
+		Scan(&counts).Error
+	if err != nil {
+		return categories, nil // Return categories without counts if query fails
+	}
+
+	// Build count map
+	countMap := make(map[uuid.UUID]int64)
+	for _, count := range counts {
+		countMap[count.CategoryID] = count.Count
+	}
+
+	// Set product counts for categories
+	for _, category := range categories {
+		if count, exists := countMap[category.ID]; exists {
+			category.ProductCount = count
+		} else {
+			category.ProductCount = 0
+		}
+	}
+
+	return categories, nil
 }
 
 // GetRootCategories retrieves root categories
@@ -133,7 +172,67 @@ func (r *categoryRepository) GetTree(ctx context.Context) ([]*entities.Category,
 		Where("parent_id IS NULL AND is_active = ?", true).
 		Order("sort_order ASC, name ASC").
 		Find(&categories).Error
-	return categories, err
+	if err != nil {
+		return nil, err
+	}
+
+	// Get all categories (including children) to set product counts
+	var allCategories []*entities.Category
+	err = r.db.WithContext(ctx).
+		Where("is_active = ?", true).
+		Find(&allCategories).Error
+	if err != nil {
+		return categories, nil // Return without counts if query fails
+	}
+
+	// Get product counts for all categories
+	type CategoryCount struct {
+		CategoryID uuid.UUID `json:"category_id"`
+		Count      int64     `json:"count"`
+	}
+
+	var counts []CategoryCount
+	err = r.db.WithContext(ctx).
+		Model(&entities.Product{}).
+		Select("category_id, COUNT(*) as count").
+		Where("status = ?", "active").
+		Group("category_id").
+		Scan(&counts).Error
+	if err != nil {
+		fmt.Printf("Error getting product counts: %v\n", err)
+		return categories, nil // Return categories without counts if query fails
+	}
+
+	fmt.Printf("Product counts found: %+v\n", counts)
+
+	// Build count map
+	countMap := make(map[uuid.UUID]int64)
+	for _, count := range counts {
+		countMap[count.CategoryID] = count.Count
+	}
+
+	// Set product counts for all categories (including children)
+	var setProductCounts func([]*entities.Category)
+	setProductCounts = func(cats []*entities.Category) {
+		for _, category := range cats {
+			if count, exists := countMap[category.ID]; exists {
+				category.ProductCount = count
+			} else {
+				category.ProductCount = 0
+			}
+			// Recursively set counts for children
+			if len(category.Children) > 0 {
+				childrenPtrs := make([]*entities.Category, len(category.Children))
+				for i := range category.Children {
+					childrenPtrs[i] = &category.Children[i]
+				}
+				setProductCounts(childrenPtrs)
+			}
+		}
+	}
+
+	setProductCounts(categories)
+	return categories, nil
 }
 
 // GetCategoryTree returns all descendant category IDs for a given category (including itself)
@@ -457,8 +556,6 @@ func (r *categoryRepository) ValidateHierarchy(ctx context.Context, categoryID, 
 	return nil
 }
 
-
-
 // GetProductCount returns product count for a category (with option to include subcategories)
 func (r *categoryRepository) GetProductCount(ctx context.Context, categoryID uuid.UUID, includeSubcategories bool) (int64, error) {
 	var count int64
@@ -483,6 +580,63 @@ func (r *categoryRepository) GetProductCount(ctx context.Context, categoryID uui
 			Count(&count).Error
 		return count, err
 	}
+}
+
+// GetTrending gets trending categories based on recent activity
+func (r *categoryRepository) GetTrending(ctx context.Context, limit int, timeRange string) ([]*entities.Category, error) {
+	var categories []*entities.Category
+
+	// For now, we'll use a simple implementation based on product count and recent updates
+	// In a real implementation, you might track views, sales, etc.
+	query := r.db.WithContext(ctx).
+		Preload("Parent").
+		Preload("Children").
+		Where("is_active = ?", true)
+
+	// Add time range filter based on updated_at
+	switch timeRange {
+	case "1d":
+		query = query.Where("updated_at >= ?", time.Now().AddDate(0, 0, -1))
+	case "7d":
+		query = query.Where("updated_at >= ?", time.Now().AddDate(0, 0, -7))
+	case "30d":
+		query = query.Where("updated_at >= ?", time.Now().AddDate(0, 0, -30))
+	}
+
+	// Order by updated_at desc to get recently active categories
+	err := query.
+		Order("updated_at DESC, sort_order ASC").
+		Limit(limit).
+		Find(&categories).Error
+
+	return categories, err
+}
+
+// GetPopular gets popular categories based on product count and engagement
+func (r *categoryRepository) GetPopular(ctx context.Context, limit int) ([]*entities.Category, error) {
+	var categories []*entities.Category
+
+	// Get categories with their product counts
+	// This is a simplified implementation - in production you might want to cache this
+	err := r.db.WithContext(ctx).
+		Preload("Parent").
+		Preload("Children").
+		Where("is_active = ?", true).
+		Order("sort_order ASC, name ASC").
+		Limit(limit * 2). // Get more to filter by product count
+		Find(&categories).Error
+
+	if err != nil {
+		return nil, err
+	}
+
+	// Sort by product count (this would be more efficient with a proper query)
+	// For now, we'll return the first 'limit' categories
+	if len(categories) > limit {
+		categories = categories[:limit]
+	}
+
+	return categories, nil
 }
 
 // MoveCategory moves a category to a new parent
@@ -727,7 +881,7 @@ func (r *categoryRepository) GetTopCategories(ctx context.Context, limit int, so
 			ProductCount:   productCount,
 			TotalSales:     totalSales,
 			Revenue:        revenue,
-			AverageRating:  4.2, // Mock rating
+			AverageRating:  4.2,  // Mock rating
 			ConversionRate: 0.04, // Mock conversion rate
 			GrowthRate:     0.15, // Mock 15% growth
 		}
@@ -782,8 +936,8 @@ func (r *categoryRepository) GetCategoryPerformanceMetrics(ctx context.Context, 
 	metrics.TotalInventoryValue = totalValue
 
 	// Mock stock data (would integrate with inventory system)
-	metrics.LowStockProducts = productCount / 10    // 10% low stock
-	metrics.OutOfStockProducts = productCount / 20  // 5% out of stock
+	metrics.LowStockProducts = productCount / 10   // 10% low stock
+	metrics.OutOfStockProducts = productCount / 20 // 5% out of stock
 
 	// Mock review data (would integrate with review system)
 	metrics.AverageRating = 4.3
@@ -848,9 +1002,9 @@ func (r *categoryRepository) GetCategorySalesStats(ctx context.Context, category
 
 	// Mock growth metrics
 	stats.GrowthMetrics = repositories.GrowthMetrics{
-		SalesGrowth:   0.12,  // 12% growth
-		RevenueGrowth: 0.15,  // 15% growth
-		OrderGrowth:   0.10,  // 10% growth
+		SalesGrowth:   0.12, // 12% growth
+		RevenueGrowth: 0.15, // 15% growth
+		OrderGrowth:   0.10, // 10% growth
 	}
 
 	// Mock top selling products from category hierarchy

@@ -1,11 +1,14 @@
 'use client'
 
 import React, { useState, useEffect } from 'react'
-import Image from 'next/image'
+import Link from 'next/link'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { Card, CardContent } from '@/components/ui/card'
+import { Badge } from '@/components/ui/badge'
+
 import { AnimatedBackground } from '@/components/ui/animated-background'
 import {
   User,
@@ -15,27 +18,29 @@ import {
   Edit,
   Save,
   Shield,
-  X,
-  Camera,
   ShoppingBag,
   Lock,
   Package,
   CheckCircle,
-  Upload,
-  Globe,
   Award,
   Activity,
   DollarSign,
+  Eye,
+  Star,
+  Clock,
+  Truck,
 } from 'lucide-react'
-import { useProfile, useUpdateProfile, useChangePassword, useUserStats, useUserSessions, useUserActivity } from '@/hooks/use-users'
-import { useOrders } from '@/hooks/use-orders'
-import { formatDate, formatPrice, cn } from '@/lib/utils'
+import { useProfile, useUpdateProfile, useChangePassword, useUserStats, useUserSessions, useUserActivity, useMembershipTiers } from '@/hooks/use-users'
+import { useOrdersSimple } from '@/hooks/use-orders'
+import { formatDate, formatPrice } from '@/lib/utils'
 import { toast } from 'sonner'
+import { MembershipTierConfig } from '@/types/auth'
 
 export default function ProfilePage() {
   const [isEditing, setIsEditing] = useState(false)
   const [activeTab, setActiveTab] = useState('overview')
   const [showPasswordForm, setShowPasswordForm] = useState(false)
+  const [currentOrdersPage, setCurrentOrdersPage] = useState(1)
   const [passwordData, setPasswordData] = useState({
     current_password: '',
     new_password: '',
@@ -51,24 +56,38 @@ export default function ProfilePage() {
   })
 
   const { data: user, isLoading: userLoading } = useProfile()
-  const { data: ordersData, isLoading: ordersLoading } = useOrders({ limit: 10 })
+  const { data: ordersData, isLoading: ordersLoading } = useOrdersSimple({
+    page: currentOrdersPage,
+    limit: 10
+  })
   const { data: userStatsData } = useUserStats()
   const { data: userSessionsData } = useUserSessions(5, 0)
   const { data: userActivityData } = useUserActivity(10, 0)
+  const { data: membershipTiers } = useMembershipTiers()
+
+
   const updateProfile = useUpdateProfile()
   const changePassword = useChangePassword()
 
   const orders = ordersData?.data || []
 
   // Use backend user stats as single source of truth, fallback to user entity
+  const totalSpent = userStatsData?.total_spent || user?.total_spent || 0
   const userStats = {
-    totalOrders: userStatsData?.total_orders || user?.total_orders || 0,
+    totalOrders: ordersData?.pagination?.total || userStatsData?.total_orders || user?.total_orders || 0,
     completedOrders: userStatsData?.completed_orders || orders.filter(order => order.status === 'delivered').length,
-    totalSpent: userStatsData?.total_spent || user?.total_spent || 0,
-    loyaltyPoints: userStatsData?.loyalty_points || user?.loyalty_points || 0,
+    totalSpent: totalSpent,
+    // Loyalty points should match total spent (1 point per $1 spent)
+    loyaltyPoints: Math.floor(totalSpent),
     membershipTier: userStatsData?.membership_tier || user?.membership_tier || 'bronze',
     memberSince: user?.created_at ? new Date(user.created_at).getFullYear() : new Date().getFullYear(),
   }
+
+  // Get current tier info
+  const currentTierInfo = membershipTiers?.find((tier: MembershipTierConfig) => tier.name === userStats.membershipTier)
+  const nextTierInfo = membershipTiers?.find((tier: MembershipTierConfig) => tier.threshold > totalSpent)
+  const progressToNextTier = nextTierInfo ?
+    ((totalSpent - (currentTierInfo?.threshold || 0)) / (nextTierInfo.threshold - (currentTierInfo?.threshold || 0))) * 100 : 100
 
   // Initialize form data when user data loads
   useEffect(() => {
@@ -163,44 +182,43 @@ export default function ProfilePage() {
       <AnimatedBackground className="opacity-30" />
 
       <div className="container mx-auto px-4 max-w-7xl relative z-10">
-        {/* Modern Profile Header */}
-        <div className="relative overflow-hidden bg-gradient-to-br from-white/[0.08] to-white/[0.02] backdrop-blur-xl border border-white/20 rounded-2xl shadow-2xl shadow-black/20 mb-8">
-          <div className="absolute inset-0 bg-gradient-to-br from-[#ff9000]/5 to-orange-600/5"></div>
-          <div className="absolute top-0 right-0 w-96 h-96 bg-gradient-to-br from-[#ff9000]/10 to-transparent rounded-full -translate-y-48 translate-x-48"></div>
-          <div className="absolute bottom-0 left-0 w-64 h-64 bg-gradient-to-tr from-blue-500/10 to-transparent rounded-full translate-y-32 -translate-x-32"></div>
+        {/* Compact Profile Header */}
+        <div className="relative overflow-hidden bg-gradient-to-br from-white/[0.06] to-white/[0.02] backdrop-blur-xl border border-white/15 rounded-xl shadow-lg shadow-black/10 mb-6">
+          <div className="absolute inset-0 bg-gradient-to-br from-[#ff9000]/3 to-orange-600/3"></div>
+          <div className="absolute top-0 right-0 w-48 h-48 bg-gradient-to-br from-[#ff9000]/8 to-transparent rounded-full -translate-y-24 translate-x-24"></div>
 
-          <div className="relative p-8">
-            <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-8">
+          <div className="relative p-6">
+            <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-6">
               <div className="text-white">
-                <div className="flex items-center gap-4 mb-6">
-                  <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-[#ff9000]/20 to-orange-600/20 backdrop-blur-sm border border-[#ff9000]/30 flex items-center justify-center">
-                    <User className="h-8 w-8 text-[#ff9000]" />
+                <div className="flex items-center gap-3 mb-4">
+                  <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-[#ff9000]/15 to-orange-600/15 backdrop-blur-sm border border-[#ff9000]/25 flex items-center justify-center">
+                    <User className="h-6 w-6 text-[#ff9000]" />
                   </div>
                   <div>
-                    <span className="text-[#ff9000] font-bold text-sm tracking-wider">PROFILE DASHBOARD</span>
-                    <p className="text-white/60 text-sm">BiHub Account Management</p>
+                    <span className="text-[#ff9000] font-semibold text-xs tracking-wider">PROFILE DASHBOARD</span>
+                    <p className="text-white/50 text-xs">BiHub Account Management</p>
                   </div>
                 </div>
 
-                <h1 className="text-4xl lg:text-5xl font-bold mb-4 bg-gradient-to-r from-white to-gray-300 bg-clip-text text-transparent">
+                <h1 className="text-2xl lg:text-3xl font-bold mb-2 bg-gradient-to-r from-white to-gray-300 bg-clip-text text-transparent">
                   Welcome back, <span className="text-[#ff9000]">{user.first_name}!</span>
                 </h1>
-                <p className="text-xl text-white/70 leading-relaxed max-w-2xl">
+                <p className="text-base text-white/60 leading-relaxed max-w-xl">
                   Manage your account settings, view order history, and customize your BiHub experience
                 </p>
               </div>
 
-              <div className="flex flex-col sm:flex-row gap-4">
-                <div className="bg-gradient-to-br from-white/[0.12] to-white/[0.04] backdrop-blur-sm border border-white/20 rounded-2xl p-6 text-center shadow-lg">
-                  <p className="text-white/60 text-sm font-medium mb-1">Member Since</p>
-                  <p className="text-white font-bold text-2xl">
+              <div className="flex flex-col sm:flex-row gap-3">
+                <div className="bg-gradient-to-br from-white/[0.08] to-white/[0.03] backdrop-blur-sm border border-white/15 rounded-xl p-4 text-center shadow-md">
+                  <p className="text-white/50 text-xs font-medium mb-1">Member Since</p>
+                  <p className="text-white font-bold text-lg">
                     {userStats.memberSince}
                   </p>
                 </div>
 
-                <div className="bg-gradient-to-br from-[#ff9000]/20 to-orange-600/20 backdrop-blur-sm border border-[#ff9000]/30 rounded-2xl p-6 text-center shadow-lg">
-                  <p className="text-white/60 text-sm font-medium mb-1">Total Orders</p>
-                  <p className="text-[#ff9000] font-bold text-2xl">
+                <div className="bg-gradient-to-br from-[#ff9000]/15 to-orange-600/15 backdrop-blur-sm border border-[#ff9000]/25 rounded-xl p-4 text-center shadow-md">
+                  <p className="text-white/50 text-xs font-medium mb-1">Total Orders</p>
+                  <p className="text-[#ff9000] font-bold text-lg">
                     {userStats.totalOrders}
                   </p>
                 </div>
@@ -209,88 +227,107 @@ export default function ProfilePage() {
           </div>
         </div>
 
-        {/* Modern Stats Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-          <div className="bg-gradient-to-br from-white/[0.08] to-white/[0.02] backdrop-blur-xl border border-white/20 rounded-2xl p-6 shadow-xl shadow-black/10">
-            <div className="flex items-center justify-between mb-4">
-              <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-[#ff9000]/20 to-orange-600/20 flex items-center justify-center">
-                <ShoppingBag className="h-6 w-6 text-[#ff9000]" />
+        {/* Compact Stats Grid */}
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+          <div className="bg-gradient-to-br from-white/[0.06] to-white/[0.02] backdrop-blur-xl border border-white/15 rounded-xl p-4 shadow-md shadow-black/5">
+            <div className="flex items-center justify-between mb-3">
+              <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-[#ff9000]/15 to-orange-600/15 flex items-center justify-center">
+                <ShoppingBag className="h-5 w-5 text-[#ff9000]" />
               </div>
-              <span className="text-2xl font-bold text-white">{userStats.totalOrders}</span>
+              <span className="text-xl font-bold text-white">{userStats.totalOrders}</span>
             </div>
-            <h3 className="text-white/80 font-semibold">Total Orders</h3>
-            <p className="text-white/50 text-sm">All time purchases</p>
+            <h3 className="text-white/70 font-medium text-sm">Total Orders</h3>
+            <p className="text-white/40 text-xs">All time purchases</p>
           </div>
 
-          <div className="bg-gradient-to-br from-white/[0.08] to-white/[0.02] backdrop-blur-xl border border-white/20 rounded-2xl p-6 shadow-xl shadow-black/10">
-            <div className="flex items-center justify-between mb-4">
-              <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-green-500/20 to-emerald-600/20 flex items-center justify-center">
-                <CheckCircle className="h-6 w-6 text-green-400" />
+          <div className="bg-gradient-to-br from-white/[0.06] to-white/[0.02] backdrop-blur-xl border border-white/15 rounded-xl p-4 shadow-md shadow-black/5">
+            <div className="flex items-center justify-between mb-3">
+              <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-green-500/15 to-emerald-500/15 flex items-center justify-center">
+                <CheckCircle className="h-5 w-5 text-green-400" />
               </div>
-              <span className="text-2xl font-bold text-white">{userStats.completedOrders}</span>
+              <span className="text-xl font-bold text-white">{userStats.completedOrders}</span>
             </div>
-            <h3 className="text-white/80 font-semibold">Completed</h3>
-            <p className="text-white/50 text-sm">Successfully delivered</p>
+            <h3 className="text-white/70 font-medium text-sm">Completed</h3>
+            <p className="text-white/40 text-xs">Successfully delivered</p>
           </div>
 
-          <div className="bg-gradient-to-br from-white/[0.08] to-white/[0.02] backdrop-blur-xl border border-white/20 rounded-2xl p-6 shadow-xl shadow-black/10">
-            <div className="flex items-center justify-between mb-4">
-              <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-blue-500/20 to-cyan-600/20 flex items-center justify-center">
-                <DollarSign className="h-6 w-6 text-blue-400" />
+          <div className="bg-gradient-to-br from-white/[0.06] to-white/[0.02] backdrop-blur-xl border border-white/15 rounded-xl p-4 shadow-md shadow-black/5">
+            <div className="flex items-center justify-between mb-3">
+              <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-blue-500/15 to-cyan-500/15 flex items-center justify-center">
+                <DollarSign className="h-5 w-5 text-blue-400" />
               </div>
-              <span className="text-2xl font-bold text-white">{formatPrice(userStats.totalSpent)}</span>
+              <span className="text-xl font-bold text-white">{formatPrice(userStats.totalSpent)}</span>
             </div>
-            <h3 className="text-white/80 font-semibold">Total Spent</h3>
-            <p className="text-white/50 text-sm">Lifetime value</p>
+            <h3 className="text-white/70 font-medium text-sm">Total Spent</h3>
+            <p className="text-white/40 text-xs">Lifetime value</p>
           </div>
 
-          <div className="bg-gradient-to-br from-white/[0.08] to-white/[0.02] backdrop-blur-xl border border-white/20 rounded-2xl p-6 shadow-xl shadow-black/10">
-            <div className="flex items-center justify-between mb-4">
-              <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-purple-500/20 to-pink-600/20 flex items-center justify-center">
-                <Award className="h-6 w-6 text-purple-400" />
+          <div className="bg-gradient-to-br from-white/[0.06] to-white/[0.02] backdrop-blur-xl border border-white/15 rounded-xl p-4 shadow-md shadow-black/5">
+            <div className="flex items-center justify-between mb-3">
+              <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-purple-500/15 to-pink-500/15 flex items-center justify-center">
+                <Award className="h-5 w-5 text-purple-400" />
               </div>
-              <span className="text-2xl font-bold text-white">{userStats.loyaltyPoints.toLocaleString()}</span>
+              <span className="text-xl font-bold text-white capitalize">{userStats.membershipTier}</span>
             </div>
-            <h3 className="text-white/80 font-semibold">Loyalty Points</h3>
-            <p className="text-white/50 text-sm">Rewards earned</p>
+            <h3 className="text-white/70 font-medium text-sm">Membership Tier</h3>
+            <div className="flex items-center justify-between text-xs">
+              <p className="text-white/40">
+                {userStats.loyaltyPoints.toLocaleString()} points
+              </p>
+              {nextTierInfo && (
+                <p className="text-purple-400">
+                  {formatPrice(nextTierInfo.threshold - totalSpent)} to {nextTierInfo.name}
+                </p>
+              )}
+            </div>
+            {nextTierInfo && (
+              <div className="mt-2">
+                <div className="w-full bg-white/10 rounded-full h-1.5">
+                  <div
+                    className="bg-gradient-to-r from-purple-400 to-pink-400 h-1.5 rounded-full transition-all duration-300"
+                    style={{ width: `${Math.min(progressToNextTier, 100)}%` }}
+                  />
+                </div>
+              </div>
+            )}
           </div>
         </div>
 
         {/* Tabs Navigation */}
-        <div className="bg-gradient-to-br from-white/[0.08] to-white/[0.02] backdrop-blur-xl border border-white/20 rounded-2xl p-2 shadow-xl shadow-black/10 mb-8">
+        <div className="bg-gradient-to-br from-white/[0.06] to-white/[0.02] backdrop-blur-xl border border-white/15 rounded-xl p-2 shadow-md shadow-black/5 mb-6">
           <Tabs value={activeTab} onValueChange={setActiveTab}>
-            <TabsList className="grid w-full grid-cols-5 bg-transparent gap-2">
+            <TabsList className="grid w-full grid-cols-5 bg-transparent gap-1">
               <TabsTrigger
                 value="overview"
-                className="flex items-center gap-2 px-4 py-3 rounded-xl font-semibold transition-all duration-300 data-[state=active]:bg-gradient-to-r data-[state=active]:from-[#ff9000] data-[state=active]:to-orange-600 data-[state=active]:text-white data-[state=active]:shadow-lg text-white/70 hover:text-white hover:bg-white/10"
+                className="flex items-center gap-2 px-3 py-2 rounded-lg font-medium transition-all duration-200 data-[state=active]:bg-gradient-to-r data-[state=active]:from-[#ff9000] data-[state=active]:to-orange-600 data-[state=active]:text-white data-[state=active]:shadow-md text-white/50 hover:text-white/80 hover:bg-white/8 text-sm"
               >
                 <User className="h-4 w-4" />
                 Overview
               </TabsTrigger>
               <TabsTrigger
                 value="profile"
-                className="flex items-center gap-2 px-4 py-3 rounded-xl font-semibold transition-all duration-300 data-[state=active]:bg-gradient-to-r data-[state=active]:from-[#ff9000] data-[state=active]:to-orange-600 data-[state=active]:text-white data-[state=active]:shadow-lg text-white/70 hover:text-white hover:bg-white/10"
+                className="flex items-center gap-2 px-3 py-2 rounded-lg font-medium transition-all duration-200 data-[state=active]:bg-gradient-to-r data-[state=active]:from-[#ff9000] data-[state=active]:to-orange-600 data-[state=active]:text-white data-[state=active]:shadow-md text-white/50 hover:text-white/80 hover:bg-white/8 text-sm"
               >
                 <Edit className="h-4 w-4" />
                 Profile
               </TabsTrigger>
               <TabsTrigger
                 value="orders"
-                className="flex items-center gap-2 px-4 py-3 rounded-xl font-semibold transition-all duration-300 data-[state=active]:bg-gradient-to-r data-[state=active]:from-[#ff9000] data-[state=active]:to-orange-600 data-[state=active]:text-white data-[state=active]:shadow-lg text-white/70 hover:text-white hover:bg-white/10"
+                className="flex items-center gap-2 px-3 py-2 rounded-lg font-medium transition-all duration-200 data-[state=active]:bg-gradient-to-r data-[state=active]:from-[#ff9000] data-[state=active]:to-orange-600 data-[state=active]:text-white data-[state=active]:shadow-md text-white/50 hover:text-white/80 hover:bg-white/8 text-sm"
               >
                 <ShoppingBag className="h-4 w-4" />
                 Orders
               </TabsTrigger>
               <TabsTrigger
                 value="activity"
-                className="flex items-center gap-2 px-4 py-3 rounded-xl font-semibold transition-all duration-300 data-[state=active]:bg-gradient-to-r data-[state=active]:from-[#ff9000] data-[state=active]:to-orange-600 data-[state=active]:text-white data-[state=active]:shadow-lg text-white/70 hover:text-white hover:bg-white/10"
+                className="flex items-center gap-2 px-3 py-2 rounded-lg font-medium transition-all duration-200 data-[state=active]:bg-gradient-to-r data-[state=active]:from-[#ff9000] data-[state=active]:to-orange-600 data-[state=active]:text-white data-[state=active]:shadow-md text-white/50 hover:text-white/80 hover:bg-white/8 text-sm"
               >
                 <Activity className="h-4 w-4" />
                 Activity
               </TabsTrigger>
               <TabsTrigger
                 value="security"
-                className="flex items-center gap-2 px-4 py-3 rounded-xl font-semibold transition-all duration-300 data-[state=active]:bg-gradient-to-r data-[state=active]:from-[#ff9000] data-[state=active]:to-orange-600 data-[state=active]:text-white data-[state=active]:shadow-lg text-white/70 hover:text-white hover:bg-white/10"
+                className="flex items-center gap-2 px-3 py-2 rounded-lg font-medium transition-all duration-200 data-[state=active]:bg-gradient-to-r data-[state=active]:from-[#ff9000] data-[state=active]:to-orange-600 data-[state=active]:text-white data-[state=active]:shadow-md text-white/50 hover:text-white/80 hover:bg-white/8 text-sm"
               >
                 <Lock className="h-4 w-4" />
                 Security
@@ -298,76 +335,76 @@ export default function ProfilePage() {
             </TabsList>
 
             {/* Overview Tab */}
-            <TabsContent value="overview" className="mt-8">
-              <div className="bg-gradient-to-br from-white/[0.08] to-white/[0.02] backdrop-blur-xl border border-white/20 rounded-2xl p-8 shadow-xl shadow-black/10">
-                <div className="flex items-center gap-3 mb-6">
-                  <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-500/20 to-cyan-500/20 flex items-center justify-center">
-                    <User className="h-5 w-5 text-blue-400" />
+            <TabsContent value="overview" className="mt-6">
+              <div className="bg-gradient-to-br from-white/[0.06] to-white/[0.02] backdrop-blur-xl border border-white/15 rounded-xl p-6 shadow-md shadow-black/5">
+                <div className="flex items-center gap-3 mb-5">
+                  <div className="w-9 h-9 rounded-lg bg-gradient-to-br from-blue-500/15 to-cyan-500/15 flex items-center justify-center">
+                    <User className="h-4 w-4 text-blue-400" />
                   </div>
                   <div>
-                    <h3 className="text-white font-bold text-lg">Account Overview</h3>
-                    <p className="text-white/60 text-sm">Your account summary and recent activity</p>
+                    <h3 className="text-white font-semibold text-base">Account Overview</h3>
+                    <p className="text-white/50 text-xs">Your account summary and recent activity</p>
                   </div>
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <div className="space-y-4">
-                    <div className="flex items-center gap-4 p-4 bg-white/[0.02] rounded-xl border border-white/10">
-                      <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-green-500/20 to-emerald-500/20 flex items-center justify-center">
-                        <Mail className="h-5 w-5 text-green-400" />
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                  <div className="space-y-3">
+                    <div className="flex items-center gap-3 p-3 bg-white/[0.04] rounded-lg border border-white/8">
+                      <div className="w-8 h-8 rounded-md bg-gradient-to-br from-green-500/15 to-emerald-500/15 flex items-center justify-center">
+                        <Mail className="h-4 w-4 text-green-400" />
                       </div>
                       <div className="flex-1">
-                        <p className="text-white/60 text-sm font-medium">Email Address</p>
-                        <p className="text-white font-semibold">{user.email}</p>
+                        <p className="text-white/50 text-xs font-medium">Email Address</p>
+                        <p className="text-white font-medium text-sm">{user.email}</p>
                       </div>
                     </div>
 
-                    <div className="flex items-center gap-4 p-4 bg-white/[0.02] rounded-xl border border-white/10">
-                      <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-purple-500/20 to-pink-500/20 flex items-center justify-center">
-                        <Phone className="h-5 w-5 text-purple-400" />
+                    <div className="flex items-center gap-3 p-3 bg-white/[0.04] rounded-lg border border-white/8">
+                      <div className="w-8 h-8 rounded-md bg-gradient-to-br from-purple-500/15 to-pink-500/15 flex items-center justify-center">
+                        <Phone className="h-4 w-4 text-purple-400" />
                       </div>
                       <div className="flex-1">
-                        <p className="text-white/60 text-sm font-medium">Phone Number</p>
-                        <p className="text-white font-semibold">{user.profile?.phone || 'Not provided'}</p>
+                        <p className="text-white/50 text-xs font-medium">Phone Number</p>
+                        <p className="text-white font-medium text-sm">{user.profile?.phone || 'Not provided'}</p>
                       </div>
                     </div>
 
-                    <div className="flex items-center gap-4 p-4 bg-white/[0.02] rounded-xl border border-white/10">
-                      <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-[#ff9000]/20 to-orange-600/20 flex items-center justify-center">
-                        <Calendar className="h-5 w-5 text-[#ff9000]" />
+                    <div className="flex items-center gap-3 p-3 bg-white/[0.04] rounded-lg border border-white/8">
+                      <div className="w-8 h-8 rounded-md bg-gradient-to-br from-[#ff9000]/15 to-orange-600/15 flex items-center justify-center">
+                        <Calendar className="h-4 w-4 text-[#ff9000]" />
                       </div>
                       <div className="flex-1">
-                        <p className="text-white/60 text-sm font-medium">Member Since</p>
-                        <p className="text-white font-semibold">{formatDate(user.created_at)}</p>
+                        <p className="text-white/50 text-xs font-medium">Member Since</p>
+                        <p className="text-white font-medium text-sm">{formatDate(user.created_at)}</p>
                       </div>
                     </div>
                   </div>
 
-                  <div className="space-y-4">
-                    <h4 className="text-white font-semibold mb-4">Recent Orders</h4>
+                  <div className="space-y-3">
+                    <h4 className="text-white/70 font-medium text-sm">Recent Orders</h4>
                     {orders.length > 0 ? (
                       orders.slice(0, 3).map((order, index) => (
-                        <div key={index} className="flex items-center gap-3 p-3 bg-white/[0.02] rounded-xl border border-white/10">
-                          <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-blue-500/20 to-cyan-500/20 flex items-center justify-center">
+                        <div key={index} className="flex items-center gap-3 p-3 bg-white/[0.04] rounded-lg border border-white/8">
+                          <div className="w-8 h-8 rounded-md bg-gradient-to-br from-blue-500/15 to-cyan-500/15 flex items-center justify-center">
                             <Package className="h-4 w-4 text-blue-400" />
                           </div>
                           <div className="flex-1">
-                            <p className="text-white text-sm font-medium">
+                            <p className="text-white text-xs font-medium">
                               Order #{order.order_number || `ORD-${index + 1}`}
                             </p>
-                            <p className="text-white/60 text-xs">
-                              {formatDate(new Date())} • {formatPrice(order.total || 0)}
+                            <p className="text-white/50 text-xs">
+                              {formatDate(new Date(order.created_at))} • {formatPrice(order.total || 0)}
                             </p>
                           </div>
-                          <span className="text-xs px-2 py-1 rounded-full bg-green-500/20 text-green-400">
+                          <span className="text-xs px-2 py-0.5 rounded-full bg-green-500/15 text-green-400">
                             {order.status}
                           </span>
                         </div>
                       ))
                     ) : (
                       <div className="text-center py-6">
-                        <ShoppingBag className="h-8 w-8 text-white/30 mx-auto mb-2" />
-                        <p className="text-white/60 text-sm">No recent orders</p>
+                        <ShoppingBag className="h-6 w-6 text-white/30 mx-auto mb-2" />
+                        <p className="text-white/50 text-xs">No recent orders</p>
                       </div>
                     )}
                   </div>
@@ -376,15 +413,15 @@ export default function ProfilePage() {
             </TabsContent>
 
             {/* Profile Tab */}
-            <TabsContent value="profile" className="mt-8">
-              <div className="bg-gradient-to-br from-white/[0.08] to-white/[0.02] backdrop-blur-xl border border-white/20 rounded-2xl p-8 shadow-xl shadow-black/10">
-                <div className="flex items-center gap-3 mb-6">
-                  <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-500/20 to-cyan-500/20 flex items-center justify-center">
-                    <Edit className="h-5 w-5 text-blue-400" />
+            <TabsContent value="profile" className="mt-6">
+              <div className="bg-gradient-to-br from-white/[0.06] to-white/[0.02] backdrop-blur-xl border border-white/15 rounded-xl p-6 shadow-md shadow-black/5">
+                <div className="flex items-center gap-3 mb-5">
+                  <div className="w-9 h-9 rounded-lg bg-gradient-to-br from-blue-500/15 to-cyan-500/15 flex items-center justify-center">
+                    <Edit className="h-4 w-4 text-blue-400" />
                   </div>
                   <div>
-                    <h3 className="text-white font-bold text-lg">Edit Profile</h3>
-                    <p className="text-white/60 text-sm">Update your personal information</p>
+                    <h3 className="text-white font-semibold text-base">Edit Profile</h3>
+                    <p className="text-white/50 text-xs">Update your personal information</p>
                   </div>
                 </div>
 
@@ -475,15 +512,21 @@ export default function ProfilePage() {
             </TabsContent>
 
             {/* Orders Tab */}
-            <TabsContent value="orders" className="mt-8">
-              <div className="bg-gradient-to-br from-white/[0.08] to-white/[0.02] backdrop-blur-xl border border-white/20 rounded-2xl p-8 shadow-xl shadow-black/10">
-                <div className="flex items-center gap-3 mb-6">
-                  <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-green-500/20 to-emerald-500/20 flex items-center justify-center">
-                    <ShoppingBag className="h-5 w-5 text-green-400" />
+            <TabsContent value="orders" className="mt-6">
+              <div className="bg-gradient-to-br from-white/[0.06] to-white/[0.02] backdrop-blur-xl border border-white/15 rounded-xl p-6 shadow-md shadow-black/5">
+                <div className="flex items-center justify-between mb-5">
+                  <div className="flex items-center gap-3">
+                    <div className="w-9 h-9 rounded-lg bg-gradient-to-br from-green-500/15 to-emerald-500/15 flex items-center justify-center">
+                      <ShoppingBag className="h-4 w-4 text-green-400" />
+                    </div>
+                    <div>
+                      <h3 className="text-white font-semibold text-base">Order History</h3>
+                      <p className="text-white/50 text-xs">View and track your orders</p>
+                    </div>
                   </div>
-                  <div>
-                    <h3 className="text-white font-bold text-lg">Order History</h3>
-                    <p className="text-white/60 text-sm">View and track your orders</p>
+                  <div className="flex items-center gap-2 text-xs text-white/50">
+                    <span>Total Orders:</span>
+                    <span className="text-[#ff9000] font-semibold">{ordersData?.pagination?.total || 0}</span>
                   </div>
                 </div>
 
@@ -493,50 +536,101 @@ export default function ProfilePage() {
                     <p className="text-white/60">Loading orders...</p>
                   </div>
                 ) : orders.length > 0 ? (
-                  <div className="space-y-4">
-                    {orders.map((order, index) => (
-                      <div key={index} className="p-6 bg-white/[0.02] rounded-xl border border-white/10">
-                        <div className="flex items-center justify-between mb-4">
-                          <div className="flex items-center gap-3">
-                            <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-blue-500/20 to-cyan-500/20 flex items-center justify-center">
-                              <Package className="h-5 w-5 text-blue-400" />
-                            </div>
-                            <div>
-                              <h4 className="font-semibold text-white">
-                                Order #{order.order_number || `ORD-${index + 1}`}
-                              </h4>
-                              <p className="text-sm text-white/60">
-                                {formatDate(new Date())}
-                              </p>
+                  <div className="space-y-6">
+                    {orders.map((order: any) => (
+                      <Card
+                        key={order.id}
+                        className="group relative overflow-hidden backdrop-blur-sm border text-white transition-all duration-300 ease-out bg-gradient-to-br from-slate-900/95 via-gray-900/90 to-slate-800/95 hover:shadow-xl hover:shadow-[#ff9000]/20 hover:scale-[1.02] rounded-xl border-gray-700/40 hover:border-[#ff9000]/50 before:absolute before:inset-0 before:bg-gradient-to-br before:from-white/[0.03] before:via-transparent before:to-white/[0.01] before:pointer-events-none before:rounded-xl"
+                      >
+                        <CardContent className="p-6">
+                          <div className="flex items-start justify-between mb-4">
+                            <div className="flex items-center gap-3 flex-1">
+                              <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-[#ff9000]/20 to-orange-600/20 flex items-center justify-center flex-shrink-0">
+                                <Package className="h-6 w-6 text-[#ff9000]" />
+                              </div>
+
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-center gap-3 mb-1">
+                                  <h3 className="text-lg font-bold text-white truncate">
+                                    Order #{order.order_number}
+                                  </h3>
+
+                                  <Badge
+                                    className={`px-2 py-1 text-xs font-medium rounded-full border-0 ${
+                                      order.status === 'delivered'
+                                        ? 'bg-green-500/20 text-green-400'
+                                        : order.status === 'confirmed'
+                                        ? 'bg-blue-500/20 text-blue-400'
+                                        : order.status === 'pending'
+                                        ? 'bg-yellow-500/20 text-yellow-400'
+                                        : order.status === 'cancelled'
+                                        ? 'bg-red-500/20 text-red-400'
+                                        : 'bg-gray-500/20 text-gray-400'
+                                    }`}
+                                  >
+                                    {order.status.charAt(0).toUpperCase() + order.status.slice(1)}
+                                  </Badge>
+                                </div>
+
+                                <div className="flex items-center gap-2 text-sm text-gray-400">
+                                  <Clock className="h-4 w-4" />
+                                  <span>{formatDate(new Date(order.created_at))}</span>
+                                </div>
+                              </div>
+
+                              {/* Action Buttons */}
+                              <div className="flex items-center gap-2 flex-shrink-0">
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  className="h-7 px-2 bg-white/[0.05] border-gray-600/40 text-gray-300 hover:bg-[#ff9000]/15 hover:border-[#ff9000]/60 hover:text-[#ff9000] transition-all duration-300 rounded-md text-xs"
+                                  asChild
+                                >
+                                  <Link href={`/orders/${order.id}`}>
+                                    <Eye className="h-3 w-3 mr-1" />
+                                    Details
+                                  </Link>
+                                </Button>
+
+                                {order.status === 'delivered' && (
+                                  <Button
+                                    size="sm"
+                                    className="h-7 px-2 bg-gradient-to-r from-[#ff9000]/20 to-orange-600/20 border border-[#ff9000]/40 text-[#ff9000] hover:from-[#ff9000]/30 hover:to-orange-600/30 hover:border-[#ff9000]/70 transition-all duration-300 rounded-md text-xs"
+                                  >
+                                    <Star className="h-3 w-3 mr-1" />
+                                    Review
+                                  </Button>
+                                )}
+                              </div>
                             </div>
                           </div>
-                          <span className="px-3 py-1 rounded-full text-sm font-medium bg-green-500/20 text-green-400">
-                            {order.status.charAt(0).toUpperCase() + order.status.slice(1)}
-                          </span>
-                        </div>
 
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-center gap-4">
+                          {/* Order Details */}
+                          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-sm">
                             <div className="flex items-center gap-2">
-                              <Package className="h-4 w-4 text-white/60" />
-                              <span className="text-sm text-white/80">{order.items?.length || 1} items</span>
+                              <Package className="h-4 w-4 text-[#ff9000] flex-shrink-0" />
+                              <span className="text-gray-400">Items:</span>
+                              <span className="text-white font-medium">{order.items?.length || order.item_count || 0}</span>
                             </div>
+
                             <div className="flex items-center gap-2">
-                              <span className="text-lg font-bold text-[#ff9000]">
-                                {formatPrice(order.total)}
-                              </span>
+                              <div className="w-4 h-4 rounded-full bg-green-500 flex items-center justify-center flex-shrink-0">
+                                <span className="text-white text-xs font-bold">$</span>
+                              </div>
+                              <span className="text-gray-400">Total:</span>
+                              <span className="text-white font-bold">{formatPrice(order.total)}</span>
                             </div>
+
+                            {order.tracking_number && (
+                              <div className="flex items-center gap-2">
+                                <Truck className="h-4 w-4 text-blue-400 flex-shrink-0" />
+                                <span className="text-gray-400">Tracking:</span>
+                                <span className="text-blue-400 font-medium text-xs">{order.tracking_number}</span>
+                              </div>
+                            )}
                           </div>
-
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            className="border-white/30 text-white hover:bg-white/10"
-                          >
-                            View Details
-                          </Button>
-                        </div>
-                      </div>
+                        </CardContent>
+                      </Card>
                     ))}
                   </div>
                 ) : (
@@ -547,25 +641,58 @@ export default function ProfilePage() {
                       Start shopping on BiHub to see your orders here.
                     </p>
                     <Button className="bg-gradient-to-r from-[#ff9000] to-orange-600 hover:from-orange-600 hover:to-orange-700 text-white">
-                      <a href="/products">Browse Products</a>
+                      <Link href="/products">Browse Products</Link>
                     </Button>
+                  </div>
+                )}
+
+                {/* Pagination */}
+                {ordersData?.pagination && ordersData.pagination.total_pages > 1 && (
+                  <div className="mt-8 flex justify-center">
+                    <div className="bg-white/[0.08] backdrop-blur-xl rounded-xl border border-white/15 p-2 shadow-md">
+                      <div className="flex items-center gap-2">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setCurrentOrdersPage(currentOrdersPage - 1)}
+                          disabled={!ordersData.pagination.has_prev}
+                          className="bg-white/[0.05] border-gray-600/40 text-gray-300 hover:bg-[#ff9000]/15 hover:border-[#ff9000]/60 hover:text-[#ff9000] disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                          Previous
+                        </Button>
+
+                        <span className="px-4 py-2 text-sm text-white">
+                          Page {ordersData.pagination.page} of {ordersData.pagination.total_pages}
+                        </span>
+
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setCurrentOrdersPage(currentOrdersPage + 1)}
+                          disabled={!ordersData.pagination.has_next}
+                          className="bg-white/[0.05] border-gray-600/40 text-gray-300 hover:bg-[#ff9000]/15 hover:border-[#ff9000]/60 hover:text-[#ff9000] disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                          Next
+                        </Button>
+                      </div>
+                    </div>
                   </div>
                 )}
               </div>
             </TabsContent>
 
             {/* Activity Tab */}
-            <TabsContent value="activity" className="mt-8">
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+            <TabsContent value="activity" className="mt-6">
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                 {/* User Activity */}
-                <div className="bg-gradient-to-br from-white/[0.08] to-white/[0.02] backdrop-blur-xl border border-white/20 rounded-2xl p-6 shadow-xl shadow-black/10">
-                  <div className="flex items-center gap-3 mb-6">
-                    <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-green-500/20 to-emerald-500/20 flex items-center justify-center">
-                      <Activity className="h-5 w-5 text-green-400" />
+                <div className="bg-gradient-to-br from-white/[0.06] to-white/[0.02] backdrop-blur-xl border border-white/15 rounded-xl p-5 shadow-md shadow-black/5">
+                  <div className="flex items-center gap-3 mb-5">
+                    <div className="w-9 h-9 rounded-lg bg-gradient-to-br from-green-500/15 to-emerald-500/15 flex items-center justify-center">
+                      <Activity className="h-4 w-4 text-green-400" />
                     </div>
                     <div>
-                      <h3 className="text-white font-bold text-lg">Recent Activity</h3>
-                      <p className="text-white/60 text-sm">Your recent actions on BiHub</p>
+                      <h3 className="text-white font-semibold text-base">Recent Activity</h3>
+                      <p className="text-white/50 text-xs">Your recent actions on BiHub</p>
                     </div>
                   </div>
 
@@ -652,15 +779,15 @@ export default function ProfilePage() {
             </TabsContent>
 
             {/* Security Tab */}
-            <TabsContent value="security" className="mt-8">
-              <div className="bg-gradient-to-br from-white/[0.08] to-white/[0.02] backdrop-blur-xl border border-white/20 rounded-2xl p-8 shadow-xl shadow-black/10">
-                <div className="flex items-center gap-3 mb-6">
-                  <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-red-500/20 to-pink-500/20 flex items-center justify-center">
-                    <Lock className="h-5 w-5 text-red-400" />
+            <TabsContent value="security" className="mt-6">
+              <div className="bg-gradient-to-br from-white/[0.06] to-white/[0.02] backdrop-blur-xl border border-white/15 rounded-xl p-6 shadow-md shadow-black/5">
+                <div className="flex items-center gap-3 mb-5">
+                  <div className="w-9 h-9 rounded-lg bg-gradient-to-br from-red-500/15 to-pink-500/15 flex items-center justify-center">
+                    <Lock className="h-4 w-4 text-red-400" />
                   </div>
                   <div>
-                    <h3 className="text-white font-bold text-lg">Security Settings</h3>
-                    <p className="text-white/60 text-sm">Manage your account security</p>
+                    <h3 className="text-white font-semibold text-base">Security Settings</h3>
+                    <p className="text-white/50 text-xs">Manage your account security</p>
                   </div>
                 </div>
 

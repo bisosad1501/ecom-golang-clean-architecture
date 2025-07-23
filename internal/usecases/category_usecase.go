@@ -74,6 +74,11 @@ type CategoryUseCase interface {
 	GetSEOAnalytics(ctx context.Context, req SEOAnalyticsRequest) (*SEOAnalyticsResponse, error)
 	GetSEOInsights(ctx context.Context, categoryID uuid.UUID) (*SEOInsightsResponse, error)
 	GetSEOCompetitorAnalysis(ctx context.Context, categoryID uuid.UUID) (*SEOCompetitorAnalysisResponse, error)
+
+	// Additional category operations
+	GetCategoryBySlug(ctx context.Context, slug string) (*CategoryResponse, error)
+	GetTrendingCategories(ctx context.Context, req GetTrendingCategoriesRequest) (*TrendingCategoriesResponse, error)
+	GetPopularCategories(ctx context.Context, req GetPopularCategoriesRequest) (*PopularCategoriesResponse, error)
 }
 
 type categoryUseCase struct {
@@ -162,20 +167,21 @@ type GetCategoryLandingPageRequest struct {
 
 // CategoryResponse represents category response
 type CategoryResponse struct {
-	ID          uuid.UUID          `json:"id"`
-	Name        string             `json:"name"`
-	Description string             `json:"description"`
-	Slug        string             `json:"slug"`
-	Image       string             `json:"image"`
-	ParentID    *uuid.UUID         `json:"parent_id"`
-	Parent      *CategoryResponse  `json:"parent,omitempty"`
-	Children    []CategoryResponse `json:"children,omitempty"`
-	IsActive    bool               `json:"is_active"`
-	SortOrder   int                `json:"sort_order"`
-	Level       int                `json:"level"`
-	Path        string             `json:"path"`
-	CreatedAt   time.Time          `json:"created_at"`
-	UpdatedAt   time.Time          `json:"updated_at"`
+	ID           uuid.UUID           `json:"id"`
+	Name         string              `json:"name"`
+	Description  string              `json:"description"`
+	Slug         string              `json:"slug"`
+	Image        string              `json:"image"`
+	ParentID     *uuid.UUID          `json:"parent_id"`
+	Parent       *CategoryResponse   `json:"parent,omitempty"`
+	Children     []*CategoryResponse `json:"children,omitempty"`
+	IsActive     bool                `json:"is_active"`
+	SortOrder    int                 `json:"sort_order"`
+	Level        int                 `json:"level"`
+	Path         string              `json:"path"`
+	ProductCount int64               `json:"product_count"`
+	CreatedAt    time.Time           `json:"created_at"`
+	UpdatedAt    time.Time           `json:"updated_at"`
 
 	// SEO fields
 	SEO *CategorySEOResponse `json:"seo,omitempty"`
@@ -754,18 +760,19 @@ func (uc *categoryUseCase) GetCategoryLandingPage(ctx context.Context, req GetCa
 // toCategoryResponse converts category entity to response
 func (uc *categoryUseCase) toCategoryResponse(category *entities.Category) *CategoryResponse {
 	response := &CategoryResponse{
-		ID:          category.ID,
-		Name:        category.Name,
-		Description: category.Description,
-		Slug:        category.Slug,
-		Image:       category.Image,
-		ParentID:    category.ParentID,
-		IsActive:    category.IsActive,
-		SortOrder:   category.SortOrder,
-		Level:       category.GetLevel(),
-		Path:        category.GetPath(),
-		CreatedAt:   category.CreatedAt,
-		UpdatedAt:   category.UpdatedAt,
+		ID:           category.ID,
+		Name:         category.Name,
+		Description:  category.Description,
+		Slug:         category.Slug,
+		Image:        category.Image,
+		ParentID:     category.ParentID,
+		IsActive:     category.IsActive,
+		SortOrder:    category.SortOrder,
+		Level:        category.GetLevel(),
+		Path:         category.GetPath(),
+		ProductCount: category.ProductCount,
+		CreatedAt:    category.CreatedAt,
+		UpdatedAt:    category.UpdatedAt,
 	}
 
 	// Convert parent if available
@@ -888,10 +895,10 @@ func (uc *categoryUseCase) toCategoryResponseWithChildren(category *entities.Cat
 
 	// Convert children
 	if len(category.Children) > 0 {
-		response.Children = make([]CategoryResponse, len(category.Children))
+		response.Children = make([]*CategoryResponse, len(category.Children))
 		for i, child := range category.Children {
 			childResponse := uc.toCategoryResponseWithChildren(&child)
-			response.Children[i] = *childResponse
+			response.Children[i] = childResponse
 		}
 	}
 
@@ -3013,6 +3020,30 @@ type SEOCompetitorAnalysisResponse struct {
 	} `json:"action_plan"`
 }
 
+// GetTrendingCategoriesRequest represents request for trending categories
+type GetTrendingCategoriesRequest struct {
+	Limit     int    `json:"limit"`
+	TimeRange string `json:"time_range"`
+}
+
+// TrendingCategoriesResponse represents trending categories response
+type TrendingCategoriesResponse struct {
+	Categories []*CategoryResponse `json:"categories"`
+	TimeRange  string              `json:"time_range"`
+	UpdatedAt  time.Time           `json:"updated_at"`
+}
+
+// GetPopularCategoriesRequest represents request for popular categories
+type GetPopularCategoriesRequest struct {
+	Limit int `json:"limit"`
+}
+
+// PopularCategoriesResponse represents popular categories response
+type PopularCategoriesResponse struct {
+	Categories []*CategoryResponse `json:"categories"`
+	UpdatedAt  time.Time           `json:"updated_at"`
+}
+
 // Helper functions for slug optimization
 func generateSlugFromName(name string) string {
 	// Convert to lowercase
@@ -3103,4 +3134,135 @@ func generateSlugReason(slug, categoryName string) string {
 		return "Clean structure with minimal separators"
 	}
 	return "SEO-optimized slug based on category name"
+}
+
+// GetCategoryBySlug gets a category by its slug
+func (uc *categoryUseCase) GetCategoryBySlug(ctx context.Context, slug string) (*CategoryResponse, error) {
+	// Get category by slug from repository
+	category, err := uc.categoryRepo.GetBySlug(ctx, slug)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get category by slug: %w", err)
+	}
+
+	// Get product count for this category
+	productCount, err := uc.categoryRepo.GetProductCount(ctx, category.ID, true)
+	if err != nil {
+		// Log error but don't fail the request
+		productCount = 0
+	}
+
+	// Convert to response
+	response := &CategoryResponse{
+		ID:           category.ID,
+		Name:         category.Name,
+		Description:  category.Description,
+		Slug:         category.Slug,
+		Image:        category.Image,
+		ParentID:     category.ParentID,
+		IsActive:     category.IsActive,
+		SortOrder:    category.SortOrder,
+		CreatedAt:    category.CreatedAt,
+		UpdatedAt:    category.UpdatedAt,
+		ProductCount: productCount,
+	}
+
+	// Get parent if exists
+	if category.ParentID != nil {
+		parent, err := uc.categoryRepo.GetByID(ctx, *category.ParentID)
+		if err == nil {
+			response.Parent = &CategoryResponse{
+				ID:       parent.ID,
+				Name:     parent.Name,
+				Slug:     parent.Slug,
+				IsActive: parent.IsActive,
+			}
+		}
+	}
+
+	// Get children
+	children, err := uc.categoryRepo.GetChildren(ctx, category.ID)
+	if err == nil && len(children) > 0 {
+		response.Children = make([]*CategoryResponse, len(children))
+		for i, child := range children {
+			childProductCount, _ := uc.categoryRepo.GetProductCount(ctx, child.ID, true)
+			response.Children[i] = &CategoryResponse{
+				ID:           child.ID,
+				Name:         child.Name,
+				Slug:         child.Slug,
+				Description:  child.Description,
+				Image:        child.Image,
+				IsActive:     child.IsActive,
+				SortOrder:    child.SortOrder,
+				ProductCount: childProductCount,
+			}
+		}
+	}
+
+	return response, nil
+}
+
+// GetTrendingCategories gets trending categories based on recent activity
+func (uc *categoryUseCase) GetTrendingCategories(ctx context.Context, req GetTrendingCategoriesRequest) (*TrendingCategoriesResponse, error) {
+	// For now, we'll use a simple implementation based on product count and recent activity
+	// In a real implementation, you might track views, sales, etc.
+
+	categories, err := uc.categoryRepo.GetTrending(ctx, req.Limit, req.TimeRange)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get trending categories: %w", err)
+	}
+
+	response := &TrendingCategoriesResponse{
+		Categories: make([]*CategoryResponse, len(categories)),
+		TimeRange:  req.TimeRange,
+		UpdatedAt:  time.Now(),
+	}
+
+	for i, category := range categories {
+		productCount, _ := uc.categoryRepo.GetProductCount(ctx, category.ID, true)
+		response.Categories[i] = &CategoryResponse{
+			ID:           category.ID,
+			Name:         category.Name,
+			Description:  category.Description,
+			Slug:         category.Slug,
+			Image:        category.Image,
+			IsActive:     category.IsActive,
+			SortOrder:    category.SortOrder,
+			ProductCount: productCount,
+			CreatedAt:    category.CreatedAt,
+			UpdatedAt:    category.UpdatedAt,
+		}
+	}
+
+	return response, nil
+}
+
+// GetPopularCategories gets popular categories based on product count and engagement
+func (uc *categoryUseCase) GetPopularCategories(ctx context.Context, req GetPopularCategoriesRequest) (*PopularCategoriesResponse, error) {
+	categories, err := uc.categoryRepo.GetPopular(ctx, req.Limit)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get popular categories: %w", err)
+	}
+
+	response := &PopularCategoriesResponse{
+		Categories: make([]*CategoryResponse, len(categories)),
+		UpdatedAt:  time.Now(),
+	}
+
+	for i, category := range categories {
+		productCount, _ := uc.categoryRepo.GetProductCount(ctx, category.ID, true)
+		response.Categories[i] = &CategoryResponse{
+			ID:           category.ID,
+			Name:         category.Name,
+			Description:  category.Description,
+			Slug:         category.Slug,
+			Image:        category.Image,
+			IsActive:     category.IsActive,
+			SortOrder:    category.SortOrder,
+			ProductCount: productCount,
+			CreatedAt:    category.CreatedAt,
+			UpdatedAt:    category.UpdatedAt,
+		}
+	}
+
+	return response, nil
 }

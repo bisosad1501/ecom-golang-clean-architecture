@@ -113,10 +113,10 @@ export function EnhancedCategoryFilter({
       <div key={category.id} className="space-y-1">
         <div
           className={cn(
-            'flex items-center space-x-2 p-3 rounded-lg cursor-pointer transition-all duration-300 font-medium group',
-            'hover:bg-white/[0.08] hover:border-white/20 border border-transparent backdrop-blur-sm',
-            isSelected && 'bg-gradient-to-r from-[#ff9000] to-[#ff9000] text-white border-[#ff9000]/50 shadow-md shadow-[#ff9000]/20',
-            isInPath && !isSelected && 'bg-white/[0.05] border-white/15 text-gray-200',
+            'flex items-center space-x-2 p-3 rounded-lg cursor-pointer transition-all duration-300 font-medium group border',
+            'hover:bg-white/[0.12] hover:border-white/30 hover:shadow-lg hover:scale-[1.02] border-transparent backdrop-blur-sm',
+            isSelected && 'bg-gradient-to-r from-[#ff9000] to-[#ff9000] text-white border-[#ff9000]/50 shadow-lg shadow-[#ff9000]/25 scale-[1.02]',
+            isInPath && !isSelected && 'bg-white/[0.08] border-white/20 text-gray-200 shadow-md',
           )}
           style={{ paddingLeft: `${level * 16 + 8}px` }}
           onClick={() => onCategoryChange(isSelected ? undefined : category.id)}

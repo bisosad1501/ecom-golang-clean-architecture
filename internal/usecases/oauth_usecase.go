@@ -42,21 +42,24 @@ type OAuthCallbackRequest struct {
 }
 
 type oauthUseCase struct {
-	userRepo     repositories.UserRepository
-	oauthService *oauth.Service
-	jwtService   JWTService
+	userRepo        repositories.UserRepository
+	userSessionRepo repositories.UserSessionRepository
+	oauthService    *oauth.Service
+	jwtService      JWTService
 }
 
 // NewOAuthUseCase creates a new OAuth use case
 func NewOAuthUseCase(
 	userRepo repositories.UserRepository,
+	userSessionRepo repositories.UserSessionRepository,
 	oauthService *oauth.Service,
 	jwtService JWTService,
 ) OAuthUseCase {
 	return &oauthUseCase{
-		userRepo:     userRepo,
-		oauthService: oauthService,
-		jwtService:   jwtService,
+		userRepo:        userRepo,
+		userSessionRepo: userSessionRepo,
+		oauthService:    oauthService,
+		jwtService:      jwtService,
 	}
 }
 
@@ -121,6 +124,30 @@ func (uc *oauthUseCase) HandleGoogleCallback(ctx context.Context, req *OAuthCall
 		return nil, fmt.Errorf("failed to generate token: %w", err)
 	}
 
+	// Create user session for OAuth login
+	fmt.Printf("🔄 Creating OAuth session...\n")
+	session := &entities.UserSession{
+		ID:           uuid.New(),
+		UserID:       user.ID,
+		SessionToken: token,
+		DeviceInfo:   "Google OAuth Login",
+		IPAddress:    "127.0.0.1", // Default IP for OAuth
+		UserAgent:    "OAuth Client",
+		Location:     "OAuth Provider",
+		IsActive:     true,
+		LastActivity: time.Now(),
+		ExpiresAt:    time.Now().Add(time.Hour * 24),
+		CreatedAt:    time.Now(),
+		UpdatedAt:    time.Now(),
+	}
+
+	// Save session
+	if err := uc.userSessionRepo.Create(ctx, session); err != nil {
+		// Log error but don't fail login
+		fmt.Printf("Failed to create OAuth session: %v\n", err)
+	}
+
+	fmt.Printf("✅ Google OAuth login successful for user: %s\n", user.Email)
 	return &LoginResponse{
 		Token: token,
 		User:  uc.toUserResponse(user),
@@ -145,6 +172,28 @@ func (uc *oauthUseCase) HandleFacebookCallback(ctx context.Context, req *OAuthCa
 	token, err := uc.jwtService.GenerateTokenWithEmail(user.ID.String(), user.Email, string(user.Role))
 	if err != nil {
 		return nil, fmt.Errorf("failed to generate token: %w", err)
+	}
+
+	// Create user session for OAuth login
+	session := &entities.UserSession{
+		ID:           uuid.New(),
+		UserID:       user.ID,
+		SessionToken: token,
+		DeviceInfo:   "Facebook OAuth Login",
+		IPAddress:    "127.0.0.1", // Default IP for OAuth
+		UserAgent:    "OAuth Client",
+		Location:     "OAuth Provider",
+		IsActive:     true,
+		LastActivity: time.Now(),
+		ExpiresAt:    time.Now().Add(time.Hour * 24),
+		CreatedAt:    time.Now(),
+		UpdatedAt:    time.Now(),
+	}
+
+	// Save session
+	if err := uc.userSessionRepo.Create(ctx, session); err != nil {
+		// Log error but don't fail login
+		fmt.Printf("Failed to create Facebook OAuth session: %v\n", err)
 	}
 
 	return &LoginResponse{

@@ -382,7 +382,6 @@ export function WishlistPage() {
 
   const handleAddToCart = (product: any) => {
     addItem(product.id)
-    toast.success('Added to cart!')
   }
 
   if (!isAuthenticated) {

@@ -56,6 +56,11 @@ class CategoryService {
     return response.data || []
   }
 
+  // Get subcategories (alias for getCategoryChildren)
+  async getSubcategories(categoryId: string): Promise<Category[]> {
+    return this.getCategoryChildren(categoryId)
+  }
+
   // Get category product count (including subcategories)
   async getCategoryProductCount(categoryId: string): Promise<number> {
     const response = await apiClient.get<{ product_count: number }>(`/categories/${categoryId}/product-count`)
@@ -123,6 +128,12 @@ class CategoryService {
   // Popular categories
   async getPopularCategories(limit = 10): Promise<Category[]> {
     const response = await apiClient.get(`/categories/popular?limit=${limit}`)
+    return response.data
+  }
+
+  // Trending categories
+  async getTrendingCategories(limit = 10, timeRange = '7d'): Promise<Category[]> {
+    const response = await apiClient.get(`/categories/trending?limit=${limit}&time_range=${timeRange}`)
     return response.data
   }
 

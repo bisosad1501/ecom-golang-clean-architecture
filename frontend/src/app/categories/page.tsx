@@ -1,6 +1,6 @@
 import { Metadata } from 'next'
 import { Suspense } from 'react'
-import { SimpleCategoryPage } from '@/components/layout/simple-category-page'
+import { CategoriesPage } from '@/components/pages/categories-page'
 
 export const metadata: Metadata = {
   title: 'Categories | EcomStore',
@@ -14,12 +14,19 @@ export const metadata: Metadata = {
 }
 
 function CategoriesContent() {
-  return <SimpleCategoryPage />
+  return <CategoriesPage />
 }
 
 export default function Page() {
   return (
-    <Suspense fallback={<div>Loading...</div>}>
+    <Suspense fallback={
+      <div className="min-h-screen bg-gradient-to-br from-black via-gray-900 to-black flex items-center justify-center">
+        <div className="text-center">
+          <div className="w-12 h-12 rounded-full bg-[#ff9000] animate-spin mx-auto mb-4"></div>
+          <p className="text-white">Loading categories...</p>
+        </div>
+      </div>
+    }>
       <CategoriesContent />
     </Suspense>
   )

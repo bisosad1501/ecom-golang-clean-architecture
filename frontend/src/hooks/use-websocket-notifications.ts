@@ -59,9 +59,9 @@ export function useWebSocketNotifications() {
           
         case 'system':
           console.log('🔧 System message:', message.data?.message);
-          if (message.event === 'connected') {
-            toast.success('🔔 Connected to real-time notifications');
-          }
+          // if (message.event === 'connected') {
+          //   toast.success('🔔 Connected to real-time notifications');
+          // }
           break;
           
         case 'error':

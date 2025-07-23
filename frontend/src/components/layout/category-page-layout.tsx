@@ -214,7 +214,7 @@ export function CategoryPageLayout({ categoryId, className }: CategoryPageLayout
         <div className="flex gap-6">
           {/* Sidebar - Desktop */}
           <div className="hidden lg:block w-80 flex-shrink-0">
-            <div className="sticky top-6 space-y-6">
+            <div className="sticky top-4 max-h-[calc(100vh-2rem)] overflow-y-auto space-y-6">
               <EnhancedCategorySidebar
                 selectedCategoryId={categoryId}
                 onCategoryChange={handleCategoryChange}
@@ -222,7 +222,7 @@ export function CategoryPageLayout({ categoryId, className }: CategoryPageLayout
                 showSearch={true}
                 showFilters={true}
               />
-              
+
               <ProductFilters currentParams={{}} />
             </div>
           </div>

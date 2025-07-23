@@ -99,7 +99,7 @@ export function ProductsPage() {
           
           {/* Compact Sidebar Filters */}
           <aside className="hidden lg:block lg:w-60 xl:w-64 flex-shrink-0">
-            <div className="sticky top-8">
+            <div className="sticky top-4 max-h-[calc(100vh-2rem)] overflow-y-auto">
               <ProductFilters currentParams={params} />
             </div>
           </aside>

@@ -162,7 +162,7 @@ export function SearchPage() {
           <div className="flex gap-8">
             {/* Sidebar Filters */}
             <aside className={`w-80 flex-shrink-0 ${showFilters ? 'block' : 'hidden lg:block'}`}>
-              <div className="sticky top-8">
+              <div className="sticky top-4 max-h-[calc(100vh-2rem)] overflow-y-auto">
                 <ProductFilters currentParams={params} />
               </div>
             </aside>

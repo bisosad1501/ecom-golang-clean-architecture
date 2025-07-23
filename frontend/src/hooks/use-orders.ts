@@ -678,12 +678,25 @@ export function useOrderEvents(orderId: string, publicOnly: boolean = false) {
   return useQuery({
     queryKey: orderKeys.events(orderId),
     queryFn: async (): Promise<OrderEvent[]> => {
-      const params = new URLSearchParams()
-      if (publicOnly) params.append('public', 'true')
+      try {
+        const params = new URLSearchParams()
+        if (publicOnly) params.append('public', 'true')
 
-      const url = `/orders/${orderId}/events${params.toString() ? `?${params.toString()}` : ''}`
-      const response = await apiClient.get<{ data: OrderEvent[] }>(url)
-      return response.data.data
+        const url = `/orders/${orderId}/events${params.toString() ? `?${params.toString()}` : ''}`
+        const response = await apiClient.get<any>(url)
+
+        // Handle different response structures
+        if (response.data?.data) {
+          return Array.isArray(response.data.data) ? response.data.data : []
+        } else if (Array.isArray(response.data)) {
+          return response.data
+        } else {
+          return []
+        }
+      } catch (error) {
+        console.error('Failed to fetch order events:', error)
+        return [] // Always return an array, never undefined
+      }
     },
     enabled: !!orderId,
     staleTime: 30 * 1000,

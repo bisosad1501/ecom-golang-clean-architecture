@@ -17,23 +17,24 @@ type Category struct {
 	Parent      *Category  `json:"parent" gorm:"foreignKey:ParentID"`
 	Children    []Category `json:"children" gorm:"foreignKey:ParentID"`
 	// Products relationship removed - use ProductCategory many-to-many as single source of truth
-	IsActive    bool       `json:"is_active" gorm:"default:true"`
+	IsActive     bool  `json:"is_active" gorm:"default:true"`
+	ProductCount int64 `json:"product_count" gorm:"-"` // Not stored in DB, calculated at runtime
 
 	// SEO fields
-	MetaTitle       string `json:"meta_title" gorm:"type:varchar(255)"`
-	MetaDescription string `json:"meta_description" gorm:"type:text"`
-	MetaKeywords    string `json:"meta_keywords" gorm:"type:text"`
-	CanonicalURL    string `json:"canonical_url" gorm:"type:varchar(500)"`
-	OGTitle         string `json:"og_title" gorm:"type:varchar(255)"`
-	OGDescription   string `json:"og_description" gorm:"type:text"`
-	OGImage         string `json:"og_image" gorm:"type:varchar(500)"`
-	TwitterTitle    string `json:"twitter_title" gorm:"type:varchar(255)"`
-	TwitterDescription string `json:"twitter_description" gorm:"type:text"`
-	TwitterImage    string `json:"twitter_image" gorm:"type:varchar(500)"`
-	SchemaMarkup    string `json:"schema_markup" gorm:"type:text"` // JSON string for structured data
-	SortOrder   int        `json:"sort_order" gorm:"default:0"`
-	CreatedAt   time.Time  `json:"created_at" gorm:"autoCreateTime"`
-	UpdatedAt   time.Time  `json:"updated_at" gorm:"autoUpdateTime"`
+	MetaTitle          string    `json:"meta_title" gorm:"type:varchar(255)"`
+	MetaDescription    string    `json:"meta_description" gorm:"type:text"`
+	MetaKeywords       string    `json:"meta_keywords" gorm:"type:text"`
+	CanonicalURL       string    `json:"canonical_url" gorm:"type:varchar(500)"`
+	OGTitle            string    `json:"og_title" gorm:"type:varchar(255)"`
+	OGDescription      string    `json:"og_description" gorm:"type:text"`
+	OGImage            string    `json:"og_image" gorm:"type:varchar(500)"`
+	TwitterTitle       string    `json:"twitter_title" gorm:"type:varchar(255)"`
+	TwitterDescription string    `json:"twitter_description" gorm:"type:text"`
+	TwitterImage       string    `json:"twitter_image" gorm:"type:varchar(500)"`
+	SchemaMarkup       string    `json:"schema_markup" gorm:"type:text"` // JSON string for structured data
+	SortOrder          int       `json:"sort_order" gorm:"default:0"`
+	CreatedAt          time.Time `json:"created_at" gorm:"autoCreateTime"`
+	UpdatedAt          time.Time `json:"updated_at" gorm:"autoUpdateTime"`
 }
 
 // TableName returns the table name for Category entity

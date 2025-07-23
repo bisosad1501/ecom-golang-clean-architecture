@@ -1474,3 +1474,96 @@ func (h *CategoryHandler) GetSEOCompetitorAnalysis(c *gin.Context) {
 		Data: analysis,
 	})
 }
+
+// GetCategoryBySlug handles getting a category by slug
+// @Summary Get category by slug
+// @Description Get a single category by its slug
+// @Tags categories
+// @Accept json
+// @Produce json
+// @Param slug path string true "Category Slug"
+// @Success 200 {object} usecases.CategoryResponse
+// @Failure 404 {object} ErrorResponse
+// @Router /categories/slug/{slug} [get]
+func (h *CategoryHandler) GetCategoryBySlug(c *gin.Context) {
+	slug := c.Param("slug")
+	if slug == "" {
+		c.JSON(http.StatusBadRequest, ErrorResponse{
+			Error: "Category slug is required",
+		})
+		return
+	}
+
+	category, err := h.categoryUseCase.GetCategoryBySlug(c.Request.Context(), slug)
+	if err != nil {
+		c.JSON(getErrorStatusCode(err), ErrorResponse{
+			Error: err.Error(),
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, SuccessResponse{
+		Data: category,
+	})
+}
+
+// GetTrendingCategories handles getting trending categories
+// @Summary Get trending categories
+// @Description Get categories that are currently trending based on views and sales
+// @Tags categories
+// @Accept json
+// @Produce json
+// @Param limit query int false "Limit" default(10)
+// @Param time_range query string false "Time range" default(7d)
+// @Success 200 {object} usecases.TrendingCategoriesResponse
+// @Router /categories/trending [get]
+func (h *CategoryHandler) GetTrendingCategories(c *gin.Context) {
+	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "10"))
+	timeRange := c.DefaultQuery("time_range", "7d")
+
+	req := usecases.GetTrendingCategoriesRequest{
+		Limit:     limit,
+		TimeRange: timeRange,
+	}
+
+	result, err := h.categoryUseCase.GetTrendingCategories(c.Request.Context(), req)
+	if err != nil {
+		c.JSON(getErrorStatusCode(err), ErrorResponse{
+			Error: err.Error(),
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, SuccessResponse{
+		Data: result,
+	})
+}
+
+// GetPopularCategories handles getting popular categories
+// @Summary Get popular categories
+// @Description Get most popular categories based on product count and engagement
+// @Tags categories
+// @Accept json
+// @Produce json
+// @Param limit query int false "Limit" default(10)
+// @Success 200 {object} usecases.PopularCategoriesResponse
+// @Router /categories/popular [get]
+func (h *CategoryHandler) GetPopularCategories(c *gin.Context) {
+	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "10"))
+
+	req := usecases.GetPopularCategoriesRequest{
+		Limit: limit,
+	}
+
+	result, err := h.categoryUseCase.GetPopularCategories(c.Request.Context(), req)
+	if err != nil {
+		c.JSON(getErrorStatusCode(err), ErrorResponse{
+			Error: err.Error(),
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, SuccessResponse{
+		Data: result,
+	})
+}

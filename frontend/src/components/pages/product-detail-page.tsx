@@ -160,7 +160,6 @@ export function ProductDetailPage({ productId }: ProductDetailPageProps) {
     
     try {
       await addItem(productData.id, quantity)
-      toast.success(`Added ${quantity} item(s) to cart!`)
     } catch (error) {
       toast.error('Failed to add to cart')
     }

@@ -36,6 +36,16 @@ export interface ProductCategoryResponse {
   description: string
   slug: string
   image: string
+  parent_id?: string
+  parent?: ProductCategoryResponse
+  children?: ProductCategoryResponse[]
+  is_active: boolean
+  sort_order: number
+  level: number
+  path: string
+  product_count?: number
+  created_at: string
+  updated_at: string
 }
 
 export interface ProductBrandResponse {

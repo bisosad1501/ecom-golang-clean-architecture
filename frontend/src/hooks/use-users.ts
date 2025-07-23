@@ -184,7 +184,9 @@ export function useUserSessions(limit = 10, offset = 0) {
   return useQuery({
     queryKey: [...userKeys.sessions(), { limit, offset }],
     queryFn: async () => {
+      console.log('🔥 useUserSessions - fetching sessions...')
       const response = await apiClient.get(`/users/sessions?limit=${limit}&offset=${offset}`)
+      console.log('🔥 useUserSessions - response:', response)
       return response.data
     },
   })
@@ -229,7 +231,9 @@ export function useUserActivity(limit = 10, offset = 0) {
   return useQuery({
     queryKey: [...userKeys.all, 'activity', { limit, offset }],
     queryFn: async () => {
+      console.log('🔥 useUserActivity - fetching activity...')
       const response = await apiClient.get(`/users/activity?limit=${limit}&offset=${offset}`)
+      console.log('🔥 useUserActivity - response:', response)
       return response.data
     },
   })
@@ -243,6 +247,18 @@ export function useUserStats() {
       const response = await apiClient.get('/users/stats')
       return response.data
     },
+  })
+}
+
+// Membership tiers
+export function useMembershipTiers() {
+  return useQuery({
+    queryKey: ['membership-tiers'],
+    queryFn: async () => {
+      const response = await apiClient.get('/users/membership-tiers')
+      return response.data
+    },
+    staleTime: 5 * 60 * 1000, // 5 minutes - tiers don't change often
   })
 }
 
