@@ -8,19 +8,18 @@ import (
 	"os"
 	"strings"
 
-	"ecom-golang-clean-architecture/internal/config"
+	"ecom-golang-clean-architecture/internal/infrastructure/config"
 	"ecom-golang-clean-architecture/internal/infrastructure/database"
 )
 
 func main() {
 	var (
 		action = flag.String("action", "up", "Migration action: up, down, status")
-		configPath = flag.String("config", "configs/config.yaml", "Path to config file")
 	)
 	flag.Parse()
 
 	// Load configuration
-	cfg, err := config.Load(*configPath)
+	cfg, err := config.Load()
 	if err != nil {
 		log.Fatal("Failed to load config:", err)
 	}
@@ -59,7 +58,7 @@ func main() {
 
 		fmt.Printf("%-25s %-50s %-10s %s\n", "Version", "Name", "Applied", "Applied At")
 		fmt.Println(strings.Repeat("-", 100))
-		
+
 		for _, migration := range status {
 			appliedStatus := "❌ No"
 			appliedAt := ""
@@ -69,10 +68,10 @@ func main() {
 					appliedAt = migration.AppliedAt.Format("2006-01-02 15:04:05")
 				}
 			}
-			fmt.Printf("%-25s %-50s %-10s %s\n", 
-				migration.Version, 
-				migration.Name, 
-				appliedStatus, 
+			fmt.Printf("%-25s %-50s %-10s %s\n",
+				migration.Version,
+				migration.Name,
+				appliedStatus,
 				appliedAt)
 		}
 

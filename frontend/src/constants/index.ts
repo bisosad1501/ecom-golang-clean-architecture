@@ -102,11 +102,6 @@ export const USER_NAV = [
     icon: 'Package',
   },
   {
-    title: 'Wishlist',
-    href: '/wishlist',
-    icon: 'Heart',
-  },
-  {
     title: 'Addresses',
     href: '/addresses',
     icon: 'MapPin',

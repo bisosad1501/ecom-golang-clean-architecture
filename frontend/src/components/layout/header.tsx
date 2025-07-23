@@ -494,7 +494,6 @@ export function Header() {
                     {[
                       { href: '/profile', icon: 'User', title: 'Profile' },
                       { href: '/orders', icon: 'Package', title: 'Orders' },
-                      { href: '/wishlist', icon: 'Heart', title: 'Wishlist' },
                       { href: '/settings', icon: 'Settings', title: 'Settings' },
                     ].map((item) => (
                       <Link
@@ -505,7 +504,6 @@ export function Header() {
                       >
                         {item.icon === 'User' && <User className="mr-3 h-4 w-4" />}
                         {item.icon === 'Package' && <Package className="mr-3 h-4 w-4" />}
-                        {item.icon === 'Heart' && <Heart className="mr-3 h-4 w-4" />}
                         {item.icon === 'Settings' && <Settings className="mr-3 h-4 w-4" />}
                         {item.title}
                       </Link>
