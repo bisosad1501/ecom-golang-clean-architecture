@@ -1,6 +1,7 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
+import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { Package, Truck, CheckCircle, Clock, XCircle, Search, Eye, Download, Star, ShoppingBag, SlidersHorizontal, ShieldCheck, Zap } from 'lucide-react'
 import { Button } from '@/components/ui/button'
@@ -10,7 +11,8 @@ import { Input } from '@/components/ui/input'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Separator } from '@/components/ui/separator'
 import { AnimatedBackground } from '@/components/ui/animated-background'
-import { useOrders } from '@/hooks/use-orders'
+import { Pagination } from '@/components/ui/pagination'
+import { useOrdersSimple } from '@/hooks/use-orders'
 import { useAuthStore } from '@/store/auth'
 import { formatPrice, formatDate, cn } from '@/lib/utils'
 import { Order } from '@/types'
@@ -74,13 +76,20 @@ const getStatusColor = (status: string) => {
 }
 
 export function OrderHistoryPage() {
+  const router = useRouter()
+  const searchParams = useSearchParams()
+
   const [searchQuery, setSearchQuery] = useState('')
   const [statusFilter, setStatusFilter] = useState('all')
-  const [currentPage, setCurrentPage] = useState(1)
+
+  // Get current page from URL params
+  const currentPage = parseInt(searchParams.get('page') || '1', 10)
 
   const { user, isAuthenticated } = useAuthStore()
 
-  const { data: ordersData, isLoading, error } = useOrders({
+  console.log('🔥 OrderHistoryPage render - currentPage:', currentPage, 'searchQuery:', searchQuery, 'statusFilter:', statusFilter)
+
+  const { data: ordersData, isLoading, error } = useOrdersSimple({
     page: currentPage,
     limit: 10,
     search: searchQuery.trim(),
@@ -94,21 +103,21 @@ export function OrderHistoryPage() {
   // Backend now handles filtering, so we use the filtered results directly
   const filteredOrders = orders
 
-  // Debug logging
-  console.log('OrderHistoryPage - ordersData:', ordersData)
-  console.log('OrderHistoryPage - totalPages:', totalPages)
-  console.log('OrderHistoryPage - totalOrders:', totalOrders)
-  console.log('OrderHistoryPage - currentPage:', currentPage)
+
 
   // Reset page when filters change
   const handleSearchChange = (value: string) => {
     setSearchQuery(value)
-    setCurrentPage(1)
+    const params = new URLSearchParams(searchParams.toString())
+    params.set('page', '1')
+    router.push(`?${params.toString()}`)
   }
 
   const handleStatusChange = (value: string) => {
     setStatusFilter(value)
-    setCurrentPage(1)
+    const params = new URLSearchParams(searchParams.toString())
+    params.set('page', '1')
+    router.push(`?${params.toString()}`)
   }
 
   if (isLoading) {
@@ -177,7 +186,9 @@ export function OrderHistoryPage() {
     <div className="min-h-screen bg-gradient-to-br from-black via-gray-900 to-black text-white relative overflow-hidden">
       {/* Enhanced Background Pattern */}
       <AnimatedBackground className="opacity-30" />
-      
+
+
+
       <div className="container mx-auto px-4 lg:px-6 xl:px-8 py-12 relative z-10">
         {/* Header Section trong body */}
         <div className="mb-12">
@@ -254,7 +265,7 @@ export function OrderHistoryPage() {
                 onClick={() => {
                   setSearchQuery('')
                   setStatusFilter('all')
-                  setCurrentPage(1)
+                  router.push('/orders')
                 }}
                 className="h-10 px-3 border-gray-600/50 text-gray-300 hover:bg-gray-800/50 hover:border-red-500/30 hover:text-red-400 transition-all duration-300 rounded-lg"
               >
@@ -309,7 +320,7 @@ export function OrderHistoryPage() {
                   onClick={() => {
                     setSearchQuery('')
                     setStatusFilter('all')
-                    setCurrentPage(1)
+                    router.push('/orders')
                   }}
                   className="bg-gradient-to-r from-[#ff9000] to-orange-600 hover:from-orange-600 hover:to-orange-700 text-white border-0 shadow-lg"
                 >
@@ -448,41 +459,18 @@ export function OrderHistoryPage() {
           </div>
         )}
 
-        {/* Enhanced Pagination - đồng bộ với ProductsPage */}
-        {totalPages > 1 && (
-          <div className="flex justify-center mt-12">
-            <div className="flex items-center gap-2 bg-white/[0.06] backdrop-blur-md border border-white/10 rounded-lg p-1 shadow-lg">
-              <Button
-                variant="ghost"
-                disabled={currentPage === 1}
-                onClick={() => setCurrentPage(currentPage - 1)}
-                className="border-0 text-gray-300 hover:text-[#ff9000] hover:bg-[#ff9000]/10 disabled:text-gray-500 disabled:hover:bg-transparent rounded-md h-8 px-3 text-sm transition-all duration-200"
-              >
-                Previous
-              </Button>
-              
-              {[...Array(totalPages)].map((_, i) => (
-                <Button
-                  key={i}
-                  variant={currentPage === i + 1 ? "default" : "ghost"}
-                  onClick={() => setCurrentPage(i + 1)}
-                  className={currentPage === i + 1 
-                    ? "bg-gradient-to-r from-[#ff9000] to-orange-600 text-white border-0 h-8 w-8 p-0 text-sm font-medium shadow-md" 
-                    : "border-0 text-gray-300 hover:text-[#ff9000] hover:bg-[#ff9000]/10 h-8 w-8 p-0 text-sm transition-all duration-200 rounded-md"
-                  }
-                >
-                  {i + 1}
-                </Button>
-              ))}
-              
-              <Button
-                variant="ghost"
-                disabled={currentPage === totalPages}
-                onClick={() => setCurrentPage(currentPage + 1)}
-                className="border-0 text-gray-300 hover:text-[#ff9000] hover:bg-[#ff9000]/10 disabled:text-gray-500 disabled:hover:bg-transparent rounded-md h-8 px-3 text-sm transition-all duration-200"
-              >
-                Next
-              </Button>
+
+
+        {/* Pagination */}
+        {ordersData?.pagination && ordersData.pagination.total_pages > 1 && (
+          <div className="mt-8 flex justify-center">
+            <div className="bg-white/[0.08] backdrop-blur-xl rounded-xl border border-white/15 p-2 shadow-md">
+              <Pagination
+                currentPage={ordersData.pagination.page}
+                totalPages={ordersData.pagination.total_pages}
+                hasNext={ordersData.pagination.has_next}
+                hasPrev={ordersData.pagination.has_prev}
+              />
             </div>
           </div>
         )}

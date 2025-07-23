@@ -25,6 +25,13 @@ class ApiClient {
         if (token) {
           config.headers.Authorization = `Bearer ${token}`
         }
+        console.log('🚀 API Request:', {
+          method: config.method?.toUpperCase(),
+          url: config.url,
+          baseURL: config.baseURL,
+          fullURL: `${config.baseURL}${config.url}`,
+          headers: config.headers
+        })
         return config
       },
       (error) => {
@@ -36,6 +43,12 @@ class ApiClient {
     // Response interceptor to handle errors
     this.client.interceptors.response.use(
       (response: AxiosResponse) => {
+        console.log('🔍 API Response:', {
+          url: response.config.url,
+          status: response.status,
+          data: response.data,
+          headers: response.headers
+        })
         return response
       },
       (error) => {
@@ -384,7 +397,10 @@ class ApiClient {
     quantity: number;
     variant_id?: string;
   }): Promise<ApiResponse<any>> {
-    return this.put('/cart/items', data)
+    return this.put(`/cart/items/${data.product_id}`, {
+      quantity: data.quantity,
+      variant_id: data.variant_id
+    })
   }
 
   async removeFromCart(productId: string): Promise<ApiResponse<any>> {

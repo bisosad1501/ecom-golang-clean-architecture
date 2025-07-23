@@ -184,8 +184,7 @@ export const useCartStore = create<CartStore>()(
             throw new Error('Product ID not found')
           }
 
-          const response = await apiClient.put<ApiResponse<Cart>>('/cart/items', {
-            product_id: productId,
+          const response = await apiClient.put<ApiResponse<Cart>>(`/cart/items/${productId}`, {
             quantity,
           })
 

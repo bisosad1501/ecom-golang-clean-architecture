@@ -205,68 +205,153 @@ func NewUserActivityRepository(db *gorm.DB) repositories.UserActivityRepository 
 
 // Create creates a new user activity
 func (r *userActivityRepository) Create(ctx context.Context, activity *entities.UserActivity) error {
-	return r.db.WithContext(ctx).Create(activity).Error
+	// Convert UserActivity to UserActivityLog for database storage
+	activityLog := &entities.UserActivityLog{
+		ID:           activity.ID,
+		UserID:       activity.UserID,
+		ActivityType: string(activity.Type),
+		EntityType:   activity.EntityType,
+		EntityID:     activity.EntityID,
+		Metadata:     activity.Metadata,
+		IPAddress:    activity.IPAddress,
+		UserAgent:    activity.UserAgent,
+		CreatedAt:    activity.CreatedAt,
+	}
+	return r.db.WithContext(ctx).Create(activityLog).Error
 }
 
 // GetByID retrieves a user activity by ID
 func (r *userActivityRepository) GetByID(ctx context.Context, id uuid.UUID) (*entities.UserActivity, error) {
-	var activity entities.UserActivity
-	err := r.db.WithContext(ctx).Where("id = ?", id).First(&activity).Error
+	var activityLog entities.UserActivityLog
+	err := r.db.WithContext(ctx).Where("id = ?", id).First(&activityLog).Error
 	if err != nil {
 		if err == gorm.ErrRecordNotFound {
 			return nil, entities.ErrUserNotFound
 		}
 		return nil, err
 	}
-	return &activity, nil
+
+	// Convert UserActivityLog to UserActivity
+	activity := &entities.UserActivity{
+		ID:         activityLog.ID,
+		UserID:     activityLog.UserID,
+		Type:       entities.ActivityType(activityLog.ActivityType),
+		EntityType: activityLog.EntityType,
+		EntityID:   activityLog.EntityID,
+		Metadata:   activityLog.Metadata,
+		IPAddress:  activityLog.IPAddress,
+		UserAgent:  activityLog.UserAgent,
+		CreatedAt:  activityLog.CreatedAt,
+	}
+	return activity, nil
 }
 
 // GetByUserID retrieves activities for a user
 func (r *userActivityRepository) GetByUserID(ctx context.Context, userID uuid.UUID, limit, offset int) ([]*entities.UserActivity, error) {
-	var activities []*entities.UserActivity
+	var activityLogs []*entities.UserActivityLog
 	err := r.db.WithContext(ctx).
 		Where("user_id = ?", userID).
 		Order("created_at DESC").
 		Limit(limit).
 		Offset(offset).
-		Find(&activities).Error
-	return activities, err
+		Find(&activityLogs).Error
+
+	if err != nil {
+		return nil, err
+	}
+
+	// Convert UserActivityLog to UserActivity
+	activities := make([]*entities.UserActivity, len(activityLogs))
+	for i, log := range activityLogs {
+		activities[i] = &entities.UserActivity{
+			ID:         log.ID,
+			UserID:     log.UserID,
+			Type:       entities.ActivityType(log.ActivityType),
+			EntityType: log.EntityType,
+			EntityID:   log.EntityID,
+			Metadata:   log.Metadata,
+			IPAddress:  log.IPAddress,
+			UserAgent:  log.UserAgent,
+			CreatedAt:  log.CreatedAt,
+		}
+	}
+	return activities, nil
 }
 
 // GetByUserIDAndType retrieves activities for a user by type
 func (r *userActivityRepository) GetByUserIDAndType(ctx context.Context, userID uuid.UUID, activityType entities.ActivityType, limit, offset int) ([]*entities.UserActivity, error) {
-	var activities []*entities.UserActivity
+	var activityLogs []*entities.UserActivityLog
 	err := r.db.WithContext(ctx).
-		Where("user_id = ? AND type = ?", userID, activityType).
+		Where("user_id = ? AND activity_type = ?", userID, string(activityType)).
 		Order("created_at DESC").
 		Limit(limit).
 		Offset(offset).
-		Find(&activities).Error
-	return activities, err
+		Find(&activityLogs).Error
+
+	if err != nil {
+		return nil, err
+	}
+
+	// Convert UserActivityLog to UserActivity
+	activities := make([]*entities.UserActivity, len(activityLogs))
+	for i, log := range activityLogs {
+		activities[i] = &entities.UserActivity{
+			ID:         log.ID,
+			UserID:     log.UserID,
+			Type:       entities.ActivityType(log.ActivityType),
+			EntityType: log.EntityType,
+			EntityID:   log.EntityID,
+			Metadata:   log.Metadata,
+			IPAddress:  log.IPAddress,
+			UserAgent:  log.UserAgent,
+			CreatedAt:  log.CreatedAt,
+		}
+	}
+	return activities, nil
 }
 
 // GetRecentActivity retrieves recent activities for a user
 func (r *userActivityRepository) GetRecentActivity(ctx context.Context, userID uuid.UUID, since time.Time) ([]*entities.UserActivity, error) {
-	var activities []*entities.UserActivity
+	var activityLogs []*entities.UserActivityLog
 	err := r.db.WithContext(ctx).
 		Where("user_id = ? AND created_at > ?", userID, since).
 		Order("created_at DESC").
-		Find(&activities).Error
-	return activities, err
+		Find(&activityLogs).Error
+
+	if err != nil {
+		return nil, err
+	}
+
+	// Convert UserActivityLog to UserActivity
+	activities := make([]*entities.UserActivity, len(activityLogs))
+	for i, log := range activityLogs {
+		activities[i] = &entities.UserActivity{
+			ID:         log.ID,
+			UserID:     log.UserID,
+			Type:       entities.ActivityType(log.ActivityType),
+			EntityType: log.EntityType,
+			EntityID:   log.EntityID,
+			Metadata:   log.Metadata,
+			IPAddress:  log.IPAddress,
+			UserAgent:  log.UserAgent,
+			CreatedAt:  log.CreatedAt,
+		}
+	}
+	return activities, nil
 }
 
 // GetActivityStats retrieves activity statistics for a user
 func (r *userActivityRepository) GetActivityStats(ctx context.Context, userID uuid.UUID, dateFrom, dateTo time.Time) (map[entities.ActivityType]int64, error) {
 	var results []struct {
-		Type  entities.ActivityType `json:"type"`
-		Count int64                 `json:"count"`
+		ActivityType string `json:"activity_type"`
+		Count        int64  `json:"count"`
 	}
 
 	err := r.db.WithContext(ctx).
-		Model(&entities.UserActivity{}).
-		Select("type, COUNT(*) as count").
+		Model(&entities.UserActivityLog{}).
+		Select("activity_type, COUNT(*) as count").
 		Where("user_id = ? AND created_at BETWEEN ? AND ?", userID, dateFrom, dateTo).
-		Group("type").
+		Group("activity_type").
 		Find(&results).Error
 
 	if err != nil {
@@ -275,7 +360,7 @@ func (r *userActivityRepository) GetActivityStats(ctx context.Context, userID uu
 
 	stats := make(map[entities.ActivityType]int64)
 	for _, result := range results {
-		stats[result.Type] = result.Count
+		stats[entities.ActivityType(result.ActivityType)] = result.Count
 	}
 
 	return stats, nil
@@ -300,14 +385,14 @@ func (r *userActivityRepository) GetMostActiveUsers(ctx context.Context, limit i
 func (r *userActivityRepository) DeleteOldActivities(ctx context.Context, olderThan time.Time) error {
 	return r.db.WithContext(ctx).
 		Where("created_at < ?", olderThan).
-		Delete(&entities.UserActivity{}).Error
+		Delete(&entities.UserActivityLog{}).Error
 }
 
 // DeleteByUserID deletes all activities for a user
 func (r *userActivityRepository) DeleteByUserID(ctx context.Context, userID uuid.UUID) error {
 	return r.db.WithContext(ctx).
 		Where("user_id = ?", userID).
-		Delete(&entities.UserActivity{}).Error
+		Delete(&entities.UserActivityLog{}).Error
 }
 
 type userPreferencesRepository struct {

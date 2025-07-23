@@ -87,9 +87,9 @@ func (r *cartRepository) Create(ctx context.Context, cart *entities.Cart) error 
 // GetByID retrieves a cart by ID
 func (r *cartRepository) GetByID(ctx context.Context, id uuid.UUID) (*entities.Cart, error) {
 	var cart entities.Cart
+
+	// First get the cart
 	err := r.db.WithContext(ctx).
-		Preload("Items").
-		Preload("Items.Product").
 		Where("id = ?", id).
 		First(&cart).Error
 	if err != nil {
@@ -98,15 +98,26 @@ func (r *cartRepository) GetByID(ctx context.Context, id uuid.UUID) (*entities.C
 		}
 		return nil, err
 	}
+
+	// Then get items with explicit ordering
+	err = r.db.WithContext(ctx).
+		Preload("Product").
+		Where("cart_id = ?", cart.ID).
+		Order("created_at ASC, id ASC").
+		Find(&cart.Items).Error
+	if err != nil {
+		return nil, err
+	}
+
 	return &cart, nil
 }
 
 // GetByUserID retrieves a cart by user ID
 func (r *cartRepository) GetByUserID(ctx context.Context, userID uuid.UUID) (*entities.Cart, error) {
 	var cart entities.Cart
+
+	// First get the cart
 	err := r.db.WithContext(ctx).
-		Preload("Items").
-		Preload("Items.Product").
 		Where("user_id = ? AND status = ?", userID, "active").
 		Order("created_at DESC").
 		First(&cart).Error
@@ -114,6 +125,16 @@ func (r *cartRepository) GetByUserID(ctx context.Context, userID uuid.UUID) (*en
 		if err == gorm.ErrRecordNotFound {
 			return nil, entities.ErrCartNotFound
 		}
+		return nil, err
+	}
+
+	// Then get items with explicit ordering
+	err = r.db.WithContext(ctx).
+		Preload("Product").
+		Where("cart_id = ?", cart.ID).
+		Order("created_at ASC, id ASC").
+		Find(&cart.Items).Error
+	if err != nil {
 		return nil, err
 	}
 
@@ -155,7 +176,9 @@ func (r *cartRepository) GetBySessionID(ctx context.Context, sessionID string) (
 func (r *cartRepository) GetBySessionIDForUpdate(ctx context.Context, sessionID string) (*entities.Cart, error) {
 	var cart entities.Cart
 	err := r.db.WithContext(ctx).
-		Preload("Items").
+		Preload("Items", func(db *gorm.DB) *gorm.DB {
+			return db.Order("created_at ASC, id ASC")
+		}).
 		Preload("Items.Product").
 		Preload("Items.Product.Category").
 		Preload("Items.Product.Images").
@@ -175,7 +198,9 @@ func (r *cartRepository) GetBySessionIDForUpdate(ctx context.Context, sessionID 
 func (r *cartRepository) GetByUserIDForUpdate(ctx context.Context, userID uuid.UUID) (*entities.Cart, error) {
 	var cart entities.Cart
 	err := r.db.WithContext(ctx).
-		Preload("Items").
+		Preload("Items", func(db *gorm.DB) *gorm.DB {
+			return db.Order("created_at ASC, id ASC")
+		}).
 		Preload("Items.Product").
 		Preload("Items.Product.Category").
 		Preload("Items.Product.Images").
@@ -322,7 +347,9 @@ func (r *cartRepository) RemoveItemsByProductID(ctx context.Context, productID u
 func (r *cartRepository) GetExpiredCarts(ctx context.Context) ([]*entities.Cart, error) {
 	var carts []*entities.Cart
 	err := r.db.WithContext(ctx).
-		Preload("Items").
+		Preload("Items", func(db *gorm.DB) *gorm.DB {
+			return db.Order("created_at ASC, id ASC")
+		}).
 		Preload("Items.Product").
 		Where("status = ? AND expires_at < ?", "active", time.Now()).
 		Find(&carts).Error
@@ -337,7 +364,9 @@ func (r *cartRepository) GetAbandonedCarts(ctx context.Context, since time.Time)
 	var carts []*entities.Cart
 
 	err := r.db.WithContext(ctx).
-		Preload("Items").
+		Preload("Items", func(db *gorm.DB) *gorm.DB {
+			return db.Order("created_at ASC, id ASC")
+		}).
 		Preload("Items.Product").
 		Where("updated_at < ? AND is_abandoned = false", since).
 		Find(&carts).Error
@@ -354,7 +383,9 @@ func (r *cartRepository) GetAbandonedCartsList(ctx context.Context, offset, limi
 	var carts []*entities.Cart
 
 	err := r.db.WithContext(ctx).
-		Preload("Items").
+		Preload("Items", func(db *gorm.DB) *gorm.DB {
+			return db.Order("created_at ASC, id ASC")
+		}).
 		Preload("Items.Product").
 		Where("is_abandoned = true").
 		Order("abandoned_at DESC").

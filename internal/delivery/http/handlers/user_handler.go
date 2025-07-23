@@ -394,18 +394,10 @@ func (h *UserHandler) ActivateUser(c *gin.Context) {
 // @Failure 404 {object} ErrorResponse
 // @Router /users/preferences [get]
 func (h *UserHandler) GetUserPreferences(c *gin.Context) {
-	userIDStr, exists := c.Get("user_id")
-	if !exists {
-		c.JSON(http.StatusUnauthorized, ErrorResponse{
-			Error: "User ID not found in token",
-		})
-		return
-	}
-
-	userID, err := uuid.Parse(userIDStr.(string))
+	userID, err := h.getUserIDFromContext(c)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, ErrorResponse{
-			Error: "Invalid user ID",
+		c.JSON(http.StatusUnauthorized, ErrorResponse{
+			Error: err.Error(),
 		})
 		return
 	}
@@ -436,18 +428,10 @@ func (h *UserHandler) GetUserPreferences(c *gin.Context) {
 // @Failure 401 {object} ErrorResponse
 // @Router /users/preferences [put]
 func (h *UserHandler) UpdateUserPreferences(c *gin.Context) {
-	userIDStr, exists := c.Get("user_id")
-	if !exists {
-		c.JSON(http.StatusUnauthorized, ErrorResponse{
-			Error: "User ID not found in token",
-		})
-		return
-	}
-
-	userID, err := uuid.Parse(userIDStr.(string))
+	userID, err := h.getUserIDFromContext(c)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, ErrorResponse{
-			Error: "Invalid user ID",
+		c.JSON(http.StatusUnauthorized, ErrorResponse{
+			Error: err.Error(),
 		})
 		return
 	}
@@ -705,18 +689,10 @@ func (h *UserHandler) VerifyEmailByToken(c *gin.Context) {
 // @Failure 401 {object} ErrorResponse
 // @Router /users/verification/status [get]
 func (h *UserHandler) GetVerificationStatus(c *gin.Context) {
-	userIDStr, exists := c.Get("user_id")
-	if !exists {
-		c.JSON(http.StatusUnauthorized, ErrorResponse{
-			Error: "User ID not found in token",
-		})
-		return
-	}
-
-	userID, err := uuid.Parse(userIDStr.(string))
+	userID, err := h.getUserIDFromContext(c)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, ErrorResponse{
-			Error: "Invalid user ID",
+		c.JSON(http.StatusUnauthorized, ErrorResponse{
+			Error: err.Error(),
 		})
 		return
 	}
@@ -747,18 +723,10 @@ func (h *UserHandler) GetVerificationStatus(c *gin.Context) {
 // @Failure 401 {object} ErrorResponse
 // @Router /users/sessions [get]
 func (h *UserHandler) GetUserSessions(c *gin.Context) {
-	userIDStr, exists := c.Get("user_id")
-	if !exists {
-		c.JSON(http.StatusUnauthorized, ErrorResponse{
-			Error: "User ID not found in token",
-		})
-		return
-	}
-
-	userID, err := uuid.Parse(userIDStr.(string))
+	userID, err := h.getUserIDFromContext(c)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, ErrorResponse{
-			Error: "Invalid user ID",
+		c.JSON(http.StatusUnauthorized, ErrorResponse{
+			Error: err.Error(),
 		})
 		return
 	}
@@ -853,18 +821,10 @@ func (h *UserHandler) InvalidateSession(c *gin.Context) {
 // @Failure 401 {object} ErrorResponse
 // @Router /users/sessions [delete]
 func (h *UserHandler) InvalidateAllSessions(c *gin.Context) {
-	userIDStr, exists := c.Get("user_id")
-	if !exists {
-		c.JSON(http.StatusUnauthorized, ErrorResponse{
-			Error: "User ID not found in token",
-		})
-		return
-	}
-
-	userID, err := uuid.Parse(userIDStr.(string))
+	userID, err := h.getUserIDFromContext(c)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, ErrorResponse{
-			Error: "Invalid user ID",
+		c.JSON(http.StatusUnauthorized, ErrorResponse{
+			Error: err.Error(),
 		})
 		return
 	}
@@ -879,6 +839,87 @@ func (h *UserHandler) InvalidateAllSessions(c *gin.Context) {
 
 	c.JSON(http.StatusOK, SuccessResponse{
 		Message: "All sessions invalidated successfully",
+	})
+}
+
+// GetUserActivity handles getting user activity
+// @Summary Get user activity
+// @Description Get current user's activity history
+// @Tags users
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Param limit query int false "Limit" default(10)
+// @Param offset query int false "Offset" default(0)
+// @Success 200 {object} usecases.UserActivityResponse
+// @Failure 401 {object} ErrorResponse
+// @Router /users/activity [get]
+func (h *UserHandler) GetUserActivity(c *gin.Context) {
+	userID, err := h.getUserIDFromContext(c)
+	if err != nil {
+		c.JSON(http.StatusUnauthorized, ErrorResponse{
+			Error: err.Error(),
+		})
+		return
+	}
+
+	limit := 10
+	offset := 0
+
+	if limitStr := c.Query("limit"); limitStr != "" {
+		if l, err := strconv.Atoi(limitStr); err == nil && l > 0 {
+			limit = l
+		}
+	}
+
+	if offsetStr := c.Query("offset"); offsetStr != "" {
+		if o, err := strconv.Atoi(offsetStr); err == nil && o >= 0 {
+			offset = o
+		}
+	}
+
+	activity, err := h.userUseCase.GetUserActivity(c.Request.Context(), userID, limit, offset)
+	if err != nil {
+		c.JSON(getErrorStatusCode(err), ErrorResponse{
+			Error: err.Error(),
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, SuccessResponse{
+		Data: activity,
+	})
+}
+
+// GetUserStats handles getting user statistics
+// @Summary Get user statistics
+// @Description Get current user's statistics and metrics
+// @Tags users
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Success 200 {object} usecases.UserStatsResponse
+// @Failure 401 {object} ErrorResponse
+// @Router /users/stats [get]
+func (h *UserHandler) GetUserStats(c *gin.Context) {
+	userID, err := h.getUserIDFromContext(c)
+	if err != nil {
+		c.JSON(http.StatusUnauthorized, ErrorResponse{
+			Error: err.Error(),
+		})
+		return
+	}
+
+	stats, err := h.userUseCase.GetUserStats(c.Request.Context(), userID)
+	if err != nil {
+		c.JSON(getErrorStatusCode(err), ErrorResponse{
+			Error: err.Error(),
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, SuccessResponse{
+		Data: stats,
 	})
 }
 

@@ -2,6 +2,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import apiClient from '@/lib/api'
 import { Order, PaginatedResponse, CreateOrderRequest, OrderEvent } from '@/types'
+import { useEffect, useState } from 'react'
 
 // Query keys
 export const orderKeys = {
@@ -23,19 +24,21 @@ export function useOrders(params: {
   status?: string
   user_id?: string
 } = {}) {
-  return useQuery({
-    queryKey: orderKeys.list(params),
+  console.log('🔥 useOrders called with params:', params)
+
+  const query = useQuery({
+    queryKey: ['orders-v2', Date.now(), params.page, params.limit, params.search, params.status],
     queryFn: async (): Promise<PaginatedResponse<Order>> => {
+      console.log('🔥 useOrders queryFn executing...')
       try {
         const queryParams = new URLSearchParams()
         
-        // Convert page to offset for backend compatibility
+        // Use page-based pagination (backend expects page parameter)
         const limit = params.limit || 10
         const page = params.page || 1
-        const offset = (page - 1) * limit
-        
+
         queryParams.append('limit', limit.toString())
-        queryParams.append('offset', offset.toString())
+        queryParams.append('page', page.toString())
         if (params.search) queryParams.append('search', params.search)
         if (params.status) queryParams.append('status', params.status)
         if (params.user_id) queryParams.append('user_id', params.user_id)
@@ -44,27 +47,39 @@ export function useOrders(params: {
 
         const response = await apiClient.get<any>(url)
 
-        // The backend now returns a paginated response structure directly
+
+        // The backend returns: { data: [...], pagination: {...} }
+        // response.data contains the full backend response
         const responseData = response.data
-        
-        // Check if the response has the new pagination structure
+        // Check if the response has the pagination structure
         if (responseData && responseData.data && responseData.pagination) {
-          return {
+          const pag = responseData.pagination
+          const result = {
             data: responseData.data,
             pagination: {
-              page: responseData.pagination.page,
-              limit: responseData.pagination.limit,
-              total: responseData.pagination.total,
-              total_pages: responseData.pagination.total_pages,
-              has_next: responseData.pagination.has_next,
-              has_prev: responseData.pagination.has_prev
+            page: pag.page,
+            limit: pag.limit,
+            total: pag.total,
+            total_pages: pag.total_pages,
+            has_next: pag.has_next,
+            has_prev: pag.has_prev,
+            start_index: pag.start_index ?? ((pag.page - 1) * pag.limit + 1),
+            end_index: pag.end_index ?? (Math.min(pag.page * pag.limit, pag.total)),
+            next_page: pag.next_page ?? (pag.has_next ? pag.page + 1 : undefined),
+            prev_page: pag.prev_page ?? (pag.has_prev ? pag.page - 1 : undefined),
+            canonical_url: pag.canonical_url ?? undefined,
+            page_sizes: pag.page_sizes ?? undefined,
+            use_cursor: pag.use_cursor ?? false
             }
           }
+
+          return result
         }
-        
+
         // Fallback for old structure (array of orders) or unknown structure
+
         let ordersArray: Order[] = []
-        
+
         // Check if responseData is directly an array
         if (Array.isArray(responseData)) {
           ordersArray = responseData
@@ -77,19 +92,24 @@ export function useOrders(params: {
         else if (responseData && Array.isArray(responseData.orders)) {
           ordersArray = responseData.orders
         }
-        
 
-        
-        // Create paginated response structure
+        // Create fallback paginated response structure
         return {
           data: ordersArray,
           pagination: {
             page: page,
             limit: limit,
-            total: ordersArray.length, // This is not accurate but we don't have total from backend
+            total: ordersArray.length,
             total_pages: Math.ceil(ordersArray.length / limit) || 1,
-            has_next: ordersArray.length === limit, // Assume there might be more if we got a full page
-            has_prev: page > 1
+            has_next: ordersArray.length === limit,
+            has_prev: page > 1,
+            start_index: (page - 1) * limit + 1,
+            end_index: Math.min(page * limit, ordersArray.length),
+            next_page: (ordersArray.length === limit) ? page + 1 : undefined,
+            prev_page: (page > 1) ? page - 1 : undefined,
+            canonical_url: undefined,
+            page_sizes: undefined,
+            use_cursor: false
           }
         }
       } catch (error) {
@@ -97,8 +117,109 @@ export function useOrders(params: {
         throw error
       }
     },
-    staleTime: 30 * 1000, // 30 seconds
+    staleTime: 0, // Force fresh data
+    gcTime: 0, // No cache (React Query v5)
+    refetchOnMount: true,
+    refetchOnWindowFocus: true,
+    enabled: true
   })
+
+  console.log('🔥 useOrders query state:', {
+    isLoading: query.isLoading,
+    isFetching: query.isFetching,
+    isError: query.isError,
+    error: query.error,
+    data: query.data,
+    status: query.status,
+    fetchStatus: query.fetchStatus
+  })
+
+  return query
+}
+
+// Simple implementation without React Query for debugging
+export function useOrdersSimple(params: {
+  page?: number
+  limit?: number
+  search?: string
+  status?: string
+  user_id?: string
+} = {}) {
+  console.log('🔥 useOrdersSimple called with params:', params)
+
+  const [data, setData] = useState<PaginatedResponse<Order> | undefined>(undefined)
+  const [isLoading, setIsLoading] = useState(true)
+  const [error, setError] = useState<any>(null)
+
+  useEffect(() => {
+    const fetchOrders = async () => {
+      console.log('🔥 Simple fetch starting...')
+      try {
+        setIsLoading(true)
+        setError(null)
+
+        const queryParams = new URLSearchParams()
+        if (params.page) queryParams.append('page', params.page.toString())
+        if (params.limit) queryParams.append('limit', params.limit.toString())
+        if (params.search) queryParams.append('search', params.search)
+        if (params.status) queryParams.append('status', params.status)
+        if (params.user_id) queryParams.append('user_id', params.user_id)
+
+        const url = `/orders${queryParams.toString() ? `?${queryParams.toString()}` : ''}`
+        console.log('🔥 Simple fetch URL:', url)
+
+        const response = await apiClient.get<any>(url)
+        console.log('🔥 Simple fetch response:', response)
+
+
+        // response is already unwrapped by apiClient.get()
+        // Backend returns: {data: [...], pagination: {...}}
+        // apiClient.get() returns: response.data = {data: [...], pagination: {...}}
+        const responseData = response as any
+        console.log('🔥 Simple fetch responseData:', responseData)
+        console.log('🔥 Simple fetch responseData type:', typeof responseData)
+        console.log('🔥 Simple fetch responseData keys:', Object.keys(responseData || {}))
+        console.log('🔥 Simple fetch responseData.data:', responseData?.data)
+        console.log('🔥 Simple fetch responseData.pagination:', responseData?.pagination)
+
+        // Check if the response has the pagination structure
+        if (responseData && responseData.data && responseData.pagination) {
+          console.log('🔥 Simple fetch - using paginated structure')
+          const result = {
+            data: responseData.data,
+            pagination: responseData.pagination
+          }
+          setData(result)
+        } else {
+          console.log('🔥 Simple fetch - using fallback structure')
+          // Fallback
+          const ordersArray = Array.isArray(responseData) ? responseData : []
+          const page = params.page || 1
+          const limit = params.limit || 10
+          setData({
+            data: ordersArray,
+            pagination: {
+              page: page,
+              limit: limit,
+              total: ordersArray.length,
+              total_pages: Math.ceil(ordersArray.length / limit) || 1,
+              has_next: ordersArray.length === limit,
+              has_prev: page > 1
+            }
+          })
+        }
+      } catch (err) {
+        console.error('🔥 Simple fetch error:', err)
+        setError(err)
+      } finally {
+        setIsLoading(false)
+      }
+    }
+
+    fetchOrders()
+  }, [params.page, params.limit, params.search, params.status, params.user_id])
+
+  return { data, isLoading, error }
 }
 
 // Get admin orders (all orders)
@@ -120,9 +241,8 @@ export function useAdminOrders(params: {
 
       const queryParams = new URLSearchParams()
 
-      // Convert page to offset for backend
-      const offset = params.page ? (params.page - 1) * (params.limit || 20) : 0
-      queryParams.append('offset', offset.toString())
+      // Use page-based pagination for admin orders
+      if (params.page) queryParams.append('page', params.page.toString())
       if (params.limit) queryParams.append('limit', params.limit.toString())
       if (params.search) queryParams.append('search', params.search)
       if (params.status) queryParams.append('status', params.status)

@@ -336,6 +336,10 @@ func SetupRoutes(
 				users.PUT("/preferences/theme", userHandler.UpdateTheme)
 				users.PUT("/preferences/language", userHandler.UpdateLanguage)
 
+				// User activity and stats routes
+				users.GET("/activity", userHandler.GetUserActivity)
+				users.GET("/stats", userHandler.GetUserStats)
+
 				// Search history routes
 				searchHistory := users.Group("/search-history")
 				{
@@ -449,17 +453,17 @@ func SetupRoutes(
 			// Checkout routes (new checkout flow)
 			checkout := protected.Group("/checkout")
 			{
-				checkout.POST("/session", checkoutHandler.CreateCheckoutSession)           // Online payments
+				checkout.POST("/session", checkoutHandler.CreateCheckoutSession) // Online payments
 				checkout.GET("/session/:session_id", checkoutHandler.GetCheckoutSession)
 				checkout.POST("/session/:session_id/complete", checkoutHandler.CompleteCheckoutSession)
 				checkout.POST("/session/:session_id/cancel", checkoutHandler.CancelCheckoutSession)
-				checkout.POST("/cod", checkoutHandler.CreateCODOrder)                     // COD orders
+				checkout.POST("/cod", checkoutHandler.CreateCODOrder) // COD orders
 			}
 
 			// Order routes (Bank Transfer only)
 			orders := protected.Group("/orders")
 			{
-				orders.POST("", orderHandler.CreateOrder)                                // Bank Transfer only
+				orders.POST("", orderHandler.CreateOrder) // Bank Transfer only
 				orders.GET("", orderHandler.GetUserOrders)
 				orders.GET("/by-session", orderHandler.GetOrderBySessionID)
 				orders.GET("/:id", orderHandler.GetOrder)
