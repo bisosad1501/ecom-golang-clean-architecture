@@ -20,7 +20,8 @@ function CategoryTree({
   setExpandedId,
   activeId,
   setActiveId,
-  level = 0
+  level = 0,
+  onCategoryClick
 }: {
   categories: Category[];
   parentId?: string | null;
@@ -29,6 +30,7 @@ function CategoryTree({
   activeId: string | null;
   setActiveId: (id: string | null) => void;
   level?: number;
+  onCategoryClick?: () => void;
 }) {
   const children = categories.filter(cat => cat.parent_id === parentId)
   if (!children.length) return null
@@ -40,33 +42,44 @@ function CategoryTree({
         const isActive = activeId === category.id
         return (
           <div key={category.id}>
-            <button
-              type="button"
-              className={cn(
-                "flex items-center justify-between w-full p-2 rounded-lg transition-all duration-200 group text-left",
-                isActive ? "bg-gray-800 border border-orange-500/30 text-orange-500" : "border border-transparent text-gray-300 hover:bg-gray-800 hover:text-orange-500 hover:border-orange-500/30",
-                hasChildren && "pr-2"
-              )}
-              onClick={() => {
-                setActiveId(category.id)
-                if (hasChildren) setExpandedId(isExpanded ? null : category.id)
-              }}
-              onMouseEnter={() => setActiveId(category.id)}
-            >
-              <div className="flex items-center">
-                <Tag className={cn("h-4 w-4 mr-2", isActive ? "text-orange-500" : "text-gray-500 group-hover:text-orange-500")} />
-                <span className={cn("font-medium text-sm", isActive ? "text-orange-500" : "")}>{category.name}</span>
-                {category.product_count !== undefined && (
-                  <span className="ml-2 text-xs text-gray-500">{category.product_count}</span>
+            <div className="flex items-center">
+              <Link
+                href={`/categories/${category.slug}`}
+                className={cn(
+                  "flex items-center flex-1 p-2 rounded-lg transition-all duration-200 group text-left",
+                  isActive ? "bg-gray-800 border border-orange-500/30 text-orange-500" : "border border-transparent text-gray-300 hover:bg-gray-800 hover:text-orange-500 hover:border-orange-500/30"
                 )}
-              </div>
+                onMouseEnter={() => setActiveId(category.id)}
+                onClick={() => {
+                  setActiveId(category.id)
+                  onCategoryClick?.()
+                }}
+              >
+                <div className="flex items-center">
+                  <Tag className={cn("h-4 w-4 mr-2", isActive ? "text-orange-500" : "text-gray-500 group-hover:text-orange-500")} />
+                  <span className={cn("font-medium text-sm", isActive ? "text-orange-500" : "")}>{category.name}</span>
+                  {category.product_count !== undefined && (
+                    <span className="ml-2 text-xs text-gray-500">{category.product_count}</span>
+                  )}
+                </div>
+              </Link>
               {hasChildren && (
-                <ChevronRight className={cn(
-                  "h-4 w-4 transition-transform",
-                  isExpanded ? "rotate-90 text-orange-500" : "text-gray-400 group-hover:text-orange-500"
-                )} />
+                <button
+                  type="button"
+                  className="p-1 hover:bg-gray-700 rounded transition-colors"
+                  onClick={(e) => {
+                    e.preventDefault()
+                    e.stopPropagation()
+                    setExpandedId(isExpanded ? null : category.id)
+                  }}
+                >
+                  <ChevronRight className={cn(
+                    "h-4 w-4 transition-transform",
+                    isExpanded ? "rotate-90 text-orange-500" : "text-gray-400 hover:text-orange-500"
+                  )} />
+                </button>
               )}
-            </button>
+            </div>
             {hasChildren && isExpanded && (
               <CategoryTree
                 categories={categories}
@@ -76,6 +89,7 @@ function CategoryTree({
                 activeId={activeId}
                 setActiveId={setActiveId}
                 level={level + 1}
+                onCategoryClick={onCategoryClick}
               />
             )}
           </div>
@@ -158,22 +172,27 @@ export function CategoryMegaMenu({ className }: CategoryMegaMenuProps) {
 
   return (
     <div className={cn("relative", className)} ref={menuRef}>
-      <Button
-        variant="ghost"
-        className={cn(
-          "h-14 px-4 hover:bg-orange-500/10 transition-all duration-200 text-gray-300 hover:text-orange-500",
-          isOpen && "bg-orange-500/10 text-orange-500"
-        )}
-        onMouseEnter={() => setIsOpen(true)}
-        onClick={() => setIsOpen(!isOpen)}
-      >
-        <Grid3X3 className="h-4 w-4 mr-2" />
-        <span className="font-medium">All Categories</span>
-        <ChevronDown className={cn(
-          "h-4 w-4 ml-2 transition-transform duration-200",
-          isOpen && "rotate-180"
-        )} />
-      </Button>
+      <Link href="/categories">
+        <Button
+          variant="ghost"
+          className={cn(
+            "h-14 px-4 hover:bg-orange-500/10 transition-all duration-200 text-gray-300 hover:text-orange-500",
+            isOpen && "bg-orange-500/10 text-orange-500"
+          )}
+          onMouseEnter={() => setIsOpen(true)}
+          onClick={(e) => {
+            // Allow navigation to /categories but also toggle dropdown
+            setIsOpen(!isOpen)
+          }}
+        >
+          <Grid3X3 className="h-4 w-4 mr-2" />
+          <span className="font-medium">All Categories</span>
+          <ChevronDown className={cn(
+            "h-4 w-4 ml-2 transition-transform duration-200",
+            isOpen && "rotate-180"
+          )} />
+        </Button>
+      </Link>
 
       {/* Mega Menu Dropdown */}
       {isOpen && (
@@ -197,6 +216,10 @@ export function CategoryMegaMenu({ className }: CategoryMegaMenuProps) {
               setExpandedId={setExpandedId}
               activeId={activeId}
               setActiveId={setActiveId}
+              onCategoryClick={() => {
+                setIsOpen(false)
+                setActiveId(null)
+              }}
             />
           </div>
         </div>

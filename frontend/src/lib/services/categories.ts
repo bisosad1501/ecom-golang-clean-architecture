@@ -44,6 +44,39 @@ class CategoryService {
     return response.data
   }
 
+  // Get category landing page data (category + products + subcategories)
+  async getCategoryLandingPage(categoryId: string, params: {
+    page?: number
+    limit?: number
+    sort_by?: string
+    sort_order?: 'asc' | 'desc'
+    include_subcategory_products?: boolean
+    include_featured?: boolean
+    featured_limit?: number
+  } = {}): Promise<{
+    category: Category
+    products: any[]
+    subcategories: Category[]
+    featured_products?: any[]
+    pagination?: any
+  }> {
+    const queryParams = new URLSearchParams()
+
+    if (params.page) queryParams.append('page', params.page.toString())
+    if (params.limit) queryParams.append('limit', params.limit.toString())
+    if (params.sort_by) queryParams.append('sort_by', params.sort_by)
+    if (params.sort_order) queryParams.append('sort_order', params.sort_order)
+    if (params.include_subcategory_products) queryParams.append('include_subcategory_products', 'true')
+    if (params.include_featured) queryParams.append('include_featured', 'true')
+    if (params.featured_limit) queryParams.append('featured_limit', params.featured_limit.toString())
+
+    const queryString = queryParams.toString()
+    const url = `/categories/${categoryId}/landing${queryString ? `?${queryString}` : ''}`
+
+    const response = await apiClient.get(url)
+    return response.data
+  }
+
   // Get category path (breadcrumbs)
   async getCategoryPath(categoryId: string): Promise<Category[]> {
     const response = await apiClient.get<Category[]>(`/categories/${categoryId}/path`)
