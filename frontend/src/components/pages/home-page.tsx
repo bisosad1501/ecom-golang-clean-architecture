@@ -5,6 +5,7 @@ import { ArrowRight, Star, Truck, Shield, CreditCard, Sparkles, TrendingUp, Awar
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { ProductCard } from '@/components/products/product-card'
+import { CategoryCard } from '@/components/ui/category-card'
 import { AnimatedBackground } from '@/components/ui/animated-background'
 import { useFeaturedProducts } from '@/hooks/use-products'
 import { useCategories } from '@/hooks/use-categories'
@@ -348,35 +349,21 @@ export function HomePage() {
               ))}
             </div>
           ) : categories && categories.length > 0 ? (
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
               {categories.slice(0, 8).map((category, index) => (
-                <Link
+                <div
                   key={category.id}
-                  href={`/categories/${category.id}`}
-                  className="group animate-scale-in"
+                  className="animate-scale-in"
                   style={{ animationDelay: `${index * 0.1}s` }}
                 >
-                  <Card className="overflow-hidden card-hover border-gray-700 bg-gray-800 hover:bg-gray-700 transition-all duration-300">
-                    <div className="aspect-square bg-gradient-to-br from-gray-700 to-gray-600 relative">
-                      <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent"></div>
-                      <div className="absolute inset-0 flex items-center justify-center">
-                        <div className="w-10 h-10 rounded-lg bg-white/20 backdrop-blur-sm flex items-center justify-center">
-                          <TrendingUp className="h-5 w-5 text-white" />
-                        </div>
-                      </div>
-                      <div className="absolute bottom-3 left-3 right-3 text-white">
-                        <h3 className="text-sm font-bold group-hover:text-orange-300 transition-colors">
-                          {category.name}
-                        </h3>
-                        {category.description && (
-                          <p className="text-xs text-white/80 mt-1 line-clamp-2">
-                            {category.description}
-                          </p>
-                        )}
-                      </div>
-                    </div>
-                  </Card>
-                </Link>
+                  <CategoryCard
+                    category={category}
+                    variant="default"
+                    showStats={true}
+                    showSubcategories={true}
+                    priority={index < 4}
+                  />
+                </div>
               ))}
             </div>
           ) : (

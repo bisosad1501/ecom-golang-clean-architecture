@@ -1,13 +1,9 @@
 'use client';
 
-import React, { useState } from 'react';
+import React from 'react';
 import {
   Bell,
   BellRing,
-  Check,
-  X,
-  Settings,
-  Trash2,
   Clock,
   ShoppingCart,
   CreditCard,
@@ -19,24 +15,12 @@ import {
   Package,
   TrendingUp,
   AlertCircle,
-  CheckCircle,
-  Info,
-  Zap,
   Wifi,
   WifiOff,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Card, CardContent, CardHeader } from '@/components/ui/card';
-import { ScrollArea } from '@/components/ui/scroll-area';
-import { Separator } from '@/components/ui/separator';
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuTrigger,
-  DropdownMenuSeparator,
-  DropdownMenuItem,
-} from '@/components/ui/dropdown-menu';
+import { AnimatedBackground } from '@/components/ui/animated-background';
 import { useWebSocketNotifications } from '@/hooks/use-websocket-notifications';
 import { useAuthStore } from '@/store/auth';
 import { formatDistanceToNow } from 'date-fns';
@@ -51,17 +35,10 @@ export function ModernNotificationBell({ className }: ModernNotificationBellProp
   const { user } = useAuthStore();
   const {
     isConnected,
-    connectionTime,
-    lastMessage,
     notifications,
     unreadCount,
-    error,
     markAsRead,
-    clearNotifications,
-    sendTestNotification,
   } = useWebSocketNotifications();
-
-  const [isOpen, setIsOpen] = useState(false);
 
   // Get notification icon based on category and role
   const getNotificationIcon = (category: string, isAdmin: boolean = false) => {
@@ -88,24 +65,24 @@ export function ModernNotificationBell({ className }: ModernNotificationBellProp
     return customerIcons[category] || <Bell className="h-4 w-4 text-gray-600" />;
   };
 
-  // Get priority color
+  // Get priority color - Updated for dark theme
   const getPriorityColor = (priority: string) => {
     const colors = {
-      high: 'border-l-red-500 bg-red-50 hover:bg-red-100',
-      normal: 'border-l-blue-500 bg-blue-50 hover:bg-blue-100',
-      low: 'border-l-gray-500 bg-gray-50 hover:bg-gray-100',
+      high: 'border-l-red-500 bg-red-900/20 hover:bg-red-800/30',
+      normal: 'border-l-blue-500 bg-blue-900/20 hover:bg-blue-800/30',
+      low: 'border-l-gray-500 bg-gray-800/20 hover:bg-gray-700/30',
     };
     return colors[priority as keyof typeof colors] || colors.normal;
   };
 
-  // Get notification title based on role
+  // Get notification title based on role - Updated for dark theme
   const getNotificationTitle = (isAdmin: boolean) => {
     if (isAdmin) {
       return (
         <div className="flex items-center gap-2">
-          <TrendingUp className="h-4 w-4 text-blue-600" />
-          <span className="font-semibold text-gray-900">Admin Dashboard</span>
-          <Badge variant="secondary" className="text-xs bg-blue-100 text-blue-700">
+          <TrendingUp className="h-4 w-4 text-blue-400" />
+          <span className="font-semibold text-white">Admin Dashboard</span>
+          <Badge variant="secondary" className="text-xs bg-blue-900/30 text-blue-300 border-blue-700">
             Business
           </Badge>
         </div>
@@ -113,8 +90,8 @@ export function ModernNotificationBell({ className }: ModernNotificationBellProp
     }
     return (
       <div className="flex items-center gap-2">
-        <Bell className="h-4 w-4 text-blue-600" />
-        <span className="font-semibold text-gray-900">Notifications</span>
+        <Bell className="h-4 w-4 text-blue-400" />
+        <span className="font-semibold text-white">Notifications</span>
       </div>
     );
   };
@@ -122,50 +99,53 @@ export function ModernNotificationBell({ className }: ModernNotificationBellProp
   const isAdmin = user?.role === 'admin';
 
   return (
-    <DropdownMenu open={isOpen} onOpenChange={setIsOpen}>
-      <DropdownMenuTrigger asChild>
-        <Button
-          variant="ghost"
-          size="icon"
-          className={cn(
-            "relative h-10 w-10 rounded-xl hover:bg-orange-500/10 hover:scale-105 transition-all duration-200 text-white",
-            className
-          )}
-        >
-          {isConnected ? (
-            <BellRing className={cn(
-              "h-5 w-5 transition-colors",
-              unreadCount > 0 ? "text-orange-500" : "text-white"
-            )} />
-          ) : (
-            <Bell className="h-5 w-5 text-gray-400" />
-          )}
-          {/* Unread count badge */}
-          {unreadCount > 0 && (
-            <Badge
-              variant="default"
-              className="absolute -top-1 -right-1 h-5 w-5 rounded-full p-0 text-xs font-bold shadow-large animate-pulse flex items-center justify-center bg-orange-500 text-white border-0"
-            >
-              {unreadCount > 99 ? '99+' : unreadCount}
-            </Badge>
-          )}
-          {/* Connection status indicator */}
-          <div
-            className={cn(
-              "absolute bottom-0 right-0 h-2.5 w-2.5 rounded-full border-2 border-white transition-colors",
-              isConnected ? "bg-green-500" : "bg-red-500"
-            )}
-          />
-        </Button>
-      </DropdownMenuTrigger>
-
-      <DropdownMenuContent
-        align="end"
-        className="w-96 p-0 shadow-xl border-0 bg-white"
-        sideOffset={8}
+    <div className="relative group">
+      <Button
+        variant="ghost"
+        size="icon"
+        className={cn(
+          "relative h-10 w-10 rounded-xl hover:bg-orange-500/10 hover:scale-105 transition-all duration-200 text-white",
+          className
+        )}
+        onClick={() => {
+          // Navigate to notifications page on click
+          window.location.href = isAdmin ? '/admin/notifications' : '/notifications';
+        }}
       >
-        <Card className="border-0 shadow-none">
-          <CardHeader className="pb-3 bg-gradient-to-r from-blue-50 to-indigo-50">
+        {isConnected ? (
+          <BellRing className={cn(
+            "h-4 w-4 transition-colors group-hover:text-orange-500",
+            unreadCount > 0 ? "text-orange-500" : "text-white"
+          )} />
+        ) : (
+          <Bell className="h-4 w-4 text-gray-400" />
+        )}
+        {/* Unread count badge */}
+        {unreadCount > 0 && (
+          <Badge
+            variant="default"
+            className="absolute -top-1 -right-1 h-5 w-5 rounded-full p-0 text-xs font-bold shadow-large animate-pulse flex items-center justify-center bg-orange-500 text-white border-0"
+          >
+            {unreadCount > 99 ? '99+' : unreadCount}
+          </Badge>
+        )}
+        {/* Connection status indicator */}
+        <div
+          className={cn(
+            "absolute bottom-0 right-0 h-2.5 w-2.5 rounded-full border-2 border-white transition-colors",
+            isConnected ? "bg-green-500" : "bg-red-500"
+          )}
+        />
+      </Button>
+
+      {/* Notification preview on hover */}
+      <div className="absolute top-full right-0 mt-2 w-96 bg-gradient-to-br from-black via-gray-900 to-black border border-gray-700 rounded-xl shadow-xl opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-300 z-50 overflow-hidden">
+        {/* Animated Background */}
+        <AnimatedBackground className="opacity-20" />
+
+        <div className="relative z-10">
+
+          <div className="pb-3 bg-gradient-to-r from-gray-800/50 to-gray-700/50 backdrop-blur-sm p-4">
             <div className="flex items-center justify-between">
               {getNotificationTitle(isAdmin)}
               <div className="flex items-center gap-2">
@@ -174,8 +154,8 @@ export function ModernNotificationBell({ className }: ModernNotificationBellProp
                   className={cn(
                     "flex items-center gap-1.5 text-xs px-2 py-1 rounded-full font-medium",
                     isConnected
-                      ? "bg-green-100 text-green-700"
-                      : "bg-red-100 text-red-700"
+                      ? "bg-green-900/30 text-green-300 border border-green-700"
+                      : "bg-red-900/30 text-red-300 border border-red-700"
                   )}
                 >
                   {isConnected ? (
@@ -185,38 +165,30 @@ export function ModernNotificationBell({ className }: ModernNotificationBellProp
                   )}
                   {isConnected ? "Live" : "Offline"}
                 </div>
-                
-                {/* Settings menu */}
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button variant="ghost" size="sm" className="h-7 w-7 p-0 hover:bg-white/50">
-                      <Settings className="h-3.5 w-3.5" />
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end" className="w-48">
-                    <DropdownMenuItem 
-                      onClick={() => clearNotifications()}
-                      className="text-red-600 focus:text-red-600"
-                    >
-                      <Trash2 className="h-4 w-4 mr-2" />
-                      Clear All
-                    </DropdownMenuItem>
-                  </DropdownMenuContent>
-                </DropdownMenu>
               </div>
             </div>
-          </CardHeader>
-          <CardContent className="p-0">
-            <ScrollArea className="h-96">
-              <div className="space-y-1 p-2">
-                {notifications.map((notification, index) => (
+          </div>
+
+          {/* Notifications content */}
+          <div className="max-h-96 overflow-y-auto">
+            <div className="space-y-1 p-2">
+              {notifications.length === 0 ? (
+                <div className="p-8 text-center">
+                  <div className="w-16 h-16 bg-gray-800 rounded-full flex items-center justify-center mx-auto mb-4">
+                    <Bell className="h-8 w-8 text-gray-400" />
+                  </div>
+                  <h4 className="font-medium text-white mb-2">No notifications yet</h4>
+                  <p className="text-sm text-gray-400">Real-time notifications will appear here</p>
+                </div>
+              ) : (
+                notifications.slice(0, 5).map((notification) => (
                   <div
                     key={notification.id}
                     className={cn(
-                      "p-3 rounded-xl border-l-4 cursor-pointer transition-all duration-200 group",
+                      "p-3 rounded-xl border-l-4 cursor-pointer transition-all duration-300 group bg-gray-800/30 backdrop-blur-sm hover:bg-gray-700/40",
                       getPriorityColor(notification.priority),
                       !notification.is_read ? "shadow-lg ring-2 ring-orange-500/30" : "opacity-70",
-                      "hover:scale-[1.01]"
+                      "hover:scale-[1.02]"
                     )}
                     onClick={() => markAsRead(notification.id)}
                   >
@@ -226,14 +198,14 @@ export function ModernNotificationBell({ className }: ModernNotificationBellProp
                       </div>
                       <div className="flex-1 min-w-0">
                         <div className="flex items-start justify-between mb-1">
-                          <h4 className="text-sm font-semibold text-gray-900 line-clamp-1 pr-2">
+                          <h4 className="text-sm font-semibold text-white line-clamp-1 pr-2">
                             {notification.title}
                           </h4>
                           {!notification.is_read && (
                             <div className="h-2 w-2 bg-orange-500 rounded-full flex-shrink-0 mt-1 animate-pulse" />
                           )}
                         </div>
-                        <p className="text-sm text-gray-600 line-clamp-2 mb-3 leading-relaxed">
+                        <p className="text-sm text-gray-300 line-clamp-2 mb-3 leading-relaxed">
                           {notification.message}
                         </p>
                         <div className="flex items-center justify-between">
@@ -246,7 +218,7 @@ export function ModernNotificationBell({ className }: ModernNotificationBellProp
                           </span>
                           <Badge
                             variant="default"
-                            className="text-xs capitalize bg-orange-100 text-orange-700 border-0"
+                            className="text-xs capitalize bg-orange-900/30 text-orange-300 border border-orange-700"
                           >
                             {notification.category}
                           </Badge>
@@ -254,33 +226,37 @@ export function ModernNotificationBell({ className }: ModernNotificationBellProp
                       </div>
                     </div>
                   </div>
-                ))}
-              </div>
-            </ScrollArea>
+                ))
+              )}
+            </div>
+          </div>
 
-            {/* Footer */}
-            {notifications.length > 0 && (
-              <>
-                <Separator />
-                <div className="p-3 bg-gray-50">
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="w-full text-sm font-medium text-gray-700 hover:text-gray-900 hover:bg-white"
-                    onClick={() => {
-                      setIsOpen(false);
-                      // Navigate to full notifications page
-                      window.location.href = isAdmin ? '/admin/notifications' : '/notifications';
-                    }}
-                  >
-                    View All Notifications
-                  </Button>
-                </div>
-              </>
-            )}
-          </CardContent>
-        </Card>
-      </DropdownMenuContent>
-    </DropdownMenu>
+          {/* Footer */}
+          {notifications.length > 0 && (
+            <>
+              <div className="border-t border-gray-700"></div>
+              <div className="p-3 bg-gray-800/30 backdrop-blur-sm">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="w-full text-sm font-medium text-gray-200 hover:text-white hover:bg-gray-700/50 transition-all duration-300 hover:scale-[1.02]"
+                  onClick={() => {
+                    // Navigate to full notifications page
+                    window.location.href = isAdmin ? '/admin/notifications' : '/notifications';
+                  }}
+                >
+                  View All Notifications
+                </Button>
+                {notifications.length > 5 && (
+                  <p className="text-xs text-gray-400 text-center mt-2">
+                    +{notifications.length - 5} more notifications
+                  </p>
+                )}
+              </div>
+            </>
+          )}
+        </div>
+      </div>
+    </div>
   );
 }

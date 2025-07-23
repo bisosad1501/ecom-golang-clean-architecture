@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { ChevronDown, ChevronRight, Grid3X3, Package, TrendingUp, Star, ArrowRight, Tag } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
+import { AnimatedBackground } from '@/components/ui/animated-background'
 import { useCategories } from '@/hooks/use-categories'
 import { Category } from '@/types'
 import { cn } from '@/lib/utils'
@@ -35,7 +36,7 @@ function CategoryTree({
   const children = categories.filter(cat => cat.parent_id === parentId)
   if (!children.length) return null
   return (
-    <div className={level === 0 ? "space-y-1" : "ml-4 border-l border-gray-800 pl-3"}>
+    <div className={level === 0 ? "space-y-1" : "ml-4 border-l border-gray-700 pl-3"}>
       {children.map(category => {
         const hasChildren = categories.some(cat => cat.parent_id === category.id)
         const isExpanded = expandedId === category.id
@@ -46,8 +47,8 @@ function CategoryTree({
               <Link
                 href={`/categories/${category.slug}`}
                 className={cn(
-                  "flex items-center flex-1 p-2 rounded-lg transition-all duration-200 group text-left",
-                  isActive ? "bg-gray-800 border border-orange-500/30 text-orange-500" : "border border-transparent text-gray-300 hover:bg-gray-800 hover:text-orange-500 hover:border-orange-500/30"
+                  "flex items-center flex-1 p-2 rounded-lg transition-all duration-300 group text-left hover:scale-[1.02]",
+                  isActive ? "bg-[#ff9000]/20 border border-[#ff9000]/30 text-[#ff9000] shadow-md shadow-[#ff9000]/20" : "border border-transparent text-gray-300 hover:bg-gray-800 hover:text-white hover:border-gray-600"
                 )}
                 onMouseEnter={() => setActiveId(category.id)}
                 onClick={() => {
@@ -56,8 +57,8 @@ function CategoryTree({
                 }}
               >
                 <div className="flex items-center">
-                  <Tag className={cn("h-4 w-4 mr-2", isActive ? "text-orange-500" : "text-gray-500 group-hover:text-orange-500")} />
-                  <span className={cn("font-medium text-sm", isActive ? "text-orange-500" : "")}>{category.name}</span>
+                  <Tag className={cn("h-4 w-4 mr-2", isActive ? "text-[#ff9000]" : "text-gray-500 group-hover:text-[#ff9000]")} />
+                  <span className={cn("font-medium text-sm", isActive ? "text-[#ff9000]" : "")}>{category.name}</span>
                   {category.product_count !== undefined && (
                     <span className="ml-2 text-xs text-gray-500">{category.product_count}</span>
                   )}
@@ -66,7 +67,7 @@ function CategoryTree({
               {hasChildren && (
                 <button
                   type="button"
-                  className="p-1 hover:bg-gray-700 rounded transition-colors"
+                  className="p-1 hover:bg-gray-800 rounded transition-all duration-300 hover:scale-110"
                   onClick={(e) => {
                     e.preventDefault()
                     e.stopPropagation()
@@ -74,8 +75,8 @@ function CategoryTree({
                   }}
                 >
                   <ChevronRight className={cn(
-                    "h-4 w-4 transition-transform",
-                    isExpanded ? "rotate-90 text-orange-500" : "text-gray-400 hover:text-orange-500"
+                    "h-4 w-4 transition-all duration-300",
+                    isExpanded ? "rotate-90 text-[#ff9000]" : "text-gray-400 hover:text-[#ff9000]"
                   )} />
                 </button>
               )}
@@ -196,8 +197,8 @@ export function CategoryMegaMenu({ className }: CategoryMegaMenuProps) {
 
       {/* Mega Menu Dropdown */}
       {isOpen && (
-        <div 
-          className="absolute top-full left-0 min-w-[16rem] w-auto bg-gray-900 border border-gray-700 rounded-xl shadow-xl z-50 overflow-visible mt-1"
+        <div
+          className="absolute top-full left-0 min-w-[16rem] w-auto bg-gradient-to-br from-black via-gray-900 to-black border border-gray-700 rounded-xl shadow-xl z-50 overflow-hidden mt-1 animate-in fade-in slide-in-from-top-2 duration-300"
           onMouseLeave={() => {
             setIsOpen(false)
             setActiveId(null)
@@ -209,7 +210,10 @@ export function CategoryMegaMenu({ className }: CategoryMegaMenuProps) {
             }
           }}
         >
-          <div className="py-2 px-2">
+          {/* Animated Background */}
+          <AnimatedBackground className="opacity-20" />
+
+          <div className="py-2 px-2 relative z-10">
             <CategoryTree
               categories={categories || []}
               expandedId={expandedId}

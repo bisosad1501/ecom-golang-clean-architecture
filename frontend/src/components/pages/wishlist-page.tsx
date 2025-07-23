@@ -65,6 +65,8 @@ function WishlistItemCard({ item, onRemove, onAddToCart }: {
       )} />
 
       <Card
+        variant="elevated"
+        padding="none"
         className={cn(
           'relative h-full overflow-hidden backdrop-blur-sm border text-white transition-all duration-500 ease-out',
           'bg-gradient-to-br from-slate-900/70 via-gray-900/75 to-slate-800/80',

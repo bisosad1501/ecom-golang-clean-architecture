@@ -21,6 +21,7 @@ import {
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
+import { AnimatedBackground } from '@/components/ui/animated-background'
 import { useAuthStore } from '@/store/auth'
 import { useCartStore, getCartItemCount, getCartTotal } from '@/store/cart'
 import { useWishlist } from '@/hooks/use-wishlist'
@@ -135,19 +136,19 @@ export function Header() {
             </Link>
           </div>
 
-          {/* Enhanced Search bar */}
-          <div className="hidden md:flex flex-1 max-w-2xl mx-8">
-            <form onSubmit={handleSearch} className="flex w-full relative group">
-              <div className="relative flex-1">
-                <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400 transition-colors z-10"
+          {/* Enhanced Search bar - Compact version */}
+          <div className="hidden md:flex flex-1 max-w-lg mx-6">
+            <form onSubmit={handleSearch} className="w-full relative group">
+              <div className="relative">
+                <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400 transition-colors z-10"
                   style={{'--focus-color': '#FF9000'} as React.CSSProperties}
                 />
                 <Input
                   type="search"
-                  placeholder="Search for products, brands, categories..."
+                  placeholder="Search products, brands..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className="pl-12 pr-4 h-11 rounded-l-full rounded-r-none border-0 bg-gray-900 text-white placeholder:text-gray-400 focus:outline-none shadow-lg transition-all duration-200 text-base"
+                  className="pl-11 pr-4 h-10 rounded-full border-0 bg-gray-900 text-white placeholder:text-gray-400 focus:outline-none shadow-lg transition-all duration-200 text-sm w-full"
                   style={{
                     '--tw-ring-color': 'rgba(255, 144, 0, 0.4)',
                   } as React.CSSProperties}
@@ -161,20 +162,13 @@ export function Header() {
                     const searchIcon = e.currentTarget.parentElement?.querySelector('.lucide-search') as HTMLElement;
                     if (searchIcon) searchIcon.style.color = '#9ca3af';
                   }}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      handleSearch(e);
+                    }
+                  }}
                 />
               </div>
-              <Button
-                type="submit"
-                className="rounded-r-full rounded-l-none h-11 px-6 text-white text-base font-semibold shadow-lg transition-all duration-200 border-0"
-                style={{
-                  backgroundColor: '#FF9000',
-                  boxShadow: '0 2px 8px 0 rgba(255,144,0,0.08)'
-                }}
-                onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#e67e00'}
-                onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#FF9000'}
-              >
-                Search
-              </Button>
             </form>
           </div>
 
@@ -213,8 +207,11 @@ export function Header() {
                   </Button>
 
                   {/* Wishlist preview on hover - styled giống cart */}
-                  <div className="absolute top-full right-0 mt-2 w-80 bg-background border border-white rounded-2xl shadow-2xl opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-300 z-50">
-                    <div className="p-6">
+                  <div className="absolute top-full right-0 mt-2 w-80 bg-gradient-to-br from-black via-gray-900 to-black border border-gray-700 rounded-xl shadow-xl opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-300 z-50 overflow-hidden">
+                    {/* Animated Background */}
+                    <AnimatedBackground className="opacity-20" />
+
+                    <div className="p-6 relative z-10">
                       <div className="flex items-center justify-between mb-4">
                         <h3 className="font-semibold text-lg text-white">Wishlist</h3>
                         <Badge variant="secondary">{wishlistCount || 0} items</Badge>
@@ -329,8 +326,11 @@ export function Header() {
                 </Button>
 
                 {/* Cart preview on hover */}
-                <div className="absolute top-full right-0 mt-2 w-80 bg-background border border-border rounded-2xl shadow-2xl opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-300 z-50">
-                  <div className="p-6">
+                <div className="absolute top-full right-0 mt-2 w-80 bg-gradient-to-br from-black via-gray-900 to-black border border-gray-700 rounded-xl shadow-xl opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-300 z-50 overflow-hidden">
+                  {/* Animated Background */}
+                  <AnimatedBackground className="opacity-20" />
+
+                  <div className="p-6 relative z-10">
                     <div className="flex items-center justify-between mb-4">
                       <h3 className="font-semibold text-lg">Shopping Cart</h3>
                       <Badge variant="secondary">{cartItemCount} items</Badge>
@@ -457,8 +457,12 @@ export function Header() {
 
                 {/* User dropdown */}
                 {isUserMenuOpen && (
-                  <div className="absolute right-0 mt-2 w-56 rounded-2xl border-2 border-border bg-black/95 py-1 shadow-2xl z-[60] backdrop-blur-sm">
-                    <div className="px-4 py-3 border-b border-border">
+                  <div className="absolute right-0 mt-2 w-56 bg-gradient-to-br from-black via-gray-900 to-black border border-gray-700 rounded-xl shadow-xl z-[60] py-1 animate-in fade-in slide-in-from-top-2 duration-300 overflow-hidden">
+                    {/* Animated Background */}
+                    <AnimatedBackground className="opacity-20" />
+
+                    <div className="relative z-10">
+                    <div className="px-4 py-3 border-b border-gray-700">
                       <p className="text-sm font-semibold text-white max-w-[180px] truncate" title={user?.first_name + ' ' + user?.last_name}>
                         {user?.first_name} {user?.last_name}
                       </p>
@@ -496,7 +500,7 @@ export function Header() {
                       <Link
                         key={item.href}
                         href={item.href}
-                        className="flex items-center px-4 py-2.5 text-sm text-gray-200 hover:bg-orange-500/10 hover:text-orange-500 transition-colors"
+                        className="flex items-center px-4 py-2.5 text-sm text-gray-200 hover:bg-gray-800 hover:text-white transition-all duration-300 rounded-lg mx-2 hover:scale-[1.02]"
                         onClick={() => setIsUserMenuOpen(false)}
                       >
                         {item.icon === 'User' && <User className="mr-3 h-4 w-4" />}
@@ -512,7 +516,7 @@ export function Header() {
                       <>
                         <Link
                           href="/admin"
-                          className="flex items-center px-4 py-2.5 text-sm text-gray-200 hover:bg-orange-500/10 hover:text-orange-500 border-t border-white/10 transition-colors"
+                          className="flex items-center px-4 py-2.5 text-sm text-gray-200 hover:bg-gray-800 hover:text-white border-t border-gray-700 transition-all duration-300 rounded-lg mx-2 hover:scale-[1.02]"
                           onClick={() => setIsUserMenuOpen(false)}
                         >
                           <Settings className="mr-3 h-4 w-4" />
@@ -523,7 +527,7 @@ export function Header() {
                             setIsShoppingMode(!isShoppingMode)
                             setIsUserMenuOpen(false)
                           }}
-                          className="flex w-full items-center px-4 py-2.5 text-sm text-gray-200 hover:bg-orange-500/10 hover:text-orange-500 transition-colors"
+                          className="flex w-full items-center px-4 py-2.5 text-sm text-gray-200 hover:bg-gray-800 hover:text-white transition-all duration-300 rounded-lg mx-2 hover:scale-[1.02]"
                         >
                           {isShoppingMode ? (
                             <>
@@ -541,11 +545,12 @@ export function Header() {
                     )}
                     <button
                       onClick={handleLogout}
-                      className="flex w-full items-center px-4 py-2.5 text-sm text-gray-200 hover:bg-orange-500/10 hover:text-red-500 border-t border-white/10 transition-colors"
+                      className="flex w-full items-center px-4 py-2.5 text-sm text-gray-200 hover:bg-red-500/10 hover:text-red-400 border-t border-gray-700 transition-all duration-300 rounded-lg mx-2 hover:scale-[1.02]"
                     >
                       <LogOut className="mr-3 h-4 w-4" />
                       Sign out
                     </button>
+                    </div>
                   </div>
                 )}
               </div>
@@ -625,17 +630,20 @@ export function Header() {
           <div className="container mx-auto px-4 py-4">
             {/* Mobile search */}
             <form onSubmit={handleSearch} className="mb-4">
-              <div className="flex">
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
                 <Input
                   type="search"
                   placeholder="Search products..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className="rounded-r-none border-r-0 bg-gray-900 border-gray-600 text-white placeholder:text-gray-400"
+                  className="pl-10 pr-4 rounded-full bg-gray-900 border-gray-600 text-white placeholder:text-gray-400 w-full"
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      handleSearch(e);
+                    }
+                  }}
                 />
-                <Button type="submit" className="rounded-l-none bg-orange-500 hover:bg-orange-600">
-                  <Search className="h-4 w-4" />
-                </Button>
               </div>
             </form>
 
