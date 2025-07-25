@@ -315,16 +315,16 @@ func main() {
 		userLoginHistoryRepo, orderUseCase,
 	)
 
-	// Initialize email use case (with nil repositories for now)
-	emailUseCase := usecases.NewEmailUseCase(
-		nil, nil, nil, nil, // email service, repo, template repo, subscription repo - TODO: implement
-		userRepo, orderRepo, productRepo,
-	)
+	// Initialize email use case (with nil repositories for now) - TODO: Implement
+	// emailUseCase := usecases.NewEmailUseCase(
+	// 	nil, nil, nil, nil, // email service, repo, template repo, subscription repo - TODO: implement
+	// 	userRepo, orderRepo, productRepo,
+	// )
 
-	// Initialize abandoned cart use case
-	abandonedCartUseCase := usecases.NewAbandonedCartUseCase(
-		cartRepo, userRepo, emailUseCase, productRepo, orderRepo,
-	)
+	// Initialize abandoned cart use case - TODO: Implement after EmailUseCase
+	// abandonedCartUseCase := usecases.NewAbandonedCartUseCase(
+	// 	cartRepo, userRepo, emailUseCase, productRepo, orderRepo,
+	// )
 
 	// Initialize stock cleanup use case - DEPRECATED (using simple stock service now)
 	// stockCleanupUseCase := usecases.NewStockCleanupUseCase(
@@ -379,14 +379,22 @@ func main() {
 	addressHandler := handlers.NewAddressHandler(addressUseCase)
 	paymentHandler := handlers.NewPaymentHandler(paymentUseCase)
 	shippingHandler := handlers.NewShippingHandler(shippingUseCase)
-	adminHandler := handlers.NewAdminHandler(adminUseCase)
+	// Initialize new repositories
+	settingsRepo := database.NewSettingsRepository(db)
+	marketingRepo := database.NewMarketingRepository(db)
+
+	// Initialize new use cases
+	settingsUseCase := usecases.NewSettingsUseCase(settingsRepo)
+	marketingUseCase := usecases.NewMarketingUseCase(marketingRepo)
+
+	adminHandler := handlers.NewAdminHandler(adminUseCase, settingsUseCase, marketingUseCase)
 	oauthHandler := handlers.NewOAuthHandler(oauthUseCase)
 	migrationHandler := handlers.NewMigrationHandler(db)
 	searchHandler := handlers.NewSearchHandler(searchUseCase)
 	recommendationHandler := handlers.NewRecommendationHandler(recommendationUseCase)
 	comparisonHandler := handlers.NewProductComparisonHandler(comparisonUseCase)
 	productFilterHandler := handlers.NewProductFilterHandler(productFilterUseCase)
-	abandonedCartHandler := handlers.NewAbandonedCartHandler(abandonedCartUseCase)
+	// abandonedCartHandler := handlers.NewAbandonedCartHandler(abandonedCartUseCase) // TODO: Implement
 
 	// Initialize Gin router
 	router := gin.New()
@@ -420,7 +428,7 @@ func main() {
 		recommendationHandler,
 		comparisonHandler,
 		productFilterHandler,
-		abandonedCartHandler,
+		// abandonedCartHandler, // TODO: Implement
 	)
 
 	// Background cleanup scheduler removed - using simple stock service

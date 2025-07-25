@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"net/http"
 	"strconv"
+	"strings"
 
 	"ecom-golang-clean-architecture/internal/domain/services"
 	"ecom-golang-clean-architecture/internal/usecases"
@@ -96,6 +97,11 @@ func (h *UserHandler) Login(c *gin.Context) {
 		})
 		return
 	}
+
+	// Extract client information from request
+	req.IPAddress = h.getClientIP(c)
+	req.UserAgent = c.GetHeader("User-Agent")
+	req.DeviceInfo = h.extractDeviceInfo(c.GetHeader("User-Agent"))
 
 	response, err := h.userUseCase.Login(c.Request.Context(), req)
 	if err != nil {
@@ -1520,4 +1526,79 @@ func (h *UserHandler) GetPersonalization(c *gin.Context) {
 		Message: "Personalization data retrieved successfully",
 		Data:    response,
 	})
+}
+
+// Helper methods for extracting client information
+
+// getClientIP extracts the real client IP address from the request
+func (h *UserHandler) getClientIP(c *gin.Context) string {
+	// Check for X-Forwarded-For header (proxy/load balancer)
+	if xff := c.GetHeader("X-Forwarded-For"); xff != "" {
+		// X-Forwarded-For can contain multiple IPs, take the first one
+		if idx := strings.Index(xff, ","); idx != -1 {
+			return strings.TrimSpace(xff[:idx])
+		}
+		return strings.TrimSpace(xff)
+	}
+
+	// Check for X-Real-IP header (nginx proxy)
+	if xri := c.GetHeader("X-Real-IP"); xri != "" {
+		return strings.TrimSpace(xri)
+	}
+
+	// Check for CF-Connecting-IP header (Cloudflare)
+	if cfip := c.GetHeader("CF-Connecting-IP"); cfip != "" {
+		return strings.TrimSpace(cfip)
+	}
+
+	// Fall back to RemoteAddr
+	ip := c.ClientIP()
+	if ip == "" {
+		ip = "127.0.0.1" // Default fallback
+	}
+	return ip
+}
+
+// extractDeviceInfo extracts basic device information from User-Agent
+func (h *UserHandler) extractDeviceInfo(userAgent string) string {
+	if userAgent == "" {
+		return "Unknown Device"
+	}
+
+	userAgent = strings.ToLower(userAgent)
+
+	// Mobile devices
+	if strings.Contains(userAgent, "mobile") || strings.Contains(userAgent, "android") || strings.Contains(userAgent, "iphone") {
+		if strings.Contains(userAgent, "android") {
+			return "Android Mobile"
+		}
+		if strings.Contains(userAgent, "iphone") {
+			return "iPhone"
+		}
+		return "Mobile Device"
+	}
+
+	// Tablets
+	if strings.Contains(userAgent, "tablet") || strings.Contains(userAgent, "ipad") {
+		if strings.Contains(userAgent, "ipad") {
+			return "iPad"
+		}
+		return "Tablet"
+	}
+
+	// Desktop browsers
+	if strings.Contains(userAgent, "chrome") {
+		return "Desktop Chrome"
+	}
+	if strings.Contains(userAgent, "firefox") {
+		return "Desktop Firefox"
+	}
+	if strings.Contains(userAgent, "safari") && !strings.Contains(userAgent, "chrome") {
+		return "Desktop Safari"
+	}
+	if strings.Contains(userAgent, "edge") {
+		return "Desktop Edge"
+	}
+
+	return "Desktop Browser"
 }

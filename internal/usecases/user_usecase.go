@@ -657,14 +657,20 @@ func (uc *userUseCase) Login(ctx context.Context, req LoginRequest) (*LoginRespo
 	}
 
 	// Create user session with enhanced tracking
+	// Ensure IP address is valid for inet type
+	ipAddress := req.IPAddress
+	if ipAddress == "" {
+		ipAddress = "127.0.0.1" // Default fallback for empty IP
+	}
+
 	session := &entities.UserSession{
 		ID:           uuid.New(),
 		UserID:       user.ID,
 		SessionToken: token,
 		DeviceInfo:   req.DeviceInfo,
-		IPAddress:    req.IPAddress,
+		IPAddress:    ipAddress,
 		UserAgent:    req.UserAgent,
-		Location:     uc.getLocationFromIP(req.IPAddress), // TODO: Implement IP geolocation
+		Location:     uc.getLocationFromIP(ipAddress), // TODO: Implement IP geolocation
 		IsActive:     true,
 		LastActivity: time.Now(),
 		ExpiresAt:    time.Now().Add(time.Hour * 24),

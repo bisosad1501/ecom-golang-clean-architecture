@@ -1,0 +1,570 @@
+package usecases
+
+import (
+	"context"
+	"time"
+
+	"github.com/google/uuid"
+)
+
+// MarketingUseCase defines marketing and promotion use cases
+type MarketingUseCase interface {
+	// Campaigns Management
+	GetCampaigns(ctx context.Context, req GetCampaignsRequest) (*GetCampaignsResponse, error)
+	GetCampaign(ctx context.Context, id uuid.UUID) (*CampaignResponse, error)
+	CreateCampaign(ctx context.Context, req CreateCampaignRequest) (*CampaignResponse, error)
+	UpdateCampaign(ctx context.Context, id uuid.UUID, req UpdateCampaignRequest) (*CampaignResponse, error)
+	DeleteCampaign(ctx context.Context, id uuid.UUID) error
+	LaunchCampaign(ctx context.Context, id uuid.UUID) error
+	PauseCampaign(ctx context.Context, id uuid.UUID) error
+	GetCampaignAnalytics(ctx context.Context, id uuid.UUID, period string) (*CampaignAnalyticsResponse, error)
+
+	// Promotions Management
+	GetPromotions(ctx context.Context, req GetPromotionsRequest) (*GetPromotionsResponse, error)
+	GetPromotion(ctx context.Context, id uuid.UUID) (*PromotionResponse, error)
+	CreatePromotion(ctx context.Context, req CreatePromotionRequest) (*PromotionResponse, error)
+	UpdatePromotion(ctx context.Context, id uuid.UUID, req UpdatePromotionRequest) (*PromotionResponse, error)
+	DeletePromotion(ctx context.Context, id uuid.UUID) error
+	ActivatePromotion(ctx context.Context, id uuid.UUID) error
+	DeactivatePromotion(ctx context.Context, id uuid.UUID) error
+
+	// Email Marketing
+	GetEmailTemplates(ctx context.Context, req GetEmailTemplatesRequest) (*GetEmailTemplatesResponse, error)
+	GetEmailTemplate(ctx context.Context, id uuid.UUID) (*EmailTemplateResponse, error)
+	CreateEmailTemplate(ctx context.Context, req CreateEmailTemplateRequest) (*EmailTemplateResponse, error)
+	UpdateEmailTemplate(ctx context.Context, id uuid.UUID, req UpdateEmailTemplateRequest) (*EmailTemplateResponse, error)
+	DeleteEmailTemplate(ctx context.Context, id uuid.UUID) error
+	SendEmailCampaign(ctx context.Context, req SendEmailCampaignRequest) (*EmailCampaignResponse, error)
+	GetEmailCampaigns(ctx context.Context, req GetEmailCampaignsRequest) (*GetEmailCampaignsResponse, error)
+	GetEmailCampaignStats(ctx context.Context, id uuid.UUID) (*EmailCampaignStatsResponse, error)
+
+	// Newsletter Management
+	GetNewsletterSubscribers(ctx context.Context, req GetSubscribersRequest) (*GetSubscribersResponse, error)
+	ExportSubscribers(ctx context.Context, req ExportSubscribersRequest) (*ExportResponse, error)
+	ImportSubscribers(ctx context.Context, req ImportSubscribersRequest) (*ImportResponse, error)
+	SendNewsletter(ctx context.Context, req SendNewsletterRequest) (*NewsletterResponse, error)
+
+	// Loyalty Programs
+	GetLoyaltyPrograms(ctx context.Context) (*GetLoyaltyProgramsResponse, error)
+	GetLoyaltyProgram(ctx context.Context, id uuid.UUID) (*LoyaltyProgramResponse, error)
+	CreateLoyaltyProgram(ctx context.Context, req CreateLoyaltyProgramRequest) (*LoyaltyProgramResponse, error)
+	UpdateLoyaltyProgram(ctx context.Context, id uuid.UUID, req UpdateLoyaltyProgramRequest) (*LoyaltyProgramResponse, error)
+	DeleteLoyaltyProgram(ctx context.Context, id uuid.UUID) error
+
+	// Referral Programs
+	GetReferralPrograms(ctx context.Context) (*GetReferralProgramsResponse, error)
+	GetReferralProgram(ctx context.Context, id uuid.UUID) (*ReferralProgramResponse, error)
+	CreateReferralProgram(ctx context.Context, req CreateReferralProgramRequest) (*ReferralProgramResponse, error)
+	UpdateReferralProgram(ctx context.Context, id uuid.UUID, req UpdateReferralProgramRequest) (*ReferralProgramResponse, error)
+	DeleteReferralProgram(ctx context.Context, id uuid.UUID) error
+	GetReferralStats(ctx context.Context, id uuid.UUID) (*ReferralStatsResponse, error)
+
+	// Abandoned Cart Recovery
+	GetAbandonedCarts(ctx context.Context, req GetAbandonedCartsRequest) (*GetAbandonedCartsResponse, error)
+	CreateRecoveryEmail(ctx context.Context, req CreateRecoveryEmailRequest) (*RecoveryEmailResponse, error)
+	GetRecoveryEmailTemplates(ctx context.Context) (*GetRecoveryEmailTemplatesResponse, error)
+	GetAbandonedCartStats(ctx context.Context, period string) (*AbandonedCartStatsResponse, error)
+
+	// A/B Testing
+	GetABTests(ctx context.Context, req GetABTestsRequest) (*GetABTestsResponse, error)
+	GetABTest(ctx context.Context, id uuid.UUID) (*ABTestResponse, error)
+	CreateABTest(ctx context.Context, req CreateABTestRequest) (*ABTestResponse, error)
+	UpdateABTest(ctx context.Context, id uuid.UUID, req UpdateABTestRequest) (*ABTestResponse, error)
+	DeleteABTest(ctx context.Context, id uuid.UUID) error
+	StartABTest(ctx context.Context, id uuid.UUID) error
+	StopABTest(ctx context.Context, id uuid.UUID) error
+	GetABTestResults(ctx context.Context, id uuid.UUID) (*ABTestResultsResponse, error)
+}
+
+// Campaign types
+type GetCampaignsRequest struct {
+	Page      int    `json:"page" validate:"min=1"`
+	Limit     int    `json:"limit" validate:"min=1,max=100"`
+	Search    string `json:"search"`
+	Status    string `json:"status" validate:"omitempty,oneof=draft active paused completed"`
+	Type      string `json:"type" validate:"omitempty,oneof=email social display affiliate"`
+	SortBy    string `json:"sort_by" validate:"omitempty,oneof=name created_at start_date"`
+	SortOrder string `json:"sort_order" validate:"omitempty,oneof=asc desc"`
+}
+
+type CreateCampaignRequest struct {
+	Name           string                 `json:"name" validate:"required,min=1,max=200"`
+	Description    string                 `json:"description" validate:"max=1000"`
+	Type           string                 `json:"type" validate:"required,oneof=email social display affiliate"`
+	Status         string                 `json:"status" validate:"required,oneof=draft active paused"`
+	Budget         float64                `json:"budget" validate:"min=0"`
+	StartDate      time.Time              `json:"start_date" validate:"required"`
+	EndDate        *time.Time             `json:"end_date"`
+	TargetAudience TargetAudienceRequest  `json:"target_audience"`
+	Goals          []CampaignGoalRequest  `json:"goals"`
+	Settings       map[string]interface{} `json:"settings"`
+	CreatedBy      uuid.UUID              `json:"created_by" validate:"required"`
+}
+
+type UpdateCampaignRequest struct {
+	Name           string                 `json:"name" validate:"min=1,max=200"`
+	Description    string                 `json:"description" validate:"max=1000"`
+	Type           string                 `json:"type" validate:"omitempty,oneof=email social display affiliate"`
+	Status         string                 `json:"status" validate:"omitempty,oneof=draft active paused completed"`
+	Budget         float64                `json:"budget" validate:"min=0"`
+	StartDate      time.Time              `json:"start_date"`
+	EndDate        *time.Time             `json:"end_date"`
+	TargetAudience TargetAudienceRequest  `json:"target_audience"`
+	Goals          []CampaignGoalRequest  `json:"goals"`
+	Settings       map[string]interface{} `json:"settings"`
+}
+
+type TargetAudienceRequest struct {
+	AgeRange        []int     `json:"age_range"`
+	Gender          []string  `json:"gender"`
+	Location        []string  `json:"location"`
+	Interests       []string  `json:"interests"`
+	CustomerSegment []string  `json:"customer_segment"`
+	PurchaseHistory string    `json:"purchase_history"`
+	SpendingRange   []float64 `json:"spending_range"`
+}
+
+type CampaignGoalRequest struct {
+	Type        string  `json:"type" validate:"required,oneof=awareness conversion retention engagement"`
+	Target      float64 `json:"target" validate:"min=0"`
+	Metric      string  `json:"metric" validate:"required"`
+	Description string  `json:"description"`
+}
+
+type CampaignResponse struct {
+	ID             uuid.UUID              `json:"id"`
+	Name           string                 `json:"name"`
+	Description    string                 `json:"description"`
+	Type           string                 `json:"type"`
+	Status         string                 `json:"status"`
+	Budget         float64                `json:"budget"`
+	Spent          float64                `json:"spent"`
+	StartDate      time.Time              `json:"start_date"`
+	EndDate        *time.Time             `json:"end_date"`
+	TargetAudience TargetAudienceResponse `json:"target_audience"`
+	Goals          []CampaignGoalResponse `json:"goals"`
+	Settings       map[string]interface{} `json:"settings"`
+	Metrics        CampaignMetrics        `json:"metrics"`
+	CreatedBy      uuid.UUID              `json:"created_by"`
+	CreatedByName  string                 `json:"created_by_name"`
+	CreatedAt      time.Time              `json:"created_at"`
+	UpdatedAt      time.Time              `json:"updated_at"`
+}
+
+type TargetAudienceResponse struct {
+	AgeRange        []int     `json:"age_range"`
+	Gender          []string  `json:"gender"`
+	Location        []string  `json:"location"`
+	Interests       []string  `json:"interests"`
+	CustomerSegment []string  `json:"customer_segment"`
+	PurchaseHistory string    `json:"purchase_history"`
+	SpendingRange   []float64 `json:"spending_range"`
+	EstimatedReach  int64     `json:"estimated_reach"`
+}
+
+type CampaignGoalResponse struct {
+	Type        string  `json:"type"`
+	Target      float64 `json:"target"`
+	Current     float64 `json:"current"`
+	Metric      string  `json:"metric"`
+	Description string  `json:"description"`
+	Progress    float64 `json:"progress"`
+}
+
+type CampaignMetrics struct {
+	Impressions       int64   `json:"impressions"`
+	Clicks            int64   `json:"clicks"`
+	Conversions       int64   `json:"conversions"`
+	Revenue           float64 `json:"revenue"`
+	CTR               float64 `json:"ctr"`
+	ConversionRate    float64 `json:"conversion_rate"`
+	CostPerClick      float64 `json:"cost_per_click"`
+	CostPerConversion float64 `json:"cost_per_conversion"`
+	ROI               float64 `json:"roi"`
+	ROAS              float64 `json:"roas"`
+}
+
+type GetCampaignsResponse struct {
+	Campaigns  []CampaignResponse `json:"campaigns"`
+	Total      int64              `json:"total"`
+	Pagination *PaginationInfo    `json:"pagination"`
+}
+
+type CampaignAnalyticsResponse struct {
+	CampaignID uuid.UUID       `json:"campaign_id"`
+	Period     string          `json:"period"`
+	Metrics    CampaignMetrics `json:"metrics"`
+	Timeline   []struct {
+		Date    time.Time       `json:"date"`
+		Metrics CampaignMetrics `json:"metrics"`
+	} `json:"timeline"`
+	TopPerformingContent []struct {
+		ContentID   uuid.UUID       `json:"content_id"`
+		ContentType string          `json:"content_type"`
+		Title       string          `json:"title"`
+		Metrics     CampaignMetrics `json:"metrics"`
+	} `json:"top_performing_content"`
+}
+
+// Promotion types
+type GetPromotionsRequest struct {
+	Page      int    `json:"page" validate:"min=1"`
+	Limit     int    `json:"limit" validate:"min=1,max=100"`
+	Search    string `json:"search"`
+	Type      string `json:"type" validate:"omitempty,oneof=percentage fixed buy_x_get_y free_shipping"`
+	Status    string `json:"status" validate:"omitempty,oneof=active inactive scheduled expired"`
+	SortBy    string `json:"sort_by" validate:"omitempty,oneof=name created_at start_date"`
+	SortOrder string `json:"sort_order" validate:"omitempty,oneof=asc desc"`
+}
+
+type CreatePromotionRequest struct {
+	Name                 string                 `json:"name" validate:"required,min=1,max=200"`
+	Description          string                 `json:"description" validate:"max=1000"`
+	Type                 string                 `json:"type" validate:"required,oneof=percentage fixed buy_x_get_y free_shipping"`
+	Value                float64                `json:"value" validate:"min=0"`
+	MinOrderAmount       float64                `json:"min_order_amount" validate:"min=0"`
+	MaxDiscount          float64                `json:"max_discount" validate:"min=0"`
+	UsageLimit           int                    `json:"usage_limit" validate:"min=0"`
+	UsagePerCustomer     int                    `json:"usage_per_customer" validate:"min=0"`
+	StartDate            time.Time              `json:"start_date" validate:"required"`
+	EndDate              *time.Time             `json:"end_date"`
+	IsActive             bool                   `json:"is_active"`
+	ApplicableProducts   []uuid.UUID            `json:"applicable_products"`
+	ApplicableCategories []uuid.UUID            `json:"applicable_categories"`
+	ExcludedProducts     []uuid.UUID            `json:"excluded_products"`
+	ExcludedCategories   []uuid.UUID            `json:"excluded_categories"`
+	CustomerSegments     []string               `json:"customer_segments"`
+	Settings             map[string]interface{} `json:"settings"`
+	CreatedBy            uuid.UUID              `json:"created_by" validate:"required"`
+}
+
+type UpdatePromotionRequest struct {
+	Name                 string                 `json:"name" validate:"min=1,max=200"`
+	Description          string                 `json:"description" validate:"max=1000"`
+	Type                 string                 `json:"type" validate:"omitempty,oneof=percentage fixed buy_x_get_y free_shipping"`
+	Value                float64                `json:"value" validate:"min=0"`
+	MinOrderAmount       float64                `json:"min_order_amount" validate:"min=0"`
+	MaxDiscount          float64                `json:"max_discount" validate:"min=0"`
+	UsageLimit           int                    `json:"usage_limit" validate:"min=0"`
+	UsagePerCustomer     int                    `json:"usage_per_customer" validate:"min=0"`
+	StartDate            time.Time              `json:"start_date"`
+	EndDate              *time.Time             `json:"end_date"`
+	IsActive             bool                   `json:"is_active"`
+	ApplicableProducts   []uuid.UUID            `json:"applicable_products"`
+	ApplicableCategories []uuid.UUID            `json:"applicable_categories"`
+	ExcludedProducts     []uuid.UUID            `json:"excluded_products"`
+	ExcludedCategories   []uuid.UUID            `json:"excluded_categories"`
+	CustomerSegments     []string               `json:"customer_segments"`
+	Settings             map[string]interface{} `json:"settings"`
+}
+
+type PromotionResponse struct {
+	ID                   uuid.UUID              `json:"id"`
+	Name                 string                 `json:"name"`
+	Description          string                 `json:"description"`
+	Type                 string                 `json:"type"`
+	Value                float64                `json:"value"`
+	MinOrderAmount       float64                `json:"min_order_amount"`
+	MaxDiscount          float64                `json:"max_discount"`
+	UsageLimit           int                    `json:"usage_limit"`
+	UsageCount           int                    `json:"usage_count"`
+	UsagePerCustomer     int                    `json:"usage_per_customer"`
+	StartDate            time.Time              `json:"start_date"`
+	EndDate              *time.Time             `json:"end_date"`
+	IsActive             bool                   `json:"is_active"`
+	Status               string                 `json:"status"`
+	ApplicableProducts   []uuid.UUID            `json:"applicable_products"`
+	ApplicableCategories []uuid.UUID            `json:"applicable_categories"`
+	ExcludedProducts     []uuid.UUID            `json:"excluded_products"`
+	ExcludedCategories   []uuid.UUID            `json:"excluded_categories"`
+	CustomerSegments     []string               `json:"customer_segments"`
+	Settings             map[string]interface{} `json:"settings"`
+	Metrics              PromotionMetrics       `json:"metrics"`
+	CreatedBy            uuid.UUID              `json:"created_by"`
+	CreatedByName        string                 `json:"created_by_name"`
+	CreatedAt            time.Time              `json:"created_at"`
+	UpdatedAt            time.Time              `json:"updated_at"`
+}
+
+type PromotionMetrics struct {
+	TotalUsage        int     `json:"total_usage"`
+	TotalDiscount     float64 `json:"total_discount"`
+	TotalRevenue      float64 `json:"total_revenue"`
+	UniqueCustomers   int     `json:"unique_customers"`
+	ConversionRate    float64 `json:"conversion_rate"`
+	AverageOrderValue float64 `json:"average_order_value"`
+}
+
+type GetPromotionsResponse struct {
+	Promotions []PromotionResponse `json:"promotions"`
+	Total      int64               `json:"total"`
+	Pagination *PaginationInfo     `json:"pagination"`
+}
+
+// Email Marketing types
+type GetEmailTemplatesRequest struct {
+	Page      int    `json:"page" validate:"min=1"`
+	Limit     int    `json:"limit" validate:"min=1,max=100"`
+	Search    string `json:"search"`
+	Type      string `json:"type" validate:"omitempty,oneof=newsletter promotional transactional"`
+	IsActive  *bool  `json:"is_active"`
+	SortBy    string `json:"sort_by" validate:"omitempty,oneof=name created_at updated_at"`
+	SortOrder string `json:"sort_order" validate:"omitempty,oneof=asc desc"`
+}
+
+type CreateEmailTemplateRequest struct {
+	Name      string                 `json:"name" validate:"required,min=1,max=200"`
+	Subject   string                 `json:"subject" validate:"required,min=1,max=200"`
+	Type      string                 `json:"type" validate:"required,oneof=newsletter promotional transactional"`
+	Content   string                 `json:"content" validate:"required"`
+	PlainText string                 `json:"plain_text"`
+	IsActive  bool                   `json:"is_active"`
+	Settings  map[string]interface{} `json:"settings"`
+	Variables []EmailVariableRequest `json:"variables"`
+	CreatedBy uuid.UUID              `json:"created_by" validate:"required"`
+}
+
+type UpdateEmailTemplateRequest struct {
+	Name      string                 `json:"name" validate:"min=1,max=200"`
+	Subject   string                 `json:"subject" validate:"min=1,max=200"`
+	Type      string                 `json:"type" validate:"omitempty,oneof=newsletter promotional transactional"`
+	Content   string                 `json:"content"`
+	PlainText string                 `json:"plain_text"`
+	IsActive  bool                   `json:"is_active"`
+	Settings  map[string]interface{} `json:"settings"`
+	Variables []EmailVariableRequest `json:"variables"`
+}
+
+type EmailVariableRequest struct {
+	Name         string `json:"name" validate:"required"`
+	Description  string `json:"description"`
+	DefaultValue string `json:"default_value"`
+	IsRequired   bool   `json:"is_required"`
+}
+
+type EmailTemplateResponse struct {
+	ID            uuid.UUID               `json:"id"`
+	Name          string                  `json:"name"`
+	Subject       string                  `json:"subject"`
+	Type          string                  `json:"type"`
+	Content       string                  `json:"content"`
+	PlainText     string                  `json:"plain_text"`
+	IsActive      bool                    `json:"is_active"`
+	Settings      map[string]interface{}  `json:"settings"`
+	Variables     []EmailVariableResponse `json:"variables"`
+	UsageCount    int64                   `json:"usage_count"`
+	CreatedBy     uuid.UUID               `json:"created_by"`
+	CreatedByName string                  `json:"created_by_name"`
+	CreatedAt     time.Time               `json:"created_at"`
+	UpdatedAt     time.Time               `json:"updated_at"`
+}
+
+type EmailVariableResponse struct {
+	Name         string `json:"name"`
+	Description  string `json:"description"`
+	DefaultValue string `json:"default_value"`
+	IsRequired   bool   `json:"is_required"`
+}
+
+type GetEmailTemplatesResponse struct {
+	Templates  []EmailTemplateResponse `json:"templates"`
+	Total      int64                   `json:"total"`
+	Pagination *PaginationInfo         `json:"pagination"`
+}
+
+type SendEmailCampaignRequest struct {
+	Name        string                 `json:"name" validate:"required,min=1,max=200"`
+	TemplateID  uuid.UUID              `json:"template_id" validate:"required"`
+	Recipients  EmailRecipientsRequest `json:"recipients" validate:"required"`
+	ScheduledAt *time.Time             `json:"scheduled_at"`
+	Variables   map[string]string      `json:"variables"`
+	Settings    map[string]interface{} `json:"settings"`
+	CreatedBy   uuid.UUID              `json:"created_by" validate:"required"`
+}
+
+type EmailRecipientsRequest struct {
+	Type            string   `json:"type" validate:"required,oneof=all segments custom"`
+	Segments        []string `json:"segments"`
+	CustomEmails    []string `json:"custom_emails"`
+	ExcludeSegments []string `json:"exclude_segments"`
+	ExcludeEmails   []string `json:"exclude_emails"`
+}
+
+type EmailCampaignResponse struct {
+	ID            uuid.UUID               `json:"id"`
+	Name          string                  `json:"name"`
+	TemplateID    uuid.UUID               `json:"template_id"`
+	TemplateName  string                  `json:"template_name"`
+	Recipients    EmailRecipientsResponse `json:"recipients"`
+	Status        string                  `json:"status"`
+	ScheduledAt   *time.Time              `json:"scheduled_at"`
+	SentAt        *time.Time              `json:"sent_at"`
+	Variables     map[string]string       `json:"variables"`
+	Settings      map[string]interface{}  `json:"settings"`
+	Metrics       EmailCampaignMetrics    `json:"metrics"`
+	CreatedBy     uuid.UUID               `json:"created_by"`
+	CreatedByName string                  `json:"created_by_name"`
+	CreatedAt     time.Time               `json:"created_at"`
+	UpdatedAt     time.Time               `json:"updated_at"`
+}
+
+type EmailRecipientsResponse struct {
+	Type            string   `json:"type"`
+	Segments        []string `json:"segments"`
+	CustomEmails    []string `json:"custom_emails"`
+	ExcludeSegments []string `json:"exclude_segments"`
+	ExcludeEmails   []string `json:"exclude_emails"`
+	TotalCount      int64    `json:"total_count"`
+}
+
+type EmailCampaignMetrics struct {
+	Sent            int64   `json:"sent"`
+	Delivered       int64   `json:"delivered"`
+	Opened          int64   `json:"opened"`
+	Clicked         int64   `json:"clicked"`
+	Bounced         int64   `json:"bounced"`
+	Unsubscribed    int64   `json:"unsubscribed"`
+	Complained      int64   `json:"complained"`
+	OpenRate        float64 `json:"open_rate"`
+	ClickRate       float64 `json:"click_rate"`
+	BounceRate      float64 `json:"bounce_rate"`
+	UnsubscribeRate float64 `json:"unsubscribe_rate"`
+}
+
+type GetEmailCampaignsRequest struct {
+	Page      int    `json:"page" validate:"min=1"`
+	Limit     int    `json:"limit" validate:"min=1,max=100"`
+	Search    string `json:"search"`
+	Status    string `json:"status" validate:"omitempty,oneof=draft scheduled sending sent failed"`
+	SortBy    string `json:"sort_by" validate:"omitempty,oneof=name created_at sent_at"`
+	SortOrder string `json:"sort_order" validate:"omitempty,oneof=asc desc"`
+}
+
+type GetEmailCampaignsResponse struct {
+	Campaigns  []EmailCampaignResponse `json:"campaigns"`
+	Total      int64                   `json:"total"`
+	Pagination *PaginationInfo         `json:"pagination"`
+}
+
+type EmailCampaignStatsResponse struct {
+	CampaignID uuid.UUID            `json:"campaign_id"`
+	Metrics    EmailCampaignMetrics `json:"metrics"`
+	Timeline   []struct {
+		Date    time.Time            `json:"date"`
+		Metrics EmailCampaignMetrics `json:"metrics"`
+	} `json:"timeline"`
+	TopLinks []struct {
+		URL        string  `json:"url"`
+		ClickCount int64   `json:"click_count"`
+		ClickRate  float64 `json:"click_rate"`
+	} `json:"top_links"`
+	DeviceStats []struct {
+		Device string  `json:"device"`
+		Count  int64   `json:"count"`
+		Rate   float64 `json:"rate"`
+	} `json:"device_stats"`
+	LocationStats []struct {
+		Country string  `json:"country"`
+		Count   int64   `json:"count"`
+		Rate    float64 `json:"rate"`
+	} `json:"location_stats"`
+}
+
+// Newsletter types
+type GetSubscribersRequest struct {
+	Page      int    `json:"page" validate:"min=1"`
+	Limit     int    `json:"limit" validate:"min=1,max=100"`
+	Search    string `json:"search"`
+	Status    string `json:"status" validate:"omitempty,oneof=active inactive pending"`
+	Segment   string `json:"segment"`
+	SortBy    string `json:"sort_by" validate:"omitempty,oneof=email created_at"`
+	SortOrder string `json:"sort_order" validate:"omitempty,oneof=asc desc"`
+}
+
+type GetSubscribersResponse struct {
+	Subscribers []NewsletterSubscriber `json:"subscribers"`
+	Total       int64                  `json:"total"`
+	Pagination  *PaginationInfo        `json:"pagination"`
+}
+
+type NewsletterSubscriber struct {
+	ID             uuid.UUID              `json:"id"`
+	Email          string                 `json:"email"`
+	FirstName      string                 `json:"first_name"`
+	LastName       string                 `json:"last_name"`
+	Status         string                 `json:"status"`
+	Segments       []string               `json:"segments"`
+	Tags           []string               `json:"tags"`
+	CustomFields   map[string]interface{} `json:"custom_fields"`
+	SubscribedAt   time.Time              `json:"subscribed_at"`
+	UnsubscribedAt *time.Time             `json:"unsubscribed_at"`
+	LastEmailSent  *time.Time             `json:"last_email_sent"`
+	EmailsSent     int64                  `json:"emails_sent"`
+	EmailsOpened   int64                  `json:"emails_opened"`
+	EmailsClicked  int64                  `json:"emails_clicked"`
+}
+
+type ExportSubscribersRequest struct {
+	Format   string   `json:"format" validate:"required,oneof=csv excel"`
+	Status   string   `json:"status" validate:"omitempty,oneof=active inactive pending"`
+	Segments []string `json:"segments"`
+	Fields   []string `json:"fields"`
+}
+
+type ExportResponse struct {
+	ID          uuid.UUID `json:"id"`
+	Filename    string    `json:"filename"`
+	DownloadURL string    `json:"download_url"`
+	Status      string    `json:"status"`
+	RecordCount int64     `json:"record_count"`
+	CreatedAt   time.Time `json:"created_at"`
+}
+
+type ImportSubscribersRequest struct {
+	FileURL        string            `json:"file_url" validate:"required"`
+	Format         string            `json:"format" validate:"required,oneof=csv excel"`
+	FieldMapping   map[string]string `json:"field_mapping" validate:"required"`
+	DefaultSegment string            `json:"default_segment"`
+	UpdateExisting bool              `json:"update_existing"`
+}
+
+type ImportResponse struct {
+	ID            uuid.UUID `json:"id"`
+	Status        string    `json:"status"`
+	TotalRecords  int64     `json:"total_records"`
+	ImportedCount int64     `json:"imported_count"`
+	SkippedCount  int64     `json:"skipped_count"`
+	ErrorCount    int64     `json:"error_count"`
+	Errors        []string  `json:"errors"`
+	CreatedAt     time.Time `json:"created_at"`
+}
+
+type SendNewsletterRequest struct {
+	Subject     string                 `json:"subject" validate:"required,min=1,max=200"`
+	Content     string                 `json:"content" validate:"required"`
+	PlainText   string                 `json:"plain_text"`
+	Recipients  EmailRecipientsRequest `json:"recipients" validate:"required"`
+	ScheduledAt *time.Time             `json:"scheduled_at"`
+	Settings    map[string]interface{} `json:"settings"`
+	CreatedBy   uuid.UUID              `json:"created_by" validate:"required"`
+}
+
+type NewsletterResponse struct {
+	ID            uuid.UUID               `json:"id"`
+	Subject       string                  `json:"subject"`
+	Content       string                  `json:"content"`
+	PlainText     string                  `json:"plain_text"`
+	Recipients    EmailRecipientsResponse `json:"recipients"`
+	Status        string                  `json:"status"`
+	ScheduledAt   *time.Time              `json:"scheduled_at"`
+	SentAt        *time.Time              `json:"sent_at"`
+	Settings      map[string]interface{}  `json:"settings"`
+	Metrics       EmailCampaignMetrics    `json:"metrics"`
+	CreatedBy     uuid.UUID               `json:"created_by"`
+	CreatedByName string                  `json:"created_by_name"`
+	CreatedAt     time.Time               `json:"created_at"`
+	UpdatedAt     time.Time               `json:"updated_at"`
+}
+
+// Additional types for loyalty, referral, abandoned cart, and A/B testing
+// (Implementation details would be added here)

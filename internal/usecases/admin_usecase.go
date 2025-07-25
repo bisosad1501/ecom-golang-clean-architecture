@@ -290,7 +290,7 @@ type GetReportsRequest struct {
 // Response types
 type AdminDashboardResponse struct {
 	Overview struct {
-		TotalRevenue    float64 `json:"total_revenue"`    // Net revenue (current)
+		TotalRevenue    float64 `json:"total_revenue"`    // Net revenue (after discounts)
 		GrossRevenue    float64 `json:"gross_revenue"`    // Before discounts
 		ProductRevenue  float64 `json:"product_revenue"`  // Only product sales
 		TaxCollected    float64 `json:"tax_collected"`    // Total tax amount
@@ -890,7 +890,7 @@ func (uc *adminUseCase) GetDashboard(ctx context.Context, req AdminDashboardRequ
 
 	response := &AdminDashboardResponse{
 		Overview: struct {
-			TotalRevenue    float64 `json:"total_revenue"`    // Net revenue (current)
+			TotalRevenue    float64 `json:"total_revenue"`    // Net revenue (after discounts)
 			GrossRevenue    float64 `json:"gross_revenue"`    // Before discounts
 			ProductRevenue  float64 `json:"product_revenue"`  // Only product sales
 			TaxCollected    float64 `json:"tax_collected"`    // Total tax amount
@@ -3847,24 +3847,24 @@ type LocationData struct {
 
 // Admin Login History request/response types
 type AdminLoginHistoryRequest struct {
-	Limit    int        `json:"limit" validate:"min=1,max=100"`
-	Offset   int        `json:"offset" validate:"min=0"`
-	DateFrom *time.Time `json:"date_from,omitempty"`
-	DateTo   *time.Time `json:"date_to,omitempty"`
-	Success  *bool      `json:"success,omitempty"`
-	IPAddress string    `json:"ip_address,omitempty"`
-	SortBy   string     `json:"sort_by,omitempty"` // created_at, ip_address, success
-	SortOrder string    `json:"sort_order,omitempty"` // asc, desc
+	Limit     int        `json:"limit" validate:"min=1,max=100"`
+	Offset    int        `json:"offset" validate:"min=0"`
+	DateFrom  *time.Time `json:"date_from,omitempty"`
+	DateTo    *time.Time `json:"date_to,omitempty"`
+	Success   *bool      `json:"success,omitempty"`
+	IPAddress string     `json:"ip_address,omitempty"`
+	SortBy    string     `json:"sort_by,omitempty"`    // created_at, ip_address, success
+	SortOrder string     `json:"sort_order,omitempty"` // asc, desc
 }
 
 type AdminLoginHistoryResponse struct {
-	UserID       uuid.UUID                `json:"user_id"`
-	UserEmail    string                   `json:"user_email"`
-	UserName     string                   `json:"user_name"`
-	LoginHistory []AdminLoginHistoryItem  `json:"login_history"`
-	Total        int64                    `json:"total"`
-	Pagination   *PaginationInfo          `json:"pagination"`
-	Stats        *AdminLoginStatsInfo     `json:"stats,omitempty"`
+	UserID       uuid.UUID               `json:"user_id"`
+	UserEmail    string                  `json:"user_email"`
+	UserName     string                  `json:"user_name"`
+	LoginHistory []AdminLoginHistoryItem `json:"login_history"`
+	Total        int64                   `json:"total"`
+	Pagination   *PaginationInfo         `json:"pagination"`
+	Stats        *AdminLoginStatsInfo    `json:"stats,omitempty"`
 }
 
 type AdminLoginHistoryItem struct {
@@ -3917,12 +3917,12 @@ type AdminAllLoginHistoryItem struct {
 }
 
 type SuspiciousActivityRequest struct {
-	DateFrom      *time.Time `json:"date_from,omitempty"`
-	DateTo        *time.Time `json:"date_to,omitempty"`
-	MinRiskScore  float64    `json:"min_risk_score,omitempty"` // Default 70
-	Limit         int        `json:"limit" validate:"min=1,max=100"`
-	Offset        int        `json:"offset" validate:"min=0"`
-	ActivityType  string     `json:"activity_type,omitempty"` // failed_logins, unusual_ip, multiple_devices
+	DateFrom     *time.Time `json:"date_from,omitempty"`
+	DateTo       *time.Time `json:"date_to,omitempty"`
+	MinRiskScore float64    `json:"min_risk_score,omitempty"` // Default 70
+	Limit        int        `json:"limit" validate:"min=1,max=100"`
+	Offset       int        `json:"offset" validate:"min=0"`
+	ActivityType string     `json:"activity_type,omitempty"` // failed_logins, unusual_ip, multiple_devices
 }
 
 type SuspiciousActivityResponse struct {
@@ -3952,34 +3952,34 @@ type SecurityReportRequest struct {
 }
 
 type SecurityReportResponse struct {
-	ReportType      string                 `json:"report_type"`
-	GeneratedAt     time.Time              `json:"generated_at"`
-	DateRange       DateRange              `json:"date_range"`
-	LoginSummary    LoginSummaryStats      `json:"login_summary"`
-	SecurityMetrics SecurityMetrics        `json:"security_metrics"`
-	TopRiskyIPs     []RiskyIP             `json:"top_risky_ips"`
-	TopRiskyUsers   []RiskyUser           `json:"top_risky_users"`
-	Incidents       []SecurityIncident     `json:"incidents,omitempty"`
+	ReportType      string             `json:"report_type"`
+	GeneratedAt     time.Time          `json:"generated_at"`
+	DateRange       DateRange          `json:"date_range"`
+	LoginSummary    LoginSummaryStats  `json:"login_summary"`
+	SecurityMetrics SecurityMetrics    `json:"security_metrics"`
+	TopRiskyIPs     []RiskyIP          `json:"top_risky_ips"`
+	TopRiskyUsers   []RiskyUser        `json:"top_risky_users"`
+	Incidents       []SecurityIncident `json:"incidents,omitempty"`
 }
 
 type AdminLoginStatsInfo struct {
-	TotalLogins         int64   `json:"total_logins"`
-	SuccessfulLogins    int64   `json:"successful_logins"`
-	FailedLogins        int64   `json:"failed_logins"`
-	SuccessRate         float64 `json:"success_rate"`
-	UniqueIPs           int     `json:"unique_ips"`
-	SuspiciousAttempts  int64   `json:"suspicious_attempts"`
-	BlockedAttempts     int64   `json:"blocked_attempts"`
+	TotalLogins        int64   `json:"total_logins"`
+	SuccessfulLogins   int64   `json:"successful_logins"`
+	FailedLogins       int64   `json:"failed_logins"`
+	SuccessRate        float64 `json:"success_rate"`
+	UniqueIPs          int     `json:"unique_ips"`
+	SuspiciousAttempts int64   `json:"suspicious_attempts"`
+	BlockedAttempts    int64   `json:"blocked_attempts"`
 }
 
 type LoginSummaryStats struct {
-	TotalLogins         int64   `json:"total_logins"`
-	SuccessfulLogins    int64   `json:"successful_logins"`
-	FailedLogins        int64   `json:"failed_logins"`
-	SuccessRate         float64 `json:"success_rate"`
-	UniqueUsers         int     `json:"unique_users"`
-	UniqueIPs           int     `json:"unique_ips"`
-	SuspiciousAttempts  int64   `json:"suspicious_attempts"`
+	TotalLogins        int64   `json:"total_logins"`
+	SuccessfulLogins   int64   `json:"successful_logins"`
+	FailedLogins       int64   `json:"failed_logins"`
+	SuccessRate        float64 `json:"success_rate"`
+	UniqueUsers        int     `json:"unique_users"`
+	UniqueIPs          int     `json:"unique_ips"`
+	SuspiciousAttempts int64   `json:"suspicious_attempts"`
 }
 
 type RiskSummary struct {
@@ -4003,11 +4003,11 @@ type SecurityMetrics struct {
 }
 
 type RiskyIP struct {
-	IPAddress    string  `json:"ip_address"`
-	Location     string  `json:"location"`
-	FailedCount  int64   `json:"failed_count"`
-	SuccessCount int64   `json:"success_count"`
-	RiskScore    float64 `json:"risk_score"`
+	IPAddress    string    `json:"ip_address"`
+	Location     string    `json:"location"`
+	FailedCount  int64     `json:"failed_count"`
+	SuccessCount int64     `json:"success_count"`
+	RiskScore    float64   `json:"risk_score"`
 	LastSeen     time.Time `json:"last_seen"`
 }
 
@@ -4021,14 +4021,14 @@ type RiskyUser struct {
 }
 
 type SecurityIncident struct {
-	ID          uuid.UUID `json:"id"`
-	Type        string    `json:"type"`
-	Description string    `json:"description"`
-	Severity    string    `json:"severity"` // low, medium, high, critical
+	ID          uuid.UUID  `json:"id"`
+	Type        string     `json:"type"`
+	Description string     `json:"description"`
+	Severity    string     `json:"severity"` // low, medium, high, critical
 	UserID      *uuid.UUID `json:"user_id,omitempty"`
-	IPAddress   string    `json:"ip_address"`
-	DetectedAt  time.Time `json:"detected_at"`
-	Status      string    `json:"status"` // open, investigating, resolved
+	IPAddress   string     `json:"ip_address"`
+	DetectedAt  time.Time  `json:"detected_at"`
+	Status      string     `json:"status"` // open, investigating, resolved
 }
 
 // GetUserLoginHistory retrieves login history for a specific user (admin view)
@@ -4378,8 +4378,8 @@ func (uc *adminUseCase) GetLoginSecurityReport(ctx context.Context, req Security
 
 	// Analyze IP patterns
 	ipStats := make(map[string]struct {
-		failed  int64
-		success int64
+		failed   int64
+		success  int64
 		lastSeen time.Time
 	})
 
@@ -4517,13 +4517,13 @@ func (uc *adminUseCase) calculateAdminLoginStats(ctx context.Context, userID uui
 	}
 
 	return &AdminLoginStatsInfo{
-		TotalLogins:         totalCount,
-		SuccessfulLogins:    successfulCount,
-		FailedLogins:        failedCount,
-		SuccessRate:         successRate,
-		UniqueIPs:           len(uniqueIPs),
-		SuspiciousAttempts:  suspiciousAttempts,
-		BlockedAttempts:     0, // Would need additional tracking
+		TotalLogins:        totalCount,
+		SuccessfulLogins:   successfulCount,
+		FailedLogins:       failedCount,
+		SuccessRate:        successRate,
+		UniqueIPs:          len(uniqueIPs),
+		SuspiciousAttempts: suspiciousAttempts,
+		BlockedAttempts:    0, // Would need additional tracking
 	}, nil
 }
 
@@ -4560,13 +4560,13 @@ func (uc *adminUseCase) calculateLoginSummaryStats(logins []AdminAllLoginHistory
 	}
 
 	return &LoginSummaryStats{
-		TotalLogins:         totalLogins,
-		SuccessfulLogins:    successfulLogins,
-		FailedLogins:        failedLogins,
-		SuccessRate:         successRate,
-		UniqueUsers:         len(uniqueUsers),
-		UniqueIPs:           len(uniqueIPs),
-		SuspiciousAttempts:  suspiciousAttempts,
+		TotalLogins:        totalLogins,
+		SuccessfulLogins:   successfulLogins,
+		FailedLogins:       failedLogins,
+		SuccessRate:        successRate,
+		UniqueUsers:        len(uniqueUsers),
+		UniqueIPs:          len(uniqueIPs),
+		SuspiciousAttempts: suspiciousAttempts,
 	}
 }
 
@@ -4631,13 +4631,13 @@ func (uc *adminUseCase) calculateLoginSummaryFromEntities(logins []entities.User
 	}
 
 	return &LoginSummaryStats{
-		TotalLogins:         totalLogins,
-		SuccessfulLogins:    successfulLogins,
-		FailedLogins:        failedLogins,
-		SuccessRate:         successRate,
-		UniqueUsers:         len(uniqueUsers),
-		UniqueIPs:           len(uniqueIPs),
-		SuspiciousAttempts:  suspiciousAttempts,
+		TotalLogins:        totalLogins,
+		SuccessfulLogins:   successfulLogins,
+		FailedLogins:       failedLogins,
+		SuccessRate:        successRate,
+		UniqueUsers:        len(uniqueUsers),
+		UniqueIPs:          len(uniqueIPs),
+		SuspiciousAttempts: suspiciousAttempts,
 	}
 }
 
@@ -4678,7 +4678,7 @@ func (uc *adminUseCase) calculateSecurityMetrics(logins []entities.UserLoginHist
 		UnusualIPCount:      len(ipMap), // Simplified - would need baseline comparison
 		MultipleDeviceUsers: multipleDeviceUsers,
 		SuspiciousPatterns:  int(failedLogins), // Simplified
-		BlockedIPs:          0, // Would need IP blocking system
+		BlockedIPs:          0,                 // Would need IP blocking system
 	}
 }
 

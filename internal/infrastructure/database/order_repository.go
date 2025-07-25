@@ -317,7 +317,7 @@ func (r *orderRepository) GetTotalSales(ctx context.Context, startDate, endDate 
 	return total, err
 }
 
-// GetTotalRevenue gets total revenue from all orders
+// GetTotalRevenue gets total revenue from all paid orders (net revenue after discounts)
 func (r *orderRepository) GetTotalRevenue(ctx context.Context) (float64, error) {
 	var total float64
 	err := r.db.WithContext(ctx).
@@ -325,7 +325,7 @@ func (r *orderRepository) GetTotalRevenue(ctx context.Context) (float64, error) 
 		Where("payment_status = ? AND status NOT IN ?",
 			entities.PaymentStatusPaid,
 			[]entities.OrderStatus{entities.OrderStatusCancelled, entities.OrderStatusRefunded}).
-		Select("COALESCE(SUM(total), 0)").
+		Select("COALESCE(SUM(total - discount_amount), 0)").
 		Scan(&total).Error
 	return total, err
 }
@@ -349,14 +349,14 @@ func (r *orderRepository) CountOrdersByStatus(ctx context.Context, status entiti
 	return count, err
 }
 
-// GetGrossRevenue gets gross revenue (before discounts)
+// GetGrossRevenue gets gross revenue (before discounts) from all paid orders
 func (r *orderRepository) GetGrossRevenue(ctx context.Context) (float64, error) {
 	var total float64
 	err := r.db.WithContext(ctx).
 		Model(&entities.Order{}).
-		Where("status IN ? AND payment_status = ?",
-			[]entities.OrderStatus{entities.OrderStatusDelivered, entities.OrderStatusShipped},
-			entities.PaymentStatusPaid).
+		Where("payment_status = ? AND status NOT IN ?",
+			entities.PaymentStatusPaid,
+			[]entities.OrderStatus{entities.OrderStatusCancelled, entities.OrderStatusRefunded}).
 		Select("COALESCE(SUM(subtotal + tax_amount + shipping_amount), 0)").
 		Scan(&total).Error
 	return total, err

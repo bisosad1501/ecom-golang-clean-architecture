@@ -10,19 +10,25 @@ import (
 	"ecom-golang-clean-architecture/internal/usecases"
 
 	"github.com/gin-gonic/gin"
+	"github.com/go-playground/validator/v10"
 	"github.com/google/uuid"
 )
 
 // AdminHandler handles admin-related HTTP requests
 type AdminHandler struct {
-	adminUseCase        usecases.AdminUseCase
-	// stockCleanupUseCase removed - using simple stock service
+	adminUseCase     usecases.AdminUseCase
+	settingsUseCase  usecases.SettingsUseCase
+	marketingUseCase usecases.MarketingUseCase
+	validator        *validator.Validate
 }
 
 // NewAdminHandler creates a new admin handler
-func NewAdminHandler(adminUseCase usecases.AdminUseCase) *AdminHandler {
+func NewAdminHandler(adminUseCase usecases.AdminUseCase, settingsUseCase usecases.SettingsUseCase, marketingUseCase usecases.MarketingUseCase) *AdminHandler {
 	return &AdminHandler{
-		adminUseCase:        adminUseCase,
+		adminUseCase:     adminUseCase,
+		settingsUseCase:  settingsUseCase,
+		marketingUseCase: marketingUseCase,
+		validator:        validator.New(),
 	}
 }
 
@@ -490,9 +496,11 @@ func (h *AdminHandler) GetUserAuditLogs(c *gin.Context) {
 
 // GetUserActivity returns user activity
 func (h *AdminHandler) GetUserActivity(c *gin.Context) {
-	userIDStr := c.Param("user_id")
+	userIDStr := c.Param("id")
+	fmt.Printf("DEBUG GetUserActivity - userIDStr: '%s'\n", userIDStr)
 	userID, err := uuid.Parse(userIDStr)
 	if err != nil {
+		fmt.Printf("DEBUG GetUserActivity - UUID parse error: %v\n", err)
 		c.JSON(http.StatusBadRequest, ErrorResponse{
 			Error:   "Invalid user ID",
 			Details: err.Error(),
@@ -1322,8 +1330,8 @@ func (h *AdminHandler) GetCleanupStats(c *gin.Context) {
 	// Stock cleanup removed - using simple stock service
 	c.JSON(http.StatusOK, SuccessResponse{
 		Message: "Cleanup statistics not available - using simple stock service",
-		Data:    map[string]interface{}{
-			"status": "deprecated",
+		Data: map[string]interface{}{
+			"status":  "deprecated",
 			"message": "Stock cleanup system removed in favor of simple stock service",
 		},
 	})
@@ -1335,7 +1343,7 @@ func (h *AdminHandler) TriggerCleanup(c *gin.Context) {
 	c.JSON(http.StatusOK, SuccessResponse{
 		Message: "Cleanup process not needed - using simple stock service",
 		Data: map[string]interface{}{
-			"status": "deprecated",
+			"status":  "deprecated",
 			"message": "Stock cleanup system removed in favor of simple stock service",
 		},
 	})
@@ -1542,5 +1550,516 @@ func (h *AdminHandler) GetLoginSecurityReport(c *gin.Context) {
 	c.JSON(http.StatusOK, SuccessResponse{
 		Message: "Security report generated successfully",
 		Data:    response,
+	})
+}
+
+// Settings Handlers
+
+// GetGeneralSettings returns general settings
+func (h *AdminHandler) GetGeneralSettings(c *gin.Context) {
+	settings, err := h.settingsUseCase.GetGeneralSettings(c.Request.Context())
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, ErrorResponse{
+			Error:   "Failed to get general settings",
+			Details: err.Error(),
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, SuccessResponse{
+		Message: "General settings retrieved successfully",
+		Data:    settings,
+	})
+}
+
+// UpdateGeneralSettings updates general settings
+func (h *AdminHandler) UpdateGeneralSettings(c *gin.Context) {
+	var req usecases.UpdateGeneralSettingsRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, ErrorResponse{
+			Error:   "Invalid request body",
+			Details: err.Error(),
+		})
+		return
+	}
+
+	if err := h.validator.Struct(req); err != nil {
+		c.JSON(http.StatusBadRequest, ErrorResponse{
+			Error:   "Validation failed",
+			Details: err.Error(),
+		})
+		return
+	}
+
+	err := h.settingsUseCase.UpdateGeneralSettings(c.Request.Context(), req)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, ErrorResponse{
+			Error:   "Failed to update general settings",
+			Details: err.Error(),
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, SuccessResponse{
+		Message: "General settings updated successfully",
+	})
+}
+
+// GetStoreConfig returns store configuration
+func (h *AdminHandler) GetStoreConfig(c *gin.Context) {
+	config, err := h.settingsUseCase.GetStoreConfig(c.Request.Context())
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, ErrorResponse{
+			Error:   "Failed to get store config",
+			Details: err.Error(),
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, SuccessResponse{
+		Message: "Store config retrieved successfully",
+		Data:    config,
+	})
+}
+
+// UpdateStoreConfig updates store configuration
+func (h *AdminHandler) UpdateStoreConfig(c *gin.Context) {
+	var req usecases.UpdateStoreConfigRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, ErrorResponse{
+			Error:   "Invalid request body",
+			Details: err.Error(),
+		})
+		return
+	}
+
+	err := h.settingsUseCase.UpdateStoreConfig(c.Request.Context(), req)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, ErrorResponse{
+			Error:   "Failed to update store config",
+			Details: err.Error(),
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, SuccessResponse{
+		Message: "Store config updated successfully",
+	})
+}
+
+// GetPaymentSettings returns payment settings
+func (h *AdminHandler) GetPaymentSettings(c *gin.Context) {
+	settings, err := h.settingsUseCase.GetPaymentSettings(c.Request.Context())
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, ErrorResponse{
+			Error:   "Failed to get payment settings",
+			Details: err.Error(),
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, SuccessResponse{
+		Message: "Payment settings retrieved successfully",
+		Data:    settings,
+	})
+}
+
+// UpdatePaymentSettings updates payment settings
+func (h *AdminHandler) UpdatePaymentSettings(c *gin.Context) {
+	var req usecases.UpdatePaymentSettingsRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, ErrorResponse{
+			Error:   "Invalid request body",
+			Details: err.Error(),
+		})
+		return
+	}
+
+	if err := h.validator.Struct(req); err != nil {
+		c.JSON(http.StatusBadRequest, ErrorResponse{
+			Error:   "Validation failed",
+			Details: err.Error(),
+		})
+		return
+	}
+
+	err := h.settingsUseCase.UpdatePaymentSettings(c.Request.Context(), req)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, ErrorResponse{
+			Error:   "Failed to update payment settings",
+			Details: err.Error(),
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, SuccessResponse{
+		Message: "Payment settings updated successfully",
+	})
+}
+
+// GetEmailSettings returns email settings
+func (h *AdminHandler) GetEmailSettings(c *gin.Context) {
+	settings, err := h.settingsUseCase.GetEmailSettings(c.Request.Context())
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, ErrorResponse{
+			Error:   "Failed to get email settings",
+			Details: err.Error(),
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, SuccessResponse{
+		Message: "Email settings retrieved successfully",
+		Data:    settings,
+	})
+}
+
+// UpdateEmailSettings updates email settings
+func (h *AdminHandler) UpdateEmailSettings(c *gin.Context) {
+	var req usecases.UpdateEmailSettingsRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, ErrorResponse{
+			Error:   "Invalid request body",
+			Details: err.Error(),
+		})
+		return
+	}
+
+	if err := h.validator.Struct(req); err != nil {
+		c.JSON(http.StatusBadRequest, ErrorResponse{
+			Error:   "Validation failed",
+			Details: err.Error(),
+		})
+		return
+	}
+
+	err := h.settingsUseCase.UpdateEmailSettings(c.Request.Context(), req)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, ErrorResponse{
+			Error:   "Failed to update email settings",
+			Details: err.Error(),
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, SuccessResponse{
+		Message: "Email settings updated successfully",
+	})
+}
+
+// TestEmailSettings tests email settings
+func (h *AdminHandler) TestEmailSettings(c *gin.Context) {
+	var req usecases.TestEmailRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, ErrorResponse{
+			Error:   "Invalid request body",
+			Details: err.Error(),
+		})
+		return
+	}
+
+	if err := h.validator.Struct(req); err != nil {
+		c.JSON(http.StatusBadRequest, ErrorResponse{
+			Error:   "Validation failed",
+			Details: err.Error(),
+		})
+		return
+	}
+
+	err := h.settingsUseCase.TestEmailSettings(c.Request.Context(), req)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, ErrorResponse{
+			Error:   "Failed to test email settings",
+			Details: err.Error(),
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, SuccessResponse{
+		Message: "Email test sent successfully",
+	})
+}
+
+// GetTaxSettings returns tax settings
+func (h *AdminHandler) GetTaxSettings(c *gin.Context) {
+	settings, err := h.settingsUseCase.GetTaxSettings(c.Request.Context())
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, ErrorResponse{
+			Error:   "Failed to get tax settings",
+			Details: err.Error(),
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, SuccessResponse{
+		Message: "Tax settings retrieved successfully",
+		Data:    settings,
+	})
+}
+
+// UpdateTaxSettings updates tax settings
+func (h *AdminHandler) UpdateTaxSettings(c *gin.Context) {
+	var req usecases.UpdateTaxSettingsRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, ErrorResponse{
+			Error:   "Invalid request body",
+			Details: err.Error(),
+		})
+		return
+	}
+
+	if err := h.validator.Struct(req); err != nil {
+		c.JSON(http.StatusBadRequest, ErrorResponse{
+			Error:   "Validation failed",
+			Details: err.Error(),
+		})
+		return
+	}
+
+	err := h.settingsUseCase.UpdateTaxSettings(c.Request.Context(), req)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, ErrorResponse{
+			Error:   "Failed to update tax settings",
+			Details: err.Error(),
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, SuccessResponse{
+		Message: "Tax settings updated successfully",
+	})
+}
+
+// GetShippingSettings returns shipping settings
+func (h *AdminHandler) GetShippingSettings(c *gin.Context) {
+	settings, err := h.settingsUseCase.GetShippingSettings(c.Request.Context())
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, ErrorResponse{
+			Error:   "Failed to get shipping settings",
+			Details: err.Error(),
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, SuccessResponse{
+		Message: "Shipping settings retrieved successfully",
+		Data:    settings,
+	})
+}
+
+// UpdateShippingSettings updates shipping settings
+func (h *AdminHandler) UpdateShippingSettings(c *gin.Context) {
+	var req usecases.UpdateShippingSettingsRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, ErrorResponse{
+			Error:   "Invalid request body",
+			Details: err.Error(),
+		})
+		return
+	}
+
+	if err := h.validator.Struct(req); err != nil {
+		c.JSON(http.StatusBadRequest, ErrorResponse{
+			Error:   "Validation failed",
+			Details: err.Error(),
+		})
+		return
+	}
+
+	err := h.settingsUseCase.UpdateShippingSettings(c.Request.Context(), req)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, ErrorResponse{
+			Error:   "Failed to update shipping settings",
+			Details: err.Error(),
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, SuccessResponse{
+		Message: "Shipping settings updated successfully",
+	})
+}
+
+// GetSEOSettings returns SEO settings
+func (h *AdminHandler) GetSEOSettings(c *gin.Context) {
+	settings, err := h.settingsUseCase.GetSEOSettings(c.Request.Context())
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, ErrorResponse{
+			Error:   "Failed to get SEO settings",
+			Details: err.Error(),
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, SuccessResponse{
+		Message: "SEO settings retrieved successfully",
+		Data:    settings,
+	})
+}
+
+// UpdateSEOSettings updates SEO settings
+func (h *AdminHandler) UpdateSEOSettings(c *gin.Context) {
+	var req usecases.UpdateSEOSettingsRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, ErrorResponse{
+			Error:   "Invalid request body",
+			Details: err.Error(),
+		})
+		return
+	}
+
+	if err := h.validator.Struct(req); err != nil {
+		c.JSON(http.StatusBadRequest, ErrorResponse{
+			Error:   "Validation failed",
+			Details: err.Error(),
+		})
+		return
+	}
+
+	err := h.settingsUseCase.UpdateSEOSettings(c.Request.Context(), req)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, ErrorResponse{
+			Error:   "Failed to update SEO settings",
+			Details: err.Error(),
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, SuccessResponse{
+		Message: "SEO settings updated successfully",
+	})
+}
+
+// GetSecuritySettings returns security settings
+func (h *AdminHandler) GetSecuritySettings(c *gin.Context) {
+	settings, err := h.settingsUseCase.GetSecuritySettings(c.Request.Context())
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, ErrorResponse{
+			Error:   "Failed to get security settings",
+			Details: err.Error(),
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, SuccessResponse{
+		Message: "Security settings retrieved successfully",
+		Data:    settings,
+	})
+}
+
+// UpdateSecuritySettings updates security settings
+func (h *AdminHandler) UpdateSecuritySettings(c *gin.Context) {
+	var req usecases.UpdateSecuritySettingsRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, ErrorResponse{
+			Error:   "Invalid request body",
+			Details: err.Error(),
+		})
+		return
+	}
+
+	if err := h.validator.Struct(req); err != nil {
+		c.JSON(http.StatusBadRequest, ErrorResponse{
+			Error:   "Validation failed",
+			Details: err.Error(),
+		})
+		return
+	}
+
+	err := h.settingsUseCase.UpdateSecuritySettings(c.Request.Context(), req)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, ErrorResponse{
+			Error:   "Failed to update security settings",
+			Details: err.Error(),
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, SuccessResponse{
+		Message: "Security settings updated successfully",
+	})
+}
+
+// GetNotificationSettings returns notification settings
+func (h *AdminHandler) GetNotificationSettings(c *gin.Context) {
+	settings, err := h.settingsUseCase.GetNotificationSettings(c.Request.Context())
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, ErrorResponse{
+			Error:   "Failed to get notification settings",
+			Details: err.Error(),
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, SuccessResponse{
+		Message: "Notification settings retrieved successfully",
+		Data:    settings,
+	})
+}
+
+// UpdateNotificationSettings updates notification settings
+func (h *AdminHandler) UpdateNotificationSettings(c *gin.Context) {
+	var req usecases.UpdateNotificationSettingsRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, ErrorResponse{
+			Error:   "Invalid request body",
+			Details: err.Error(),
+		})
+		return
+	}
+
+	err := h.settingsUseCase.UpdateNotificationSettings(c.Request.Context(), req)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, ErrorResponse{
+			Error:   "Failed to update notification settings",
+			Details: err.Error(),
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, SuccessResponse{
+		Message: "Notification settings updated successfully",
+	})
+}
+
+// GetIntegrationSettings returns integration settings
+func (h *AdminHandler) GetIntegrationSettings(c *gin.Context) {
+	settings, err := h.settingsUseCase.GetIntegrationSettings(c.Request.Context())
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, ErrorResponse{
+			Error:   "Failed to get integration settings",
+			Details: err.Error(),
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, SuccessResponse{
+		Message: "Integration settings retrieved successfully",
+		Data:    settings,
+	})
+}
+
+// UpdateIntegrationSettings updates integration settings
+func (h *AdminHandler) UpdateIntegrationSettings(c *gin.Context) {
+	var req usecases.UpdateIntegrationSettingsRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, ErrorResponse{
+			Error:   "Invalid request body",
+			Details: err.Error(),
+		})
+		return
+	}
+
+	err := h.settingsUseCase.UpdateIntegrationSettings(c.Request.Context(), req)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, ErrorResponse{
+			Error:   "Failed to update integration settings",
+			Details: err.Error(),
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, SuccessResponse{
+		Message: "Integration settings updated successfully",
 	})
 }

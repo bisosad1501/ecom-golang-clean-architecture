@@ -10,10 +10,10 @@ import (
 type LogLevel string
 
 const (
-	LogLevelDebug   LogLevel = "debug"
-	LogLevelInfo    LogLevel = "info"
-	LogLevelWarning LogLevel = "warning"
-	LogLevelError   LogLevel = "error"
+	LogLevelDebug    LogLevel = "debug"
+	LogLevelInfo     LogLevel = "info"
+	LogLevelWarning  LogLevel = "warning"
+	LogLevelError    LogLevel = "error"
 	LogLevelCritical LogLevel = "critical"
 )
 
@@ -21,15 +21,15 @@ const (
 type LogCategory string
 
 const (
-	LogCategoryUser     LogCategory = "user"
-	LogCategorySystem   LogCategory = "system"
-	LogCategorySecurity LogCategory = "security"
-	LogCategoryData     LogCategory = "data"
-	LogCategoryAdmin    LogCategory = "admin"
-	LogCategoryAPI      LogCategory = "api"
-	LogCategoryAuth     LogCategory = "auth"
-	LogCategoryOrder    LogCategory = "order"
-	LogCategoryPayment  LogCategory = "payment"
+	LogCategoryUser      LogCategory = "user"
+	LogCategorySystem    LogCategory = "system"
+	LogCategorySecurity  LogCategory = "security"
+	LogCategoryData      LogCategory = "data"
+	LogCategoryAdmin     LogCategory = "admin"
+	LogCategoryAPI       LogCategory = "api"
+	LogCategoryAuth      LogCategory = "auth"
+	LogCategoryOrder     LogCategory = "order"
+	LogCategoryPayment   LogCategory = "payment"
 	LogCategoryInventory LogCategory = "inventory"
 )
 
@@ -56,25 +56,25 @@ const (
 
 // AuditLog represents an audit log entry
 type AuditLog struct {
-	ID          uuid.UUID              `json:"id" gorm:"type:uuid;primary_key;default:gen_random_uuid()"`
-	UserID      *uuid.UUID             `json:"user_id,omitempty" gorm:"type:uuid;index"`
-	Action      string                 `json:"action" gorm:"not null;index"`
-	Resource    string                 `json:"resource" gorm:"not null;index"`
-	ResourceID  *string                `json:"resource_id,omitempty" gorm:"index"`
-	Level       LogLevel               `json:"level" gorm:"not null;index"`
-	Category    LogCategory            `json:"category" gorm:"not null;index"`
-	Message     string                 `json:"message" gorm:"not null"`
-	Details     map[string]interface{} `json:"details,omitempty" gorm:"type:jsonb"`
-	Metadata    map[string]interface{} `json:"metadata,omitempty" gorm:"type:jsonb"`
-	IPAddress   string                 `json:"ip_address,omitempty" gorm:"index"`
-	UserAgent   string                 `json:"user_agent,omitempty"`
-	SessionID   *string                `json:"session_id,omitempty" gorm:"index"`
-	RequestID   *string                `json:"request_id,omitempty" gorm:"index"`
-	Success     bool                   `json:"success" gorm:"default:true;index"`
-	ErrorCode   *string                `json:"error_code,omitempty"`
-	ErrorMessage *string               `json:"error_message,omitempty"`
-	Duration    *int64                 `json:"duration,omitempty"` // in milliseconds
-	CreatedAt   time.Time              `json:"created_at" gorm:"autoCreateTime;index"`
+	ID           uuid.UUID              `json:"id" gorm:"type:uuid;primary_key;default:gen_random_uuid()"`
+	UserID       *uuid.UUID             `json:"user_id,omitempty" gorm:"type:uuid;index"`
+	Action       string                 `json:"action" gorm:"not null;index"`
+	Resource     string                 `json:"resource" gorm:"not null;index"`
+	ResourceID   *string                `json:"resource_id,omitempty" gorm:"index"`
+	Level        LogLevel               `json:"level" gorm:"not null;index"`
+	Category     LogCategory            `json:"category" gorm:"not null;index"`
+	Message      string                 `json:"message" gorm:"not null"`
+	Details      map[string]interface{} `json:"details,omitempty" gorm:"type:jsonb"`
+	Metadata     map[string]interface{} `json:"metadata,omitempty" gorm:"type:jsonb"`
+	IPAddress    string                 `json:"ip_address,omitempty" gorm:"index"`
+	UserAgent    string                 `json:"user_agent,omitempty"`
+	SessionID    *string                `json:"session_id,omitempty" gorm:"index"`
+	RequestID    *string                `json:"request_id,omitempty" gorm:"index"`
+	Success      bool                   `json:"success" gorm:"default:true;index"`
+	ErrorCode    *string                `json:"error_code,omitempty"`
+	ErrorMessage *string                `json:"error_message,omitempty"`
+	Duration     *int64                 `json:"duration,omitempty"` // in milliseconds
+	CreatedAt    time.Time              `json:"created_at" gorm:"autoCreateTime;index"`
 
 	// Relationships
 	User *User `json:"user,omitempty" gorm:"foreignKey:UserID"`
@@ -87,17 +87,17 @@ func (AuditLog) TableName() string {
 
 // SecurityLog represents a security-specific audit log
 type SecurityLog struct {
-	ID          uuid.UUID        `json:"id" gorm:"type:uuid;primary_key;default:gen_random_uuid()"`
-	UserID      *uuid.UUID       `json:"user_id,omitempty" gorm:"type:uuid;index"`
-	EventType   string           `json:"event_type" gorm:"not null;index"`
-	Severity    SecuritySeverity `json:"severity" gorm:"not null;index"`
-	Description string           `json:"description" gorm:"not null"`
-	IPAddress   string           `json:"ip_address" gorm:"not null;index"`
-	UserAgent   string           `json:"user_agent"`
-	Location    string           `json:"location,omitempty"`
-	Successful  bool             `json:"successful" gorm:"default:false;index"`
+	ID          uuid.UUID              `json:"id" gorm:"type:uuid;primary_key;default:gen_random_uuid()"`
+	UserID      *uuid.UUID             `json:"user_id,omitempty" gorm:"type:uuid;index"`
+	EventType   string                 `json:"event_type" gorm:"not null;index"`
+	Severity    SecuritySeverity       `json:"severity" gorm:"not null;index"`
+	Description string                 `json:"description" gorm:"not null"`
+	IPAddress   string                 `json:"ip_address" gorm:"not null;index"`
+	UserAgent   string                 `json:"user_agent"`
+	Location    string                 `json:"location,omitempty"`
+	Successful  bool                   `json:"successful" gorm:"default:false;index"`
 	Metadata    map[string]interface{} `json:"metadata,omitempty" gorm:"type:jsonb"`
-	CreatedAt   time.Time        `json:"created_at" gorm:"autoCreateTime;index"`
+	CreatedAt   time.Time              `json:"created_at" gorm:"autoCreateTime;index"`
 
 	// Relationships
 	User *User `json:"user,omitempty" gorm:"foreignKey:UserID"`
@@ -154,18 +154,18 @@ func (SystemLog) TableName() string {
 
 // AdminActionLog represents admin-specific actions
 type AdminActionLog struct {
-	ID          uuid.UUID              `json:"id" gorm:"type:uuid;primary_key;default:gen_random_uuid()"`
-	AdminID     uuid.UUID              `json:"admin_id" gorm:"type:uuid;not null;index"`
-	Action      string                 `json:"action" gorm:"not null;index"`
-	Resource    string                 `json:"resource" gorm:"not null;index"`
-	ResourceID  *string                `json:"resource_id,omitempty" gorm:"index"`
-	TargetUserID *uuid.UUID            `json:"target_user_id,omitempty" gorm:"type:uuid;index"`
-	Description string                 `json:"description" gorm:"not null"`
-	Details     map[string]interface{} `json:"details,omitempty" gorm:"type:jsonb"`
-	IPAddress   string                 `json:"ip_address" gorm:"not null;index"`
-	UserAgent   string                 `json:"user_agent"`
-	Successful  bool                   `json:"successful" gorm:"default:true;index"`
-	CreatedAt   time.Time              `json:"created_at" gorm:"autoCreateTime;index"`
+	ID           uuid.UUID              `json:"id" gorm:"type:uuid;primary_key;default:gen_random_uuid()"`
+	AdminID      uuid.UUID              `json:"admin_id" gorm:"type:uuid;not null;index"`
+	Action       string                 `json:"action" gorm:"not null;index"`
+	Resource     string                 `json:"resource" gorm:"not null;index"`
+	ResourceID   *string                `json:"resource_id,omitempty" gorm:"index"`
+	TargetUserID *uuid.UUID             `json:"target_user_id,omitempty" gorm:"type:uuid;index"`
+	Description  string                 `json:"description" gorm:"not null"`
+	Details      map[string]interface{} `json:"details,omitempty" gorm:"type:jsonb"`
+	IPAddress    string                 `json:"ip_address" gorm:"not null;index"`
+	UserAgent    string                 `json:"user_agent"`
+	Successful   bool                   `json:"successful" gorm:"default:true;index"`
+	CreatedAt    time.Time              `json:"created_at" gorm:"autoCreateTime;index"`
 
 	// Relationships
 	Admin      *User `json:"admin,omitempty" gorm:"foreignKey:AdminID"`
@@ -179,13 +179,13 @@ func (AdminActionLog) TableName() string {
 
 // IsSecurityEvent checks if the audit log represents a security event
 func (al *AuditLog) IsSecurityEvent() bool {
-	return al.Category == LogCategorySecurity || 
-		   al.Category == LogCategoryAuth ||
-		   al.Action == "login" ||
-		   al.Action == "logout" ||
-		   al.Action == "failed_login" ||
-		   al.Action == "password_change" ||
-		   al.Action == "permission_denied"
+	return al.Category == LogCategorySecurity ||
+		al.Category == LogCategoryAuth ||
+		al.Action == "login" ||
+		al.Action == "logout" ||
+		al.Action == "failed_login" ||
+		al.Action == "password_change" ||
+		al.Action == "permission_denied"
 }
 
 // IsCritical checks if the audit log is critical
@@ -234,3 +234,133 @@ type AuditStats struct {
 	FailedLogins     int64 `json:"failed_logins"`
 	SuccessfulLogins int64 `json:"successful_logins"`
 }
+
+// SettingsChangeDetail represents a single setting change
+type SettingsChangeDetail struct {
+	Key      string      `json:"key"`
+	OldValue interface{} `json:"old_value"`
+	NewValue interface{} `json:"new_value"`
+	Type     string      `json:"type"`
+}
+
+// AuditAction represents the type of action performed
+type AuditAction string
+
+const (
+	AuditActionCreate AuditAction = "CREATE"
+	AuditActionUpdate AuditAction = "UPDATE"
+	AuditActionDelete AuditAction = "DELETE"
+	AuditActionView   AuditAction = "VIEW"
+	AuditActionLogin  AuditAction = "LOGIN"
+	AuditActionLogout AuditAction = "LOGOUT"
+)
+
+// AuditResource represents the type of resource being audited
+type AuditResource string
+
+const (
+	AuditResourceSettings     AuditResource = "settings"
+	AuditResourceUsers        AuditResource = "users"
+	AuditResourceProducts     AuditResource = "products"
+	AuditResourceOrders       AuditResource = "orders"
+	AuditResourceCategories   AuditResource = "categories"
+	AuditResourceCoupons      AuditResource = "coupons"
+	AuditResourceReviews      AuditResource = "reviews"
+	AuditResourcePayments     AuditResource = "payments"
+	AuditResourceShipping     AuditResource = "shipping"
+	AuditResourceTax          AuditResource = "tax"
+	AuditResourceMarketing    AuditResource = "marketing"
+	AuditResourceSecurity     AuditResource = "security"
+	AuditResourceIntegrations AuditResource = "integrations"
+)
+
+// SecurityEvent represents a security-related event
+type SecurityEvent struct {
+	ID          uuid.UUID  `json:"id" gorm:"type:uuid;primary_key;default:gen_random_uuid()"`
+	UserID      *uuid.UUID `json:"user_id" gorm:"type:uuid"`
+	EventType   string     `json:"event_type" gorm:"not null"` // LOGIN_FAILED, SUSPICIOUS_ACTIVITY, etc.
+	Severity    string     `json:"severity" gorm:"not null"`   // LOW, MEDIUM, HIGH, CRITICAL
+	Description string     `json:"description" gorm:"not null"`
+	IPAddress   string     `json:"ip_address"`
+	UserAgent   string     `json:"user_agent"`
+	Location    string     `json:"location"`                  // Geolocation if available
+	Metadata    string     `json:"metadata" gorm:"type:text"` // Additional data as JSON
+	Resolved    bool       `json:"resolved" gorm:"default:false"`
+	ResolvedBy  *uuid.UUID `json:"resolved_by" gorm:"type:uuid"`
+	ResolvedAt  *time.Time `json:"resolved_at"`
+	CreatedAt   time.Time  `json:"created_at"`
+}
+
+// TableName returns the table name for SecurityEvent
+func (SecurityEvent) TableName() string {
+	return "security_events"
+}
+
+// SystemEvent represents a system-level event
+type SystemEvent struct {
+	ID          uuid.UUID `json:"id" gorm:"type:uuid;primary_key;default:gen_random_uuid()"`
+	EventType   string    `json:"event_type" gorm:"not null"` // BACKUP_CREATED, MIGRATION_RUN, etc.
+	Category    string    `json:"category" gorm:"not null"`   // BACKUP, MIGRATION, MAINTENANCE, etc.
+	Description string    `json:"description" gorm:"not null"`
+	Status      string    `json:"status" gorm:"not null"`    // SUCCESS, FAILED, IN_PROGRESS
+	Duration    int64     `json:"duration"`                  // Duration in milliseconds
+	Metadata    string    `json:"metadata" gorm:"type:text"` // Additional data as JSON
+	CreatedAt   time.Time `json:"created_at"`
+}
+
+// TableName returns the table name for SystemEvent
+func (SystemEvent) TableName() string {
+	return "system_events"
+}
+
+// SecurityEventType represents the type of security event
+type SecurityEventType string
+
+const (
+	SecurityEventLoginFailed        SecurityEventType = "LOGIN_FAILED"
+	SecurityEventMultipleFailures   SecurityEventType = "MULTIPLE_LOGIN_FAILURES"
+	SecurityEventSuspiciousActivity SecurityEventType = "SUSPICIOUS_ACTIVITY"
+	SecurityEventUnauthorizedAccess SecurityEventType = "UNAUTHORIZED_ACCESS"
+	SecurityEventPasswordChanged    SecurityEventType = "PASSWORD_CHANGED"
+	SecurityEventAccountLocked      SecurityEventType = "ACCOUNT_LOCKED"
+	SecurityEventAccountUnlocked    SecurityEventType = "ACCOUNT_UNLOCKED"
+	SecurityEventPermissionChanged  SecurityEventType = "PERMISSION_CHANGED"
+	SecurityEventDataExport         SecurityEventType = "DATA_EXPORT"
+	SecurityEventConfigChanged      SecurityEventType = "CONFIG_CHANGED"
+)
+
+// SystemEventType represents the type of system event
+type SystemEventType string
+
+const (
+	SystemEventBackupCreated   SystemEventType = "BACKUP_CREATED"
+	SystemEventBackupRestored  SystemEventType = "BACKUP_RESTORED"
+	SystemEventMigrationRun    SystemEventType = "MIGRATION_RUN"
+	SystemEventMaintenanceMode SystemEventType = "MAINTENANCE_MODE"
+	SystemEventCacheCleared    SystemEventType = "CACHE_CLEARED"
+	SystemEventConfigReloaded  SystemEventType = "CONFIG_RELOADED"
+	SystemEventServiceRestart  SystemEventType = "SERVICE_RESTART"
+	SystemEventHealthCheck     SystemEventType = "HEALTH_CHECK"
+)
+
+// SystemEventCategory represents the category of system event
+type SystemEventCategory string
+
+const (
+	SystemCategoryBackup      SystemEventCategory = "BACKUP"
+	SystemCategoryMigration   SystemEventCategory = "MIGRATION"
+	SystemCategoryMaintenance SystemEventCategory = "MAINTENANCE"
+	SystemCategoryMonitoring  SystemEventCategory = "MONITORING"
+	SystemCategoryPerformance SystemEventCategory = "PERFORMANCE"
+	SystemCategorySecurity    SystemEventCategory = "SECURITY"
+)
+
+// EventStatus represents the status of an event
+type EventStatus string
+
+const (
+	EventStatusSuccess    EventStatus = "SUCCESS"
+	EventStatusFailed     EventStatus = "FAILED"
+	EventStatusInProgress EventStatus = "IN_PROGRESS"
+	EventStatusCancelled  EventStatus = "CANCELLED"
+)

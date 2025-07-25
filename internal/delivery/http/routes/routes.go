@@ -37,7 +37,7 @@ func SetupRoutes(
 	recommendationHandler *handlers.RecommendationHandler,
 	comparisonHandler *handlers.ProductComparisonHandler,
 	productFilterHandler *handlers.ProductFilterHandler,
-	abandonedCartHandler *handlers.AbandonedCartHandler,
+	// abandonedCartHandler *handlers.AbandonedCartHandler, // TODO: Implement
 ) {
 	// Apply global middleware
 	router.Use(gin.Recovery())                       // Add panic recovery middleware
@@ -766,14 +766,14 @@ func SetupRoutes(
 				inventory.GET("/out-of-stock", inventoryHandler.GetOutOfStockItems)
 			}
 
-			// Abandoned cart management routes
-			abandonedCarts := admin.Group("/abandoned-carts")
-			{
-				abandonedCarts.GET("", abandonedCartHandler.GetAbandonedCarts)
-				abandonedCarts.GET("/stats", abandonedCartHandler.GetAbandonedCartStats)
-				abandonedCarts.POST("/process", abandonedCartHandler.ProcessAbandonedCarts)
-				abandonedCarts.POST("/:id/reminder", abandonedCartHandler.SendReminderEmail)
-			}
+			// Abandoned cart management routes - TODO: Implement
+			// abandonedCarts := admin.Group("/abandoned-carts")
+			// {
+			// 	abandonedCarts.GET("", abandonedCartHandler.GetAbandonedCarts)
+			// 	abandonedCarts.GET("/stats", abandonedCartHandler.GetAbandonedCartStats)
+			// 	abandonedCarts.POST("/process", abandonedCartHandler.ProcessAbandonedCarts)
+			// 	abandonedCarts.POST("/:id/reminder", abandonedCartHandler.SendReminderEmail)
+			// }
 
 			// Coupon management routes
 			adminCoupons := admin.Group("/coupons")
@@ -827,6 +827,202 @@ func SetupRoutes(
 				security.GET("/suspicious-activity", adminHandler.GetSuspiciousLoginActivity)
 				security.GET("/report", adminHandler.GetLoginSecurityReport)
 			}
+
+			// Settings management routes
+			settings := admin.Group("/settings")
+			{
+				settings.GET("/general", adminHandler.GetGeneralSettings)
+				settings.PUT("/general", adminHandler.UpdateGeneralSettings)
+				settings.GET("/store", adminHandler.GetStoreConfig)
+				settings.PUT("/store", adminHandler.UpdateStoreConfig)
+				settings.GET("/payment", adminHandler.GetPaymentSettings)
+				settings.PUT("/payment", adminHandler.UpdatePaymentSettings)
+				settings.GET("/email", adminHandler.GetEmailSettings)
+				settings.PUT("/email", adminHandler.UpdateEmailSettings)
+				settings.POST("/email/test", adminHandler.TestEmailSettings)
+				settings.GET("/tax", adminHandler.GetTaxSettings)
+				settings.PUT("/tax", adminHandler.UpdateTaxSettings)
+				settings.GET("/shipping", adminHandler.GetShippingSettings)
+				settings.PUT("/shipping", adminHandler.UpdateShippingSettings)
+				settings.GET("/seo", adminHandler.GetSEOSettings)
+				settings.PUT("/seo", adminHandler.UpdateSEOSettings)
+				settings.GET("/security", adminHandler.GetSecuritySettings)
+				settings.PUT("/security", adminHandler.UpdateSecuritySettings)
+				settings.GET("/notifications", adminHandler.GetNotificationSettings)
+				settings.PUT("/notifications", adminHandler.UpdateNotificationSettings)
+				settings.GET("/integrations", adminHandler.GetIntegrationSettings)
+				settings.PUT("/integrations", adminHandler.UpdateIntegrationSettings)
+			}
+
+			// Content Management System routes - TODO: Implement these handlers
+			// cms := admin.Group("/cms")
+			// {
+			// Pages - TODO: Implement these handlers
+			// pages := cms.Group("/pages")
+			// {
+			// 	pages.GET("", adminHandler.GetPages)
+			// 	pages.GET("/:id", adminHandler.GetPage)
+			// 	pages.POST("", adminHandler.CreatePage)
+			// 	pages.PUT("/:id", adminHandler.UpdatePage)
+			// 	pages.DELETE("/:id", adminHandler.DeletePage)
+			// 	pages.POST("/:id/publish", adminHandler.PublishPage)
+			// 	pages.POST("/:id/unpublish", adminHandler.UnpublishPage)
+			// }
+
+			// Blocks - TODO: Implement these handlers
+			// blocks := cms.Group("/blocks")
+			// {
+			// 	blocks.GET("", adminHandler.GetBlocks)
+			// 	blocks.GET("/:id", adminHandler.GetBlock)
+			// 	blocks.POST("", adminHandler.CreateBlock)
+			// 	blocks.PUT("/:id", adminHandler.UpdateBlock)
+			// 	blocks.DELETE("/:id", adminHandler.DeleteBlock)
+			// }
+
+			// Menus - TODO: Implement these handlers
+			// menus := cms.Group("/menus")
+			// {
+			// 	menus.GET("", adminHandler.GetMenus)
+			// 	menus.GET("/:id", adminHandler.GetMenu)
+			// 	menus.POST("", adminHandler.CreateMenu)
+			// 	menus.PUT("/:id", adminHandler.UpdateMenu)
+			// 	menus.DELETE("/:id", adminHandler.DeleteMenu)
+			// }
+
+			// Banners - TODO: Implement these handlers
+			// banners := cms.Group("/banners")
+			// {
+			// 	banners.GET("", adminHandler.GetBanners)
+			// 	banners.GET("/:id", adminHandler.GetBanner)
+			// 	banners.POST("", adminHandler.CreateBanner)
+			// 	banners.PUT("/:id", adminHandler.UpdateBanner)
+			// 	banners.DELETE("/:id", adminHandler.DeleteBanner)
+			// }
+
+			// Sliders - TODO: Implement these handlers
+			// sliders := cms.Group("/sliders")
+			// {
+			// 	sliders.GET("", adminHandler.GetSliders)
+			// 	sliders.GET("/:id", adminHandler.GetSlider)
+			// 	sliders.POST("", adminHandler.CreateSlider)
+			// 	sliders.PUT("/:id", adminHandler.UpdateSlider)
+			// 	sliders.DELETE("/:id", adminHandler.DeleteSlider)
+			// }
+
+			// Widgets - TODO: Implement these handlers
+			// widgets := cms.Group("/widgets")
+			// {
+			// 	widgets.GET("", adminHandler.GetWidgets)
+			// 	widgets.GET("/:id", adminHandler.GetWidget)
+			// 	widgets.POST("", adminHandler.CreateWidget)
+			// 	widgets.PUT("/:id", adminHandler.UpdateWidget)
+			// 	widgets.DELETE("/:id", adminHandler.DeleteWidget)
+			// }
+
+			// Templates - TODO: Implement these handlers
+			// templates := cms.Group("/templates")
+			// {
+			// 	templates.GET("", adminHandler.GetTemplates)
+			// 	templates.GET("/:id", adminHandler.GetTemplate)
+			// 	templates.POST("", adminHandler.CreateTemplate)
+			// 	templates.PUT("/:id", adminHandler.UpdateTemplate)
+			// 	templates.DELETE("/:id", adminHandler.DeleteTemplate)
+			// }
+			// }
+
+			// Marketing management routes - TODO: Implement these handlers
+			// marketing := admin.Group("/marketing")
+			// {
+			// 	// Campaigns
+			// 	campaigns := marketing.Group("/campaigns")
+			// 	{
+			// 		campaigns.GET("", adminHandler.GetCampaigns)
+			// 		campaigns.GET("/:id", adminHandler.GetCampaign)
+			// 		campaigns.POST("", adminHandler.CreateCampaign)
+			// 		campaigns.PUT("/:id", adminHandler.UpdateCampaign)
+			// 		campaigns.DELETE("/:id", adminHandler.DeleteCampaign)
+			// 		campaigns.POST("/:id/launch", adminHandler.LaunchCampaign)
+			// 		campaigns.POST("/:id/pause", adminHandler.PauseCampaign)
+			// 		campaigns.GET("/:id/analytics", adminHandler.GetCampaignAnalytics)
+			// 	}
+
+			// 	// Promotions
+			// 	promotions := marketing.Group("/promotions")
+			// 	{
+			// 		promotions.GET("", adminHandler.GetPromotions)
+			// 		promotions.GET("/:id", adminHandler.GetPromotion)
+			// 		promotions.POST("", adminHandler.CreatePromotion)
+			// 		promotions.PUT("/:id", adminHandler.UpdatePromotion)
+			// 		promotions.DELETE("/:id", adminHandler.DeletePromotion)
+			// 		promotions.POST("/:id/activate", adminHandler.ActivatePromotion)
+			// 		promotions.POST("/:id/deactivate", adminHandler.DeactivatePromotion)
+			// 	}
+
+			// 	// Email Marketing - TODO: Implement these handlers
+			// 	email := marketing.Group("/email")
+			// 	{
+			// 		email.GET("/templates", adminHandler.GetEmailTemplates)
+			// 		email.GET("/templates/:id", adminHandler.GetEmailTemplate)
+			// 		email.POST("/templates", adminHandler.CreateEmailTemplate)
+			// 		email.PUT("/templates/:id", adminHandler.UpdateEmailTemplate)
+			// 		email.DELETE("/templates/:id", adminHandler.DeleteEmailTemplate)
+			// 		email.POST("/campaigns", adminHandler.SendEmailCampaign)
+			// 		email.GET("/campaigns", adminHandler.GetEmailCampaigns)
+			// 		email.GET("/campaigns/:id/stats", adminHandler.GetEmailCampaignStats)
+			// 	}
+
+			// 	// Newsletter - TODO: Implement these handlers
+			// 	newsletter := marketing.Group("/newsletter")
+			// 	{
+			// 		newsletter.GET("/subscribers", adminHandler.GetNewsletterSubscribers)
+			// 		newsletter.POST("/subscribers/export", adminHandler.ExportSubscribers)
+			// 		newsletter.POST("/subscribers/import", adminHandler.ImportSubscribers)
+			// 		newsletter.POST("/send", adminHandler.SendNewsletter)
+			// 	}
+
+			// 	// Loyalty Programs - TODO: Implement these handlers
+			// 	loyalty := marketing.Group("/loyalty")
+			// 	{
+			// 		loyalty.GET("", adminHandler.GetLoyaltyPrograms)
+			// 		loyalty.GET("/:id", adminHandler.GetLoyaltyProgram)
+			// 		loyalty.POST("", adminHandler.CreateLoyaltyProgram)
+			// 		loyalty.PUT("/:id", adminHandler.UpdateLoyaltyProgram)
+			// 		loyalty.DELETE("/:id", adminHandler.DeleteLoyaltyProgram)
+			// 	}
+
+			// 	// Referral Programs - TODO: Implement these handlers
+			// 	referral := marketing.Group("/referral")
+			// 	{
+			// 		referral.GET("", adminHandler.GetReferralPrograms)
+			// 		referral.GET("/:id", adminHandler.GetReferralProgram)
+			// 		referral.POST("", adminHandler.CreateReferralProgram)
+			// 		referral.PUT("/:id", adminHandler.UpdateReferralProgram)
+			// 		referral.DELETE("/:id", adminHandler.DeleteReferralProgram)
+			// 		referral.GET("/:id/stats", adminHandler.GetReferralStats)
+			// 	}
+
+			// 	// Abandoned Cart Recovery - TODO: Implement these handlers
+			// 	abandoned := marketing.Group("/abandoned-cart")
+			// 	{
+			// 		abandoned.GET("", adminHandler.GetAbandonedCarts)
+			// 		abandoned.POST("/recovery-email", adminHandler.CreateRecoveryEmail)
+			// 		abandoned.GET("/recovery-templates", adminHandler.GetRecoveryEmailTemplates)
+			// 		abandoned.GET("/stats", adminHandler.GetAbandonedCartStats)
+			// 	}
+
+			// 	// A/B Testing - TODO: Implement these handlers
+			// 	abtest := marketing.Group("/ab-test")
+			// 	{
+			// 		abtest.GET("", adminHandler.GetABTests)
+			// 		abtest.GET("/:id", adminHandler.GetABTest)
+			// 		abtest.POST("", adminHandler.CreateABTest)
+			// 		abtest.PUT("/:id", adminHandler.UpdateABTest)
+			// 		abtest.DELETE("/:id", adminHandler.DeleteABTest)
+			// 		abtest.POST("/:id/start", adminHandler.StartABTest)
+			// 		abtest.POST("/:id/stop", adminHandler.StopABTest)
+			// 		abtest.GET("/:id/results", adminHandler.GetABTestResults)
+			// 	}
+			// }
 
 			// Migration management routes
 			migrations := admin.Group("/migrations")

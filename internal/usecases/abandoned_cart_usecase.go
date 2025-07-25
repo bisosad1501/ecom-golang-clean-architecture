@@ -159,7 +159,7 @@ func (uc *abandonedCartUseCase) sendFirstReminder(ctx context.Context, cart *ent
 		return fmt.Errorf("cart has no user ID")
 	}
 
-	return uc.emailUseCase.SendAbandonedCartEmail(ctx, *cart.UserID)
+	return uc.emailUseCase.SendAbandonedCartEmail(ctx, cart.ID, "user@example.com") // TODO: Get actual user email
 }
 
 // sendSecondReminder sends the second abandonment reminder
@@ -168,7 +168,7 @@ func (uc *abandonedCartUseCase) sendSecondReminder(ctx context.Context, cart *en
 		return fmt.Errorf("cart has no user ID")
 	}
 
-	return uc.emailUseCase.SendAbandonedCartEmail(ctx, *cart.UserID)
+	return uc.emailUseCase.SendAbandonedCartEmail(ctx, cart.ID, "user@example.com") // TODO: Get actual user email
 }
 
 // sendFinalReminder sends the final abandonment reminder
@@ -177,7 +177,7 @@ func (uc *abandonedCartUseCase) sendFinalReminder(ctx context.Context, cart *ent
 		return fmt.Errorf("cart has no user ID")
 	}
 
-	return uc.emailUseCase.SendAbandonedCartEmail(ctx, *cart.UserID)
+	return uc.emailUseCase.SendAbandonedCartEmail(ctx, cart.ID, "user@example.com") // TODO: Get actual user email
 }
 
 // SendAbandonedCartEmails sends emails for abandoned carts

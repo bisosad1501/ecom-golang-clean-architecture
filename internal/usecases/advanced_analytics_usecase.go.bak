@@ -1,0 +1,548 @@
+package usecases
+
+import (
+	"context"
+	"time"
+
+	"github.com/google/uuid"
+)
+
+// AdvancedAnalyticsUseCase defines advanced analytics use cases
+type AdvancedAnalyticsUseCase interface {
+	// Business Intelligence
+	GetBusinessIntelligence(ctx context.Context, req BusinessIntelligenceRequest) (*BusinessIntelligenceResponse, error)
+	GetKPIDashboard(ctx context.Context, req KPIDashboardRequest) (*KPIDashboardResponse, error)
+	GetExecutiveSummary(ctx context.Context, period string) (*ExecutiveSummaryResponse, error)
+
+	// Advanced Reports
+	GetSalesAnalytics(ctx context.Context, req SalesAnalyticsRequest) (*SalesAnalyticsResponse, error)
+	GetCustomerAnalytics(ctx context.Context, req CustomerAnalyticsRequest) (*CustomerAnalyticsResponse, error)
+	GetProductAnalytics(ctx context.Context, req ProductAnalyticsRequest) (*ProductAnalyticsResponse, error)
+	GetInventoryAnalytics(ctx context.Context, req InventoryAnalyticsRequest) (*InventoryAnalyticsResponse, error)
+	GetMarketingAnalytics(ctx context.Context, req MarketingAnalyticsRequest) (*MarketingAnalyticsResponse, error)
+	GetFinancialAnalytics(ctx context.Context, req FinancialAnalyticsRequest) (*FinancialAnalyticsResponse, error)
+
+	// Predictive Analytics
+	GetSalesForecast(ctx context.Context, req SalesForecastRequest) (*SalesForecastResponse, error)
+	GetDemandForecast(ctx context.Context, req DemandForecastRequest) (*DemandForecastResponse, error)
+	GetCustomerLifetimeValue(ctx context.Context, req CLVRequest) (*CLVResponse, error)
+	GetChurnPrediction(ctx context.Context, req ChurnPredictionRequest) (*ChurnPredictionResponse, error)
+	GetPriceOptimization(ctx context.Context, req PriceOptimizationRequest) (*PriceOptimizationResponse, error)
+
+	// Cohort Analysis
+	GetCohortAnalysis(ctx context.Context, req CohortAnalysisRequest) (*CohortAnalysisResponse, error)
+	GetRetentionAnalysis(ctx context.Context, req RetentionAnalysisRequest) (*RetentionAnalysisResponse, error)
+
+	// Funnel Analysis
+	GetConversionFunnel(ctx context.Context, req ConversionFunnelRequest) (*ConversionFunnelResponse, error)
+	GetCheckoutFunnel(ctx context.Context, req CheckoutFunnelRequest) (*CheckoutFunnelResponse, error)
+
+	// Segmentation
+	GetCustomerSegmentation(ctx context.Context, req CustomerSegmentationRequest) (*CustomerSegmentationResponse, error)
+	GetProductSegmentation(ctx context.Context, req ProductSegmentationRequest) (*ProductSegmentationResponse, error)
+
+	// Real-time Analytics
+	GetRealTimeMetrics(ctx context.Context) (*RealTimeMetricsResponse, error)
+	GetLiveVisitors(ctx context.Context) (*LiveVisitorsResponse, error)
+	GetRealTimeSales(ctx context.Context) (*RealTimeSalesResponse, error)
+
+	// Custom Reports
+	CreateCustomReport(ctx context.Context, req CreateCustomReportRequest) (*CustomReportResponse, error)
+	GetCustomReports(ctx context.Context, req GetCustomReportsRequest) (*GetCustomReportsResponse, error)
+	RunCustomReport(ctx context.Context, reportID uuid.UUID, params map[string]interface{}) (*CustomReportResultResponse, error)
+	ScheduleReport(ctx context.Context, req ScheduleReportRequest) (*ScheduledReportResponse, error)
+
+	// Data Export
+	ExportAnalyticsData(ctx context.Context, req ExportAnalyticsRequest) (*ExportResponse, error)
+}
+
+// Business Intelligence types
+type BusinessIntelligenceRequest struct {
+	Period    string    `json:"period" validate:"required,oneof=today yesterday week month quarter year custom"`
+	DateFrom  *time.Time `json:"date_from"`
+	DateTo    *time.Time `json:"date_to"`
+	Metrics   []string  `json:"metrics"`
+	Dimensions []string `json:"dimensions"`
+	Filters   map[string]interface{} `json:"filters"`
+}
+
+type BusinessIntelligenceResponse struct {
+	Period string `json:"period"`
+	Overview struct {
+		TotalRevenue      float64 `json:"total_revenue"`
+		RevenueGrowth     float64 `json:"revenue_growth"`
+		TotalOrders       int64   `json:"total_orders"`
+		OrdersGrowth      float64 `json:"orders_growth"`
+		TotalCustomers    int64   `json:"total_customers"`
+		CustomersGrowth   float64 `json:"customers_growth"`
+		AverageOrderValue float64 `json:"average_order_value"`
+		AOVGrowth         float64 `json:"aov_growth"`
+		ConversionRate    float64 `json:"conversion_rate"`
+		ConversionGrowth  float64 `json:"conversion_growth"`
+		CustomerAcquisitionCost float64 `json:"customer_acquisition_cost"`
+		CACGrowth         float64 `json:"cac_growth"`
+		LifetimeValue     float64 `json:"lifetime_value"`
+		LTVGrowth         float64 `json:"ltv_growth"`
+		ChurnRate         float64 `json:"churn_rate"`
+		ChurnGrowth       float64 `json:"churn_growth"`
+	} `json:"overview"`
+	Charts struct {
+		RevenueChart []TimeSeriesData `json:"revenue_chart"`
+		OrdersChart  []TimeSeriesData `json:"orders_chart"`
+		CustomersChart []TimeSeriesData `json:"customers_chart"`
+		ConversionChart []TimeSeriesData `json:"conversion_chart"`
+	} `json:"charts"`
+	TopMetrics []struct {
+		Name        string  `json:"name"`
+		Value       float64 `json:"value"`
+		Growth      float64 `json:"growth"`
+		Trend       string  `json:"trend"`
+		Description string  `json:"description"`
+	} `json:"top_metrics"`
+	Insights []struct {
+		Type        string `json:"type"`
+		Title       string `json:"title"`
+		Description string `json:"description"`
+		Impact      string `json:"impact"`
+		Recommendation string `json:"recommendation"`
+	} `json:"insights"`
+}
+
+type TimeSeriesData struct {
+	Date  time.Time `json:"date"`
+	Value float64   `json:"value"`
+	Label string    `json:"label"`
+}
+
+type KPIDashboardRequest struct {
+	Period   string    `json:"period" validate:"required,oneof=today yesterday week month quarter year"`
+	DateFrom *time.Time `json:"date_from"`
+	DateTo   *time.Time `json:"date_to"`
+	KPIs     []string  `json:"kpis"`
+}
+
+type KPIDashboardResponse struct {
+	Period string `json:"period"`
+	KPIs   []struct {
+		Name         string  `json:"name"`
+		Value        float64 `json:"value"`
+		Target       float64 `json:"target"`
+		Growth       float64 `json:"growth"`
+		Status       string  `json:"status"`
+		Trend        string  `json:"trend"`
+		Description  string  `json:"description"`
+		Unit         string  `json:"unit"`
+		Format       string  `json:"format"`
+		LastUpdated  time.Time `json:"last_updated"`
+	} `json:"kpis"`
+	Alerts []struct {
+		Type        string `json:"type"`
+		Severity    string `json:"severity"`
+		Message     string `json:"message"`
+		KPI         string `json:"kpi"`
+		Threshold   float64 `json:"threshold"`
+		CurrentValue float64 `json:"current_value"`
+	} `json:"alerts"`
+}
+
+type ExecutiveSummaryResponse struct {
+	Period string `json:"period"`
+	Summary struct {
+		Revenue struct {
+			Current  float64 `json:"current"`
+			Previous float64 `json:"previous"`
+			Growth   float64 `json:"growth"`
+			Forecast float64 `json:"forecast"`
+		} `json:"revenue"`
+		Customers struct {
+			Total    int64   `json:"total"`
+			New      int64   `json:"new"`
+			Retained int64   `json:"retained"`
+			ChurnRate float64 `json:"churn_rate"`
+		} `json:"customers"`
+		Products struct {
+			TopSelling    []ProductPerformance `json:"top_selling"`
+			LowPerforming []ProductPerformance `json:"low_performing"`
+			OutOfStock    int64               `json:"out_of_stock"`
+		} `json:"products"`
+		Marketing struct {
+			CampaignsActive int64   `json:"campaigns_active"`
+			ROI             float64 `json:"roi"`
+			CAC             float64 `json:"cac"`
+			LTV             float64 `json:"ltv"`
+		} `json:"marketing"`
+	} `json:"summary"`
+	KeyInsights []string `json:"key_insights"`
+	Recommendations []string `json:"recommendations"`
+	Risks []string `json:"risks"`
+}
+
+type ProductPerformance struct {
+	ID       uuid.UUID `json:"id"`
+	Name     string    `json:"name"`
+	Revenue  float64   `json:"revenue"`
+	Units    int64     `json:"units"`
+	Growth   float64   `json:"growth"`
+	Margin   float64   `json:"margin"`
+}
+
+// Sales Analytics types
+type SalesAnalyticsRequest struct {
+	Period     string    `json:"period" validate:"required"`
+	DateFrom   *time.Time `json:"date_from"`
+	DateTo     *time.Time `json:"date_to"`
+	GroupBy    string    `json:"group_by" validate:"omitempty,oneof=day week month quarter year"`
+	Segments   []string  `json:"segments"`
+	Categories []uuid.UUID `json:"categories"`
+	Products   []uuid.UUID `json:"products"`
+	Channels   []string  `json:"channels"`
+	Regions    []string  `json:"regions"`
+}
+
+type SalesAnalyticsResponse struct {
+	Period string `json:"period"`
+	Overview struct {
+		TotalRevenue      float64 `json:"total_revenue"`
+		TotalOrders       int64   `json:"total_orders"`
+		AverageOrderValue float64 `json:"average_order_value"`
+		UnitsPerOrder     float64 `json:"units_per_order"`
+		GrossMargin       float64 `json:"gross_margin"`
+		NetMargin         float64 `json:"net_margin"`
+		RefundRate        float64 `json:"refund_rate"`
+		ReturnRate        float64 `json:"return_rate"`
+	} `json:"overview"`
+	Timeline []struct {
+		Date    time.Time `json:"date"`
+		Revenue float64   `json:"revenue"`
+		Orders  int64     `json:"orders"`
+		Units   int64     `json:"units"`
+		AOV     float64   `json:"aov"`
+		Margin  float64   `json:"margin"`
+	} `json:"timeline"`
+	ByCategory []struct {
+		CategoryID   uuid.UUID `json:"category_id"`
+		CategoryName string    `json:"category_name"`
+		Revenue      float64   `json:"revenue"`
+		Orders       int64     `json:"orders"`
+		Units        int64     `json:"units"`
+		Growth       float64   `json:"growth"`
+		Share        float64   `json:"share"`
+	} `json:"by_category"`
+	ByProduct []ProductPerformance `json:"by_product"`
+	ByChannel []struct {
+		Channel string  `json:"channel"`
+		Revenue float64 `json:"revenue"`
+		Orders  int64   `json:"orders"`
+		Share   float64 `json:"share"`
+		Growth  float64 `json:"growth"`
+	} `json:"by_channel"`
+	ByRegion []struct {
+		Region  string  `json:"region"`
+		Revenue float64 `json:"revenue"`
+		Orders  int64   `json:"orders"`
+		Share   float64 `json:"share"`
+		Growth  float64 `json:"growth"`
+	} `json:"by_region"`
+}
+
+// Customer Analytics types
+type CustomerAnalyticsRequest struct {
+	Period     string    `json:"period" validate:"required"`
+	DateFrom   *time.Time `json:"date_from"`
+	DateTo     *time.Time `json:"date_to"`
+	Segments   []string  `json:"segments"`
+	Cohorts    []string  `json:"cohorts"`
+	Metrics    []string  `json:"metrics"`
+}
+
+type CustomerAnalyticsResponse struct {
+	Period string `json:"period"`
+	Overview struct {
+		TotalCustomers    int64   `json:"total_customers"`
+		NewCustomers      int64   `json:"new_customers"`
+		ReturningCustomers int64  `json:"returning_customers"`
+		ActiveCustomers   int64   `json:"active_customers"`
+		ChurnedCustomers  int64   `json:"churned_customers"`
+		ChurnRate         float64 `json:"churn_rate"`
+		RetentionRate     float64 `json:"retention_rate"`
+		AverageLifetime   float64 `json:"average_lifetime"`
+		LifetimeValue     float64 `json:"lifetime_value"`
+		AcquisitionCost   float64 `json:"acquisition_cost"`
+		LTVCACRatio       float64 `json:"ltv_cac_ratio"`
+	} `json:"overview"`
+	Acquisition struct {
+		Timeline []struct {
+			Date     time.Time `json:"date"`
+			New      int64     `json:"new"`
+			Cost     float64   `json:"cost"`
+			CAC      float64   `json:"cac"`
+		} `json:"timeline"`
+		ByChannel []struct {
+			Channel     string  `json:"channel"`
+			Customers   int64   `json:"customers"`
+			Cost        float64 `json:"cost"`
+			CAC         float64 `json:"cac"`
+			LTV         float64 `json:"ltv"`
+			ROI         float64 `json:"roi"`
+		} `json:"by_channel"`
+	} `json:"acquisition"`
+	Segmentation []struct {
+		Segment     string  `json:"segment"`
+		Count       int64   `json:"count"`
+		Revenue     float64 `json:"revenue"`
+		AOV         float64 `json:"aov"`
+		Frequency   float64 `json:"frequency"`
+		LTV         float64 `json:"ltv"`
+		ChurnRate   float64 `json:"churn_rate"`
+	} `json:"segmentation"`
+	Geography []struct {
+		Country   string  `json:"country"`
+		Customers int64   `json:"customers"`
+		Revenue   float64 `json:"revenue"`
+		AOV       float64 `json:"aov"`
+		Share     float64 `json:"share"`
+	} `json:"geography"`
+}
+
+// Predictive Analytics types
+type SalesForecastRequest struct {
+	Period      string    `json:"period" validate:"required,oneof=week month quarter year"`
+	Horizon     int       `json:"horizon" validate:"min=1,max=52"`
+	Model       string    `json:"model" validate:"omitempty,oneof=linear arima prophet"`
+	Confidence  float64   `json:"confidence" validate:"min=0.8,max=0.99"`
+	Seasonality bool      `json:"seasonality"`
+	Holidays    bool      `json:"holidays"`
+	External    []string  `json:"external"`
+}
+
+type SalesForecastResponse struct {
+	Model       string    `json:"model"`
+	Confidence  float64   `json:"confidence"`
+	Accuracy    float64   `json:"accuracy"`
+	GeneratedAt time.Time `json:"generated_at"`
+	Forecast    []struct {
+		Date       time.Time `json:"date"`
+		Predicted  float64   `json:"predicted"`
+		Lower      float64   `json:"lower"`
+		Upper      float64   `json:"upper"`
+		Confidence float64   `json:"confidence"`
+	} `json:"forecast"`
+	Historical []struct {
+		Date     time.Time `json:"date"`
+		Actual   float64   `json:"actual"`
+		Predicted float64  `json:"predicted"`
+	} `json:"historical"`
+	Insights []struct {
+		Type        string `json:"type"`
+		Description string `json:"description"`
+		Impact      string `json:"impact"`
+	} `json:"insights"`
+}
+
+type DemandForecastRequest struct {
+	ProductIDs  []uuid.UUID `json:"product_ids"`
+	Period      string      `json:"period" validate:"required,oneof=week month quarter"`
+	Horizon     int         `json:"horizon" validate:"min=1,max=26"`
+	Model       string      `json:"model" validate:"omitempty,oneof=linear arima prophet"`
+	Seasonality bool        `json:"seasonality"`
+	Promotions  bool        `json:"promotions"`
+}
+
+type DemandForecastResponse struct {
+	Model       string    `json:"model"`
+	GeneratedAt time.Time `json:"generated_at"`
+	Products    []struct {
+		ProductID   uuid.UUID `json:"product_id"`
+		ProductName string    `json:"product_name"`
+		CurrentStock int64    `json:"current_stock"`
+		Forecast    []struct {
+			Date       time.Time `json:"date"`
+			Demand     int64     `json:"demand"`
+			Lower      int64     `json:"lower"`
+			Upper      int64     `json:"upper"`
+			Confidence float64   `json:"confidence"`
+		} `json:"forecast"`
+		Recommendations []struct {
+			Type        string `json:"type"`
+			Description string `json:"description"`
+			Quantity    int64  `json:"quantity"`
+			Date        time.Time `json:"date"`
+		} `json:"recommendations"`
+	} `json:"products"`
+}
+
+// Cohort Analysis types
+type CohortAnalysisRequest struct {
+	Period     string    `json:"period" validate:"required,oneof=week month quarter"`
+	DateFrom   time.Time `json:"date_from" validate:"required"`
+	DateTo     time.Time `json:"date_to" validate:"required"`
+	CohortType string    `json:"cohort_type" validate:"required,oneof=acquisition first_purchase"`
+	Metric     string    `json:"metric" validate:"required,oneof=retention revenue orders"`
+}
+
+type CohortAnalysisResponse struct {
+	Period     string    `json:"period"`
+	CohortType string    `json:"cohort_type"`
+	Metric     string    `json:"metric"`
+	Cohorts    []struct {
+		CohortDate time.Time `json:"cohort_date"`
+		Size       int64     `json:"size"`
+		Periods    []struct {
+			Period int     `json:"period"`
+			Value  float64 `json:"value"`
+			Rate   float64 `json:"rate"`
+		} `json:"periods"`
+	} `json:"cohorts"`
+	Summary struct {
+		AverageRetention []float64 `json:"average_retention"`
+		BestCohort       string    `json:"best_cohort"`
+		WorstCohort      string    `json:"worst_cohort"`
+		Trend            string    `json:"trend"`
+	} `json:"summary"`
+}
+
+// Custom Reports types
+type CreateCustomReportRequest struct {
+	Name        string                 `json:"name" validate:"required,min=1,max=200"`
+	Description string                 `json:"description" validate:"max=1000"`
+	Type        string                 `json:"type" validate:"required,oneof=table chart dashboard"`
+	DataSource  string                 `json:"data_source" validate:"required"`
+	Query       string                 `json:"query" validate:"required"`
+	Filters     []ReportFilter         `json:"filters"`
+	Columns     []ReportColumn         `json:"columns"`
+	Charts      []ReportChart          `json:"charts"`
+	Settings    map[string]interface{} `json:"settings"`
+	IsPublic    bool                   `json:"is_public"`
+	CreatedBy   uuid.UUID              `json:"created_by" validate:"required"`
+}
+
+type ReportFilter struct {
+	Field    string      `json:"field" validate:"required"`
+	Operator string      `json:"operator" validate:"required,oneof=eq ne gt lt gte lte in nin like"`
+	Value    interface{} `json:"value" validate:"required"`
+	Label    string      `json:"label"`
+}
+
+type ReportColumn struct {
+	Field       string `json:"field" validate:"required"`
+	Label       string `json:"label" validate:"required"`
+	Type        string `json:"type" validate:"required,oneof=string number date boolean"`
+	Format      string `json:"format"`
+	Aggregation string `json:"aggregation" validate:"omitempty,oneof=sum avg count min max"`
+	Sortable    bool   `json:"sortable"`
+	Filterable  bool   `json:"filterable"`
+}
+
+type ReportChart struct {
+	Type    string                 `json:"type" validate:"required,oneof=line bar pie area scatter"`
+	Title   string                 `json:"title" validate:"required"`
+	XAxis   string                 `json:"x_axis" validate:"required"`
+	YAxis   string                 `json:"y_axis" validate:"required"`
+	Series  []string               `json:"series"`
+	Options map[string]interface{} `json:"options"`
+}
+
+type CustomReportResponse struct {
+	ID          uuid.UUID              `json:"id"`
+	Name        string                 `json:"name"`
+	Description string                 `json:"description"`
+	Type        string                 `json:"type"`
+	DataSource  string                 `json:"data_source"`
+	Query       string                 `json:"query"`
+	Filters     []ReportFilter         `json:"filters"`
+	Columns     []ReportColumn         `json:"columns"`
+	Charts      []ReportChart          `json:"charts"`
+	Settings    map[string]interface{} `json:"settings"`
+	IsPublic    bool                   `json:"is_public"`
+	RunCount    int64                  `json:"run_count"`
+	LastRun     *time.Time             `json:"last_run"`
+	CreatedBy   uuid.UUID              `json:"created_by"`
+	CreatedByName string               `json:"created_by_name"`
+	CreatedAt   time.Time              `json:"created_at"`
+	UpdatedAt   time.Time              `json:"updated_at"`
+}
+
+type GetCustomReportsRequest struct {
+	Page      int    `json:"page" validate:"min=1"`
+	Limit     int    `json:"limit" validate:"min=1,max=100"`
+	Search    string `json:"search"`
+	Type      string `json:"type" validate:"omitempty,oneof=table chart dashboard"`
+	IsPublic  *bool  `json:"is_public"`
+	CreatedBy *uuid.UUID `json:"created_by"`
+	SortBy    string `json:"sort_by" validate:"omitempty,oneof=name created_at updated_at run_count"`
+	SortOrder string `json:"sort_order" validate:"omitempty,oneof=asc desc"`
+}
+
+type GetCustomReportsResponse struct {
+	Reports    []CustomReportResponse `json:"reports"`
+	Total      int64                  `json:"total"`
+	Pagination *PaginationInfo        `json:"pagination"`
+}
+
+type CustomReportResultResponse struct {
+	ReportID    uuid.UUID              `json:"report_id"`
+	Data        []map[string]interface{} `json:"data"`
+	Charts      []map[string]interface{} `json:"charts"`
+	Summary     map[string]interface{}   `json:"summary"`
+	TotalRows   int64                    `json:"total_rows"`
+	ExecutionTime int64                  `json:"execution_time"`
+	GeneratedAt time.Time                `json:"generated_at"`
+}
+
+type ScheduleReportRequest struct {
+	ReportID    uuid.UUID              `json:"report_id" validate:"required"`
+	Name        string                 `json:"name" validate:"required,min=1,max=200"`
+	Schedule    string                 `json:"schedule" validate:"required"`
+	Recipients  []string               `json:"recipients" validate:"required,min=1"`
+	Format      string                 `json:"format" validate:"required,oneof=pdf excel csv"`
+	Parameters  map[string]interface{} `json:"parameters"`
+	IsActive    bool                   `json:"is_active"`
+	CreatedBy   uuid.UUID              `json:"created_by" validate:"required"`
+}
+
+type ScheduledReportResponse struct {
+	ID          uuid.UUID              `json:"id"`
+	ReportID    uuid.UUID              `json:"report_id"`
+	ReportName  string                 `json:"report_name"`
+	Name        string                 `json:"name"`
+	Schedule    string                 `json:"schedule"`
+	Recipients  []string               `json:"recipients"`
+	Format      string                 `json:"format"`
+	Parameters  map[string]interface{} `json:"parameters"`
+	IsActive    bool                   `json:"is_active"`
+	LastRun     *time.Time             `json:"last_run"`
+	NextRun     *time.Time             `json:"next_run"`
+	RunCount    int64                  `json:"run_count"`
+	CreatedBy   uuid.UUID              `json:"created_by"`
+	CreatedByName string               `json:"created_by_name"`
+	CreatedAt   time.Time              `json:"created_at"`
+	UpdatedAt   time.Time              `json:"updated_at"`
+}
+
+// Export types
+type ExportAnalyticsRequest struct {
+	Type       string                 `json:"type" validate:"required,oneof=sales customers products inventory"`
+	Format     string                 `json:"format" validate:"required,oneof=csv excel pdf"`
+	Period     string                 `json:"period" validate:"required"`
+	DateFrom   *time.Time             `json:"date_from"`
+	DateTo     *time.Time             `json:"date_to"`
+	Filters    map[string]interface{} `json:"filters"`
+	Columns    []string               `json:"columns"`
+	CreatedBy  uuid.UUID              `json:"created_by" validate:"required"`
+}
+
+type ExportResponse struct {
+	ID          uuid.UUID `json:"id"`
+	Type        string    `json:"type"`
+	Format      string    `json:"format"`
+	Status      string    `json:"status"`
+	Filename    string    `json:"filename"`
+	DownloadURL string    `json:"download_url"`
+	FileSize    int64     `json:"file_size"`
+	RecordCount int64     `json:"record_count"`
+	Progress    float64   `json:"progress"`
+	CreatedBy   uuid.UUID `json:"created_by"`
+	CreatedAt   time.Time `json:"created_at"`
+	CompletedAt *time.Time `json:"completed_at"`
+	ExpiresAt   time.Time `json:"expires_at"`
+}
