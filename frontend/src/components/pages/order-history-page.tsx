@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { Package, Truck, CheckCircle, Clock, XCircle, Search, Eye, Download, Star, ShoppingBag, SlidersHorizontal, ShieldCheck, Zap } from 'lucide-react'

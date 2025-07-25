@@ -29,7 +29,7 @@ import {
 import { toast } from 'sonner'
 import { AnimatedBackground } from '@/components/ui/animated-background'
 
-function ContactPage() {
+export function ContactPage() {
   const [formData, setFormData] = useState({
     name: '',
     email: '',
@@ -516,4 +516,4 @@ function ContactPage() {
   )
 }
 
-export default ContactPage
+

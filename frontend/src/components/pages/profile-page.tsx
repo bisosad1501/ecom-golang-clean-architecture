@@ -36,7 +36,7 @@ import { formatDate, formatPrice } from '@/lib/utils'
 import { toast } from 'sonner'
 import { MembershipTierConfig } from '@/types/auth'
 
-export default function ProfilePage() {
+export function ProfilePage() {
   const [isEditing, setIsEditing] = useState(false)
   const [activeTab, setActiveTab] = useState('overview')
   const [showPasswordForm, setShowPasswordForm] = useState(false)

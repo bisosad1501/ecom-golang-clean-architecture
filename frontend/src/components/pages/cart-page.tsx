@@ -3,15 +3,15 @@
 import { useState, useEffect } from 'react'
 import Image from 'next/image'
 import Link from 'next/link'
-import { Minus, Plus, Trash2, ShoppingBag, ArrowLeft, Heart, Star, Shield, Truck, CreditCard, Gift, Zap, CheckCircle, AlertCircle, Eye } from 'lucide-react'
+import { Minus, Plus, Trash2, ShoppingBag, ArrowLeft, Heart, Shield, Truck, CreditCard, Gift, CheckCircle, AlertCircle, Eye } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Card, CardContent } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
-import { Separator } from '@/components/ui/separator'
+
 import { AnimatedBackground } from '@/components/ui/animated-background'
 import { useCartStore, getCartTotal, getCartItemCount, getCartSubtotal, getCartTaxAmount, getCartShippingAmount, isGuestCart } from '@/store/cart'
-import { useAuthStore } from '@/store/auth'
+
 import { formatPrice, cn } from '@/lib/utils'
 import { toast } from 'sonner'
 import { useProductRatingSummary } from '@/hooks/use-reviews'
@@ -19,7 +19,7 @@ import { CompactReviewSummary } from '@/components/reviews'
 
 // Cart Item Component đồng bộ với ProductCard design
 function CartItemCard({ item, isLoading, onUpdateQuantity, onRemove, onAddToWishlist }: {
-  item: any,
+  item: any, // TODO: Add proper type
   isLoading: boolean,
   onUpdateQuantity: (id: string, quantity: number) => void,
   onRemove: (id: string) => void,
@@ -31,7 +31,7 @@ function CartItemCard({ item, isLoading, onUpdateQuantity, onRemove, onAddToWish
   const currentPrice = item.product.current_price
   const originalPrice = item.product.original_price
   const hasDiscount = item.product.has_discount
-  const isOnSale = item.product.is_on_sale
+  // const isOnSale = item.product.is_on_sale // Unused
   const discountPercentage = item.product.discount_percentage
 
   return (
@@ -241,7 +241,7 @@ export function CartPage() {
     
     try {
       await updateItem(itemId, newQuantity)
-    } catch (error) {
+    } catch (_error) {
       toast.error('Failed to update item quantity')
     }
   }
@@ -250,7 +250,7 @@ export function CartPage() {
     try {
       await removeItem(itemId)
       toast.success('Item removed from cart')
-    } catch (error) {
+    } catch (_error) {
       toast.error('Failed to remove item')
     }
   }
@@ -264,7 +264,7 @@ export function CartPage() {
       await clearCart()
       toast.success('Cart cleared successfully!')
       setShowClearConfirm(false)
-    } catch (error) {
+    } catch (_error) {
       toast.error('Failed to clear cart')
     }
   }
@@ -277,18 +277,18 @@ export function CartPage() {
       // TODO: Implement coupon application
       await new Promise(resolve => setTimeout(resolve, 1000))
       toast.success('Coupon applied successfully!')
-    } catch (error) {
+    } catch (_error) {
       toast.error('Invalid coupon code')
     } finally {
       setIsApplyingCoupon(false)
     }
   }
 
-  const handleAddToWishlist = async (productId: string) => {
+  const handleAddToWishlist = async (_productId: string) => {
     try {
       // Add to wishlist logic here
       toast.success('Added to wishlist!')
-    } catch (error) {
+    } catch (_error) {
       toast.error('Failed to add to wishlist')
     }
   }
@@ -575,7 +575,7 @@ export function CartPage() {
         <div className="grid grid-cols-1 xl:grid-cols-3 gap-6 lg:gap-8">
           {/* Cart Items - Using New Component */}
           <div className="xl:col-span-2 space-y-6">
-            {cart.items.map((item, index) => (
+            {cart.items.map((item, _index) => (
               <CartItemCard
                 key={item.id}
                 item={item}

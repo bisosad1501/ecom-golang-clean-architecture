@@ -1,5 +1,5 @@
 import { Metadata } from 'next'
-import SettingsPage from '@/components/pages/settings-page'
+import { SettingsPage } from '@/components/pages/settings-page'
 
 export const metadata: Metadata = {
   title: 'Settings | BiHub',

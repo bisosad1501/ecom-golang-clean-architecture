@@ -1,7 +1,6 @@
 'use client'
 
 import Link from 'next/link'
-import Image from 'next/image'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -16,10 +15,7 @@ import {
   Truck,
   ArrowRight,
   Star,
-  CheckCircle,
   Mail,
-  Phone,
-  MapPin,
   Sparkles,
   TrendingUp,
   Eye,
@@ -28,7 +24,7 @@ import {
 } from 'lucide-react'
 import { AnimatedBackground } from '@/components/ui/animated-background'
 
-export default function AboutPage() {
+export function AboutPage() {
   const stats = [
     { label: 'Happy Customers', value: '50K+', icon: Users, color: 'from-blue-500 to-cyan-500' },
     { label: 'Products Sold', value: '1M+', icon: Award, color: 'from-purple-500 to-pink-500' },

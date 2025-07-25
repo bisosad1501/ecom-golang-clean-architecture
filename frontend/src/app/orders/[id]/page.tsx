@@ -1,4 +1,6 @@
-import { OrderDetailPage } from '@/components/pages/OrderDetailPage'
+// Route: /orders/[id] (Individual order details)
+// Component: OrderDetailPage from order-detail-page.tsx
+import { OrderDetailPage } from '@/components/pages/order-detail-page'
 
 interface Props {
   params: Promise<{

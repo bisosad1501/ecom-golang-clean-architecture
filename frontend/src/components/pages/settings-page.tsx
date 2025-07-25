@@ -26,7 +26,7 @@ import { useProfile, useUserPreferences, useUpdateUserPreferences } from '@/hook
 import { formatDate, cn } from '@/lib/utils'
 import { toast } from 'sonner'
 
-export default function SettingsPage() {
+export function SettingsPage() {
   const [activeTab, setActiveTab] = useState('general')
   const [preferences, setPreferences] = useState({
     language: 'en',

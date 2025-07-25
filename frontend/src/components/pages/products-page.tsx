@@ -15,7 +15,7 @@ import { CategoryBreadcrumbs } from '@/components/ui/category-breadcrumbs'
 import { AnimatedBackground } from '@/components/ui/animated-background'
 import { useProducts } from '@/hooks/use-products'
 import { ProductsParams } from '@/lib/services/products'
-import { DEFAULT_PAGE_SIZE, PRODUCT_SORT_OPTIONS } from '@/constants'
+import { DEFAULT_PAGE_SIZE } from '@/constants'
 
 export function ProductsPage() {
   const searchParams = useSearchParams()
@@ -270,7 +270,7 @@ export function ProductsPage() {
               <>
                 {viewMode === 'grid' ? (
                   <div className="grid gap-6 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-                    {products.map((product, index) => (
+                    {products.map((product: any, index: number) => (
                       <div
                         key={product.id}
                         className="animate-in fade-in slide-in-from-bottom-4 duration-500"
@@ -285,7 +285,7 @@ export function ProductsPage() {
                   </div>
                 ) : (
                   <div className="space-y-4">
-                    {products.map((product, index) => (
+                    {products.map((product: any, index: number) => (
                       <div
                         key={product.id}
                         className="animate-in fade-in slide-in-from-left-4 duration-500"

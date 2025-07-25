@@ -1,14 +1,14 @@
 'use client'
 
-import React, { useState, useMemo, useEffect } from 'react'
+import React, { useState } from 'react'
 import Link from 'next/link'
 import { useSearchParams } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent } from '@/components/ui/card'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { Search, Grid, List, FolderTree, ChevronRight, Home, X, ArrowRight, Eye } from 'lucide-react'
+
+import { Search, FolderTree, ArrowRight } from 'lucide-react'
 import Image from 'next/image'
 import { AnimatedBackground } from '@/components/ui/animated-background'
 import { Category } from '@/types'
@@ -18,13 +18,13 @@ import { useQuery } from '@tanstack/react-query'
 export function CategoriesPageSimple() {
   const searchParams = useSearchParams()
   const [searchQuery, setSearchQuery] = useState(searchParams.get('search') || '')
-  const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid')
-  const [sortBy, setSortBy] = useState('name')
-  const [selectedParent, setSelectedParent] = useState('')
-  const [showActiveOnly, setShowActiveOnly] = useState(true)
-  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc')
-  const [currentPage, setCurrentPage] = useState(1)
-  const [itemsPerPage, setItemsPerPage] = useState(12)
+  // const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid') // Unused
+  // const [sortBy, setSortBy] = useState('name') // Unused
+  // const [selectedParent, setSelectedParent] = useState('') // Unused
+  // const [showActiveOnly, setShowActiveOnly] = useState(true) // Unused
+  // const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc') // Unused
+  // const [currentPage, setCurrentPage] = useState(1) // Unused
+  // const [itemsPerPage, setItemsPerPage] = useState(12) // Unused
 
   // Fetch category tree
   const {

@@ -7,7 +7,7 @@ import { ArrowLeft, Package, Truck, CheckCircle, Clock, XCircle, MapPin, CreditC
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
-import { Separator } from '@/components/ui/separator'
+
 import { AnimatedBackground } from '@/components/ui/animated-background'
 import { InvoicePreviewModal } from '@/components/modals/InvoicePreviewModal'
 import { OrderTimeline } from '@/components/ui/order-timeline'
