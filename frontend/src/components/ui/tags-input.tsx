@@ -64,7 +64,7 @@ export function TagsInput({
                 <button
                   type="button"
                   onClick={() => removeTag(tag)}
-                  className="ml-1 hover:bg-gray-200 rounded-full p-0.5"
+                  className="ml-1 hover:bg-gray-600 rounded-full p-0.5 transition-colors"
                 >
                   <X className="h-3 w-3" />
                 </button>
@@ -96,7 +96,7 @@ export function TagsInput({
         )}
 
         {tags.length >= maxTags && (
-          <p className="text-xs text-amber-600">
+          <p className="text-xs text-amber-400">
             Maximum {maxTags} tags reached
           </p>
         )}

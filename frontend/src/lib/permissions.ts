@@ -118,6 +118,8 @@ export const ROLE_PERMISSIONS: Record<UserRole, string[]> = {
     PERMISSIONS.COUPONS_DELETE,
     PERMISSIONS.ANALYTICS_VIEW,
     PERMISSIONS.ANALYTICS_EXPORT,
+    PERMISSIONS.SYSTEM_SETTINGS,
+    PERMISSIONS.SYSTEM_BACKUP,
   ],
 
   super_admin: [
@@ -273,38 +275,78 @@ export function getVisibleNavItems(userRole: UserRole | null) {
 
 export function getAdminSidebarItems(userRole: UserRole) {
   const items = []
-  
+
+  // Core Dashboard - Always show for admin users
+  items.push({ href: '/admin', label: 'Dashboard', icon: 'BarChart3', color: 'blue' })
+
+  // Analytics & Reports
   if (hasPermission(userRole, PERMISSIONS.ANALYTICS_VIEW)) {
-    items.push({ href: '/admin', label: 'Dashboard', icon: 'BarChart3' })
+    items.push({ href: '/admin/analytics', label: 'Analytics', icon: 'TrendingUp', color: 'green' })
+    items.push({ href: '/admin/reports', label: 'Reports', icon: 'FileText', color: 'purple' })
   }
-  
+
+  // Product & Catalog Management
   if (canManageProducts(userRole)) {
-    items.push({ href: '/admin/products', label: 'Products', icon: 'Package' })
+    items.push({ href: '/admin/products', label: 'Products', icon: 'Package', color: 'orange' })
   }
-  
-  if (hasAnyPermission(userRole, [PERMISSIONS.CATEGORIES_CREATE, PERMISSIONS.CATEGORIES_UPDATE])) {
-    items.push({ href: '/admin/categories', label: 'Categories', icon: 'Folder' })
+
+  if (hasAnyPermission(userRole, [PERMISSIONS.CATEGORIES_CREATE, PERMISSIONS.CATEGORIES_UPDATE, PERMISSIONS.CATEGORIES_VIEW])) {
+    items.push({ href: '/admin/categories', label: 'Categories', icon: 'Folder', color: 'yellow' })
   }
-  
-  if (canManageOrders(userRole)) {
-    items.push({ href: '/admin/orders', label: 'Orders', icon: 'ShoppingCart' })
-  }
-  
-  if (canManageUsers(userRole)) {
-    items.push({ href: '/admin/users', label: 'Users', icon: 'Users' })
-  }
-  
-  if (canModerateReviews(userRole)) {
-    items.push({ href: '/admin/reviews', label: 'Reviews', icon: 'Star' })
-  }
-  
-  if (hasAnyPermission(userRole, [PERMISSIONS.COUPONS_VIEW, PERMISSIONS.COUPONS_CREATE])) {
-    items.push({ href: '/admin/coupons', label: 'Coupons', icon: 'Ticket' })
-  }
-  
+
+  // Brands Management
   if (hasPermission(userRole, PERMISSIONS.SYSTEM_SETTINGS)) {
-    items.push({ href: '/admin/settings', label: 'Settings', icon: 'Settings' })
+    items.push({ href: '/admin/brands', label: 'Brands', icon: 'Tag', color: 'indigo' })
   }
-  
+
+  // Inventory & Stock Management (separate from products - manages stock levels, warehouses)
+  if (hasPermission(userRole, PERMISSIONS.PRODUCTS_VIEW)) {
+    items.push({ href: '/admin/inventory', label: 'Inventory', icon: 'Warehouse', color: 'teal' })
+  }
+
+  // Order Management
+  if (canManageOrders(userRole)) {
+    items.push({ href: '/admin/orders', label: 'Orders', icon: 'ShoppingCart', color: 'blue' })
+  }
+
+  // Shipping & Logistics
+  if (hasPermission(userRole, PERMISSIONS.SYSTEM_SETTINGS)) {
+    items.push({ href: '/admin/shipments', label: 'Shipments', icon: 'Truck', color: 'cyan' })
+  }
+
+  // Promotions & Marketing
+  if (hasAnyPermission(userRole, [PERMISSIONS.COUPONS_VIEW, PERMISSIONS.COUPONS_CREATE])) {
+    items.push({ href: '/admin/coupons', label: 'Coupons', icon: 'Ticket', color: 'pink' })
+  }
+
+  // User & Customer Management
+  if (canManageUsers(userRole)) {
+    items.push({ href: '/admin/users', label: 'Users', icon: 'Users', color: 'violet' })      // Admin, staff, roles
+    items.push({ href: '/admin/customers', label: 'Customers', icon: 'UserCheck', color: 'emerald' }) // Customer accounts & analytics
+  }
+
+  // Content & Review Management
+  if (canModerateReviews(userRole)) {
+    items.push({ href: '/admin/reviews', label: 'Reviews', icon: 'Star', color: 'amber' })
+  }
+
+  // File & Media Management
+  if (hasPermission(userRole, PERMISSIONS.SYSTEM_SETTINGS)) {
+    items.push({ href: '/admin/files', label: 'Files', icon: 'FileImage', color: 'lime' })
+  }
+
+  // Communication & Notifications
+  if (hasPermission(userRole, PERMISSIONS.SYSTEM_SETTINGS)) {
+    items.push({ href: '/admin/notifications', label: 'Notifications', icon: 'Bell', color: 'red' })
+  }
+
+  // System Administration
+  if (hasPermission(userRole, PERMISSIONS.SYSTEM_SETTINGS)) {
+    items.push({ href: '/admin/security', label: 'Security', icon: 'Shield', color: 'rose' })
+    items.push({ href: '/admin/backup', label: 'Backup', icon: 'Archive', color: 'slate' })
+    items.push({ href: '/admin/system', label: 'System', icon: 'Server', color: 'stone' })
+    items.push({ href: '/admin/settings', label: 'Settings', icon: 'Cog', color: 'gray' })
+  }
+
   return items
 }

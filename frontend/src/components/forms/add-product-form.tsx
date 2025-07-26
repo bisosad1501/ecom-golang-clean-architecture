@@ -6,6 +6,9 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { FormSection } from '@/components/ui/form-section'
+import { FormField } from '@/components/ui/form-field'
+import { FormActions } from '@/components/ui/form-actions'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import { productService } from '@/lib/services/products'
@@ -315,7 +318,7 @@ export function AddProductForm({ onSuccess, onCancel }: AddProductFormProps) {
     handleInputChange('tags', formData.tags?.filter(tag => tag !== tagToRemove) || [])
   }
 
-  const handleKeyPress = (e: React.KeyboardEvent) => {
+  const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter') {
       e.preventDefault()
       addTag()
@@ -445,159 +448,136 @@ export function AddProductForm({ onSuccess, onCancel }: AddProductFormProps) {
   }
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-6">
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+    <div className="bihub-admin-form bg-transparent">
+      <form onSubmit={handleSubmit} className="space-y-6">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Main Product Information */}
         <div className="lg:col-span-2 space-y-6">
-          <Card>
-            <CardHeader>
-              <CardTitle>Product Information</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              {/* Product Name */}
-              <div>
-                <Label htmlFor="name">Product Name *</Label>
-                <Input
-                  id="name"
-                  value={formData.name}
-                  onChange={(e) => handleInputChange('name', e.target.value)}
-                  placeholder="Enter product name"
-                  required
-                />
-              </div>
+          <FormSection title="Product Information">
+            <FormField
+              label="Product Name"
+              required
+            >
+              <Input
+                value={formData.name}
+                onChange={(e) => handleInputChange('name', e.target.value)}
+                placeholder="Enter product name"
+                required
+              />
+            </FormField>
 
-              {/* SKU */}
-              <div>
-                <Label htmlFor="sku">SKU *</Label>
-                <Input
-                  id="sku"
-                  value={formData.sku}
-                  onChange={(e) => handleInputChange('sku', e.target.value)}
-                  placeholder="Enter product SKU"
-                  required
-                />
-              </div>
+            <FormField
+              label="SKU"
+              required
+            >
+              <Input
+                value={formData.sku}
+                onChange={(e) => handleInputChange('sku', e.target.value)}
+                placeholder="Enter product SKU"
+                required
+              />
+            </FormField>
 
-              {/* Description */}
-              <div>
-                <Label htmlFor="description">Description *</Label>
-                <Textarea
-                  id="description"
-                  value={formData.description}
-                  onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => handleInputChange('description', e.target.value)}
-                  placeholder="Enter product description"
-                  rows={4}
-                  required
-                />
-              </div>
+            <FormField
+              label="Description"
+              required
+            >
+              <Textarea
+                value={formData.description}
+                onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => handleInputChange('description', e.target.value)}
+                placeholder="Enter product description"
+                rows={4}
+                required
+              />
+            </FormField>
 
-              {/* Short Description */}
-              <div>
-                <Label htmlFor="short_description">Short Description</Label>
-                <Textarea
-                  id="short_description"
-                  value={formData.short_description || ''}
-                  onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => handleInputChange('short_description', e.target.value)}
-                  placeholder="Enter short description"
-                  rows={2}
-                />
-              </div>
-            </CardContent>
-          </Card>
+            <FormField
+              label="Short Description"
+            >
+              <Textarea
+                value={formData.short_description || ''}
+                onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => handleInputChange('short_description', e.target.value)}
+                placeholder="Enter short description"
+                rows={2}
+              />
+            </FormField>
+          </FormSection>
 
           {/* SEO & Metadata */}
-          <Card>
-            <CardHeader>
-              <CardTitle>SEO & Metadata</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {/* Slug */}
-                <div>
-                  <Label htmlFor="slug">URL Slug</Label>
-                  <Input
-                    id="slug"
-                    value={(formData as any).slug || ''}
-                    onChange={(e) => handleInputChange('slug', e.target.value)}
-                    placeholder="product-url-slug"
-                  />
-                </div>
-
-                {/* Meta Title */}
-                <div>
-                  <Label htmlFor="meta_title">Meta Title</Label>
-                  <Input
-                    id="meta_title"
-                    value={(formData as any).meta_title || ''}
-                    onChange={(e) => handleInputChange('meta_title', e.target.value)}
-                    placeholder="SEO title for search engines"
-                  />
-                </div>
-              </div>
-
-              {/* Meta Description */}
-              <div>
-                <Label htmlFor="meta_description">Meta Description</Label>
-                <Textarea
-                  id="meta_description"
-                  value={(formData as any).meta_description || ''}
-                  onChange={(e) => handleInputChange('meta_description', e.target.value)}
-                  placeholder="SEO description for search engines"
-                  rows={2}
-                />
-              </div>
-
-              {/* Keywords */}
-              <div>
-                <Label htmlFor="keywords">Keywords</Label>
+          <FormSection title="SEO & Metadata">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <FormField label="URL Slug">
                 <Input
-                  id="keywords"
-                  value={(formData as any).keywords || ''}
-                  onChange={(e) => handleInputChange('keywords', e.target.value)}
-                  placeholder="keyword1, keyword2, keyword3"
+                  value={(formData as any).slug || ''}
+                  onChange={(e) => handleInputChange('slug', e.target.value)}
+                  placeholder="product-url-slug"
                 />
-              </div>
+              </FormField>
 
-              {/* Featured & Visibility */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <FormField label="Meta Title">
+                <Input
+                  value={(formData as any).meta_title || ''}
+                  onChange={(e) => handleInputChange('meta_title', e.target.value)}
+                  placeholder="SEO title for search engines"
+                />
+              </FormField>
+            </div>
+
+            <FormField label="Meta Description">
+              <Textarea
+                value={(formData as any).meta_description || ''}
+                onChange={(e) => handleInputChange('meta_description', e.target.value)}
+                placeholder="SEO description for search engines"
+                rows={2}
+              />
+            </FormField>
+
+            <FormField label="Keywords">
+              <Input
+                value={(formData as any).keywords || ''}
+                onChange={(e) => handleInputChange('keywords', e.target.value)}
+                placeholder="keyword1, keyword2, keyword3"
+              />
+            </FormField>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <FormField label="Featured Product">
                 <div className="flex items-center space-x-2">
                   <input
                     type="checkbox"
                     id="featured"
                     checked={(formData as any).featured || false}
                     onChange={(e) => handleInputChange('featured', e.target.checked)}
-                    className="rounded border-gray-300"
+                    className="h-4 w-4 shrink-0 rounded-sm border border-white/20 ring-offset-black focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#ff9000] focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 checked:bg-[#ff9000] checked:text-white checked:border-[#ff9000]"
                   />
-                  <Label htmlFor="featured">Featured Product</Label>
+                  <span className="text-sm text-gray-300">Mark as featured</span>
                 </div>
+              </FormField>
 
-                <div>
-                  <Label htmlFor="visibility">Visibility</Label>
-                  <select
-                    id="visibility"
-                    value={(formData as any).visibility || 'visible'}
-                    onChange={(e) => handleInputChange('visibility', e.target.value)}
-                    className="w-full p-2 border border-gray-300 rounded-md"
-                  >
-                    <option value="visible">Visible</option>
-                    <option value="hidden">Hidden</option>
-                    <option value="private">Private</option>
-                  </select>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
+              <FormField label="Visibility">
+                <select
+                  value={(formData as any).visibility || 'visible'}
+                  onChange={(e) => handleInputChange('visibility', e.target.value)}
+                  className="flex h-12 w-full rounded-lg border border-gray-600/50 bg-gray-700/50 px-4 py-3 text-sm text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FF9000]/20 focus-visible:border-[#FF9000] disabled:cursor-not-allowed disabled:opacity-50 transition-colors duration-200"
+                >
+                  <option value="visible" className="bg-gray-800 text-white">Visible</option>
+                  <option value="hidden" className="bg-gray-800 text-white">Hidden</option>
+                  <option value="private" className="bg-gray-800 text-white">Private</option>
+                </select>
+              </FormField>
+            </div>
+          </FormSection>
 
           {/* Pricing */}
-          <Card>
+          <Card className="bg-gray-800/50 border-gray-700/50">
             <CardHeader>
-              <CardTitle>Pricing</CardTitle>
+              <CardTitle className="text-white">Pricing</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 {/* Price */}
                 <div>
-                  <Label htmlFor="price">Regular Price *</Label>
+                  <Label htmlFor="price" className="text-sm font-medium text-white">Regular Price *</Label>
                   <Input
                     id="price"
                     type="number"
@@ -612,7 +592,7 @@ export function AddProductForm({ onSuccess, onCancel }: AddProductFormProps) {
 
                 {/* Sale Price */}
                 <div>
-                  <Label htmlFor="sale_price">Sale Price</Label>
+                  <Label htmlFor="sale_price" className="text-sm font-medium text-white">Sale Price</Label>
                   <Input
                     id="sale_price"
                     type="number"
@@ -626,7 +606,7 @@ export function AddProductForm({ onSuccess, onCancel }: AddProductFormProps) {
 
                 {/* Compare Price */}
                 <div>
-                  <Label htmlFor="compare_price">Compare Price</Label>
+                  <Label htmlFor="compare_price" className="text-sm font-medium text-white">Compare Price</Label>
                   <Input
                     id="compare_price"
                     type="number"
@@ -642,7 +622,7 @@ export function AddProductForm({ onSuccess, onCancel }: AddProductFormProps) {
               {/* Sale Date Range */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                  <Label htmlFor="sale_start_date">Sale Start Date</Label>
+                  <Label htmlFor="sale_start_date" className="text-sm font-medium text-white">Sale Start Date</Label>
                   <Input
                     id="sale_start_date"
                     type="datetime-local"
@@ -652,7 +632,7 @@ export function AddProductForm({ onSuccess, onCancel }: AddProductFormProps) {
                 </div>
 
                 <div>
-                  <Label htmlFor="sale_end_date">Sale End Date</Label>
+                  <Label htmlFor="sale_end_date" className="text-sm font-medium text-white">Sale End Date</Label>
                   <Input
                     id="sale_end_date"
                     type="datetime-local"
@@ -665,15 +645,15 @@ export function AddProductForm({ onSuccess, onCancel }: AddProductFormProps) {
           </Card>
 
           {/* Enhanced Inventory */}
-          <Card>
+          <Card className="bg-gray-800/50 border-gray-700/50">
             <CardHeader>
-              <CardTitle>Inventory Management</CardTitle>
+              <CardTitle className="text-white">Inventory Management</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 {/* Stock */}
                 <div>
-                  <Label htmlFor="stock">Stock Quantity *</Label>
+                  <Label htmlFor="stock" className="text-sm font-medium text-white">Stock Quantity *</Label>
                   <Input
                     id="stock"
                     type="number"
@@ -687,7 +667,7 @@ export function AddProductForm({ onSuccess, onCancel }: AddProductFormProps) {
 
                 {/* Low Stock Threshold */}
                 <div>
-                  <Label htmlFor="low_stock_threshold">Low Stock Threshold</Label>
+                  <Label htmlFor="low_stock_threshold" className="text-sm font-medium text-white">Low Stock Threshold</Label>
                   <Input
                     id="low_stock_threshold"
                     type="number"
@@ -701,7 +681,7 @@ export function AddProductForm({ onSuccess, onCancel }: AddProductFormProps) {
                 {/* Weight (if not digital) */}
                 {!formData.is_digital && (
                   <div>
-                    <Label htmlFor="weight">Weight (kg)</Label>
+                    <Label htmlFor="weight" className="text-sm font-medium text-white">Weight (kg)</Label>
                     <Input
                       id="weight"
                       type="number"
@@ -723,9 +703,9 @@ export function AddProductForm({ onSuccess, onCancel }: AddProductFormProps) {
                     id="track_quantity"
                     checked={(formData as any).track_quantity !== false}
                     onChange={(e) => handleInputChange('track_quantity', e.target.checked)}
-                    className="rounded border-gray-300"
+                    className="h-4 w-4 shrink-0 rounded-sm border border-white/20 ring-offset-black focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#ff9000] focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 checked:bg-[#ff9000] checked:text-white checked:border-[#ff9000]"
                   />
-                  <Label htmlFor="track_quantity">Track Quantity</Label>
+                  <Label htmlFor="track_quantity" className="text-sm font-medium text-white">Track Quantity</Label>
                 </div>
 
                 <div className="flex items-center space-x-2">
@@ -734,19 +714,19 @@ export function AddProductForm({ onSuccess, onCancel }: AddProductFormProps) {
                     id="allow_backorder"
                     checked={(formData as any).allow_backorder || false}
                     onChange={(e) => handleInputChange('allow_backorder', e.target.checked)}
-                    className="rounded border-gray-300"
+                    className="h-4 w-4 shrink-0 rounded-sm border border-white/20 ring-offset-black focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#ff9000] focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 checked:bg-[#ff9000] checked:text-white checked:border-[#ff9000]"
                   />
-                  <Label htmlFor="allow_backorder">Allow Backorders</Label>
+                  <Label htmlFor="allow_backorder" className="text-sm font-medium text-white">Allow Backorders</Label>
                 </div>
               </div>
 
               {/* Dimensions (if not digital) */}
               {!formData.is_digital && (
                 <div>
-                  <Label>Dimensions (cm)</Label>
+                  <Label className="text-sm font-medium text-white">Dimensions (cm)</Label>
                   <div className="grid grid-cols-3 gap-2">
                     <div>
-                      <Label htmlFor="length" className="text-xs">Length</Label>
+                      <Label htmlFor="length" className="text-xs text-gray-300">Length</Label>
                       <Input
                         id="length"
                         type="number"
@@ -764,7 +744,7 @@ export function AddProductForm({ onSuccess, onCancel }: AddProductFormProps) {
                       />
                     </div>
                     <div>
-                      <Label htmlFor="width" className="text-xs">Width</Label>
+                      <Label htmlFor="width" className="text-xs text-gray-300">Width</Label>
                       <Input
                         id="width"
                         type="number"
@@ -784,7 +764,7 @@ export function AddProductForm({ onSuccess, onCancel }: AddProductFormProps) {
                       />
                     </div>
                     <div>
-                      <Label htmlFor="height" className="text-xs">Height</Label>
+                      <Label htmlFor="height" className="text-xs text-gray-300">Height</Label>
                       <Input
                         id="height"
                         type="number"
@@ -810,48 +790,48 @@ export function AddProductForm({ onSuccess, onCancel }: AddProductFormProps) {
           </Card>
 
           {/* Shipping & Tax */}
-          <Card>
+          <Card className="bg-gray-800/50 border-gray-700/50">
             <CardHeader>
-              <CardTitle>Shipping & Tax</CardTitle>
+              <CardTitle className="text-white">Shipping & Tax</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {/* Shipping Class */}
                 <div>
-                  <Label htmlFor="shipping_class">Shipping Class</Label>
+                  <Label htmlFor="shipping_class" className="text-sm font-medium text-white">Shipping Class</Label>
                   <select
                     id="shipping_class"
                     value={(formData as any).shipping_class || 'standard'}
                     onChange={(e) => handleInputChange('shipping_class', e.target.value)}
-                    className="w-full p-2 border border-gray-300 rounded-md"
+                    className="flex h-12 w-full rounded-lg border border-gray-600/50 bg-gray-700/50 px-4 py-3 text-sm text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FF9000]/20 focus-visible:border-[#FF9000] disabled:cursor-not-allowed disabled:opacity-50 transition-colors duration-200"
                   >
-                    <option value="standard">Standard</option>
-                    <option value="express">Express</option>
-                    <option value="overnight">Overnight</option>
-                    <option value="free">Free Shipping</option>
+                    <option value="standard" className="bg-gray-800 text-white">Standard</option>
+                    <option value="express" className="bg-gray-800 text-white">Express</option>
+                    <option value="overnight" className="bg-gray-800 text-white">Overnight</option>
+                    <option value="free" className="bg-gray-800 text-white">Free Shipping</option>
                   </select>
                 </div>
 
                 {/* Tax Class */}
                 <div>
-                  <Label htmlFor="tax_class">Tax Class</Label>
+                  <Label htmlFor="tax_class" className="text-sm font-medium text-white">Tax Class</Label>
                   <select
                     id="tax_class"
                     value={(formData as any).tax_class || 'standard'}
                     onChange={(e) => handleInputChange('tax_class', e.target.value)}
-                    className="w-full p-2 border border-gray-300 rounded-md"
+                    className="flex h-12 w-full rounded-lg border border-gray-600/50 bg-gray-700/50 px-4 py-3 text-sm text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FF9000]/20 focus-visible:border-[#FF9000] disabled:cursor-not-allowed disabled:opacity-50 transition-colors duration-200"
                   >
-                    <option value="standard">Standard</option>
-                    <option value="reduced">Reduced Rate</option>
-                    <option value="zero">Zero Rate</option>
-                    <option value="exempt">Tax Exempt</option>
+                    <option value="standard" className="bg-gray-800 text-white">Standard</option>
+                    <option value="reduced" className="bg-gray-800 text-white">Reduced Rate</option>
+                    <option value="zero" className="bg-gray-800 text-white">Zero Rate</option>
+                    <option value="exempt" className="bg-gray-800 text-white">Tax Exempt</option>
                   </select>
                 </div>
               </div>
 
               {/* Country of Origin */}
               <div>
-                <Label htmlFor="country_of_origin">Country of Origin</Label>
+                <Label htmlFor="country_of_origin" className="text-sm font-medium text-white">Country of Origin</Label>
                 <Input
                   id="country_of_origin"
                   value={(formData as any).country_of_origin || ''}
@@ -867,9 +847,9 @@ export function AddProductForm({ onSuccess, onCancel }: AddProductFormProps) {
                   id="requires_shipping"
                   checked={(formData as any).requires_shipping !== false}
                   onChange={(e) => handleInputChange('requires_shipping', e.target.checked)}
-                  className="rounded border-gray-300"
+                  className="h-4 w-4 shrink-0 rounded-sm border border-white/20 ring-offset-black focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#ff9000] focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 checked:bg-[#ff9000] checked:text-white checked:border-[#ff9000]"
                 />
-                <Label htmlFor="requires_shipping">Requires Shipping</Label>
+                <Label htmlFor="requires_shipping" className="text-sm font-medium text-white">Requires Shipping</Label>
               </div>
             </CardContent>
           </Card>
@@ -878,47 +858,47 @@ export function AddProductForm({ onSuccess, onCancel }: AddProductFormProps) {
         {/* Sidebar */}
         <div className="space-y-6">
           {/* Product Settings */}
-          <Card>
+          <Card className="bg-gray-800/50 border-gray-700/50">
             <CardHeader>
-              <CardTitle>Product Settings</CardTitle>
+              <CardTitle className="text-white">Product Settings</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
               {/* Category */}
               <div>
-                <Label htmlFor="category">Category *</Label>
+                <Label htmlFor="category" className="text-sm font-medium text-white">Category *</Label>
                 <select
                   id="category"
                   value={formData.category_id}
                   onChange={(e) => handleInputChange('category_id', e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500"
+                  className="flex h-12 w-full rounded-lg border border-gray-600/50 bg-gray-700/50 px-4 py-3 text-sm text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FF9000]/20 focus-visible:border-[#FF9000] disabled:cursor-not-allowed disabled:opacity-50 transition-colors duration-200"
                   required
                 >
-                  <option value="">Select category</option>
+                  <option value="" className="bg-gray-800 text-white">Select category</option>
                   {categories.map((category: any) => (
-                    <option key={category.id} value={category.id}>
+                    <option key={category.id} value={category.id} className="bg-gray-800 text-white">
                       {category.name}
                     </option>
                   ))}
                 </select>
                 {categoriesLoading && (
-                  <p className="text-sm text-gray-500 mt-1">Loading categories...</p>
+                  <p className="text-sm text-gray-400 mt-1">Loading categories...</p>
                 )}
               </div>
 
               {/* Product Type */}
               <div>
-                <Label htmlFor="product_type">Product Type</Label>
+                <Label htmlFor="product_type" className="text-sm font-medium text-white">Product Type</Label>
                 <select
                   id="product_type"
                   value={(formData as any).product_type || 'simple'}
                   onChange={(e) => handleInputChange('product_type', e.target.value)}
-                  className="w-full p-2 border border-gray-300 rounded-md"
+                  className="flex h-12 w-full rounded-lg border border-gray-600/50 bg-gray-700/50 px-4 py-3 text-sm text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FF9000]/20 focus-visible:border-[#FF9000] disabled:cursor-not-allowed disabled:opacity-50 transition-colors duration-200"
                 >
-                  <option value="simple">Simple Product</option>
-                  <option value="variable">Variable Product</option>
-                  <option value="grouped">Grouped Product</option>
-                  <option value="external">External Product</option>
-                  <option value="digital">Digital Product</option>
+                  <option value="simple" className="bg-gray-800 text-white">Simple Product</option>
+                  <option value="variable" className="bg-gray-800 text-white">Variable Product</option>
+                  <option value="grouped" className="bg-gray-800 text-white">Grouped Product</option>
+                  <option value="external" className="bg-gray-800 text-white">External Product</option>
+                  <option value="digital" className="bg-gray-800 text-white">Digital Product</option>
                 </select>
               </div>
 
@@ -929,42 +909,43 @@ export function AddProductForm({ onSuccess, onCancel }: AddProductFormProps) {
                   id="is_digital"
                   checked={formData.is_digital}
                   onChange={(e) => handleInputChange('is_digital', e.target.checked)}
+                  className="h-4 w-4 shrink-0 rounded-sm border border-white/20 ring-offset-black focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#ff9000] focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 checked:bg-[#ff9000] checked:text-white checked:border-[#ff9000]"
                 />
-                <Label htmlFor="is_digital">Digital Product</Label>
+                <Label htmlFor="is_digital" className="text-sm font-medium text-white">Digital Product</Label>
               </div>
             </CardContent>
           </Card>
 
           {/* Images */}
-          <Card>
+          <Card className="bg-gray-800/50 border-gray-700/50">
             <CardHeader>
-              <CardTitle>Product Images</CardTitle>
-              <p className="text-sm text-gray-600">Add 1-10 images. First image will be the main product image.</p>
+              <CardTitle className="text-white">Product Images</CardTitle>
+              <p className="text-sm text-gray-400">Add 1-10 images. First image will be the main product image.</p>
             </CardHeader>
             <CardContent className="space-y-4">
               {/* Drag & Drop Area */}
               <div
                 className={`border-2 border-dashed rounded-lg p-8 text-center transition-all duration-200 ${
-                  isDragOver 
-                    ? 'border-blue-500 bg-blue-50 scale-105' 
-                    : 'border-gray-300 hover:border-gray-400 hover:bg-gray-50'
+                  isDragOver
+                    ? 'border-[#FF9000] bg-[#FF9000]/10 scale-105'
+                    : 'border-gray-600 hover:border-gray-500 hover:bg-gray-800/30'
                 }`}
                 onDragOver={handleDragOver}
                 onDragLeave={handleDragLeave}
                 onDrop={handleDrop}
               >
                 <div className="space-y-4">
-                  <div className={`transition-colors ${isDragOver ? 'text-blue-500' : 'text-gray-400'}`}>
+                  <div className={`transition-colors ${isDragOver ? 'text-[#FF9000]' : 'text-gray-400'}`}>
                     <Upload className="mx-auto h-16 w-16" />
                   </div>
                   <div>
-                    <p className={`text-xl font-medium transition-colors ${isDragOver ? 'text-blue-600' : 'text-gray-900'}`}>
+                    <p className={`text-xl font-medium transition-colors ${isDragOver ? 'text-[#FF9000]' : 'text-white'}`}>
                       {isDragOver ? 'Drop images here!' : 'Upload Product Images'}
                     </p>
-                    <p className="text-sm text-gray-500 mt-1">
+                    <p className="text-sm text-gray-400 mt-1">
                       Drag and drop images here, or click to browse
                     </p>
-                    <p className="text-xs text-gray-400 mt-1">
+                    <p className="text-xs text-gray-500 mt-1">
                       Supports: JPG, PNG, WEBP • Max 10 images • Up to 5MB each
                     </p>
                   </div>
@@ -978,7 +959,7 @@ export function AddProductForm({ onSuccess, onCancel }: AddProductFormProps) {
                   />
                   <label
                     htmlFor="file-upload"
-                    className="inline-flex items-center gap-2 px-6 py-3 border border-gray-300 rounded-lg shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 hover:border-gray-400 cursor-pointer transition-colors"
+                    className="inline-flex items-center gap-2 px-6 py-3 border border-gray-600 rounded-lg shadow-sm text-sm font-medium text-gray-300 bg-gray-800/50 hover:bg-gray-700/50 hover:border-[#FF9000] hover:text-white cursor-pointer transition-colors"
                   >
                     <Upload className="h-4 w-4" />
                     Choose Files
@@ -995,7 +976,7 @@ export function AddProductForm({ onSuccess, onCancel }: AddProductFormProps) {
                     onChange={(e) => setImageUrlInput(e.target.value)}
                     placeholder="Or paste image URL here..."
                     className="pl-10"
-                    onKeyPress={(e) => e.key === 'Enter' && (e.preventDefault(), addImageUrl())}
+                    onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), addImageUrl())}
                   />
                 </div>
                 <Button type="button" onClick={addImageUrl} variant="outline" className="flex items-center gap-2">
@@ -1009,11 +990,11 @@ export function AddProductForm({ onSuccess, onCancel }: AddProductFormProps) {
                 <div className="space-y-4">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
-                      <ImageIcon className="h-5 w-5 text-gray-600" />
-                      <p className="text-sm font-medium">Images ({imagePreviewUrls.length}/10)</p>
+                      <ImageIcon className="h-5 w-5 text-gray-400" />
+                      <p className="text-sm font-medium text-white">Images ({imagePreviewUrls.length}/10)</p>
                     </div>
                     <div className="text-right">
-                      <p className="text-xs text-gray-500">Use grip handle to reorder • First image is main</p>
+                      <p className="text-xs text-gray-400">Use grip handle to reorder • First image is main</p>
                     </div>
                   </div>
                   
@@ -1024,7 +1005,7 @@ export function AddProductForm({ onSuccess, onCancel }: AddProductFormProps) {
                           ref={provided.innerRef}
                           {...provided.droppableProps}
                           className={`grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 ${
-                            snapshot.isDraggingOver ? 'bg-blue-50 dark:bg-blue-950/20 rounded-lg p-2' : ''
+                            snapshot.isDraggingOver ? 'bg-[#FF9000]/10 rounded-lg p-2' : ''
                           }`}
                         >
                           {imagePreviewUrls.map((url, index) => (
@@ -1041,7 +1022,7 @@ export function AddProductForm({ onSuccess, onCancel }: AddProductFormProps) {
                                     snapshot.isDragging ? 'rotate-6 scale-105 shadow-lg z-50' : ''
                                   }`}
                                 >
-                                  <div className="aspect-square relative overflow-hidden rounded-lg border-2 border-gray-200 bg-gray-50">
+                                  <div className="aspect-square relative overflow-hidden rounded-lg border-2 border-gray-600 bg-gray-800">
                                     {/* Drag Handle */}
                                     <div
                                       {...provided.dragHandleProps}
@@ -1063,7 +1044,7 @@ export function AddProductForm({ onSuccess, onCancel }: AddProductFormProps) {
                                     
                                     {/* Main Image Badge */}
                                     {index === 0 && (
-                                      <div className="absolute top-2 left-2 bg-blue-500 text-white text-xs px-2 py-1 rounded-full font-medium shadow-lg">
+                                      <div className="absolute top-2 left-2 bg-[#FF9000] text-white text-xs px-2 py-1 rounded-full font-medium shadow-lg">
                                         Main
                                       </div>
                                     )}
@@ -1086,7 +1067,7 @@ export function AddProductForm({ onSuccess, onCancel }: AddProductFormProps) {
                                   
                                   {/* Image Info */}
                                   <div className="mt-2 text-center">
-                                    <p className="text-xs text-gray-500">
+                                    <p className="text-xs text-gray-400">
                                       {index === 0 ? 'Main Image' : `Image ${index + 1}`}
                                     </p>
                                   </div>
@@ -1101,12 +1082,12 @@ export function AddProductForm({ onSuccess, onCancel }: AddProductFormProps) {
                   </DragDropContext>
                   
                   {/* Instructions */}
-                  <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+                  <div className="bg-gray-800/50 border border-gray-600/50 rounded-lg p-3">
                     <div className="flex items-start gap-2">
-                      <ImageIcon className="h-4 w-4 text-blue-600 mt-0.5 flex-shrink-0" />
-                      <div className="text-sm text-blue-800">
-                        <p className="font-medium">Image Tips:</p>
-                        <ul className="mt-1 space-y-1 text-blue-700">
+                      <ImageIcon className="h-4 w-4 text-[#FF9000] mt-0.5 flex-shrink-0" />
+                      <div className="text-sm text-gray-300">
+                        <p className="font-medium text-white">Image Tips:</p>
+                        <ul className="mt-1 space-y-1 text-gray-400">
                           <li>• Drag the grip icon to reorder images</li>
                           <li>• First image will be the main product image</li>
                           <li>• Recommended size: 800x800px or larger</li>
@@ -1121,16 +1102,16 @@ export function AddProductForm({ onSuccess, onCancel }: AddProductFormProps) {
           </Card>
 
           {/* Tags */}
-          <Card>
+          <Card className="bg-gray-800/50 border-gray-700/50">
             <CardHeader>
-              <CardTitle>Tags</CardTitle>
+              <CardTitle className="text-white">Tags</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="flex gap-2">
                 <Input
                   value={tagInput}
                   onChange={(e) => setTagInput(e.target.value)}
-                  onKeyPress={handleKeyPress}
+                  onKeyDown={handleKeyDown}
                   placeholder="Add a tag"
                 />
                 <Button type="button" onClick={addTag} variant="outline">
@@ -1143,13 +1124,13 @@ export function AddProductForm({ onSuccess, onCancel }: AddProductFormProps) {
                   {formData.tags.map((tag) => (
                     <span
                       key={tag}
-                      className="inline-flex items-center gap-1 px-2 py-1 bg-blue-100 text-blue-800 text-sm rounded-md"
+                      className="inline-flex items-center gap-1 px-2 py-1 bg-[#FF9000]/20 text-[#FF9000] text-sm rounded-md border border-[#FF9000]/30"
                     >
                       {tag}
                       <button
                         type="button"
                         onClick={() => removeTag(tag)}
-                        className="hover:text-blue-900"
+                        className="hover:text-[#FF9000]/80"
                       >
                         <X className="h-3 w-3" />
                       </button>
@@ -1163,7 +1144,7 @@ export function AddProductForm({ onSuccess, onCancel }: AddProductFormProps) {
       </div>
 
       {/* Actions */}
-      <div className="flex justify-end gap-4 pt-6 border-t">
+      <div className="flex justify-end gap-4 pt-6 border-t border-gray-700/50">
         <Button
           type="button"
           variant="outline"
@@ -1172,13 +1153,14 @@ export function AddProductForm({ onSuccess, onCancel }: AddProductFormProps) {
         >
           Cancel
         </Button>
-        <Button 
-          type="submit" 
+        <Button
+          type="submit"
           disabled={createProductMutation.isPending}
         >
           {createProductMutation.isPending ? 'Creating...' : 'Create Product'}
         </Button>
       </div>
     </form>
+    </div>
   )
 }

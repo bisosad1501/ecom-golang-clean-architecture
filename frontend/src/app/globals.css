@@ -50,6 +50,53 @@
     @apply transition-all duration-300 hover:shadow-2xl hover:-translate-y-2 hover:scale-[1.02] bg-white border border-gray-200;
   }
 
+  /* BiHub Admin Form Dark Theme */
+  .bihub-admin-form .card {
+    @apply bg-gray-800/50 border-gray-700/50 rounded-xl shadow-lg;
+  }
+
+  .bihub-admin-form .card-header {
+    @apply pb-4;
+  }
+
+  .bihub-admin-form .card-title {
+    @apply text-lg font-semibold text-white;
+  }
+
+  .bihub-admin-form .card-content {
+    @apply space-y-4;
+  }
+
+  .bihub-admin-form label {
+    @apply text-sm font-medium text-white;
+  }
+
+  .bihub-admin-form input,
+  .bihub-admin-form textarea,
+  .bihub-admin-form select {
+    @apply bg-gray-700/50 border-gray-600/50 text-white placeholder:text-gray-400;
+    @apply focus:border-[#FF9000] focus:ring-[#FF9000]/20;
+    @apply rounded-lg transition-colors duration-200;
+  }
+
+  .bihub-admin-form input:focus,
+  .bihub-admin-form textarea:focus,
+  .bihub-admin-form select:focus {
+    @apply ring-2 ring-[#FF9000]/20 border-[#FF9000];
+  }
+
+  .bihub-admin-form .text-gray-500 {
+    @apply text-gray-400;
+  }
+
+  .bihub-admin-form .text-gray-600 {
+    @apply text-gray-300;
+  }
+
+  .bihub-admin-form .border-t {
+    @apply border-gray-700/50;
+  }
+
   /* New animations for enhanced ProductCard */
   @keyframes shimmer {
     0% {

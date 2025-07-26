@@ -1,6 +1,6 @@
 'use client'
 
-import { AdminProductsPage } from '@/components/admin/admin-products-page'
+import AdminProductsPage from '@/components/admin/admin-products-page'
 import { RequirePermission } from '@/components/auth/permission-guard'
 import { PERMISSIONS } from '@/lib/permissions'
 

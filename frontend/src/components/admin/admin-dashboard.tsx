@@ -8,23 +8,21 @@ import {
   Users,
   Package,
   Eye,
-  MoreHorizontal,
   Star,
   Activity,
-  Calendar,
   Clock,
   ArrowUpRight,
-  ArrowDownRight,
   BarChart3,
-  PieChart,
   Target,
-  Zap
+  Zap,
+  Folder,
+  Settings
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { useAuthStore } from '@/store/auth'
-import { hasPermission, PERMISSIONS } from '@/lib/permissions'
+import { PERMISSIONS } from '@/lib/permissions'
 import { RequirePermission } from '@/components/auth/permission-guard'
-import { formatPrice, formatDate } from '@/lib/utils'
+import { formatPrice } from '@/lib/utils'
 import { useAdminOrders } from '@/hooks/use-orders'
 import { useUsers } from '@/hooks/use-users'
 import { useProducts } from '@/hooks/use-products'
@@ -35,7 +33,7 @@ import {
   BiHubAdminCard,
   BiHubStatusBadge,
   BiHubPageHeader,
-  BiHubStatCard,
+  BiHubActionButton,
 } from './bihub-admin-components'
 import { BIHUB_ADMIN_THEME, getBadgeVariant } from '@/constants/admin-theme'
 import { cn } from '@/lib/utils'
@@ -52,8 +50,8 @@ export function AdminDashboard() {
   const { data: ordersData, isLoading: ordersLoading } = useAdminOrders({ limit: 5 })
   const { data: usersData, isLoading: usersLoading } = useUsers({ limit: 100 })
   const { data: productsData, isLoading: productsLoading } = useProducts({ limit: 100 })
-  const { data: topProductsData, isLoading: topProductsLoading } = useTopProducts({ limit: 5 })
-  const { data: recentActivityData, isLoading: activityLoading } = useRecentActivity({ limit: 5 })
+  const { data: topProductsData } = useTopProducts({ limit: 5 })
+  const { data: recentActivityData } = useRecentActivity({ limit: 5 })
 
   // Debug log
   console.log('AdminDashboard - Dashboard data:', dashboardData)
@@ -107,7 +105,7 @@ export function AdminDashboard() {
   // Get top products (use real data if available)
   const topProducts = topProductsData || dashboardData?.charts?.top_products || (productsData?.data || [])
     .slice(0, 5)
-    .map((product, index) => ({
+    .map((product: any) => ({
       id: product.id,
       name: product.name,
       sales: Math.floor(Math.random() * 200) + 50,
@@ -346,6 +344,72 @@ export function AdminDashboard() {
           </div>
         </div>
       </RequirePermission>
+
+      {/* Quick Actions Section */}
+      <div className="mb-8">
+        <BiHubAdminCard
+          title="Quick Actions"
+          subtitle="Common administrative tasks"
+          icon={<Zap className="h-5 w-5 text-white" />}
+        >
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3 lg:gap-4">
+            <RequirePermission permission={PERMISSIONS.PRODUCTS_CREATE}>
+              <BiHubActionButton
+                icon={<Package className="h-5 w-5 text-white" />}
+                title="Add Product"
+                description="Create new product"
+                onClick={() => window.location.href = '/admin/products'}
+                variant="primary"
+              />
+            </RequirePermission>
+
+            <RequirePermission permission={PERMISSIONS.ORDERS_VIEW_ALL}>
+              <BiHubActionButton
+                icon={<ShoppingCart className="h-5 w-5 text-white" />}
+                title="View Orders"
+                description="Manage orders"
+                onClick={() => window.location.href = '/admin/orders'}
+              />
+            </RequirePermission>
+
+            <RequirePermission permission={PERMISSIONS.USERS_VIEW_ALL}>
+              <BiHubActionButton
+                icon={<Users className="h-5 w-5 text-white" />}
+                title="Manage Users"
+                description="User accounts"
+                onClick={() => window.location.href = '/admin/users'}
+              />
+            </RequirePermission>
+
+            <RequirePermission permission={PERMISSIONS.ANALYTICS_VIEW}>
+              <BiHubActionButton
+                icon={<BarChart3 className="h-5 w-5 text-white" />}
+                title="Analytics"
+                description="View reports"
+                onClick={() => window.location.href = '/admin/analytics'}
+              />
+            </RequirePermission>
+
+            <RequirePermission permission={PERMISSIONS.CATEGORIES_CREATE}>
+              <BiHubActionButton
+                icon={<Folder className="h-5 w-5 text-white" />}
+                title="Categories"
+                description="Manage categories"
+                onClick={() => window.location.href = '/admin/categories'}
+              />
+            </RequirePermission>
+
+            <RequirePermission permission={PERMISSIONS.SYSTEM_SETTINGS}>
+              <BiHubActionButton
+                icon={<Settings className="h-5 w-5 text-white" />}
+                title="Settings"
+                description="System config"
+                onClick={() => window.location.href = '/admin/settings'}
+              />
+            </RequirePermission>
+          </div>
+        </BiHubAdminCard>
+      </div>
 
       {/* Content Grid */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">

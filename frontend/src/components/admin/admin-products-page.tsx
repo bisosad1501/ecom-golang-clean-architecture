@@ -11,7 +11,6 @@ import { formatPrice } from '@/lib/utils/price'
 import { AdminPriceDisplay } from '@/components/ui/price-display'
 import { AddProductForm } from '@/components/forms/add-product-form'
 import { EditProductForm } from '@/components/forms/edit-product-form'
-import { Product } from '@/types'
 import { Product } from '@/types/product'
 import { toast } from 'sonner'
 import Image from 'next/image'
@@ -51,7 +50,7 @@ import {
 import { BIHUB_ADMIN_THEME, getBadgeVariant } from '@/constants/admin-theme'
 import { cn } from '@/lib/utils'
 
-export function AdminProductsPage() {
+export default function AdminProductsPage() {
   const [searchQuery, setSearchQuery] = useState('')
   const [currentPage, setCurrentPage] = useState(1)
   const [showAddForm, setShowAddForm] = useState(false)

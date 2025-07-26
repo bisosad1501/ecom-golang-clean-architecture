@@ -3,6 +3,7 @@
 import React from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { cn } from '@/lib/utils'
+import { BIHUB_ADMIN_THEME } from '@/constants/admin-theme'
 
 interface FormSectionProps {
   title: string
@@ -13,14 +14,24 @@ interface FormSectionProps {
 
 export function FormSection({ title, description, children, className }: FormSectionProps) {
   return (
-    <Card className={className}>
-      <CardHeader>
-        <CardTitle className="text-base">{title}</CardTitle>
+    <Card className={cn(
+      'bg-gray-800/50 border-gray-700/50 rounded-xl shadow-lg',
+      className
+    )}>
+      <CardHeader className="pb-4">
+        <CardTitle className={cn(
+          BIHUB_ADMIN_THEME.typography.heading.h4,
+          "text-lg"
+        )}>
+          {title}
+        </CardTitle>
         {description && (
-          <p className="text-sm text-gray-600">{description}</p>
+          <p className={BIHUB_ADMIN_THEME.typography.body.medium}>
+            {description}
+          </p>
         )}
       </CardHeader>
-      <CardContent className="space-y-4">
+      <CardContent className={BIHUB_ADMIN_THEME.spacing.form}>
         {children}
       </CardContent>
     </Card>
