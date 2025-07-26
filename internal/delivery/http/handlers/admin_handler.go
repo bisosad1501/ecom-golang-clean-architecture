@@ -16,19 +16,19 @@ import (
 
 // AdminHandler handles admin-related HTTP requests
 type AdminHandler struct {
-	adminUseCase     usecases.AdminUseCase
-	settingsUseCase  usecases.SettingsUseCase
-	marketingUseCase usecases.MarketingUseCase
-	validator        *validator.Validate
+	adminUseCase    usecases.AdminUseCase
+	settingsUseCase usecases.SettingsUseCase
+	// marketingUseCase usecases.MarketingUseCase // TODO: Implement MarketingUseCase
+	validator *validator.Validate
 }
 
 // NewAdminHandler creates a new admin handler
-func NewAdminHandler(adminUseCase usecases.AdminUseCase, settingsUseCase usecases.SettingsUseCase, marketingUseCase usecases.MarketingUseCase) *AdminHandler {
+func NewAdminHandler(adminUseCase usecases.AdminUseCase, settingsUseCase usecases.SettingsUseCase) *AdminHandler {
 	return &AdminHandler{
-		adminUseCase:     adminUseCase,
-		settingsUseCase:  settingsUseCase,
-		marketingUseCase: marketingUseCase,
-		validator:        validator.New(),
+		adminUseCase:    adminUseCase,
+		settingsUseCase: settingsUseCase,
+		// marketingUseCase: marketingUseCase, // TODO: Implement MarketingUseCase
+		validator: validator.New(),
 	}
 }
 

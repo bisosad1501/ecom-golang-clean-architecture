@@ -27,27 +27,27 @@ type AbandonedCartUseCase interface {
 }
 
 type abandonedCartUseCase struct {
-	cartRepo     repositories.CartRepository
-	userRepo     repositories.UserRepository
-	emailUseCase EmailUseCase
-	productRepo  repositories.ProductRepository
-	orderRepo    repositories.OrderRepository
+	cartRepo repositories.CartRepository
+	userRepo repositories.UserRepository
+	// emailUseCase EmailUseCase // TODO: Implement EmailUseCase
+	productRepo repositories.ProductRepository
+	orderRepo   repositories.OrderRepository
 }
 
 // NewAbandonedCartUseCase creates a new abandoned cart use case
 func NewAbandonedCartUseCase(
 	cartRepo repositories.CartRepository,
 	userRepo repositories.UserRepository,
-	emailUseCase EmailUseCase,
+	// emailUseCase EmailUseCase, // TODO: Implement EmailUseCase
 	productRepo repositories.ProductRepository,
 	orderRepo repositories.OrderRepository,
 ) AbandonedCartUseCase {
 	return &abandonedCartUseCase{
-		cartRepo:     cartRepo,
-		userRepo:     userRepo,
-		emailUseCase: emailUseCase,
-		productRepo:  productRepo,
-		orderRepo:    orderRepo,
+		cartRepo: cartRepo,
+		userRepo: userRepo,
+		// emailUseCase: emailUseCase, // TODO: Implement EmailUseCase
+		productRepo: productRepo,
+		orderRepo:   orderRepo,
 	}
 }
 
@@ -159,7 +159,8 @@ func (uc *abandonedCartUseCase) sendFirstReminder(ctx context.Context, cart *ent
 		return fmt.Errorf("cart has no user ID")
 	}
 
-	return uc.emailUseCase.SendAbandonedCartEmail(ctx, cart.ID, "user@example.com") // TODO: Get actual user email
+	// return uc.emailUseCase.SendAbandonedCartEmail(ctx, cart.ID, "user@example.com") // TODO: Implement EmailUseCase
+	return nil // Placeholder
 }
 
 // sendSecondReminder sends the second abandonment reminder
@@ -168,7 +169,8 @@ func (uc *abandonedCartUseCase) sendSecondReminder(ctx context.Context, cart *en
 		return fmt.Errorf("cart has no user ID")
 	}
 
-	return uc.emailUseCase.SendAbandonedCartEmail(ctx, cart.ID, "user@example.com") // TODO: Get actual user email
+	// return uc.emailUseCase.SendAbandonedCartEmail(ctx, cart.ID, "user@example.com") // TODO: Implement EmailUseCase
+	return nil // Placeholder
 }
 
 // sendFinalReminder sends the final abandonment reminder
@@ -177,7 +179,8 @@ func (uc *abandonedCartUseCase) sendFinalReminder(ctx context.Context, cart *ent
 		return fmt.Errorf("cart has no user ID")
 	}
 
-	return uc.emailUseCase.SendAbandonedCartEmail(ctx, cart.ID, "user@example.com") // TODO: Get actual user email
+	// return uc.emailUseCase.SendAbandonedCartEmail(ctx, cart.ID, "user@example.com") // TODO: Implement EmailUseCase
+	return nil // Placeholder
 }
 
 // SendAbandonedCartEmails sends emails for abandoned carts

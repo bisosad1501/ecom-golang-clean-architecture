@@ -381,13 +381,13 @@ func main() {
 	shippingHandler := handlers.NewShippingHandler(shippingUseCase)
 	// Initialize new repositories
 	settingsRepo := database.NewSettingsRepository(db)
-	marketingRepo := database.NewMarketingRepository(db)
+	// marketingRepo := database.NewMarketingRepository(db) // TODO: Implement MarketingRepository
 
 	// Initialize new use cases
 	settingsUseCase := usecases.NewSettingsUseCase(settingsRepo)
-	marketingUseCase := usecases.NewMarketingUseCase(marketingRepo)
+	// marketingUseCase := usecases.NewMarketingUseCase(marketingRepo) // TODO: Implement MarketingUseCase
 
-	adminHandler := handlers.NewAdminHandler(adminUseCase, settingsUseCase, marketingUseCase)
+	adminHandler := handlers.NewAdminHandler(adminUseCase, settingsUseCase)
 	oauthHandler := handlers.NewOAuthHandler(oauthUseCase)
 	migrationHandler := handlers.NewMigrationHandler(db)
 	searchHandler := handlers.NewSearchHandler(searchUseCase)
@@ -395,6 +395,7 @@ func main() {
 	comparisonHandler := handlers.NewProductComparisonHandler(comparisonUseCase)
 	productFilterHandler := handlers.NewProductFilterHandler(productFilterUseCase)
 	// abandonedCartHandler := handlers.NewAbandonedCartHandler(abandonedCartUseCase) // TODO: Implement
+	backupHandler := handlers.NewBackupHandler(settingsUseCase)
 
 	// Initialize Gin router
 	router := gin.New()
@@ -429,6 +430,7 @@ func main() {
 		comparisonHandler,
 		productFilterHandler,
 		// abandonedCartHandler, // TODO: Implement
+		backupHandler,
 	)
 
 	// Background cleanup scheduler removed - using simple stock service

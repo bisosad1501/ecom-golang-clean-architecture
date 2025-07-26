@@ -38,6 +38,7 @@ func SetupRoutes(
 	comparisonHandler *handlers.ProductComparisonHandler,
 	productFilterHandler *handlers.ProductFilterHandler,
 	// abandonedCartHandler *handlers.AbandonedCartHandler, // TODO: Implement
+	backupHandler *handlers.BackupHandler,
 ) {
 	// Apply global middleware
 	router.Use(gin.Recovery())                       // Add panic recovery middleware
@@ -774,6 +775,18 @@ func SetupRoutes(
 			// 	abandonedCarts.POST("/process", abandonedCartHandler.ProcessAbandonedCarts)
 			// 	abandonedCarts.POST("/:id/reminder", abandonedCartHandler.SendReminderEmail)
 			// }
+
+			// Backup management routes
+			backup := admin.Group("/backup")
+			{
+				backup.GET("", backupHandler.ListBackups)
+				backup.GET("/stats", backupHandler.GetBackupStats)
+				backup.GET("/:id", backupHandler.GetBackup)
+				backup.POST("", backupHandler.CreateBackup)
+				backup.POST("/restore", backupHandler.RestoreBackup)
+				backup.DELETE("/:id", backupHandler.DeleteBackup)
+				backup.GET("/export", backupHandler.ExportSettings)
+			}
 
 			// Coupon management routes
 			adminCoupons := admin.Group("/coupons")
