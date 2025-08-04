@@ -1,0 +1,163 @@
+@startuml API Overview - BiHub E-commerce
+!theme plain
+skinparam backgroundColor #FFFFFF
+skinparam defaultFontName Arial
+skinparam defaultFontSize 11
+
+title API Architecture Overview - BiHub E-commerce (294 Endpoints Verified)
+
+package "Client Layer" as clients #E6F3FF {
+  [Web Browser] as web
+  [Mobile App] as mobile  
+  [Admin Dashboard] as admin_ui
+  [Postman/API Testing] as testing
+}
+
+package "API Gateway & Security" as gateway #FFE6CC {
+  [Rate Limiter] as rate_limit
+  [CORS Handler] as cors
+  [JWT Middleware] as jwt
+  [Role-based Access] as rbac
+}
+
+package "Authentication APIs (12 endpoints)" as auth_apis #E6FFE6 {
+  [POST /auth/register] as register
+  [POST /auth/login] as login
+  [POST /auth/logout] as logout
+  [POST /auth/refresh] as refresh
+  [POST /auth/forgot-password] as forgot
+  [POST /auth/reset-password] as reset
+  [GET /auth/verify-email] as verify
+  [OAuth Google/Facebook] as oauth
+}
+
+package "Product APIs (60+ endpoints)" as product_apis #FFE6F3 {
+  [GET /products] as products_list
+  [GET /products/:id] as product_detail
+  [POST /products] as product_create
+  [PUT /products/:id] as product_update
+  [DELETE /products/:id] as product_delete
+  [GET /products/search] as product_search
+  [GET /products/featured] as featured
+  [GET /products/trending] as trending
+  [GET /products/:id/reviews] as reviews
+  [GET /products/:id/related] as related
+}
+
+package "Order & Cart APIs (40+ endpoints)" as order_apis #F0F8FF {
+  [GET /cart] as cart_get
+  [POST /cart/items] as cart_add
+  [PUT /cart/items/:id] as cart_update
+  [DELETE /cart/items/:id] as cart_remove
+  [POST /orders] as order_create
+  [GET /orders] as orders_list
+  [GET /orders/:id] as order_detail
+  [POST /orders/:id/cancel] as order_cancel
+  [POST /checkout/session] as checkout
+}
+
+package "User Management APIs (32+ endpoints)" as user_apis #FFFACD {
+  [GET /users/profile] as profile_get
+  [PUT /users/profile] as profile_update
+  [POST /users/change-password] as password_change
+  [GET /users/preferences] as preferences
+  [GET /users/activity] as activity
+  [GET /users/search-history] as search_history
+  [GET /addresses] as addresses
+  [POST /addresses] as address_create
+}
+
+package "Admin APIs (120+ endpoints)" as admin_apis #FFE6E6 {
+  [GET /admin/dashboard] as admin_dashboard
+  [GET /admin/users] as admin_users
+  [PUT /admin/users/:id/status] as admin_user_status
+  [GET /admin/products] as admin_products
+  [POST /admin/products] as admin_product_create
+  [GET /admin/orders] as admin_orders
+  [PUT /admin/orders/:id/status] as admin_order_status
+  [GET /admin/analytics/sales] as admin_analytics
+  [GET /admin/inventory] as admin_inventory
+  [GET /admin/settings/*] as admin_settings
+}
+
+package "Search & Analytics APIs (30+ endpoints)" as search_apis #F5F5F5 {
+  [GET /search] as search
+  [GET /search/suggestions] as suggestions
+  [GET /search/autocomplete] as autocomplete
+  [GET /recommendations] as recommendations
+  [POST /analytics/events] as analytics_track
+  [GET /categories] as categories
+  [GET /brands] as brands
+}
+
+package "Backend Services" as backend #E0E0E0 {
+  [Go Gin Server] as server
+  [Clean Architecture] as clean_arch
+  [Business Logic] as business
+  [Database Layer] as db_layer
+}
+
+package "Data Storage" as storage #F0F0F0 {
+  database "PostgreSQL\n(60+ Tables)" as postgres
+  database "Redis Cache" as redis
+  [File Storage] as files
+}
+
+package "External Services" as external #FFFACD {
+  [Stripe Payment] as stripe
+  [Google OAuth] as google_oauth
+  [Facebook OAuth] as facebook_oauth
+  [Email Service] as email
+}
+
+' Client connections
+web --> rate_limit
+mobile --> rate_limit
+admin_ui --> rate_limit
+testing --> rate_limit
+
+' Security layer
+rate_limit --> cors
+cors --> jwt
+jwt --> rbac
+
+' API routing
+rbac --> auth_apis
+rbac --> product_apis
+rbac --> order_apis
+rbac --> user_apis
+rbac --> admin_apis
+rbac --> search_apis
+
+' Backend processing
+auth_apis --> server
+product_apis --> server
+order_apis --> server
+user_apis --> server
+admin_apis --> server
+search_apis --> server
+
+server --> clean_arch
+clean_arch --> business
+business --> db_layer
+
+' Data connections
+db_layer --> postgres
+db_layer --> redis
+db_layer --> files
+
+' External integrations
+server --> stripe
+auth_apis --> google_oauth
+auth_apis --> facebook_oauth
+server --> email
+
+note right of auth_apis : **12 Authentication Endpoints**\n- User registration/login\n- OAuth integration\n- Password management\n- Email verification
+
+note top of product_apis : **60+ Product Endpoints**\n- CRUD operations\n- Search & filtering\n- Reviews & ratings\n- Recommendations
+
+note bottom of admin_apis : **120+ Admin Endpoints**\n- Dashboard analytics\n- User management\n- System settings\n- Inventory control
+
+note left of postgres : **Database Features:**\n- 60+ optimized tables\n- Advanced indexing\n- Full-text search\n- Connection pooling
+
+@enduml

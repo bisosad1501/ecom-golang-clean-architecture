@@ -1,0 +1,172 @@
+@startuml Clean Architecture - BiHub E-commerce
+!theme plain
+skinparam backgroundColor #FFFFFF
+skinparam defaultFontName Arial
+skinparam defaultFontSize 12
+
+title Clean Architecture Layers - BiHub E-commerce System
+
+package "Delivery Layer (Controllers & Presentation)" as delivery #FFE6CC {
+  class "HTTP Handlers" as handlers {
+    + UserHandler
+    + ProductHandler
+    + OrderHandler
+    + CartHandler
+    + PaymentHandler
+    + AdminHandler
+    + 20+ More Handlers
+  }
+  
+  class "Middleware" as middleware {
+    + AuthMiddleware
+    + CORSMiddleware
+    + RateLimitMiddleware
+    + ValidationMiddleware
+    + SecurityMiddleware
+  }
+  
+  class "REST API Endpoints" as endpoints {
+    + 476+ API Endpoints
+    + Authentication (12)
+    + Products (50+)
+    + Orders (30+)
+    + Admin (200+)
+    + Search & Analytics (40+)
+  }
+  
+  class "WebSocket Server" as websocket {
+    + Real-time Notifications
+    + Live Chat
+    + Order Updates
+    + Admin Dashboard
+  }
+}
+
+package "Use Cases Layer (Application Business Rules)" as usecases #E6F3FF {
+  class "User Management" as useruc {
+    + Registration
+    + Authentication
+    + Profile Management
+    + Preferences
+  }
+  
+  class "Product Management" as productuc {
+    + CRUD Operations
+    + Search & Filtering
+    + Recommendations
+    + Analytics
+  }
+  
+  class "Order Management" as orderuc {
+    + Cart Management
+    + Checkout Process
+    + Order Tracking
+    + Fulfillment
+  }
+  
+  class "Payment Processing" as paymentuc {
+    + Stripe Integration
+    + Refund Management
+    + Payment Methods
+    + Webhooks
+  }
+  
+  class "Admin Operations" as adminuc {
+    + Dashboard Analytics
+    + User Management
+    + System Monitoring
+    + Reports Generation
+  }
+}
+
+package "Domain Layer (Entities & Business Rules)" as domain #E6FFE6 {
+  class "Core Entities" as entities {
+    + User
+    + Product
+    + Order
+    + Payment
+    + Category
+    + Brand
+    + 60+ Database Tables
+  }
+  
+  class "Repository Interfaces" as interfaces {
+    + UserRepository
+    + ProductRepository
+    + OrderRepository
+    + PaymentRepository
+    + 30+ Repository Interfaces
+  }
+  
+  class "Domain Services" as services {
+    + Business Logic
+    + Validation Rules
+    + Domain Events
+    + Specifications
+  }
+}
+
+package "Infrastructure Layer (External Interfaces)" as infrastructure #FFE6F3 {
+  class "Database" as database {
+    + PostgreSQL 15+
+    + GORM ORM
+    + Connection Pooling
+    + Advanced Indexing
+  }
+  
+  class "Cache System" as cache {
+    + Redis 7+
+    + Multi-level Caching
+    + Session Management
+    + Performance Optimization
+  }
+  
+  class "External APIs" as external {
+    + Stripe Payment Gateway
+    + OAuth Providers (Google, Facebook)
+    + Email Services (SMTP)
+    + File Storage
+  }
+  
+  class "Repository Implementations" as repos {
+    + Database Operations
+    + Query Optimization
+    + Transaction Management
+    + Error Handling
+  }
+}
+
+' Relationships
+handlers --> useruc
+handlers --> productuc
+handlers --> orderuc
+handlers --> paymentuc
+handlers --> adminuc
+
+middleware --> handlers
+endpoints --> handlers
+websocket --> handlers
+
+useruc --> interfaces
+productuc --> interfaces
+orderuc --> interfaces
+paymentuc --> interfaces
+adminuc --> interfaces
+
+interfaces --> repos
+services --> repos
+
+repos --> database
+repos --> cache
+repos --> external
+
+entities --> services
+interfaces --> entities
+
+note right of endpoints : 200+ API Endpoints\nComprehensive Coverage\nRESTful Design\nProduction Ready
+
+note bottom of database : 60+ Database Tables\nAdvanced Indexing\nOptimized Queries\nHigh Performance
+
+note left of cache : Multi-level Caching\nRedis Integration\nSession Management\nPerformance Boost
+
+@enduml

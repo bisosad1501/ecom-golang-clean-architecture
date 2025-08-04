@@ -1,0 +1,169 @@
+@startuml API Structure - BiHub E-commerce (294 Endpoints Verified)
+!theme plain
+skinparam backgroundColor #FFFFFF
+skinparam defaultFontName Arial
+skinparam defaultFontSize 10
+
+title API Structure Overview - BiHub E-commerce\n294 Endpoints Verified from Postman Collection
+
+package "Authentication APIs (16 endpoints)" as auth_group #E6F3FF {
+  [POST /auth/register] as register
+  [POST /auth/login] as login
+  [POST /auth/logout] as logout
+  [POST /auth/refresh] as refresh
+  [POST /auth/forgot-password] as forgot
+  [POST /auth/reset-password] as reset
+  [GET /auth/verify-email] as verify_get
+  [POST /auth/verify-email] as verify_post
+  [POST /auth/resend-verification] as resend
+  [GET /auth/google/url] as google_url
+  [GET /auth/facebook/url] as facebook_url
+  [GET /auth/google/login] as google_login
+  [GET /auth/facebook/login] as facebook_login
+  [GET /auth/google/callback] as google_callback
+  [GET /auth/facebook/callback] as facebook_callback
+  [GET /users/verification/status] as verify_status
+}
+
+package "User Management APIs (25+ endpoints)" as user_group #FFE6CC {
+  [GET /users/profile] as profile_get
+  [PUT /users/profile] as profile_update
+  [POST /users/change-password] as password_change
+  [GET /users/preferences] as preferences_get
+  [PUT /users/preferences] as preferences_update
+  [GET /users/activity] as activity
+  [GET /users/search-history] as search_history
+  [GET /users/browsing-history] as browsing_history
+  [GET /users/sessions] as sessions
+  [DELETE /users/sessions/:id] as session_delete
+  note right : + 15 more user endpoints
+}
+
+package "Products APIs (60+ endpoints)" as product_group #E6FFE6 {
+  package "Public Product Operations (20 endpoints)" as public_products {
+    [GET /products] as products_list
+    [GET /products/:id] as product_detail
+    [GET /products/featured] as featured
+    [GET /products/trending] as trending
+    [GET /products/:id/reviews] as reviews
+    [GET /products/:id/related] as related
+    note bottom : + 14 more public endpoints
+  }
+  
+  package "Advanced Search & Filters (25 endpoints)" as search_products {
+    [GET /products/search] as search
+    [GET /products/search/enhanced] as search_enhanced
+    [GET /products/search/suggestions] as suggestions
+    [GET /products/filters] as filters
+    [GET /products/facets] as facets
+    note bottom : + 20 more search endpoints
+  }
+  
+  package "Admin Product Management (15+ endpoints)" as admin_products {
+    [POST /admin/products] as admin_create
+    [PUT /admin/products/:id] as admin_update
+    [DELETE /admin/products/:id] as admin_delete
+    [PUT /admin/products/:id/stock] as admin_stock
+    note bottom : + 11 more admin endpoints
+  }
+}
+
+package "Categories APIs (25+ endpoints)" as category_group #FFE6F3 {
+  package "Public Category Operations (12 endpoints)" as public_categories {
+    [GET /categories] as categories_list
+    [GET /categories/:id] as category_detail
+    [GET /categories/tree] as category_tree
+    [GET /categories/:id/products] as category_products
+    note bottom : + 8 more public endpoints
+  }
+  
+  package "Admin Category Management (13+ endpoints)" as admin_categories {
+    [POST /admin/categories] as admin_cat_create
+    [PUT /admin/categories/:id] as admin_cat_update
+    [DELETE /admin/categories/:id] as admin_cat_delete
+    note bottom : + 10 more admin endpoints
+  }
+}
+
+package "Shopping Cart APIs (25+ endpoints)" as cart_group #F0F8FF {
+  package "User Cart Operations (15 endpoints)" as user_cart {
+    [GET /cart] as cart_get
+    [POST /cart/items] as cart_add
+    [PUT /cart/items/:id] as cart_update
+    [DELETE /cart/items/:id] as cart_remove
+    [DELETE /cart] as cart_clear
+    note bottom : + 10 more cart endpoints
+  }
+  
+  package "Guest Cart Operations (10+ endpoints)" as guest_cart {
+    [GET /public/cart] as guest_cart_get
+    [POST /public/cart/items] as guest_cart_add
+    [PUT /public/cart/items/:id] as guest_cart_update
+    note bottom : + 7 more guest endpoints
+  }
+}
+
+package "Orders & Checkout APIs (40+ endpoints)" as order_group #FFFACD {
+  package "Checkout Session (8 endpoints)" as checkout {
+    [POST /checkout/session] as checkout_create
+    [GET /checkout/session/:id] as checkout_get
+    [POST /checkout/session/:id/complete] as checkout_complete
+    note bottom : + 5 more checkout endpoints
+  }
+  
+  package "Order Management (20+ endpoints)" as orders {
+    [POST /orders] as order_create
+    [GET /orders] as orders_list
+    [GET /orders/:id] as order_detail
+    [POST /orders/:id/cancel] as order_cancel
+    note bottom : + 16 more order endpoints
+  }
+  
+  package "COD & Bank Transfer (12+ endpoints)" as cod_orders {
+    [POST /checkout/cod] as cod_create
+    [POST /checkout/bank-transfer] as bank_create
+    [GET /orders/:id/payment-instructions] as payment_instructions
+    note bottom : + 9 more payment endpoints
+  }
+}
+
+package "Admin Panel APIs (80+ endpoints)" as admin_group #FFE6E6 {
+  package "Dashboard & Analytics (15 endpoints)" as admin_dashboard {
+    [GET /admin/dashboard] as dashboard
+    [GET /admin/dashboard/stats] as dashboard_stats
+    [GET /admin/analytics/sales] as analytics_sales
+    note bottom : + 12 more dashboard endpoints
+  }
+  
+  package "User Management (20 endpoints)" as admin_users {
+    [GET /admin/users] as admin_users_list
+    [PUT /admin/users/:id/status] as admin_user_status
+    [PUT /admin/users/:id/role] as admin_user_role
+    note bottom : + 17 more user admin endpoints
+  }
+  
+  package "System Management (45+ endpoints)" as admin_system {
+    [GET /admin/inventory] as admin_inventory
+    [GET /admin/settings/general] as admin_settings
+    [POST /admin/backup] as admin_backup
+    [GET /admin/logs] as admin_logs
+    note bottom : + 41 more system endpoints
+  }
+}
+
+package "Other APIs (40+ endpoints)" as other_group #F5F5F5 {
+  [Payments (15 endpoints)] as payments
+  [Addresses (10 endpoints)] as addresses
+  [File Management (8 endpoints)] as files
+  [Notifications (7 endpoints)] as notifications
+}
+
+note top of auth_group : **Authentication & OAuth**\n- Standard auth flow\n- OAuth integration\n- Email verification\n- Session management
+
+note right of product_group : **Product Management**\n- Public browsing\n- Advanced search\n- Admin operations\n- Filtering & facets
+
+note bottom of admin_group : **Admin Panel**\n- Comprehensive dashboard\n- User management\n- System administration\n- Analytics & reporting
+
+note left of cart_group : **Shopping Experience**\n- User cart management\n- Guest cart support\n- Checkout process\n- Order tracking
+
+@enduml

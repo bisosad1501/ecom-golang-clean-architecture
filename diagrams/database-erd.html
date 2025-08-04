@@ -1,0 +1,218 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Database ERD - BiHub E-commerce</title>
+    <script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+    <style>
+        body { 
+            font-family: Arial, sans-serif; 
+            margin: 20px; 
+            background: white;
+        }
+        .mermaid { 
+            text-align: center; 
+            margin: 20px 0;
+        }
+        h1 {
+            text-align: center;
+            color: #333;
+            margin-bottom: 30px;
+        }
+    </style>
+</head>
+<body>
+    <h1>Database Entity Relationship Diagram - BiHub E-commerce</h1>
+    <div class="mermaid">
+erDiagram
+    USERS {
+        uuid id PK
+        string email UK
+        string password
+        string first_name
+        string last_name
+        string phone
+        enum role
+        enum status
+        boolean is_active
+        string google_id
+        string facebook_id
+        timestamp created_at
+        timestamp updated_at
+    }
+    
+    USER_PROFILES {
+        uuid id PK
+        uuid user_id FK
+        string bio
+        date date_of_birth
+        enum gender
+        string avatar_url
+        json preferences
+        timestamp created_at
+        timestamp updated_at
+    }
+    
+    PRODUCTS {
+        uuid id PK
+        string name
+        string slug UK
+        string sku UK
+        text description
+        text short_description
+        decimal price
+        decimal sale_price
+        integer stock
+        enum status
+        boolean featured
+        uuid brand_id FK
+        json dimensions
+        decimal weight
+        timestamp created_at
+        timestamp updated_at
+    }
+    
+    CATEGORIES {
+        uuid id PK
+        string name
+        string slug UK
+        text description
+        string image_url
+        uuid parent_id FK
+        integer sort_order
+        boolean is_active
+        timestamp created_at
+        timestamp updated_at
+    }
+    
+    BRANDS {
+        uuid id PK
+        string name
+        string slug UK
+        text description
+        string logo_url
+        string website_url
+        boolean is_active
+        timestamp created_at
+        timestamp updated_at
+    }
+    
+    PRODUCT_IMAGES {
+        uuid id PK
+        uuid product_id FK
+        string url
+        string alt_text
+        integer position
+        boolean is_primary
+        timestamp created_at
+    }
+    
+    CARTS {
+        uuid id PK
+        uuid user_id FK
+        string session_id
+        json metadata
+        timestamp expires_at
+        timestamp created_at
+        timestamp updated_at
+    }
+    
+    CART_ITEMS {
+        uuid id PK
+        uuid cart_id FK
+        uuid product_id FK
+        integer quantity
+        decimal price
+        decimal total
+        json product_snapshot
+        timestamp created_at
+        timestamp updated_at
+    }
+    
+    ORDERS {
+        uuid id PK
+        string order_number UK
+        uuid user_id FK
+        enum status
+        enum payment_status
+        decimal subtotal
+        decimal tax_amount
+        decimal shipping_amount
+        decimal total_amount
+        json shipping_address
+        json billing_address
+        timestamp created_at
+        timestamp updated_at
+    }
+    
+    ORDER_ITEMS {
+        uuid id PK
+        uuid order_id FK
+        uuid product_id FK
+        string product_name
+        string product_sku
+        integer quantity
+        decimal price
+        decimal total
+        json product_snapshot
+        timestamp created_at
+    }
+    
+    PAYMENTS {
+        uuid id PK
+        uuid order_id FK
+        string stripe_payment_intent_id
+        enum status
+        decimal amount
+        string currency
+        enum payment_method
+        json metadata
+        timestamp created_at
+        timestamp updated_at
+    }
+    
+    REVIEWS {
+        uuid id PK
+        uuid product_id FK
+        uuid user_id FK
+        integer rating
+        string title
+        text content
+        boolean is_verified
+        boolean is_approved
+        timestamp created_at
+        timestamp updated_at
+    }
+    
+    USERS ||--o| USER_PROFILES : has
+    USERS ||--o{ CARTS : owns
+    USERS ||--o{ ORDERS : places
+    USERS ||--o{ REVIEWS : writes
+    
+    PRODUCTS }o--|| BRANDS : belongs_to
+    PRODUCTS ||--o{ PRODUCT_IMAGES : has
+    PRODUCTS ||--o{ CART_ITEMS : in
+    PRODUCTS ||--o{ ORDER_ITEMS : in
+    PRODUCTS ||--o{ REVIEWS : receives
+    
+    CATEGORIES ||--o{ CATEGORIES : parent_child
+    
+    CARTS ||--o{ CART_ITEMS : contains
+    
+    ORDERS ||--o{ ORDER_ITEMS : contains
+    ORDERS ||--o{ PAYMENTS : has
+    
+    CART_ITEMS }o--|| PRODUCTS : references
+    ORDER_ITEMS }o--|| PRODUCTS : references
+    </div>
+    
+    <script>
+        mermaid.initialize({
+            startOnLoad: true,
+            theme: 'default',
+            er: {
+                useMaxWidth: true
+            }
+        });
+    </script>
+</body>
+</html>

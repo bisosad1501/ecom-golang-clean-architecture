@@ -1,0 +1,236 @@
+@startuml Database ERD - BiHub E-commerce
+!theme plain
+skinparam backgroundColor #FFFFFF
+skinparam defaultFontName Arial
+skinparam defaultFontSize 10
+
+title Database Entity Relationship Diagram - BiHub E-commerce (60+ Tables)
+
+entity "users" as users {
+  * id : UUID <<PK>>
+  --
+  * email : VARCHAR(255) <<UK>>
+  * password : VARCHAR(255)
+  * first_name : VARCHAR(100)
+  * last_name : VARCHAR(100)
+  phone : VARCHAR(20)
+  * role : ENUM
+  * status : ENUM
+  * is_active : BOOLEAN
+  google_id : VARCHAR(255)
+  facebook_id : VARCHAR(255)
+  * created_at : TIMESTAMP
+  * updated_at : TIMESTAMP
+}
+
+entity "user_profiles" as profiles {
+  * id : UUID <<PK>>
+  --
+  * user_id : UUID <<FK>>
+  bio : TEXT
+  date_of_birth : DATE
+  gender : ENUM
+  avatar_url : VARCHAR(500)
+  preferences : JSON
+  * created_at : TIMESTAMP
+  * updated_at : TIMESTAMP
+}
+
+entity "products" as products {
+  * id : UUID <<PK>>
+  --
+  * name : VARCHAR(255)
+  * slug : VARCHAR(255) <<UK>>
+  * sku : VARCHAR(100) <<UK>>
+  description : TEXT
+  short_description : TEXT
+  * price : DECIMAL(10,2)
+  sale_price : DECIMAL(10,2)
+  * stock : INTEGER
+  * status : ENUM
+  featured : BOOLEAN
+  brand_id : UUID <<FK>>
+  dimensions : JSON
+  weight : DECIMAL(8,2)
+  * created_at : TIMESTAMP
+  * updated_at : TIMESTAMP
+}
+
+entity "categories" as categories {
+  * id : UUID <<PK>>
+  --
+  * name : VARCHAR(255)
+  * slug : VARCHAR(255) <<UK>>
+  description : TEXT
+  image_url : VARCHAR(500)
+  parent_id : UUID <<FK>>
+  sort_order : INTEGER
+  * is_active : BOOLEAN
+  * created_at : TIMESTAMP
+  * updated_at : TIMESTAMP
+}
+
+entity "brands" as brands {
+  * id : UUID <<PK>>
+  --
+  * name : VARCHAR(255)
+  * slug : VARCHAR(255) <<UK>>
+  description : TEXT
+  logo_url : VARCHAR(500)
+  website_url : VARCHAR(500)
+  * is_active : BOOLEAN
+  * created_at : TIMESTAMP
+  * updated_at : TIMESTAMP
+}
+
+entity "product_images" as images {
+  * id : UUID <<PK>>
+  --
+  * product_id : UUID <<FK>>
+  * url : VARCHAR(500)
+  alt_text : VARCHAR(255)
+  * position : INTEGER
+  is_primary : BOOLEAN
+  * created_at : TIMESTAMP
+}
+
+entity "carts" as carts {
+  * id : UUID <<PK>>
+  --
+  user_id : UUID <<FK>>
+  session_id : VARCHAR(255)
+  metadata : JSON
+  expires_at : TIMESTAMP
+  * created_at : TIMESTAMP
+  * updated_at : TIMESTAMP
+}
+
+entity "cart_items" as cart_items {
+  * id : UUID <<PK>>
+  --
+  * cart_id : UUID <<FK>>
+  * product_id : UUID <<FK>>
+  * quantity : INTEGER
+  * price : DECIMAL(10,2)
+  * total : DECIMAL(10,2)
+  product_snapshot : JSON
+  * created_at : TIMESTAMP
+  * updated_at : TIMESTAMP
+}
+
+entity "orders" as orders {
+  * id : UUID <<PK>>
+  --
+  * order_number : VARCHAR(50) <<UK>>
+  * user_id : UUID <<FK>>
+  * status : ENUM
+  * payment_status : ENUM
+  * subtotal : DECIMAL(10,2)
+  * tax_amount : DECIMAL(10,2)
+  * shipping_amount : DECIMAL(10,2)
+  * total_amount : DECIMAL(10,2)
+  shipping_address : JSON
+  billing_address : JSON
+  * created_at : TIMESTAMP
+  * updated_at : TIMESTAMP
+}
+
+entity "order_items" as order_items {
+  * id : UUID <<PK>>
+  --
+  * order_id : UUID <<FK>>
+  * product_id : UUID <<FK>>
+  * product_name : VARCHAR(255)
+  * product_sku : VARCHAR(100)
+  * quantity : INTEGER
+  * price : DECIMAL(10,2)
+  * total : DECIMAL(10,2)
+  product_snapshot : JSON
+  * created_at : TIMESTAMP
+}
+
+entity "payments" as payments {
+  * id : UUID <<PK>>
+  --
+  * order_id : UUID <<FK>>
+  stripe_payment_intent_id : VARCHAR(255)
+  * status : ENUM
+  * amount : DECIMAL(10,2)
+  * currency : VARCHAR(3)
+  * payment_method : ENUM
+  metadata : JSON
+  * created_at : TIMESTAMP
+  * updated_at : TIMESTAMP
+}
+
+entity "reviews" as reviews {
+  * id : UUID <<PK>>
+  --
+  * product_id : UUID <<FK>>
+  * user_id : UUID <<FK>>
+  * rating : INTEGER
+  title : VARCHAR(255)
+  content : TEXT
+  is_verified : BOOLEAN
+  is_approved : BOOLEAN
+  * created_at : TIMESTAMP
+  * updated_at : TIMESTAMP
+}
+
+entity "wishlists" as wishlists {
+  * id : UUID <<PK>>
+  --
+  * user_id : UUID <<FK>>
+  * product_id : UUID <<FK>>
+  * created_at : TIMESTAMP
+}
+
+entity "addresses" as addresses {
+  * id : UUID <<PK>>
+  --
+  * user_id : UUID <<FK>>
+  * type : ENUM
+  * first_name : VARCHAR(100)
+  * last_name : VARCHAR(100)
+  * address_line_1 : VARCHAR(255)
+  address_line_2 : VARCHAR(255)
+  * city : VARCHAR(100)
+  * state : VARCHAR(100)
+  * postal_code : VARCHAR(20)
+  * country : VARCHAR(2)
+  phone : VARCHAR(20)
+  is_default : BOOLEAN
+  * created_at : TIMESTAMP
+  * updated_at : TIMESTAMP
+}
+
+' Relationships
+users ||--o| profiles : has
+users ||--o{ carts : owns
+users ||--o{ orders : places
+users ||--o{ reviews : writes
+users ||--o{ wishlists : has
+users ||--o{ addresses : has
+
+products }o--|| brands : belongs_to
+products ||--o{ images : has
+products ||--o{ cart_items : in
+products ||--o{ order_items : in
+products ||--o{ reviews : receives
+products ||--o{ wishlists : in
+
+categories ||--o{ categories : parent_child
+
+carts ||--o{ cart_items : contains
+
+orders ||--o{ order_items : contains
+orders ||--o{ payments : has
+
+cart_items }o--|| products : references
+order_items }o--|| products : references
+
+note top of users : 60+ Tables Total\nCore entities shown\nFull schema includes:\n- Notifications\n- Analytics\n- Inventory\n- Shipping\n- Coupons\n- And more...
+
+note bottom of products : Advanced Features:\n- Full-text search\n- Product variants\n- Attributes system\n- SEO optimization\n- Performance tracking
+
+@enduml

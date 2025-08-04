@@ -1,0 +1,168 @@
+@startuml API Architecture - BiHub E-commerce
+!theme plain
+skinparam backgroundColor #FFFFFF
+skinparam defaultFontName Arial
+skinparam defaultFontSize 11
+
+title API Architecture Overview - BiHub E-commerce (200+ Endpoints)
+
+package "Client Applications" as clients #E6F3FF {
+  [Web Browser] as web
+  [Mobile App] as mobile
+  [Admin Dashboard] as admin_ui
+  [Third-party Apps] as third_party
+}
+
+package "API Gateway Layer" as gateway #FFE6CC {
+  [Load Balancer] as lb
+  [Rate Limiter] as rate_limit
+  [CORS Handler] as cors
+  [Security Headers] as security
+}
+
+package "Authentication Layer" as auth #E6FFE6 {
+  [JWT Middleware] as jwt
+  [OAuth Handler] as oauth
+  [Session Manager] as session
+  [Role-based Access] as rbac
+}
+
+package "API Endpoints (476+ Total)" as endpoints #FFE6F3 {
+  package "Public APIs (120+)" as public {
+    [Authentication (12)] as auth_api
+    [Products (50+)] as products_api
+    [Categories (20+)] as categories_api
+    [Search (15+)] as search_api
+    [Public Cart (5)] as public_cart
+    [Shipping (6)] as shipping_api
+  }
+  
+  package "Protected APIs (200+)" as protected {
+    [User Management (40+)] as user_api
+    [Cart & Orders (30+)] as cart_api
+    [Reviews & Wishlist (15+)] as review_api
+    [Payments (20+)] as payment_api
+    [Notifications (10+)] as notification_api
+    [File Management (15+)] as file_api
+  }
+  
+  package "Admin APIs (150+)" as admin_apis {
+    [Dashboard (10+)] as dashboard_api
+    [User Management (25+)] as admin_user_api
+    [Product Management (30+)] as admin_product_api
+    [Order Management (20+)] as admin_order_api
+    [Analytics (25+)] as analytics_api
+    [System Management (40+)] as system_api
+  }
+}
+
+package "Business Logic Layer" as business #F0F8FF {
+  [User Use Cases] as user_uc
+  [Product Use Cases] as product_uc
+  [Order Use Cases] as order_uc
+  [Payment Use Cases] as payment_uc
+  [Admin Use Cases] as admin_uc
+  [Analytics Use Cases] as analytics_uc
+}
+
+package "Data Access Layer" as data #F5F5F5 {
+  [User Repository] as user_repo
+  [Product Repository] as product_repo
+  [Order Repository] as order_repo
+  [Payment Repository] as payment_repo
+  [Analytics Repository] as analytics_repo
+}
+
+package "External Services" as external #FFFACD {
+  [Stripe API] as stripe
+  [Google OAuth] as google
+  [Facebook OAuth] as facebook
+  [Email Service] as email
+  [File Storage] as storage
+}
+
+package "Database Layer" as db #E0E0E0 {
+  database "PostgreSQL\n(60+ Tables)" as postgres
+  database "Redis Cache" as redis
+}
+
+' Client connections
+web --> lb
+mobile --> lb
+admin_ui --> lb
+third_party --> lb
+
+' Gateway layer
+lb --> rate_limit
+rate_limit --> cors
+cors --> security
+security --> jwt
+
+' Authentication flow
+jwt --> oauth
+jwt --> session
+jwt --> rbac
+
+' API routing
+rbac --> auth_api
+rbac --> products_api
+rbac --> categories_api
+rbac --> search_api
+rbac --> public_cart
+rbac --> shipping_api
+
+rbac --> user_api
+rbac --> cart_api
+rbac --> review_api
+rbac --> payment_api
+rbac --> notification_api
+rbac --> file_api
+
+rbac --> dashboard_api
+rbac --> admin_user_api
+rbac --> admin_product_api
+rbac --> admin_order_api
+rbac --> analytics_api
+rbac --> system_api
+
+' Business logic connections
+auth_api --> user_uc
+products_api --> product_uc
+cart_api --> order_uc
+payment_api --> payment_uc
+admin_user_api --> admin_uc
+analytics_api --> analytics_uc
+
+' Data access
+user_uc --> user_repo
+product_uc --> product_repo
+order_uc --> order_repo
+payment_uc --> payment_repo
+admin_uc --> user_repo
+analytics_uc --> analytics_repo
+
+' External service connections
+payment_uc --> stripe
+user_uc --> google
+user_uc --> facebook
+user_uc --> email
+file_api --> storage
+
+' Database connections
+user_repo --> postgres
+product_repo --> postgres
+order_repo --> postgres
+payment_repo --> postgres
+analytics_repo --> postgres
+
+user_repo --> redis
+product_repo --> redis
+order_repo --> redis
+
+note right of endpoints : **476+ API Endpoints**\n\n**Public APIs (120+):**\n- No authentication required\n- Rate limited\n- Cached responses\n\n**Protected APIs (200+):**\n- JWT authentication\n- User-specific data\n- Real-time features\n\n**Admin APIs (150+):**\n- Admin/Moderator roles\n- System management\n- Advanced analytics
+
+note bottom of postgres : **Database Features:**\n- 60+ optimized tables\n- Advanced indexing\n- Full-text search\n- Connection pooling\n- Query optimization
+
+note left of redis : **Caching Strategy:**\n- Session management\n- API response caching\n- Real-time data\n- Performance boost
+
+@enduml

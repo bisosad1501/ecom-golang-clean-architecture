@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>User Journey Flow - Shopping Process</title>
+    <script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+    <style>
+        body { 
+            font-family: Arial, sans-serif; 
+            margin: 20px; 
+            background: white;
+        }
+        .mermaid { 
+            text-align: center; 
+            margin: 20px 0;
+        }
+        h1 {
+            text-align: center;
+            color: #333;
+            margin-bottom: 30px;
+        }
+    </style>
+</head>
+<body>
+    <h1>User Journey Flow - Shopping Process</h1>
+    <div class="mermaid">
+flowchart TD
+    A[User visits Homepage] --> B{User authenticated?}
+    B -->|No| C[Browse as Guest]
+    B -->|Yes| D[Browse as User]
+    
+    C --> E[View Products]
+    D --> E
+    
+    E --> F[Product Detail Page]
+    F --> G{Add to Cart?}
+    
+    G -->|No| H[Continue Browsing]
+    G -->|Yes| I{User logged in?}
+    
+    I -->|No| J[Guest Cart]
+    I -->|Yes| K[User Cart]
+    
+    J --> L[Proceed to Checkout]
+    K --> L
+    
+    L --> M{Login required?}
+    M -->|Yes| N[Login/Register]
+    M -->|No| O[Checkout Form]
+    
+    N --> P{Cart conflict?}
+    P -->|Yes| Q[Merge Carts]
+    P -->|No| O
+    Q --> O
+    
+    O --> R[Payment Processing]
+    R --> S{Payment successful?}
+    
+    S -->|No| T[Payment Failed]
+    S -->|Yes| U[Order Confirmation]
+    
+    T --> R
+    U --> V[Email Notification]
+    V --> W[Order Tracking]
+    
+    H --> E
+    
+    style A fill:#e3f2fd
+    style U fill:#c8e6c9
+    style T fill:#ffcdd2
+    style R fill:#fff3e0
+    </div>
+    
+    <script>
+        mermaid.initialize({
+            startOnLoad: true,
+            theme: 'default',
+            flowchart: {
+                useMaxWidth: true,
+                htmlLabels: true
+            }
+        });
+    </script>
+</body>
+</html>

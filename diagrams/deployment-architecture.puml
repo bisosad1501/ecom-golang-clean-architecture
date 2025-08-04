@@ -1,0 +1,190 @@
+@startuml Deployment Architecture - BiHub E-commerce
+!theme plain
+skinparam backgroundColor #FFFFFF
+skinparam defaultFontName Arial
+skinparam defaultFontSize 10
+
+title Deployment Architecture - BiHub E-commerce Platform
+
+!define SERVER node
+!define CONTAINER rectangle
+!define DATABASE database
+!define CLOUD cloud
+
+package "Production Environment" as production #E6F3FF {
+  
+  package "Load Balancer Tier" as lb_tier #FFE6CC {
+    SERVER "Nginx Load Balancer" as nginx_lb {
+      CONTAINER "SSL Termination" as ssl_term
+      CONTAINER "Request Routing" as req_routing
+      CONTAINER "Health Checks" as health_checks
+    }
+  }
+  
+  package "Application Tier" as app_tier #E6FFE6 {
+    SERVER "Frontend Server 1" as frontend_1 {
+      CONTAINER "Next.js App\n(Port 3000)" as nextjs_1
+      CONTAINER "Static Assets" as static_1
+      CONTAINER "PM2 Process Manager" as pm2_1
+    }
+    
+    SERVER "Frontend Server 2" as frontend_2 {
+      CONTAINER "Next.js App\n(Port 3000)" as nextjs_2
+      CONTAINER "Static Assets" as static_2
+      CONTAINER "PM2 Process Manager" as pm2_2
+    }
+    
+    SERVER "Backend Server 1" as backend_1 {
+      CONTAINER "Go API Server\n(Port 8080)" as go_api_1
+      CONTAINER "WebSocket Server\n(Port 8081)" as ws_server_1
+      CONTAINER "Background Jobs" as bg_jobs_1
+    }
+    
+    SERVER "Backend Server 2" as backend_2 {
+      CONTAINER "Go API Server\n(Port 8080)" as go_api_2
+      CONTAINER "WebSocket Server\n(Port 8081)" as ws_server_2
+      CONTAINER "Background Jobs" as bg_jobs_2
+    }
+  }
+  
+  package "Database Tier" as db_tier #FFE6F3 {
+    SERVER "Database Primary" as db_primary {
+      DATABASE "PostgreSQL 15\n(Master)" as postgres_master
+      CONTAINER "Connection Pool" as conn_pool_master
+      CONTAINER "Backup Agent" as backup_agent
+    }
+    
+    SERVER "Database Replica" as db_replica {
+      DATABASE "PostgreSQL 15\n(Read Replica)" as postgres_replica
+      CONTAINER "Connection Pool" as conn_pool_replica
+    }
+    
+    SERVER "Cache Server" as cache_server {
+      DATABASE "Redis 7\n(Cache & Sessions)" as redis_cache
+      CONTAINER "Redis Sentinel" as redis_sentinel
+    }
+  }
+  
+  package "File Storage" as storage_tier #F0F8FF {
+    CLOUD "CDN (CloudFlare)" as cdn
+    SERVER "File Server" as file_server {
+      CONTAINER "Static Files" as static_files
+      CONTAINER "User Uploads" as user_uploads
+      CONTAINER "Product Images" as product_images
+    }
+  }
+}
+
+package "Development Environment" as development #FFFACD {
+  SERVER "Dev Machine" as dev_machine {
+    CONTAINER "Next.js Dev\n(Port 3000)" as nextjs_dev
+    CONTAINER "Go API Dev\n(Port 8080)" as go_dev
+    CONTAINER "PostgreSQL Dev" as postgres_dev
+    CONTAINER "Redis Dev" as redis_dev
+  }
+}
+
+package "CI/CD Pipeline" as cicd_pipeline #F5F5F5 {
+  SERVER "GitHub Actions" as github_actions {
+    CONTAINER "Build & Test" as build_test
+    CONTAINER "Security Scan" as security_scan
+    CONTAINER "Deploy to Staging" as deploy_staging
+    CONTAINER "Deploy to Production" as deploy_prod
+  }
+  
+  SERVER "Docker Registry" as docker_registry {
+    CONTAINER "Frontend Images" as frontend_images
+    CONTAINER "Backend Images" as backend_images
+  }
+}
+
+package "Monitoring & Logging" as monitoring #E0E0E0 {
+  SERVER "Monitoring Server" as monitoring_server {
+    CONTAINER "Application Metrics" as app_metrics
+    CONTAINER "System Metrics" as sys_metrics
+    CONTAINER "Log Aggregation" as log_aggregation
+    CONTAINER "Alerting System" as alerting
+  }
+}
+
+package "External Services" as external #F8F8F8 {
+  CLOUD "Stripe API" as stripe_api
+  CLOUD "Google OAuth" as google_oauth_api
+  CLOUD "Facebook OAuth" as facebook_oauth_api
+  CLOUD "SMTP Service" as smtp_service
+}
+
+' Load Balancer connections
+nginx_lb --> frontend_1
+nginx_lb --> frontend_2
+nginx_lb --> backend_1
+nginx_lb --> backend_2
+
+' Frontend to Backend connections
+nextjs_1 --> go_api_1
+nextjs_1 --> go_api_2
+nextjs_2 --> go_api_1
+nextjs_2 --> go_api_2
+
+' Backend to Database connections
+go_api_1 --> postgres_master
+go_api_1 --> postgres_replica
+go_api_1 --> redis_cache
+go_api_2 --> postgres_master
+go_api_2 --> postgres_replica
+go_api_2 --> redis_cache
+
+' WebSocket connections
+ws_server_1 --> redis_cache
+ws_server_2 --> redis_cache
+
+' Database replication
+postgres_master --> postgres_replica
+
+' CDN connections
+cdn --> static_files
+cdn --> product_images
+
+' CI/CD flow
+github_actions --> docker_registry
+docker_registry --> frontend_1
+docker_registry --> frontend_2
+docker_registry --> backend_1
+docker_registry --> backend_2
+
+' Development to Production
+dev_machine --> github_actions
+
+' Monitoring connections
+monitoring_server --> nginx_lb
+monitoring_server --> frontend_1
+monitoring_server --> frontend_2
+monitoring_server --> backend_1
+monitoring_server --> backend_2
+monitoring_server --> postgres_master
+monitoring_server --> redis_cache
+
+' External service connections
+go_api_1 --> stripe_api
+go_api_1 --> google_oauth_api
+go_api_1 --> facebook_oauth_api
+go_api_1 --> smtp_service
+go_api_2 --> stripe_api
+go_api_2 --> google_oauth_api
+go_api_2 --> facebook_oauth_api
+go_api_2 --> smtp_service
+
+' Backup connections
+backup_agent --> file_server
+
+note top of lb_tier : **Load Balancing**\n- Nginx reverse proxy\n- SSL/TLS termination\n- Health check monitoring\n- Request distribution
+
+note right of app_tier : **High Availability**\n- Multiple server instances\n- Auto-scaling capability\n- Process management\n- Zero-downtime deployment
+
+note bottom of db_tier : **Database Strategy**\n- Master-replica setup\n- Connection pooling\n- Automated backups\n- Redis for caching
+
+note left of cicd_pipeline : **DevOps Pipeline**\n- Automated testing\n- Security scanning\n- Containerized deployment\n- Blue-green deployment
+
+note bottom of monitoring : **Observability**\n- Real-time monitoring\n- Log aggregation\n- Performance metrics\n- Automated alerting
+
+@enduml

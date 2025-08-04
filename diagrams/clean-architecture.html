@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Clean Architecture Layers - BiHub E-commerce</title>
+    <script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+    <style>
+        body { 
+            font-family: Arial, sans-serif; 
+            margin: 20px; 
+            background: white;
+        }
+        .mermaid { 
+            text-align: center; 
+            margin: 20px 0;
+        }
+        h1 {
+            text-align: center;
+            color: #333;
+            margin-bottom: 30px;
+        }
+    </style>
+</head>
+<body>
+    <h1>Clean Architecture Layers - BiHub E-commerce</h1>
+    <div class="mermaid">
+graph TB
+    subgraph "Delivery Layer (Controllers & Presentation)"
+        A[HTTP Handlers]
+        B[Middleware]
+        C[WebSocket]
+        D[REST API Endpoints]
+    end
+    
+    subgraph "Use Cases Layer (Application Business Rules)"
+        E[User Management]
+        F[Product Management]
+        G[Order Management]
+        H[Payment Processing]
+        I[Admin Use Cases]
+    end
+    
+    subgraph "Domain Layer (Entities & Business Rules)"
+        J[User Entity]
+        K[Product Entity]
+        L[Order Entity]
+        M[Payment Entity]
+        N[Repository Interfaces]
+        O[Domain Services]
+    end
+    
+    subgraph "Infrastructure Layer (External Interfaces)"
+        P[PostgreSQL Database]
+        Q[Redis Cache]
+        R[Stripe API]
+        S[Email Services]
+        T[File Storage]
+        U[Repository Implementations]
+    end
+    
+    A --> E
+    B --> F
+    C --> G
+    D --> H
+    
+    E --> J
+    F --> K
+    G --> L
+    H --> M
+    I --> N
+    
+    N --> U
+    O --> U
+    
+    U --> P
+    U --> Q
+    U --> R
+    U --> S
+    U --> T
+    
+    style A fill:#ff9000,stroke:#333,stroke-width:2px,color:#fff
+    style E fill:#4CAF50,stroke:#333,stroke-width:2px,color:#fff
+    style J fill:#2196F3,stroke:#333,stroke-width:2px,color:#fff
+    style P fill:#9C27B0,stroke:#333,stroke-width:2px,color:#fff
+    </div>
+    
+    <script>
+        mermaid.initialize({
+            startOnLoad: true,
+            theme: 'default',
+            flowchart: {
+                useMaxWidth: true,
+                htmlLabels: true
+            }
+        });
+    </script>
+</body>
+</html>

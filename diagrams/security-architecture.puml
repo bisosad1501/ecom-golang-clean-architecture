@@ -1,0 +1,198 @@
+@startuml Security Architecture - BiHub E-commerce
+!theme plain
+skinparam backgroundColor #FFFFFF
+skinparam defaultFontName Arial
+skinparam defaultFontSize 10
+
+title Security Architecture - BiHub E-commerce Platform
+
+!define SECURITY_LAYER rectangle
+!define PROTECTION_MECHANISM circle
+!define THREAT_VECTOR hexagon
+
+package "Client-Side Security" as client_security #E6F3FF {
+  SECURITY_LAYER "HTTPS Enforcement" as https_client {
+    PROTECTION_MECHANISM "SSL/TLS 1.3" as ssl_tls
+    PROTECTION_MECHANISM "HSTS Headers" as hsts
+    PROTECTION_MECHANISM "Certificate Pinning" as cert_pinning
+  }
+  
+  SECURITY_LAYER "Frontend Security" as frontend_security {
+    PROTECTION_MECHANISM "Content Security Policy" as csp
+    PROTECTION_MECHANISM "XSS Protection" as xss_protection
+    PROTECTION_MECHANISM "Input Sanitization" as input_sanitization
+    PROTECTION_MECHANISM "CSRF Tokens" as csrf_tokens
+  }
+  
+  SECURITY_LAYER "Authentication UI" as auth_ui {
+    PROTECTION_MECHANISM "Secure Forms" as secure_forms
+    PROTECTION_MECHANISM "Password Strength" as password_strength
+    PROTECTION_MECHANISM "Rate Limiting UI" as rate_limit_ui
+  }
+}
+
+package "Network Security Layer" as network_security #FFE6CC {
+  SECURITY_LAYER "Load Balancer Security" as lb_security {
+    PROTECTION_MECHANISM "DDoS Protection" as ddos_protection
+    PROTECTION_MECHANISM "IP Whitelisting" as ip_whitelist
+    PROTECTION_MECHANISM "Geographic Filtering" as geo_filter
+  }
+  
+  SECURITY_LAYER "API Gateway Security" as api_gateway_security {
+    PROTECTION_MECHANISM "Rate Limiting" as rate_limiting
+    PROTECTION_MECHANISM "Request Validation" as request_validation
+    PROTECTION_MECHANISM "API Key Management" as api_key_mgmt
+    PROTECTION_MECHANISM "CORS Configuration" as cors_config
+  }
+}
+
+package "Application Security Layer" as app_security #E6FFE6 {
+  SECURITY_LAYER "Authentication & Authorization" as auth_system {
+    PROTECTION_MECHANISM "JWT Tokens" as jwt_tokens {
+      PROTECTION_MECHANISM "Access Tokens (15min)" as access_tokens
+      PROTECTION_MECHANISM "Refresh Tokens (7 days)" as refresh_tokens
+      PROTECTION_MECHANISM "Token Blacklisting" as token_blacklist
+    }
+    
+    PROTECTION_MECHANISM "OAuth 2.0 Integration" as oauth_integration {
+      PROTECTION_MECHANISM "Google OAuth" as google_oauth
+      PROTECTION_MECHANISM "Facebook OAuth" as facebook_oauth
+      PROTECTION_MECHANISM "State Parameter" as oauth_state
+    }
+    
+    PROTECTION_MECHANISM "Role-Based Access Control" as rbac {
+      PROTECTION_MECHANISM "User Roles" as user_roles
+      PROTECTION_MECHANISM "Admin Roles" as admin_roles
+      PROTECTION_MECHANISM "Permission Matrix" as permission_matrix
+    }
+  }
+  
+  SECURITY_LAYER "Input Validation & Sanitization" as input_validation {
+    PROTECTION_MECHANISM "Schema Validation" as schema_validation
+    PROTECTION_MECHANISM "SQL Injection Prevention" as sql_injection_prevention
+    PROTECTION_MECHANISM "NoSQL Injection Prevention" as nosql_injection_prevention
+    PROTECTION_MECHANISM "Command Injection Prevention" as command_injection_prevention
+  }
+  
+  SECURITY_LAYER "Session Management" as session_mgmt {
+    PROTECTION_MECHANISM "Secure Session Storage" as secure_sessions
+    PROTECTION_MECHANISM "Session Timeout" as session_timeout
+    PROTECTION_MECHANISM "Concurrent Session Control" as concurrent_sessions
+  }
+}
+
+package "Data Security Layer" as data_security #FFE6F3 {
+  SECURITY_LAYER "Database Security" as db_security {
+    PROTECTION_MECHANISM "Connection Encryption" as db_encryption
+    PROTECTION_MECHANISM "Parameterized Queries" as parameterized_queries
+    PROTECTION_MECHANISM "Database Firewall" as db_firewall
+    PROTECTION_MECHANISM "Access Control Lists" as db_acl
+  }
+  
+  SECURITY_LAYER "Data Encryption" as data_encryption {
+    PROTECTION_MECHANISM "Encryption at Rest" as encryption_rest {
+      PROTECTION_MECHANISM "AES-256 Encryption" as aes_encryption
+      PROTECTION_MECHANISM "Key Management" as key_management
+    }
+    
+    PROTECTION_MECHANISM "Encryption in Transit" as encryption_transit {
+      PROTECTION_MECHANISM "TLS 1.3" as tls_encryption
+      PROTECTION_MECHANISM "Certificate Management" as cert_management
+    }
+  }
+  
+  SECURITY_LAYER "Sensitive Data Protection" as sensitive_data {
+    PROTECTION_MECHANISM "PII Encryption" as pii_encryption
+    PROTECTION_MECHANISM "Payment Data Security" as payment_security
+    PROTECTION_MECHANISM "Password Hashing" as password_hashing {
+      PROTECTION_MECHANISM "bcrypt Algorithm" as bcrypt
+      PROTECTION_MECHANISM "Salt Generation" as salt_generation
+    }
+  }
+}
+
+package "Infrastructure Security" as infra_security #F0F8FF {
+  SECURITY_LAYER "Container Security" as container_security {
+    PROTECTION_MECHANISM "Image Scanning" as image_scanning
+    PROTECTION_MECHANISM "Runtime Protection" as runtime_protection
+    PROTECTION_MECHANISM "Secrets Management" as secrets_mgmt
+  }
+  
+  SECURITY_LAYER "Network Segmentation" as network_segmentation {
+    PROTECTION_MECHANISM "VPC Configuration" as vpc_config
+    PROTECTION_MECHANISM "Firewall Rules" as firewall_rules
+    PROTECTION_MECHANISM "Private Subnets" as private_subnets
+  }
+}
+
+package "Monitoring & Incident Response" as security_monitoring #FFFACD {
+  SECURITY_LAYER "Security Monitoring" as sec_monitoring {
+    PROTECTION_MECHANISM "Intrusion Detection" as intrusion_detection
+    PROTECTION_MECHANISM "Anomaly Detection" as anomaly_detection
+    PROTECTION_MECHANISM "Security Logs" as security_logs
+    PROTECTION_MECHANISM "Real-time Alerts" as realtime_alerts
+  }
+  
+  SECURITY_LAYER "Audit & Compliance" as audit_compliance {
+    PROTECTION_MECHANISM "Audit Trails" as audit_trails
+    PROTECTION_MECHANISM "Compliance Reporting" as compliance_reporting
+    PROTECTION_MECHANISM "Security Assessments" as security_assessments
+  }
+}
+
+package "External Security Services" as external_security #F5F5F5 {
+  SECURITY_LAYER "Payment Security" as payment_sec {
+    PROTECTION_MECHANISM "Stripe PCI Compliance" as stripe_pci
+    PROTECTION_MECHANISM "3D Secure Authentication" as three_d_secure
+    PROTECTION_MECHANISM "Fraud Detection" as fraud_detection
+  }
+  
+  SECURITY_LAYER "Third-Party Security" as third_party_sec {
+    PROTECTION_MECHANISM "OAuth Provider Security" as oauth_provider_sec
+    PROTECTION_MECHANISM "API Security Standards" as api_security_standards
+    PROTECTION_MECHANISM "Vendor Security Assessment" as vendor_assessment
+  }
+}
+
+' Threat Vectors
+THREAT_VECTOR "SQL Injection" as sql_injection_threat
+THREAT_VECTOR "XSS Attacks" as xss_threat
+THREAT_VECTOR "CSRF Attacks" as csrf_threat
+THREAT_VECTOR "DDoS Attacks" as ddos_threat
+THREAT_VECTOR "Brute Force" as brute_force_threat
+THREAT_VECTOR "Session Hijacking" as session_hijack_threat
+THREAT_VECTOR "Data Breaches" as data_breach_threat
+
+' Security flow connections
+https_client --> api_gateway_security
+frontend_security --> auth_system
+api_gateway_security --> input_validation
+auth_system --> session_mgmt
+input_validation --> db_security
+session_mgmt --> data_encryption
+db_security --> container_security
+data_encryption --> security_monitoring
+container_security --> audit_compliance
+
+' Protection against threats
+sql_injection_prevention --> sql_injection_threat : "Prevents"
+xss_protection --> xss_threat : "Prevents"
+csrf_tokens --> csrf_threat : "Prevents"
+ddos_protection --> ddos_threat : "Mitigates"
+rate_limiting --> brute_force_threat : "Prevents"
+secure_sessions --> session_hijack_threat : "Prevents"
+encryption_rest --> data_breach_threat : "Mitigates"
+
+note top of client_security : **Client-Side Protection**\n- HTTPS enforcement\n- Content Security Policy\n- XSS & CSRF protection\n- Input validation
+
+note right of network_security : **Network Defense**\n- DDoS protection\n- Rate limiting\n- API gateway security\n- Geographic filtering
+
+note bottom of app_security : **Application Security**\n- JWT authentication\n- OAuth integration\n- RBAC authorization\n- Input sanitization
+
+note left of data_security : **Data Protection**\n- Encryption at rest & transit\n- Secure password hashing\n- PII protection\n- Database security
+
+note bottom of infra_security : **Infrastructure Security**\n- Container scanning\n- Network segmentation\n- Secrets management\n- Runtime protection
+
+note top of security_monitoring : **Security Operations**\n- Real-time monitoring\n- Intrusion detection\n- Audit trails\n- Incident response
+
+@enduml

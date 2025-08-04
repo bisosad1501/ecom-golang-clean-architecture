@@ -1,0 +1,162 @@
+@startuml User Journey Flow - BiHub E-commerce
+!theme plain
+skinparam backgroundColor #FFFFFF
+skinparam defaultFontName Arial
+skinparam defaultFontSize 10
+
+title User Journey Flow - BiHub E-commerce Platform
+
+!define PROCESS rectangle
+!define DECISION diamond
+!define START circle
+!define END circle
+
+START start as "User Visits\nBiHub Website"
+PROCESS homepage as "Homepage\nBrowsing"
+DECISION auth_check as "User\nAuthenticated?"
+PROCESS login as "Login/Register\nProcess"
+PROCESS browse_products as "Browse Products\n& Categories"
+PROCESS search as "Search &\nFilter Products"
+PROCESS product_detail as "View Product\nDetails"
+DECISION add_to_cart_decision as "Add to\nCart?"
+PROCESS add_to_cart as "Add Product\nto Cart"
+PROCESS continue_shopping as "Continue\nShopping"
+PROCESS view_cart as "View Shopping\nCart"
+DECISION checkout_decision as "Proceed to\nCheckout?"
+PROCESS guest_checkout as "Guest Checkout\nOption"
+PROCESS checkout_form as "Fill Checkout\nForm"
+PROCESS payment_method as "Select Payment\nMethod"
+PROCESS payment_process as "Process\nPayment"
+DECISION payment_success as "Payment\nSuccessful?"
+PROCESS order_confirmation as "Order\nConfirmation"
+PROCESS order_tracking as "Order\nTracking"
+PROCESS payment_failed as "Payment\nFailed"
+END end_success as "Order\nCompleted"
+END end_failed as "Payment\nRetry"
+
+' Main flow
+start --> homepage
+homepage --> auth_check
+auth_check -->|No| login
+auth_check -->|Yes| browse_products
+login --> browse_products
+browse_products --> search
+search --> product_detail
+product_detail --> add_to_cart_decision
+add_to_cart_decision -->|Yes| add_to_cart
+add_to_cart_decision -->|No| continue_shopping
+add_to_cart --> view_cart
+continue_shopping --> browse_products
+view_cart --> checkout_decision
+checkout_decision -->|Yes| guest_checkout
+checkout_decision -->|No| continue_shopping
+guest_checkout --> checkout_form
+checkout_form --> payment_method
+payment_method --> payment_process
+payment_process --> payment_success
+payment_success -->|Yes| order_confirmation
+payment_success -->|No| payment_failed
+order_confirmation --> order_tracking
+order_tracking --> end_success
+payment_failed --> end_failed
+
+' Additional flows
+package "Authentication Flow" as auth_flow #E6F3FF {
+  PROCESS register_form as "Registration\nForm"
+  PROCESS email_verification as "Email\nVerification"
+  PROCESS oauth_login as "OAuth Login\n(Google/Facebook)"
+  PROCESS login_form as "Login\nForm"
+  
+  login --> register_form
+  login --> oauth_login
+  login --> login_form
+  register_form --> email_verification
+  email_verification --> browse_products
+  oauth_login --> browse_products
+  login_form --> browse_products
+}
+
+package "Product Discovery Flow" as product_flow #FFE6CC {
+  PROCESS category_browse as "Browse by\nCategory"
+  PROCESS brand_browse as "Browse by\nBrand"
+  PROCESS featured_products as "Featured\nProducts"
+  PROCESS recommendations as "Personalized\nRecommendations"
+  
+  browse_products --> category_browse
+  browse_products --> brand_browse
+  browse_products --> featured_products
+  browse_products --> recommendations
+  
+  category_browse --> product_detail
+  brand_browse --> product_detail
+  featured_products --> product_detail
+  recommendations --> product_detail
+}
+
+package "Cart Management Flow" as cart_flow #E6FFE6 {
+  PROCESS update_quantity as "Update Item\nQuantity"
+  PROCESS remove_item as "Remove Item\nfrom Cart"
+  PROCESS apply_coupon as "Apply Coupon\nCode"
+  PROCESS save_for_later as "Save Item\nfor Later"
+  
+  view_cart --> update_quantity
+  view_cart --> remove_item
+  view_cart --> apply_coupon
+  view_cart --> save_for_later
+  
+  update_quantity --> view_cart
+  remove_item --> view_cart
+  apply_coupon --> view_cart
+  save_for_later --> view_cart
+}
+
+package "Checkout Process Flow" as checkout_flow #FFE6F3 {
+  PROCESS shipping_address as "Enter Shipping\nAddress"
+  PROCESS billing_address as "Enter Billing\nAddress"
+  PROCESS shipping_method as "Select Shipping\nMethod"
+  PROCESS review_order as "Review Order\nSummary"
+  
+  checkout_form --> shipping_address
+  shipping_address --> billing_address
+  billing_address --> shipping_method
+  shipping_method --> review_order
+  review_order --> payment_method
+}
+
+package "Payment Options Flow" as payment_flow #F0F8FF {
+  PROCESS stripe_payment as "Stripe Credit\nCard Payment"
+  PROCESS cod_payment as "Cash on\nDelivery"
+  PROCESS bank_transfer as "Bank Transfer\nPayment"
+  
+  payment_method --> stripe_payment
+  payment_method --> cod_payment
+  payment_method --> bank_transfer
+  
+  stripe_payment --> payment_process
+  cod_payment --> order_confirmation
+  bank_transfer --> order_confirmation
+}
+
+package "Post-Order Flow" as post_order_flow #FFFACD {
+  PROCESS order_email as "Order Confirmation\nEmail"
+  PROCESS shipping_notification as "Shipping\nNotification"
+  PROCESS delivery_confirmation as "Delivery\nConfirmation"
+  PROCESS review_product as "Product\nReview"
+  
+  order_confirmation --> order_email
+  order_tracking --> shipping_notification
+  shipping_notification --> delivery_confirmation
+  delivery_confirmation --> review_product
+}
+
+note top of auth_flow : **Authentication Options**\n- Email/Password registration\n- Social OAuth (Google, Facebook)\n- Email verification required\n- Guest checkout available
+
+note right of product_flow : **Product Discovery**\n- Category-based browsing\n- Brand filtering\n- Search functionality\n- AI-powered recommendations
+
+note bottom of cart_flow : **Cart Features**\n- Quantity management\n- Coupon application\n- Save for later\n- Persistent cart storage
+
+note left of checkout_flow : **Secure Checkout**\n- Multi-step process\n- Address validation\n- Shipping options\n- Order review
+
+note bottom of payment_flow : **Payment Methods**\n- Stripe integration\n- Cash on delivery\n- Bank transfer\n- Secure processing
+
+@enduml

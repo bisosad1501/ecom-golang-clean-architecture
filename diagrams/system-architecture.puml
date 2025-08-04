@@ -1,0 +1,153 @@
+@startuml System Architecture - BiHub E-commerce
+!theme plain
+skinparam backgroundColor #FFFFFF
+skinparam defaultFontName Arial
+skinparam defaultFontSize 11
+
+title System Architecture Overview - BiHub E-commerce Platform
+
+!define RECTANGLE class
+
+package "Client Layer" as client_layer #E6F3FF {
+  RECTANGLE "Web Browser\n(Chrome, Firefox, Safari)" as web_browser
+  RECTANGLE "Mobile Browser\n(iOS Safari, Chrome Mobile)" as mobile_browser
+  RECTANGLE "Admin Dashboard\n(Management Interface)" as admin_dashboard
+  RECTANGLE "API Testing Tools\n(Postman, Insomnia)" as api_tools
+}
+
+package "CDN & Load Balancer" as cdn_layer #FFE6CC {
+  RECTANGLE "Content Delivery Network\n(Static Assets)" as cdn
+  RECTANGLE "Load Balancer\n(Nginx/HAProxy)" as load_balancer
+  RECTANGLE "SSL/TLS Termination\n(HTTPS Encryption)" as ssl_termination
+}
+
+package "Frontend Layer" as frontend_layer #E6FFE6 {
+  RECTANGLE "Next.js 15 Application\n(React 19, TypeScript)" as nextjs_app {
+    RECTANGLE "Pages & Components" as pages
+    RECTANGLE "State Management\n(Zustand)" as state_mgmt
+    RECTANGLE "API Client\n(Axios)" as api_client
+    RECTANGLE "Authentication\n(JWT Handling)" as frontend_auth
+  }
+  
+  RECTANGLE "Static Assets\n(Images, CSS, JS)" as static_assets
+  RECTANGLE "SEO & Meta Tags\n(Next.js Head)" as seo_meta
+}
+
+package "API Gateway & Middleware" as api_gateway_layer #FFE6F3 {
+  RECTANGLE "Rate Limiting\n(Request Throttling)" as rate_limiting
+  RECTANGLE "CORS Handler\n(Cross-Origin Requests)" as cors_handler
+  RECTANGLE "Request Validation\n(Input Sanitization)" as request_validation
+  RECTANGLE "Authentication Middleware\n(JWT Verification)" as auth_middleware
+  RECTANGLE "Logging Middleware\n(Request/Response Logs)" as logging_middleware
+}
+
+package "Backend Layer" as backend_layer #F0F8FF {
+  RECTANGLE "Go 1.23 + Gin Framework\n(HTTP Server)" as go_server {
+    package "Clean Architecture Layers" as clean_arch {
+      RECTANGLE "Delivery Layer\n(HTTP Handlers)" as delivery_layer
+      RECTANGLE "Use Cases Layer\n(Business Logic)" as usecase_layer
+      RECTANGLE "Domain Layer\n(Entities & Rules)" as domain_layer
+      RECTANGLE "Infrastructure Layer\n(External Services)" as infrastructure_layer
+    }
+  }
+  
+  RECTANGLE "WebSocket Server\n(Real-time Features)" as websocket_server
+  RECTANGLE "Background Jobs\n(Email, Notifications)" as background_jobs
+}
+
+package "Database Layer" as database_layer #FFFACD {
+  database "PostgreSQL 15+\n(Primary Database)" as postgresql {
+    RECTANGLE "60+ Optimized Tables" as db_tables
+    RECTANGLE "Advanced Indexing" as db_indexes
+    RECTANGLE "Connection Pooling" as db_pool
+    RECTANGLE "Query Optimization" as db_optimization
+  }
+  
+  database "Redis 7+\n(Cache & Sessions)" as redis {
+    RECTANGLE "Session Storage" as redis_sessions
+    RECTANGLE "API Response Cache" as redis_cache
+    RECTANGLE "Real-time Data" as redis_realtime
+    RECTANGLE "Rate Limiting Data" as redis_ratelimit
+  }
+}
+
+package "External Services" as external_services #F5F5F5 {
+  RECTANGLE "Stripe Payment Gateway\n(Payment Processing)" as stripe
+  RECTANGLE "Google OAuth 2.0\n(Social Authentication)" as google_oauth
+  RECTANGLE "Facebook OAuth\n(Social Authentication)" as facebook_oauth
+  RECTANGLE "SMTP Email Service\n(Transactional Emails)" as email_service
+  RECTANGLE "File Storage Service\n(Images, Documents)" as file_storage
+}
+
+package "Infrastructure & DevOps" as infrastructure #E0E0E0 {
+  RECTANGLE "Docker Containers\n(Application Packaging)" as docker
+  RECTANGLE "CI/CD Pipeline\n(GitHub Actions)" as cicd
+  RECTANGLE "Monitoring & Logging\n(Application Metrics)" as monitoring
+  RECTANGLE "Backup & Recovery\n(Data Protection)" as backup
+}
+
+' Client connections
+web_browser --> cdn
+mobile_browser --> cdn
+admin_dashboard --> cdn
+api_tools --> load_balancer
+
+' CDN and Load Balancer
+cdn --> load_balancer
+load_balancer --> ssl_termination
+ssl_termination --> nextjs_app
+
+' Frontend connections
+nextjs_app --> static_assets
+pages --> state_mgmt
+state_mgmt --> api_client
+api_client --> rate_limiting
+frontend_auth --> auth_middleware
+
+' API Gateway flow
+rate_limiting --> cors_handler
+cors_handler --> request_validation
+request_validation --> auth_middleware
+auth_middleware --> logging_middleware
+logging_middleware --> delivery_layer
+
+' Backend architecture flow
+delivery_layer --> usecase_layer
+usecase_layer --> domain_layer
+domain_layer --> infrastructure_layer
+
+' WebSocket and background jobs
+websocket_server --> redis_realtime
+background_jobs --> email_service
+
+' Database connections
+infrastructure_layer --> postgresql
+infrastructure_layer --> redis
+db_pool --> db_tables
+db_tables --> db_indexes
+
+' External service integrations
+infrastructure_layer --> stripe
+infrastructure_layer --> google_oauth
+infrastructure_layer --> facebook_oauth
+infrastructure_layer --> email_service
+infrastructure_layer --> file_storage
+
+' Infrastructure connections
+go_server --> docker
+docker --> cicd
+monitoring --> postgresql
+monitoring --> redis
+backup --> postgresql
+
+note top of client_layer : **Multi-Platform Support**\n- Responsive web design\n- Mobile-first approach\n- Cross-browser compatibility\n- Admin management interface
+
+note right of frontend_layer : **Modern Frontend Stack**\n- Next.js 15 with React 19\n- TypeScript for type safety\n- Tailwind CSS for styling\n- Optimized performance
+
+note bottom of backend_layer : **Clean Architecture**\n- Separation of concerns\n- Dependency inversion\n- Testable components\n- Scalable structure
+
+note left of database_layer : **High-Performance Data**\n- PostgreSQL for ACID compliance\n- Redis for caching & sessions\n- Optimized queries\n- Connection pooling
+
+note bottom of external_services : **Third-Party Integrations**\n- Secure payment processing\n- Social authentication\n- Email notifications\n- File management
+
+@enduml
