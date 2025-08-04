@@ -127,18 +127,26 @@ MỤC LỤC
     10.4. Load Testing và Scalability Analysis
     10.5. Business Logic Validation
 
-11. KẾT QUẢ VÀ THẢO LUẬN
-    11.1. Kết quả đạt được
-    11.2. So sánh với các hệ thống tương tự
-    11.3. Ưu điểm và hạn chế
-    11.4. Bài học kinh nghiệm
-    11.5. Hướng phát triển tương lai
+11. GIAO DIỆN NGƯỜI DÙNG VÀ TRẢI NGHIỆM
+    11.1. Giao diện khách hàng (Customer Interface)
+    11.2. Giao diện quản trị (Admin Interface)
+    11.3. Giao diện xác thực (Authentication Interface)
+    11.4. Giao diện responsive (Mobile Interface)
+    11.5. Trải nghiệm người dùng (User Experience)
+    11.6. Accessibility và Performance
 
-12. KẾT LUẬN VÀ KIẾN NGHỊ
-    12.1. Tóm tắt kết quả nghiên cứu
-    12.2. Đóng góp của đề tài
-    12.3. Hạn chế và khó khăn
-    12.4. Kiến nghị và đề xuất
+12. KẾT QUẢ VÀ THẢO LUẬN
+    12.1. Kết quả đạt được
+    12.2. So sánh với các hệ thống tương tự
+    12.3. Ưu điểm và hạn chế
+    12.4. Bài học kinh nghiệm
+    12.5. Hướng phát triển tương lai
+
+13. KẾT LUẬN VÀ KIẾN NGHỊ
+    13.1. Tóm tắt kết quả nghiên cứu
+    13.2. Đóng góp của đề tài
+    13.3. Hạn chế và khó khăn
+    13.4. Kiến nghị và đề xuất
 
 TÀI LIỆU THAM KHẢO
 
@@ -240,7 +248,8 @@ Báo cáo được tổ chức thành 12 chương chính:
 - Chương 8-9: Testing và deployment
 - Chương 10-12: Đánh giá, kết quả và kết luận
 
-[Vị trí đặt hình ảnh: Sơ đồ tổng quan đề tài và phương pháp nghiên cứu]
+![System Overview](screenshots/00-system-overview.png)
+*Hình 1.1: Tổng quan hệ thống BiHub E-commerce Platform*
 
 2. CƠ SỞ LÝ THUYẾT
 
@@ -1515,7 +1524,20 @@ Bundle Optimization:
 - CSS: < 50KB gzipped
 - Images: Optimized với Next.js Image
 
-[Vị trí đặt hình ảnh: Frontend component architecture và data flow diagram]
+![Homepage](screenshots/01-homepage.png)
+*Hình 5.1: Trang chủ BiHub E-commerce Platform*
+
+![Product Listing](screenshots/02-product-listing.png)
+*Hình 5.2: Danh sách sản phẩm với bộ lọc và tìm kiếm*
+
+![Product Detail](screenshots/03-product-detail.png)
+*Hình 5.3: Chi tiết sản phẩm với gallery và thông tin*
+
+![Shopping Cart](screenshots/04-shopping-cart.png)
+*Hình 5.4: Giỏ hàng và quá trình checkout*
+
+![Mobile Interface](screenshots/05-mobile-responsive.png)
+*Hình 5.5: Giao diện responsive trên thiết bị mobile*
 
 6. TÍNH NĂNG VÀ CHỨC NĂNG HỆ THỐNG
 
@@ -2431,7 +2453,17 @@ Component Optimization:
 - Variant-based styling: Class Variance Authority
 - Strategic memoization: React.memo usage
 
-[Vị trí đặt hình ảnh: Performance metrics dashboard và optimization results]
+![Admin Dashboard](screenshots/06-admin-dashboard.png)
+*Hình 10.1: Admin Dashboard - Tổng quan hệ thống quản trị*
+
+![Product Management](screenshots/07-product-management.png)
+*Hình 10.2: Giao diện quản lý sản phẩm*
+
+![Order Management](screenshots/08-order-management.png)
+*Hình 10.3: Giao diện quản lý đơn hàng*
+
+![User Management](screenshots/09-user-management.png)
+*Hình 10.4: Giao diện quản lý người dùng*
 
 10.5. Comprehensive API Documentation
 
@@ -3056,7 +3088,11 @@ Response (200):
   "received": true
 }
 
-[Vị trí đặt hình ảnh: API documentation screenshots và Postman collection examples]
+![Postman Collection](screenshots/14-postman-collection.png)
+*Hình 10.9: Postman Collection với 200+ API endpoints*
+
+![API Testing](screenshots/15-api-testing.png)
+*Hình 10.10: Kết quả testing API endpoints*
 
 10.6. Code Examples và Implementation Details
 
@@ -4689,20 +4725,277 @@ Component Optimizations:
 - Variant-based styling: Class Variance Authority
 - Memoization: Strategic React.memo usage
 
-[Vị trí đặt hình ảnh: Design system components và style guide screenshots]
+![Login Page](screenshots/10-login-page.png)
+*Hình 10.5: Trang đăng nhập với OAuth integration*
 
-12. PHU LUC
+![Register Page](screenshots/11-register-page.png)
+*Hình 10.6: Trang đăng ký tài khoản*
 
-12.1. Hướng dẫn chụp Screenshots
+![User Profile](screenshots/12-user-profile.png)
+*Hình 10.7: Trang profile và quản lý tài khoản người dùng*
+
+![Order History](screenshots/13-order-history.png)
+*Hình 10.8: Lịch sử đơn hàng và tracking*
+
+11. GIAO DIỆN NGƯỜI DÙNG VÀ TRẢI NGHIỆM
+
+Chương này trình bày đầy đủ tất cả các giao diện của hệ thống BiHub E-commerce, bao gồm giao diện khách hàng, quản trị viên, và các tính năng đặc biệt. Mỗi giao diện được thiết kế với nguyên tắc User Experience (UX) tối ưu và đáp ứng các tiêu chuẩn hiện đại.
+
+11.1. Giao diện khách hàng (Customer Interface)
+
+11.1.1. Trang chủ (Homepage)
+Trang chủ là điểm tiếp xúc đầu tiên với khách hàng, được thiết kế để tạo ấn tượng mạnh mẽ và hướng dẫn người dùng khám phá sản phẩm.
+
+![Homepage](screenshots/01-homepage.png)
+*Hình 11.1: Trang chủ BiHub E-commerce với hero section và featured products*
+
+Đặc điểm chính:
+- Hero Section: Slogan "Your Ultimate Shopping Destination" với call-to-action rõ ràng
+- Featured Products: Grid layout 4 cột hiển thị sản phẩm nổi bật
+- Categories Section: Danh mục sản phẩm với layout grid trực quan
+- Trust Indicators: Các tính năng như Free Shipping, Secure Payment
+- Navigation: Menu điều hướng rõ ràng với search bar
+- Footer: Thông tin liên hệ và links hữu ích
+
+11.1.2. Danh sách sản phẩm (Product Listing)
+Giao diện danh sách sản phẩm cho phép khách hàng duyệt và tìm kiếm sản phẩm một cách hiệu quả.
+
+![Product Listing](screenshots/02-product-listing.png)
+*Hình 11.2: Danh sách sản phẩm với sidebar filters và grid layout*
+
+Tính năng chính:
+- Grid View: Layout 3-4 cột responsive
+- Sidebar Filters: Bộ lọc theo category, price, brand, rating
+- Sort Options: Sắp xếp theo giá, tên, popularity, rating
+- Search Functionality: Tìm kiếm với autocomplete và suggestions
+- Pagination: Phân trang với infinite scroll option
+- Product Cards: Hiển thị image, title, price, rating, quick actions
+
+11.1.3. Chi tiết sản phẩm (Product Detail)
+Trang chi tiết sản phẩm cung cấp thông tin đầy đủ để khách hàng đưa ra quyết định mua hàng.
+
+![Product Detail](screenshots/03-product-detail.png)
+*Hình 11.3: Chi tiết sản phẩm với image gallery và thông tin đầy đủ*
+
+Thành phần chính:
+- Image Gallery: Slideshow với zoom functionality
+- Product Information: Title, price, description, specifications
+- Variant Selection: Size, color, quantity selector
+- Action Buttons: Add to Cart, Buy Now, Add to Wishlist
+- Tabs Section: Description, Reviews, Shipping Info
+- Related Products: Sản phẩm liên quan và recommendations
+- Reviews & Ratings: Đánh giá từ khách hàng với filtering
+
+11.1.4. Giỏ hàng (Shopping Cart)
+Giao diện giỏ hàng được thiết kế để tối ưu hóa conversion rate và giảm cart abandonment.
+
+![Shopping Cart](screenshots/04-shopping-cart.png)
+*Hình 11.4: Giỏ hàng với item management và order summary*
+
+Tính năng chính:
+- Item List: Danh sách sản phẩm với thumbnail, name, price
+- Quantity Controls: Tăng/giảm số lượng với validation
+- Remove Items: Xóa sản phẩm khỏi giỏ hàng
+- Order Summary: Subtotal, shipping, tax, total calculation
+- Promo Code: Áp dụng mã giảm giá
+- Continue Shopping: Link quay lại shopping
+- Checkout Button: Prominent CTA button
+
+11.1.5. Thanh toán (Checkout Process)
+Quy trình thanh toán được thiết kế theo multi-step approach để giảm complexity.
+
+![Checkout Process](screenshots/05-checkout.png)
+*Hình 11.5: Multi-step checkout process với form validation*
+
+Các bước thanh toán:
+- Step 1: Shipping Information (địa chỉ giao hàng)
+- Step 2: Payment Method (Stripe integration)
+- Step 3: Order Review (xem lại đơn hàng)
+- Step 4: Order Confirmation (xác nhận thành công)
+
+Tính năng bảo mật:
+- SSL encryption cho tất cả payment data
+- PCI DSS compliance
+- 3D Secure authentication
+- Real-time validation
+
+11.2. Giao diện quản trị (Admin Interface)
+
+11.2.1. Dashboard quản trị (Admin Dashboard)
+Dashboard cung cấp tổng quan về tình trạng hệ thống và các metrics quan trọng.
+
+![Admin Dashboard](screenshots/06-admin-dashboard.png)
+*Hình 11.6: Admin Dashboard với metrics và charts tổng quan*
+
+Thành phần chính:
+- Key Metrics: Total orders, revenue, users, products
+- Charts & Graphs: Sales trends, user activity, popular products
+- Recent Activities: Latest orders, user registrations, system events
+- Quick Actions: Shortcuts đến các chức năng quan trọng
+- System Status: Server health, database status, API performance
+
+11.2.2. Quản lý sản phẩm (Product Management)
+Giao diện quản lý sản phẩm cho phép admin thực hiện CRUD operations.
+
+![Product Management](screenshots/07-product-management.png)
+*Hình 11.7: Giao diện quản lý sản phẩm với table view và actions*
+
+Tính năng chính:
+- Product Table: Danh sách sản phẩm với sorting và filtering
+- CRUD Operations: Create, Read, Update, Delete products
+- Bulk Actions: Xóa/cập nhật nhiều sản phẩm cùng lúc
+- Image Management: Upload và quản lý hình ảnh sản phẩm
+- Category Management: Quản lý danh mục sản phẩm
+- Inventory Tracking: Theo dõi tồn kho và stock alerts
+
+11.2.3. Quản lý đơn hàng (Order Management)
+Giao diện quản lý đơn hàng với workflow xử lý đơn hàng hoàn chỉnh.
+
+![Order Management](screenshots/08-order-management.png)
+*Hình 11.8: Giao diện quản lý đơn hàng với status tracking*
+
+Chức năng chính:
+- Order List: Danh sách đơn hàng với status indicators
+- Order Details: Chi tiết đơn hàng với customer info
+- Status Management: Cập nhật trạng thái đơn hàng
+- Payment Tracking: Theo dõi thanh toán và refunds
+- Shipping Management: Quản lý vận chuyển và tracking
+- Order Analytics: Báo cáo và thống kê đơn hàng
+
+11.2.4. Quản lý người dùng (User Management)
+Giao diện quản lý người dùng với role-based access control.
+
+![User Management](screenshots/09-user-management.png)
+*Hình 11.9: Giao diện quản lý người dùng với role management*
+
+Tính năng chính:
+- User List: Danh sách người dùng với search và filter
+- User Profiles: Xem và chỉnh sửa thông tin người dùng
+- Role Management: Phân quyền admin, customer, moderator
+- Activity Tracking: Theo dõi hoạt động người dùng
+- Account Status: Enable/disable tài khoản
+- Bulk Operations: Thao tác hàng loạt với nhiều user
+
+11.3. Giao diện xác thực (Authentication Interface)
+
+11.3.1. Trang đăng nhập (Login Page)
+Giao diện đăng nhập với multiple authentication methods.
+
+![Login Page](screenshots/10-login-page.png)
+*Hình 11.10: Trang đăng nhập với OAuth integration*
+
+Tính năng chính:
+- Email/Password Login: Form đăng nhập truyền thống
+- OAuth Integration: Google, Facebook login
+- Remember Me: Lưu thông tin đăng nhập
+- Forgot Password: Link khôi phục mật khẩu
+- Form Validation: Real-time validation với error messages
+- Security Features: CAPTCHA, rate limiting
+
+11.3.2. Trang đăng ký (Register Page)
+Giao diện đăng ký tài khoản với validation đầy đủ.
+
+![Register Page](screenshots/11-register-page.png)
+*Hình 11.11: Trang đăng ký với form validation*
+
+Thành phần chính:
+- Registration Form: Full name, email, password, confirm password
+- Password Strength: Indicator cho độ mạnh mật khẩu
+- Terms & Conditions: Checkbox đồng ý điều khoản
+- Email Verification: Gửi email xác thực
+- Social Registration: Đăng ký qua OAuth providers
+- Form Validation: Client-side và server-side validation
+
+11.3.3. Trang profile người dùng (User Profile)
+Giao diện quản lý thông tin cá nhân và tài khoản.
+
+![User Profile](screenshots/12-user-profile.png)
+*Hình 11.12: Trang profile với account management*
+
+Chức năng chính:
+- Personal Information: Cập nhật thông tin cá nhân
+- Address Management: Quản lý địa chỉ giao hàng
+- Password Change: Đổi mật khẩu với validation
+- Order History: Lịch sử đơn hàng với tracking
+- Wishlist: Danh sách sản phẩm yêu thích
+- Account Settings: Cài đặt thông báo, privacy
+
+11.4. Giao diện responsive (Mobile Interface)
+
+Hệ thống được thiết kế với mobile-first approach, đảm bảo trải nghiệm tối ưu trên mọi thiết bị.
+
+![Mobile Interface](screenshots/14-mobile-responsive.png)
+*Hình 11.13: Giao diện responsive trên thiết bị mobile*
+
+Đặc điểm mobile:
+- Responsive Design: Tự động điều chỉnh theo screen size
+- Touch-Friendly: Buttons và links có kích thước phù hợp
+- Mobile Navigation: Hamburger menu với smooth animations
+- Optimized Images: Lazy loading và compression
+- Fast Loading: Optimized cho mobile networks
+- Gesture Support: Swipe, pinch-to-zoom cho product images
+
+11.5. Trải nghiệm người dùng (User Experience)
+
+11.5.1. Navigation và Information Architecture
+- Clear Navigation: Menu structure rõ ràng và intuitive
+- Breadcrumbs: Hỗ trợ navigation và orientation
+- Search Functionality: Powerful search với autocomplete
+- Category Organization: Logical product categorization
+- User Flow: Smooth flow từ discovery đến purchase
+
+11.5.2. Performance và Loading
+- Fast Loading Times: < 3 seconds cho tất cả pages
+- Progressive Loading: Skeleton screens và lazy loading
+- Caching Strategy: Browser caching và CDN optimization
+- Image Optimization: WebP format với fallbacks
+- Code Splitting: Optimized JavaScript bundles
+
+11.5.3. Accessibility Features
+- WCAG Compliance: Tuân thủ Web Content Accessibility Guidelines
+- Keyboard Navigation: Full keyboard accessibility
+- Screen Reader Support: Proper ARIA labels và semantic HTML
+- Color Contrast: Đảm bảo contrast ratio phù hợp
+- Alt Text: Descriptive alt text cho tất cả images
+
+11.6. Accessibility và Performance
+
+11.6.1. Web Accessibility Standards
+- Semantic HTML: Proper HTML5 semantic elements
+- ARIA Labels: Comprehensive ARIA implementation
+- Focus Management: Logical tab order và focus indicators
+- Color Independence: Information không chỉ dựa vào màu sắc
+- Text Alternatives: Alt text cho images và media
+
+11.6.2. Performance Metrics
+- Core Web Vitals: LCP < 2.5s, FID < 100ms, CLS < 0.1
+- Lighthouse Score: 90+ cho Performance, Accessibility, SEO
+- Page Speed: Average load time < 3 seconds
+- Mobile Performance: Optimized cho 3G networks
+- SEO Optimization: Proper meta tags, structured data
+
+11.6.3. Cross-Browser Compatibility
+- Modern Browsers: Chrome, Firefox, Safari, Edge support
+- Progressive Enhancement: Graceful degradation cho older browsers
+- Polyfills: Support cho missing features
+- Testing: Comprehensive cross-browser testing
+- Responsive Testing: Testing trên multiple devices và screen sizes
+
+Tóm tắt chương 11:
+Chương này đã trình bày đầy đủ tất cả các giao diện của hệ thống BiHub E-commerce, từ giao diện khách hàng, quản trị viên, đến các tính năng đặc biệt như mobile responsive và accessibility. Mỗi giao diện được thiết kế với nguyên tắc UX/UI hiện đại, đảm bảo trải nghiệm người dùng tối ưu và đáp ứng các tiêu chuẩn web hiện đại.
+
+13. PHU LUC
+
+13.1. Hướng dẫn chụp Screenshots
 Để hoàn thiện báo cáo, cần bổ sung hình ảnh minh họa thực tế của website BiHub.
 
-12.1.1. Chuẩn bị môi trường
+13.1.1. Chuẩn bị môi trường
 - Khởi động website: npm run dev (port 3000)
 - Khởi động backend: Đảm bảo API server đang chạy (port 8080)
 - Chuẩn bị data: Tạo sản phẩm, categories, users test
 - Browser setup: Sử dụng Chrome/Firefox, full screen
 
-12.1.2. Danh sách Screenshots cần chụp
+13.1.2. Danh sách Screenshots cần chụp
 
 Homepage Screenshots:
 1. Hero Section - Phần đầu trang với slogan "Your Ultimate Shopping Destination"
@@ -4753,14 +5046,14 @@ Special Features Screenshots:
 32. Loading States - Skeleton loading screens
 33. Error States - 404 page và error messages
 
-12.1.3. Quy tắc chụp ảnh
+13.1.3. Quy tắc chụp ảnh
 Resolution: 1920x1080 hoặc 1440x900
 Format: PNG chất lượng cao
 Naming Convention: screenshot_[section]_[subsection].png
 Full Page: Sử dụng browser extension khi cần thiết
 Focus Areas: Crop để highlight phần quan trọng
 
-12.1.4. Folder Structure
+13.1.4. Folder Structure
 screenshots/
 ├── 01_homepage/
 ├── 02_products/
